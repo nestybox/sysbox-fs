@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -17,6 +20,43 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "\n Example: sysvisorfs /var/lib/sysvisorfs\n\n")
 	fmt.Fprintf(os.Stderr, "OtherFUSE options:\n")
 	flag.PrintDefaults()
+}
+
+//
+// Sysvisorfs signal handler goroutine.
+//
+func signalHandler(signalChan chan os.Signal, mountPoint string) {
+
+	s := <-signalChan
+	switch s {
+
+	// TODO: Handle SIGHUP differently -- e.g. re-read sysvisorfs conf file
+	case syscall.SIGHUP:
+		log.Println("Sysvisorfs caught signal: SIGHUP")
+
+	case syscall.SIGSEGV:
+		log.Println("Sysvisorfs caught signal: SIGSEGV")
+
+	case syscall.SIGINT:
+		log.Println("Sysvisorfs caught signal: SIGTINT")
+
+	case syscall.SIGTERM:
+		log.Println("Sysvisorfs caught signal: SIGTERM")
+
+	case syscall.SIGQUIT:
+		log.Println("Sysvisorfs caught signal: SIGQUIT")
+
+	default:
+		log.Println("Sysvisorfs caught unknown signal")
+	}
+
+	log.Println("Unmounting sysvisorfs from mountpoint", mountPoint, "Exitting...")
+	fuse.Unmount(mountPoint)
+
+	// Deferring exit() to allow FUSE to dump unnmount() logs
+	time.Sleep(2)
+
+	os.Exit(0)
 }
 
 //
@@ -50,6 +90,17 @@ func main() {
 	if p := c.Protocol(); !p.HasInvalidate() {
 		log.Panicln("Kernel FUSE support is too old to have invalidations: version %v", p)
 	}
+
+	// Ensure sysvisor-fs is properly unmounted during shutdown.
+	var signalChan = make(chan os.Signal)
+	signal.Notify(
+		signalChan,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGSEGV,
+		syscall.SIGQUIT)
+	go signalHandler(signalChan, mountPoint)
 
 	// Initialize sysvisorfs' gRPC server for runC's interaction
 	go init_grpc_server()
