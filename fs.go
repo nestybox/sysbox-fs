@@ -46,6 +46,12 @@ func NewSysvisorFS(path string) *SysvisorFS {
 	attr.Mode = os.ModeDir | os.FileMode(int(0777))
 	newfs.root = NewDir(path, &attr)
 
+	//
+	// Initializing container-related data-structs
+	//
+	ContainerStateMapGlobal = NewContainerStateMap()
+	PidNsContainerMapGlobal = NewPidNsContainerMap()
+
 	return newfs
 }
 

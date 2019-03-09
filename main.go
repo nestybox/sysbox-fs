@@ -51,6 +51,9 @@ func main() {
 		log.Panicln("Kernel FUSE support is too old to have invalidations: version %v", p)
 	}
 
+	// Initialize sysvisorfs' gRPC server for runC's interaction
+	go init_grpc_server()
+
 	//
 	// Creating a FUSE server to drive kernel interactions.
 	//
