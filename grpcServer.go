@@ -5,7 +5,7 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/sysvisor/sysvisor-fs/sysvisor_protobuf"
+	pb "github.com/nestybox/sysvisor/sysvisor-fs/sysvisor_protobuf"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
