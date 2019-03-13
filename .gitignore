@@ -1,1 +1,4 @@
 sysvisor-fs
+
+# Ignore protobuf auto-generated code
+sysvisor-protobuf
