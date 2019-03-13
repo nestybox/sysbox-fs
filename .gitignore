@@ -2,3 +2,6 @@ sysvisor-fs
 
 # Ignore protobuf auto-generated code
 sysvisor-protobuf
+
+# Ignore virtual-studio-code metadata
+.vscode
