@@ -21,7 +21,9 @@ const (
 	port = ":50052"
 )
 
-type server struct{}
+type server struct {
+	fs *sysvisorFS
+}
 
 func (s *server) ContainerRegistration(
 	ctx context.Context,
@@ -30,16 +32,7 @@ func (s *server) ContainerRegistration(
 	log.Println("gRPC Container Registration request received for container:",
 		in.Id)
 
-	//
-	// TODO: Move this code somewhere else -- cTime won't be coming as part of
-	// the registration process.
-	//
-	//cTime, err := ptypes.Timestamp(in.Ctime)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	cntr, err := NewContainerState(
+	cs, err := newContainerState(
 		in.Id,
 		uint32(in.InitPid),
 		in.Hostname,
@@ -53,7 +46,7 @@ func (s *server) ContainerRegistration(
 		return &pb.Response{Success: false}, nil
 	}
 
-	err = cntr.register()
+	err = s.fs.cntrMap.register(cs)
 	if err != nil {
 		return &pb.Response{Success: false}, nil
 	}
@@ -68,12 +61,7 @@ func (s *server) ContainerUnregistration(
 	log.Println("gRPC Container Unregistration request received for container:",
 		in.Id)
 
-	cntr, ok := ContainerStateMapGlobal.lookup(in.Id)
-	if !ok {
-		return &pb.Response{Success: false}, nil
-	}
-
-	err := cntr.unregister()
+	err := s.fs.cntrMap.unregister(in.Id, in.InitPid)
 	if err != nil {
 		return &pb.Response{Success: false}, nil
 	}
@@ -81,7 +69,7 @@ func (s *server) ContainerUnregistration(
 	return &pb.Response{Success: true}, nil
 }
 
-func init_grpc_server() {
+func initGrpcServer(fs *sysvisorFS) {
 
 	//
 	// TODO: Change me to unix-socket instead: more secure and more efficient.
@@ -94,7 +82,10 @@ func init_grpc_server() {
 	// Initializing grpc server
 	s := grpc.NewServer()
 
-	pb.RegisterContainerStateChannelServer(s, &server{})
+	// Initializing sysvisorfs' grpc server
+	sysvisorGrpcServer := &server{fs: fs}
+
+	pb.RegisterContainerStateChannelServer(s, sysvisorGrpcServer)
 	// Register reflection service on gRPC server.
 	reflection.Register(s)
 	if err := s.Serve(lis); err != nil {

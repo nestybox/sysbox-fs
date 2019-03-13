@@ -10,21 +10,23 @@ import (
 	"bazil.org/fuse/fs"
 )
 
-var sysvisorfs *SysvisorFS
+var sysvisorfs *sysvisorFS
 
 //
-// SysvisorFS struct
+// sysvisorFS struct
 //
-type SysvisorFS struct {
-	root *Dir
-	path string
-	size int64
+type sysvisorFS struct {
+	root         *Dir
+	path         string
+	size         int64
+	cntrMap      containerMap
+	pidNsCntrMap pidNsContainerMap
 }
 
 //
-// NewSysvisorFS constructor
+// newSysvisorFS constructor
 //
-func NewSysvisorFS(path string) *SysvisorFS {
+func newSysvisorFS(path string) *sysvisorFS {
 
 	info, err := os.Stat(path)
 	if err != nil {
@@ -32,7 +34,7 @@ func NewSysvisorFS(path string) *SysvisorFS {
 		return nil
 	}
 
-	newfs := &SysvisorFS{
+	newfs := &sysvisorFS{
 		path: path,
 		root: nil,
 		size: 0,
@@ -49,8 +51,8 @@ func NewSysvisorFS(path string) *SysvisorFS {
 	//
 	// Initializing container-related data-structs
 	//
-	ContainerStateMapGlobal = NewContainerStateMap()
-	PidNsContainerMapGlobal = NewPidNsContainerMap()
+	newfs.cntrMap = *newContainerMap(newfs)
+	newfs.pidNsCntrMap = *newPidNsContainerMap()
 
 	return newfs
 }
@@ -59,7 +61,7 @@ func NewSysvisorFS(path string) *SysvisorFS {
 // Root method. This is a FUSE-lib requirement. Function returns sysvisor-fs'
 // root-node.
 //
-func (f *SysvisorFS) Root() (fs.Node, error) {
+func (f *sysvisorFS) Root() (fs.Node, error) {
 	return f.root, nil
 }
 

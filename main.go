@@ -102,9 +102,6 @@ func main() {
 		syscall.SIGQUIT)
 	go signalHandler(signalChan, mountPoint)
 
-	// Initialize sysvisorfs' gRPC server for runC's interaction
-	go init_grpc_server()
-
 	//
 	// Creating a FUSE server to drive kernel interactions.
 	//
@@ -113,7 +110,10 @@ func main() {
 	//
 	// Creating Sysvisor-fs making use of "/" as its root-path.
 	//
-	sysvisorfs = NewSysvisorFS("/")
+	sysvisorfs = newSysvisorFS("/")
+
+	// Initialize sysvisorfs' gRPC server for runC's interaction
+	go initGrpcServer(sysvisorfs)
 
 	log.Println("About to serve sysvisorfs")
 	if err := srv.Serve(sysvisorfs); err != nil {

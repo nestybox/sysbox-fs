@@ -15,27 +15,25 @@ import (
 //
 
 //
-// PidNsContainerMap is used to keep track of the mapping between pid-namespaces
+// pidNsContainerMap is used to keep track of the mapping between pid-namespaces
 // (represented by their corresponding inode), and the container (id) associated
 // to this pid-namespace.
 //
-var PidNsContainerMapGlobal *PidNsContainerMap
-
-type PidNsContainerMap struct {
+type pidNsContainerMap struct {
 	sync.RWMutex
 	internal map[uint64]string
 }
 
-func NewPidNsContainerMap() *PidNsContainerMap {
+func newPidNsContainerMap() *pidNsContainerMap {
 
-	pn := &PidNsContainerMap{
+	pn := &pidNsContainerMap{
 		internal: make(map[uint64]string),
 	}
 
 	return pn
 }
 
-func (pn *PidNsContainerMap) get(key uint64) (value string, ok bool) {
+func (pn *pidNsContainerMap) get(key uint64) (value string, ok bool) {
 
 	pn.RLock()
 	res, ok := pn.internal[key]
@@ -44,21 +42,21 @@ func (pn *PidNsContainerMap) get(key uint64) (value string, ok bool) {
 	return res, ok
 }
 
-func (pn *PidNsContainerMap) set(key uint64, value string) {
+func (pn *pidNsContainerMap) set(key uint64, value string) {
 
 	pn.Lock()
 	pn.internal[key] = value
 	pn.Unlock()
 }
 
-func (pn *PidNsContainerMap) delete(key uint64) {
+func (pn *pidNsContainerMap) delete(key uint64) {
 
 	pn.Lock()
 	delete(pn.internal, key)
 	pn.Unlock()
 }
 
-func (pn *PidNsContainerMap) lookup(key uint64) (string, bool) {
+func (pn *pidNsContainerMap) lookup(key uint64) (string, bool) {
 
 	cntrId, ok := pn.get(key)
 	if !ok {
@@ -105,7 +103,7 @@ func getPidNsInode(pid uint32) (uint64, error) {
 // Function determines if the inode associated to the pid-ns of a given pid is
 // already registed in Sysvisorfs.
 //
-func pidNsRegistered(pid uint32) bool {
+func pidNsRegistered(pid uint32, fs *sysvisorFS) bool {
 
 	// Identify the inode for the pid-ns first
 	inode, err := getPidNsInode(pid)
@@ -114,7 +112,8 @@ func pidNsRegistered(pid uint32) bool {
 		return false
 	}
 
-	if _, ok := PidNsContainerMapGlobal.lookup(inode); ok {
+	//if _, ok := PidNsContainerMapGlobal.lookup(inode); ok {
+	if _, ok := fs.pidNsCntrMap.lookup(inode); ok {
 		return true
 	}
 
