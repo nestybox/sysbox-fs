@@ -1,10 +1,7 @@
 package main
 
 import (
-	"errors"
-	"log"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -12,135 +9,6 @@ import (
 // File in charge of hosting all the logic dealing with the container-state
 // required by Sysvisorfs for its operation.
 //
-
-//
-// containerMap struct holds state associated to all containers that are
-// registered with sysvisorfs.
-//
-type containerMap struct {
-	sync.RWMutex
-	internal map[string]*containerState
-	fs       *sysvisorFS
-}
-
-func newContainerMap(fs *sysvisorFS) *containerMap {
-
-	cm := &containerMap{
-		internal: make(map[string]*containerState),
-		fs:       fs,
-	}
-
-	return cm
-}
-
-func (cm *containerMap) get(key string) (value *containerState, ok bool) {
-
-	cm.RLock()
-	res, ok := cm.internal[key]
-	cm.RUnlock()
-
-	return res, ok
-}
-
-func (cm *containerMap) set(key string, value *containerState) {
-
-	cm.Lock()
-	cm.internal[key] = value
-	cm.Unlock()
-}
-
-func (cm *containerMap) delete(key string) {
-
-	cm.Lock()
-	delete(cm.internal, key)
-	cm.Unlock()
-}
-
-func (cm *containerMap) lookup(id string) (*containerState, bool) {
-
-	cntr, ok := cm.get(id)
-	if !ok {
-		return nil, false
-	}
-
-	return cntr, true
-}
-
-// Container registration method.
-func (cm *containerMap) register(cs *containerState) error {
-	//
-	// Let's start by verifying that the new container to create is not already
-	// present in this containerMap.
-	//
-	if _, ok := cm.get(cs.id); ok {
-		return errors.New("Container already registered")
-	}
-
-	//
-	// Identify the inode corresponding to the pid-namespace associated to this
-	// container.
-	//
-	inode, err := getPidNsInode(cs.initPid)
-	if err != nil {
-		return errors.New("Could not find pid-namespace inode for pid")
-	}
-
-	//
-	// Verify that the just-found inode is not already present in the global
-	// pidContainerMap struct, and if that's not the case, update container
-	// state struct.
-	//
-	if _, ok := cm.fs.pidNsCntrMap.get(inode); ok {
-		return errors.New("Pid-namespace already registered")
-	}
-	cs.pidNsInode = inode
-
-	// Insert new container into the ContainerMap.
-	cm.set(cs.id, cs)
-
-	//
-	// Finalize registration process by inserting the pid-ns-inode into the
-	// global pidContainerMap struct.
-	//
-	cm.fs.pidNsCntrMap.set(inode, cs.id)
-
-	log.Println("Container registration successfully completed:", cs.String())
-
-	return nil
-}
-
-// Container unregistration method.
-func (cm *containerMap) unregister(cid string, initpid int32) error {
-	//
-	// Let's start by verifying that the container is present in this
-	// containerMap, and if so, obtain its associated containerState struct.
-	//
-	cs, ok := cm.get(cid)
-	if !ok {
-		return errors.New("Container not properly registered")
-	}
-
-	//
-	// Verify that the pid-ns-inode associated to this container is present
-	// in the global PidNsContainerMap, and that its ID fully matches the
-	// one of the container to be eliminated.
-	//
-	cntrId, ok := cm.fs.pidNsCntrMap.get(cs.pidNsInode)
-	if !ok || cntrId != cid {
-		return errors.New("Container not properly registered")
-	}
-
-	//
-	// Proceeding to eliminate all the existing state for this container.
-	// Notice that the elimination order is important.
-	//
-	cm.fs.pidNsCntrMap.delete(cs.pidNsInode)
-	cm.delete(cs.id)
-
-	log.Println("Container unregistration successfully completed:", cs.String())
-
-	return nil
-}
 
 //
 // Container type to represent all the container-state relevant to sysvisorfs.

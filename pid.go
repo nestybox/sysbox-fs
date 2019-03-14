@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"os"
 	"strconv"
@@ -11,59 +12,154 @@ import (
 
 //
 // File contains the logic necessary to maintain the state corresponding to
-// pid-namespaces and their associated inodes.
+// pid-namespace-inodes and their associated container-state structs.
 //
 
 //
-// pidNsContainerMap is used to keep track of the mapping between pid-namespaces
-// (represented by their corresponding inode), and the container (id) associated
-// to this pid-namespace.
+// pidInodeMap is used to keep track of the mapping between pid-namespaces
+// (represented by their corresponding inode), and the associated container-state
+// struct.
 //
-type pidNsContainerMap struct {
+type pidInodeMap struct {
 	sync.RWMutex
-	internal map[uint64]string
+	internal map[uint64]*containerState
 }
 
-func newPidNsContainerMap() *pidNsContainerMap {
+func newPidInodeMap() *pidInodeMap {
 
-	pn := &pidNsContainerMap{
-		internal: make(map[uint64]string),
+	pi := &pidInodeMap{
+		internal: make(map[uint64]*containerState),
 	}
 
-	return pn
+	return pi
 }
 
-func (pn *pidNsContainerMap) get(key uint64) (value string, ok bool) {
+//
+// The following get/set/delete/lookup methods *must* be invoked only after
+// acquiring the pidInodeMap's mutex by the caller function.
+//
 
-	pn.RLock()
-	res, ok := pn.internal[key]
-	pn.RUnlock()
+func (pi *pidInodeMap) get(key uint64) (*containerState, bool) {
 
-	return res, ok
+	val, ok := pi.internal[key]
+
+	return val, ok
 }
 
-func (pn *pidNsContainerMap) set(key uint64, value string) {
+func (pi *pidInodeMap) set(key uint64, value *containerState) {
 
-	pn.Lock()
-	pn.internal[key] = value
-	pn.Unlock()
+	pi.internal[key] = value
 }
 
-func (pn *pidNsContainerMap) delete(key uint64) {
+func (pi *pidInodeMap) delete(key uint64) {
 
-	pn.Lock()
-	delete(pn.internal, key)
-	pn.Unlock()
+	delete(pi.internal, key)
 }
 
-func (pn *pidNsContainerMap) lookup(key uint64) (string, bool) {
+func (pi *pidInodeMap) lookup(key uint64) (*containerState, bool) {
 
-	cntrId, ok := pn.get(key)
+	cntr, ok := pi.get(key)
 	if !ok {
-		return "", false
+		return nil, false
 	}
 
-	return cntrId, true
+	return cntr, true
+}
+
+// Container registration method.
+func (pi *pidInodeMap) register(cs *containerState) error {
+	//
+	// Identify the inode corresponding to the pid-namespace associated to this
+	// containerState struct.
+	//
+	inode, err := findPidInode(cs.initPid)
+	if err != nil {
+		log.Printf("Could not find ns-inode for pid %d\n", cs.initPid)
+		return errors.New("Could not find pid-namespace inode for pid")
+	}
+	cs.pidNsInode = inode
+
+	pi.Lock()
+	defer pi.Unlock()
+
+	//
+	// Verify that the new container to create is not already present in this
+	// pidInodeMap.
+	//
+	if _, ok := pi.get((uint64)(cs.pidNsInode)); ok {
+		log.Printf("Container with pidInode %d is already registered\n",
+			cs.pidNsInode)
+		return errors.New("Container already registered")
+	}
+
+	//
+	// Finalize registration process by inserting the containerState into the
+	// pidInodeMap struct.
+	//
+	pi.set(cs.pidNsInode, cs)
+
+	log.Println("Container registration successfully completed:", cs.String())
+
+	return nil
+}
+
+// Container unregistration method.
+func (pi *pidInodeMap) unregister(cs *containerState) error {
+
+	pi.Lock()
+	defer pi.Unlock()
+
+	cntrFound := false
+	//
+	// Iterate through all pidInodeMap looking for the matching container.
+	// Notice that we must incur in this linear cost due to the fact that, by
+	// the time that the container is unregistered --runc calls cntr.destroy()--
+	// pid-ns has been already teared apart, so we can't obtain the inode
+	// corresponding to the container's pid-ns.
+	//
+	for _, val := range pi.internal {
+		if val.initPid == cs.initPid &&
+			val.id == cs.id {
+			cs = val
+			cntrFound = true
+			break
+		}
+	}
+	if !cntrFound {
+		log.Printf("Container unregistration failure: could not find container ",
+			"with initPid \"%d\"", cs.initPid)
+		return errors.New("Could not find container to unregister")
+	}
+
+	// Eliminate the existing container-state.
+	pi.delete(cs.pidNsInode)
+
+	log.Println("Container unregistration successfully completed:", cs.String())
+
+	return nil
+}
+
+//
+// Function determines if the inode associated to the pid-ns of a given pid is
+// already registed in Sysvisorfs.
+//
+func (pi *pidInodeMap) pidInodeRegistered(pid uint32) bool {
+
+	// Identify the inode associated to this process' pid-ns.
+	inode, err := findPidInode(pid)
+	if err != nil {
+		log.Println("No registered pid", pid, "inode", inode)
+		return false
+	}
+
+	pi.RLock()
+	defer pi.RUnlock()
+
+	if _, ok := pi.lookup(inode); ok {
+		return true
+	}
+
+	return false
 }
 
 //
@@ -74,7 +170,7 @@ func (pn *pidNsContainerMap) lookup(key uint64) (string, bool) {
 // Function in charge of identifying the inode associated to the pid-ns of any
 // given process (pid).
 //
-func getPidNsInode(pid uint32) (uint64, error) {
+func findPidInode(pid uint32) (uint64, error) {
 
 	pidnsPath := strings.Join([]string{
 		"/proc",
@@ -97,25 +193,4 @@ func getPidNsInode(pid uint32) (uint64, error) {
 	log.Println("pidNsInode pid", pid, "inode", stat.Ino)
 
 	return stat.Ino, nil
-}
-
-//
-// Function determines if the inode associated to the pid-ns of a given pid is
-// already registed in Sysvisorfs.
-//
-func pidNsRegistered(pid uint32, fs *sysvisorFS) bool {
-
-	// Identify the inode for the pid-ns first
-	inode, err := getPidNsInode(pid)
-	if err != nil {
-		log.Println("No registered pid", pid, "inode", inode)
-		return false
-	}
-
-	//if _, ok := PidNsContainerMapGlobal.lookup(inode); ok {
-	if _, ok := fs.pidNsCntrMap.lookup(inode); ok {
-		return true
-	}
-
-	return false
 }

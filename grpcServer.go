@@ -41,12 +41,11 @@ func (s *server) ContainerRegistration(
 		uint32(in.GidFirst),
 		uint32(in.GidSize),
 	)
-
 	if err != nil {
 		return &pb.Response{Success: false}, nil
 	}
 
-	err = s.fs.cntrMap.register(cs)
+	err = s.fs.pidInodeMap.register(cs)
 	if err != nil {
 		return &pb.Response{Success: false}, nil
 	}
@@ -61,7 +60,20 @@ func (s *server) ContainerUnregistration(
 	log.Println("gRPC Container Unregistration request received for container:",
 		in.Id)
 
-	err := s.fs.cntrMap.unregister(in.Id, in.InitPid)
+	cs, err := newContainerState(
+		in.Id,
+		uint32(in.InitPid),
+		in.Hostname,
+		uint32(in.UidFirst),
+		uint32(in.UidSize),
+		uint32(in.GidFirst),
+		uint32(in.GidSize),
+	)
+	if err != nil {
+		return &pb.Response{Success: false}, nil
+	}
+
+	err = s.fs.pidInodeMap.unregister(cs)
 	if err != nil {
 		return &pb.Response{Success: false}, nil
 	}
