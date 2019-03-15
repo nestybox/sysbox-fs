@@ -16,10 +16,11 @@ var sysvisorfs *sysvisorFS
 // sysvisorFS struct
 //
 type sysvisorFS struct {
-	root        *Dir
-	path        string
-	size        int64
-	pidInodeMap pidInodeMap
+	root                 *Dir
+	path                 string
+	size                 int64
+	pidInodeContainerMap pidInodeContainerMap
+	containerIDInodeMap  containerIDInodeMap
 }
 
 //
@@ -34,10 +35,9 @@ func newSysvisorFS(path string) *sysvisorFS {
 	}
 
 	newfs := &sysvisorFS{
-		path:        path,
-		root:        nil,
-		size:        0,
-		pidInodeMap: *newPidInodeMap(),
+		path: path,
+		root: nil,
+		size: 0,
 	}
 
 	//
@@ -47,6 +47,9 @@ func newSysvisorFS(path string) *sysvisorFS {
 	attr := StatToAttr(info.Sys().(*syscall.Stat_t))
 	attr.Mode = os.ModeDir | os.FileMode(int(0777))
 	newfs.root = NewDir(path, &attr)
+
+	newfs.pidInodeContainerMap = *newPidInodeContainerMap(newfs)
+	newfs.containerIDInodeMap = *newContainerIDInodeMap()
 
 	return newfs
 }

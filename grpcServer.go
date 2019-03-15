@@ -45,7 +45,7 @@ func (s *server) ContainerRegistration(
 		return &pb.Response{Success: false}, nil
 	}
 
-	err = s.fs.pidInodeMap.register(cs)
+	err = s.fs.pidInodeContainerMap.register(cs)
 	if err != nil {
 		return &pb.Response{Success: false}, nil
 	}
@@ -73,7 +73,7 @@ func (s *server) ContainerUnregistration(
 		return &pb.Response{Success: false}, nil
 	}
 
-	err = s.fs.pidInodeMap.unregister(cs)
+	err = s.fs.pidInodeContainerMap.unregister(cs)
 	if err != nil {
 		return &pb.Response{Success: false}, nil
 	}
