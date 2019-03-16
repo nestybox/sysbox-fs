@@ -10,7 +10,7 @@ import (
 	"bazil.org/fuse/fs"
 )
 
-var sysvisorfs *sysvisorFS
+var sysfs *sysvisorFS
 
 //
 // sysvisorFS struct
@@ -21,6 +21,7 @@ type sysvisorFS struct {
 	size                 int64
 	pidInodeContainerMap pidInodeContainerMap
 	containerIDInodeMap  containerIDInodeMap
+	handlerMap           handlerMap
 }
 
 //
@@ -48,6 +49,10 @@ func newSysvisorFS(path string) *sysvisorFS {
 	attr.Mode = os.ModeDir | os.FileMode(int(0777))
 	newfs.root = NewDir(path, &attr)
 
+	// HandlerMap initialization.
+	newfs.handlerMap = *newHandlerMap()
+
+	// Initializing container-related data-structs
 	newfs.pidInodeContainerMap = *newPidInodeContainerMap(newfs)
 	newfs.containerIDInodeMap = *newContainerIDInodeMap()
 

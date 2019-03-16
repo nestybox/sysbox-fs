@@ -58,13 +58,31 @@ func (pi *pidInodeContainerMap) delete(key uint64) {
 	delete(pi.internal, key)
 }
 
+//
+// Notice that lookup() method differs from get() one, as this one is expected
+// to be utilized by goroutines other than grpcServer one, and as such, it deals
+// himself with thread-safety concerns.
+//
+func (pi *pidInodeContainerMap) lookup(key uint64) (*containerState, bool) {
+
+	pi.RLock()
+	defer pi.RUnlock()
+
+	cs, ok := pi.get(key)
+	if !ok {
+		return nil, false
+	}
+
+	return cs, true
+}
+
 // Container registration method, invoked by grpcServer goroutine.
 func (pi *pidInodeContainerMap) register(cs *containerState) error {
 	//
 	// Identify the inode corresponding to the pid-namespace associated to this
 	// containerState struct.
 	//
-	inode, err := findPidInode(cs.initPid)
+	inode, err := findInodeByPid(cs.initPid)
 	if err != nil {
 		log.Printf("Could not find ns-inode for pid %d\n", cs.initPid)
 		return errors.New("Could not find pid-namespace inode for pid")
@@ -84,14 +102,11 @@ func (pi *pidInodeContainerMap) register(cs *containerState) error {
 		return errors.New("Container already registered")
 	}
 
+	// Insert an entry into the containerIdInodeMap.
+	pi.fs.containerIDInodeMap.set(cs.id, cs.pidNsInode)
+
 	// Insert the new containerState into the pidInodeContainerMap struct.
 	pi.set(cs.pidNsInode, cs)
-
-	//
-	// Finalize the registration process by inserting an entry into the
-	// containerIdInodeMap.
-	//
-	pi.fs.containerIDInodeMap.set(cs.id, cs.pidNsInode)
 
 	log.Println("Container registration successfully completed:", cs.String())
 
@@ -114,13 +129,25 @@ func (pi *pidInodeContainerMap) unregister(cs *containerState) error {
 			" with ID \"%s\"\n", cs.id)
 		return errors.New("Could not find container to unregister")
 	}
-	cs.pidNsInode = inode
+
+	//
+	// Obtain the existing container-state struct, which contains a more
+	// complete view than the one held by "cs" parameter during unregistration
+	// phase.
+	//
+	currentCs, ok := pi.fs.pidInodeContainerMap.get(inode)
+	if !ok {
+		log.Printf("Container unregistration failure: could not find container ",
+			" with pid-ns-inode \"%d\"\n", inode)
+		return errors.New("Could not find container to unregister")
+	}
 
 	// Eliminate all the existing state associated to this container.
-	pi.delete(cs.pidNsInode)
-	pi.fs.containerIDInodeMap.delete(cs.id)
+	pi.fs.containerIDInodeMap.delete(currentCs.id)
+	pi.delete(inode)
 
-	log.Println("Container unregistration successfully completed:", cs.String())
+	log.Println("Container unregistration successfully completed:",
+		currentCs.String())
 
 	return nil
 }
@@ -132,7 +159,7 @@ func (pi *pidInodeContainerMap) unregister(cs *containerState) error {
 func (pi *pidInodeContainerMap) pidInodeRegistered(pid uint32) bool {
 
 	// Identify the inode associated to this process' pid-ns.
-	inode, err := findPidInode(pid)
+	inode, err := findInodeByPid(pid)
 	if err != nil {
 		log.Println("No registered pid", pid, "inode", inode)
 		return false
@@ -149,21 +176,22 @@ func (pi *pidInodeContainerMap) pidInodeRegistered(pid uint32) bool {
 }
 
 //
-// Miscelaneous utilities dealing with pid-ns-inode state.
+// Miscelaneous func utilities dealing with pid-ns-inode state and pid-related
+// logic.
 //
 
 //
 // Function in charge of identifying the inode associated to the pid-ns of any
 // given process (pid).
 //
-func findPidInode(pid uint32) (uint64, error) {
+func findInodeByPid(pid uint32) (uint64, error) {
 
 	pidnsPath := strings.Join([]string{
 		"/proc",
 		strconv.FormatUint(uint64(pid), 10),
 		"ns/pid"}, "/")
 
-	// Extract pid-ns info from FS
+	// Extract pid-ns info from FS.
 	info, err := os.Stat(pidnsPath)
 	if err != nil {
 		log.Println("No process file found for pid:", pid)
@@ -179,4 +207,29 @@ func findPidInode(pid uint32) (uint64, error) {
 	log.Println("pidNsInode pid", pid, "inode", stat.Ino)
 
 	return stat.Ino, nil
+}
+
+//
+// Function obtains the container-state struct associated to the container
+// from which any given I/O operation is launched. This operation is
+// represented by the Pid associated to the process generating the request.
+//
+func findContainerByPid(pid uint32) (*containerState, error) {
+
+	//
+	// Identify the inode corresponding to the pid-namespace associated to this
+	// container.
+	//
+	inode, err := findInodeByPid(pid)
+	if err != nil {
+		return nil, errors.New("Could not find pid-namespace inode for pid")
+	}
+
+	// Find the container from which this request is generated from.
+	cs, ok := sysfs.pidInodeContainerMap.lookup(inode)
+	if !ok {
+		return nil, errors.New("Could not find container")
+	}
+
+	return cs, nil
 }

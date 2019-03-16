@@ -110,13 +110,13 @@ func main() {
 	//
 	// Creating Sysvisor-fs making use of "/" as its root-path.
 	//
-	sysvisorfs = newSysvisorFS("/")
+	sysfs = newSysvisorFS("/")
 
 	// Initialize sysvisorfs' gRPC server for runC's interaction
-	go initGrpcServer(sysvisorfs)
+	go initGrpcServer(sysfs)
 
 	log.Println("About to serve sysvisorfs")
-	if err := srv.Serve(sysvisorfs); err != nil {
+	if err := srv.Serve(sysfs); err != nil {
 		log.Panicln(err)
 	}
 
