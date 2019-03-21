@@ -19,9 +19,9 @@ type sysvisorFS struct {
 	root                 *Dir
 	path                 string
 	size                 int64
+	handlerMap           handlerMap
 	pidInodeContainerMap pidInodeContainerMap
 	containerIDInodeMap  containerIDInodeMap
-	handlerMap           handlerMap
 }
 
 //

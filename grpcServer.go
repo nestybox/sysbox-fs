@@ -4,7 +4,9 @@ import (
 	"context"
 	"log"
 	"net"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	pb "github.com/nestybox/sysvisor/sysvisor-protobuf"
 
 	"google.golang.org/grpc"
@@ -32,10 +34,17 @@ func (s *server) ContainerRegistration(
 	log.Println("gRPC Container Registration request received for container:",
 		in.Id)
 
+	// During container initialization, the provided creation-time doesn't
+	// reflect a proper value, so we are expliciting setting a default value
+	// here (zero) till a subsequent grpc message arrive with the expected
+	// information.
+	ctime := time.Time{}
+
 	cs, err := newContainerState(
 		in.Id,
 		uint32(in.InitPid),
 		in.Hostname,
+		ctime,
 		uint32(in.UidFirst),
 		uint32(in.UidSize),
 		uint32(in.GidFirst),
@@ -60,10 +69,15 @@ func (s *server) ContainerUnregistration(
 	log.Println("gRPC Container Unregistration request received for container:",
 		in.Id)
 
+	// Container creation-time attribute is irrelevant at unregistration phase.
+	// Discard received value by initializing this attribute to zero.
+	ctime := time.Time{}
+
 	cs, err := newContainerState(
 		in.Id,
 		uint32(in.InitPid),
 		in.Hostname,
+		ctime,
 		uint32(in.UidFirst),
 		uint32(in.UidSize),
 		uint32(in.GidFirst),
@@ -74,6 +88,40 @@ func (s *server) ContainerUnregistration(
 	}
 
 	err = s.fs.pidInodeContainerMap.unregister(cs)
+	if err != nil {
+		return &pb.Response{Success: false}, nil
+	}
+
+	return &pb.Response{Success: true}, nil
+}
+
+func (s *server) ContainerUpdate(
+	ctx context.Context,
+	in *pb.ContainerData) (*pb.Response, error) {
+
+	log.Println("gRPC ContainerStateUpdate message received for container:",
+		in.Id)
+
+	cTime, err := ptypes.Timestamp(in.Ctime)
+	if err != nil {
+		return nil, err
+	}
+
+	cs, err := newContainerState(
+		in.Id,
+		uint32(in.InitPid),
+		in.Hostname,
+		cTime,
+		uint32(in.UidFirst),
+		uint32(in.UidSize),
+		uint32(in.GidFirst),
+		uint32(in.GidSize),
+	)
+	if err != nil {
+		return &pb.Response{Success: false}, nil
+	}
+
+	err = s.fs.pidInodeContainerMap.update(cs)
 	if err != nil {
 		return &pb.Response{Success: false}, nil
 	}

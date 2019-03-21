@@ -94,11 +94,35 @@ func (f *File) Open(
 	log.Println("Requested Open() operation for entry", f.path)
 
 	// Find the container-state corresponding to the container hosting this Pid.
-	_, err := findContainerByPid(req.Pid)
+	cs, err := findContainerByPid(req.Pid)
 	if err != nil {
 		log.Printf("Could not find the container originating this request ",
 			"(PID %d)\n", req.Pid)
 		return nil, err
+	}
+
+	// Verify open() rights for sysvisorfs' emulated resources.
+	if handler, ok := (sysfs.handlerMap)[f.path]; ok {
+		err := handler.open(cs, req.Flags)
+		//
+		// TODO: If no open-rights are granted, the error-msg being returned
+		// back to the user must match the one reported for non-emulated
+		// resources. At this moment, we are observing slightly different
+		// error messages:
+		//
+		// * Within a syscontainer:
+		//
+		// root@691a4b387c60:/# cat > /proc/uptime
+		// bash: /proc/uptime: Input/output error
+		//
+		// * Within the regular host FS:
+		//
+		// $ sudo cat > /proc/uptime
+		// bash: /proc/uptime: Permission denied
+		//
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
 	}
 
 	handle, err := os.OpenFile(f.path, int(req.Flags), f.attr.Mode)
@@ -167,24 +191,22 @@ func (f *File) Read(
 	// Adjust receiving buffer to the request's size.
 	resp.Data = resp.Data[:req.Size]
 
+	var n int
+
 	// Address special read() requests for virtualized resources.
 	if handler, ok := (sysfs.handlerMap)[f.path]; ok {
 
-		n, err := handler.onRead(cs, resp.Data, req.Offset)
+		n, err = handler.read(cs, resp.Data, req.Offset)
 		if err != nil && err != io.EOF {
 			return err
 		}
-
-		resp.Data = resp.Data[:n]
-
-		return nil
-	}
-
-	// Regular I/O instruction to read from host FS.
-	n, err := f.handle.ReadAt(resp.Data, req.Offset)
-	if err != nil && err != io.EOF {
-		log.Println("Read ERR: ", err)
-		return err
+	} else {
+		// Regular I/O instruction to read from host FS.
+		n, err = f.handle.ReadAt(resp.Data, req.Offset)
+		if err != nil && err != io.EOF {
+			log.Println("Read ERR: ", err)
+			return err
+		}
 	}
 
 	resp.Data = resp.Data[:n]
@@ -215,25 +237,24 @@ func (f *File) Write(
 		return err
 	}
 
+	var n int
+
 	// Address special write() requests for virtualized resources.
 	if handler, ok := (sysfs.handlerMap)[f.path]; ok {
 
-		n, err := handler.onWrite(cs, req.Data)
+		n, err = handler.write(cs, req.Data)
 		if err != nil && err != io.EOF {
 			return err
 		}
-
-		resp.Size = n
-
-		return nil
+	} else {
+		// Regular I/O instruction to write to host FS.
+		n, err = f.handle.Write(req.Data)
+		if err != nil {
+			log.Println("Write ERR: ", err)
+			return err
+		}
 	}
 
-	// Regular I/O instruction to write to host FS.
-	n, err := f.handle.Write(req.Data)
-	if err != nil {
-		log.Println("Write ERR: ", err)
-		return err
-	}
 	resp.Size = n
 
 	return nil

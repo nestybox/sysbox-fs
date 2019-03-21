@@ -1,26 +1,30 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"io"
+	"io/ioutil"
 	"log"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"bazil.org/fuse"
 )
 
-// HandlerMap alias
 type handlerMap = map[string]handler
 
 //
 // Handler interface.
 //
 type handler interface {
-	onOpen(cs *containerState, flags fuse.OpenFlags) error
-	onRead(cs *containerState, buf []byte, off int64) (int, error)
-	onWrite(cs *containerState, buf []byte) (int, error)
+	open(cs *containerState, flags fuse.OpenFlags) error
+	read(cs *containerState, buf []byte, off int64) (int, error)
+	write(cs *containerState, buf []byte) (int, error)
+	fetch(cs *containerState) error
+	resource() string
 }
 
 // HandlerMap constructor.
@@ -30,33 +34,33 @@ func newHandlerMap() *handlerMap {
 		//
 		// /proc handlers
 		//
-		"/proc/cpuinfo":      &cpuInfoHandler{},
-		"/proc/cgroups":      &cgroupsHandler{},
-		"/proc/devices":      &devicesHandler{},
-		"/proc/diskstats":    &diskStatsHandler{},
-		"/proc/loadavg":      &loadAvgHandler{},
-		"/proc/meminfo":      &memInfoHandler{},
-		"/proc/pagetypeinfo": &pagetypeInfoHandler{},
-		"/proc/partitions":   &partitionsHandler{},
-		"/proc/stat":         &statHandler{},
-		"/proc/swaps":        &swapsHandler{},
-		"/proc/sys":          &sysHandler{},
-		"/proc/uptime":       &uptimeHandler{},
+		"/proc/cpuinfo": &cpuInfoHandler{},
+		// "/proc/cgroups":      &cgroupsHandler{},
+		// "/proc/devices":      &devicesHandler{},
+		// "/proc/diskstats":    &diskStatsHandler{},
+		// "/proc/loadavg":      &loadAvgHandler{},
+		// "/proc/meminfo":      &memInfoHandler{},
+		// "/proc/pagetypeinfo": &pagetypeInfoHandler{},
+		// "/proc/partitions":   &partitionsHandler{},
+		// "/proc/stat":         &statHandler{},
+		// "/proc/swaps":        &swapsHandler{},
+		// "/proc/sys":          &sysHandler{},
+		"/proc/uptime": &uptimeHandler{},
 		//
 		// /proc/sys/net handlers
 		//
-		"/proc/sys/net/netfilter/nf_conntrack_max":     &nfContrackMaxHandler{},
-		"/proc/sys/net/bridge/bridge-nf-call-iptables": &nfCallIptableHandler{},
-		"/proc/sys/net/ipv4/conf/all/route_localnet":   &routeLocalnetHandler{},
+		"/proc/sys/net/netfilter/nf_conntrack_max": &nfConntrackMaxHandler{},
+		// "/proc/sys/net/bridge/bridge-nf-call-iptables": &nfCallIptableHandler{},
+		// "/proc/sys/net/ipv4/conf/all/route_localnet":   &routeLocalnetHandler{},
 		//
 		// /proc/sys/kernel handlers
 		//
-		"/proc/sys/kernel/panic":         &panicHandler{},
-		"/proc/sys/kernel/panic_on_oops": &panicOopsHandler{},
+		// "/proc/sys/kernel/panic":         &panicHandler{},
+		// "/proc/sys/kernel/panic_on_oops": &panicOopsHandler{},
 		//
 		// /proc/sys/vm handlers
 		//
-		"/proc/sys/vm/overcommit_memory": &overcommitMemoryHandler{},
+		//"/proc/sys/vm/overcommit_memory": &overcommitMemoryHandler{},
 	}
 
 	return &hm
@@ -67,43 +71,13 @@ func newHandlerMap() *handlerMap {
 //
 
 //
-// cgroupsHandler
-//
-type cgroupsHandler struct{}
-
-func (h *cgroupsHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
-
-	log.Println("Executing cgroupsHandler onOpen method")
-
-	if flags != fuse.OpenReadOnly {
-		return errors.New("/proc/cgroups: Permission denied")
-	}
-
-	return nil
-}
-
-func (h *cgroupsHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
-
-	log.Println("Executing cgroupsHandler onRead method")
-
-	log.Println("Dumping something", cs.hostname)
-
-	return 0, nil
-}
-
-func (h *cgroupsHandler) onWrite(cs *containerState, buf []byte) (int, error) {
-
-	return 0, nil
-}
-
-//
 // cpuInfoHandler
 //
 type cpuInfoHandler struct{}
 
-func (h *cpuInfoHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *cpuInfoHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing cpuInfoHandler onOpen method")
+	log.Println("Executing cpuInfoHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/cpuinfo: Permission denied")
@@ -112,16 +86,129 @@ func (h *cpuInfoHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error 
 	return nil
 }
 
-func (h *cpuInfoHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *cpuInfoHandler) read(cs *containerState,
+	buf []byte, off int64) (int, error) {
 
-	log.Println("Executing cpuInfoHandler onRead method")
+	log.Println("Executing cpuInfoHandler read method")
+
+	if off > 0 {
+		return 0, io.EOF
+	}
+
+	file := h.resource()
+
+	//
+	// Check if this resource has been initialized for this container. Otherwise
+	// fetch the information from the host FS and store it accordingly within
+	// the container struct.
+	//
+	_, ok := cs.stateDataMap[file]
+	if !ok {
+		if err := h.fetch(cs); err != nil {
+			return 0, err
+		}
+	}
+
+	// Extract auxiliar info from cpuset group controller.
+
+	//
+	// At this point, some container-state data must be available to serve this
+	// request.
+	//
+	data, ok := cs.stateDataMap[file]
+	if !ok {
+		log.Println("Unexpected error")
+		return 0, io.EOF
+	}
+
+	// TODO: Arrange this template-mess.
+	t := template.Must(template.New("cpuInfo").Parse(cpuInfoTemplate))
+	var tmp bytes.Buffer
+	err := t.Execute(&tmp, data)
+	if err != nil {
+		log.Println("executing template:", err)
+	}
+
+	copy(buf, tmp.String())
+
+	buf = buf[:len(buf)]
+
+	return len(buf), nil
+}
+
+func (h *cpuInfoHandler) write(cs *containerState, buf []byte) (int, error) {
+
+	return 0, nil
+}
+
+func (h *cpuInfoHandler) fetch(cs *containerState) error {
+
+	file := h.resource()
+
+	fileContent, err := ioutil.ReadFile(file)
+	if err != nil {
+		log.Printf("Container initialization failure: could not read %s ",
+			"file", file)
+		return err
+	}
+
+	cpuInfoMap := make(map[string]string)
+
+	lines := strings.Split(string(fileContent), "\n")
+
+	for _, line := range lines {
+		elems := strings.Split(line, ":")
+
+		// At least two, and no more than two columns are expected, otherwise
+		// skip this record.
+		if len(elems) != 2 {
+			continue
+		}
+		leftColumn := strings.TrimSpace(elems[0])
+		rightColumn := strings.TrimSpace(elems[1])
+
+		cpuInfoMap[leftColumn] = rightColumn
+	}
+
+	cs.stateDataMap[file] = cpuInfoMap
+
+	return nil
+}
+
+func (h *cpuInfoHandler) resource() string {
+
+	return "/proc/cpuinfo"
+}
+
+/*
+//
+// cgroupsHandler
+//
+type cgroupsHandler struct {
+	template string
+}
+
+func (h *cgroupsHandler) open(cs *containerState, flags fuse.OpenFlags) error {
+
+	log.Println("Executing cgroupsHandler open() method")
+
+	if flags != fuse.OpenReadOnly {
+		return errors.New("/proc/cgroups: Permission denied")
+	}
+
+	return nil
+}
+
+func (h *cgroupsHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
+
+	log.Println("Executing cgroupsHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *cpuInfoHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *cgroupsHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -131,9 +218,9 @@ func (h *cpuInfoHandler) onWrite(cs *containerState, buf []byte) (int, error) {
 //
 type devicesHandler struct{}
 
-func (h *devicesHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *devicesHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing devicesHandler onOpen method")
+	log.Println("Executing devicesHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/devices: Permission denied")
@@ -142,16 +229,16 @@ func (h *devicesHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error 
 	return nil
 }
 
-func (h *devicesHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *devicesHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing devicesHandler onRead method")
+	log.Println("Executing devicesHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *devicesHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *devicesHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -161,9 +248,9 @@ func (h *devicesHandler) onWrite(cs *containerState, buf []byte) (int, error) {
 //
 type diskStatsHandler struct{}
 
-func (h *diskStatsHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *diskStatsHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing diskStatsHandler onOpen method")
+	log.Println("Executing diskStatsHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/diskstats: Permission denied")
@@ -172,16 +259,16 @@ func (h *diskStatsHandler) onOpen(cs *containerState, flags fuse.OpenFlags) erro
 	return nil
 }
 
-func (h *diskStatsHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *diskStatsHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing diskStatsHandler onRead method")
+	log.Println("Executing diskStatsHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *diskStatsHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *diskStatsHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -191,9 +278,9 @@ func (h *diskStatsHandler) onWrite(cs *containerState, buf []byte) (int, error) 
 //
 type loadAvgHandler struct{}
 
-func (h *loadAvgHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *loadAvgHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing loadAbgHandler onOpen method")
+	log.Println("Executing loadAbgHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/loadavg: Permission denied")
@@ -202,16 +289,16 @@ func (h *loadAvgHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error 
 	return nil
 }
 
-func (h *loadAvgHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *loadAvgHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing loadAvgHandler onRead method")
+	log.Println("Executing loadAvgHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *loadAvgHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *loadAvgHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -221,9 +308,9 @@ func (h *loadAvgHandler) onWrite(cs *containerState, buf []byte) (int, error) {
 //
 type memInfoHandler struct{}
 
-func (h *memInfoHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *memInfoHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing memInfoHandler onOpen method")
+	log.Println("Executing memInfoHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/meminfo: Permission denied")
@@ -232,16 +319,16 @@ func (h *memInfoHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error 
 	return nil
 }
 
-func (h *memInfoHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *memInfoHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing memInfoHandler onRead method")
+	log.Println("Executing memInfoHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *memInfoHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *memInfoHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -251,9 +338,9 @@ func (h *memInfoHandler) onWrite(cs *containerState, buf []byte) (int, error) {
 //
 type pagetypeInfoHandler struct{}
 
-func (h *pagetypeInfoHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *pagetypeInfoHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing pagetypeInfoHandler onOpen method")
+	log.Println("Executing pagetypeInfoHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/pagetypeinfo: Permission denied")
@@ -262,16 +349,16 @@ func (h *pagetypeInfoHandler) onOpen(cs *containerState, flags fuse.OpenFlags) e
 	return nil
 }
 
-func (h *pagetypeInfoHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *pagetypeInfoHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing pagetypeInfoHandler onRead method")
+	log.Println("Executing pagetypeInfoHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *pagetypeInfoHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *pagetypeInfoHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -281,9 +368,9 @@ func (h *pagetypeInfoHandler) onWrite(cs *containerState, buf []byte) (int, erro
 //
 type partitionsHandler struct{}
 
-func (h *partitionsHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *partitionsHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing partitionsHandler onOpen method")
+	log.Println("Executing partitionsHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/partitions: Permission denied")
@@ -292,16 +379,16 @@ func (h *partitionsHandler) onOpen(cs *containerState, flags fuse.OpenFlags) err
 	return nil
 }
 
-func (h *partitionsHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *partitionsHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing partitionsHandler onRead method")
+	log.Println("Executing partitionsHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *partitionsHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *partitionsHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -311,9 +398,9 @@ func (h *partitionsHandler) onWrite(cs *containerState, buf []byte) (int, error)
 //
 type statHandler struct{}
 
-func (h *statHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *statHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing statHandler onOpen method")
+	log.Println("Executing statHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/stat: Permission denied")
@@ -322,16 +409,16 @@ func (h *statHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
 	return nil
 }
 
-func (h *statHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *statHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing statHandler onRead method")
+	log.Println("Executing statHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *statHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *statHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -341,9 +428,9 @@ func (h *statHandler) onWrite(cs *containerState, buf []byte) (int, error) {
 //
 type swapsHandler struct{}
 
-func (h *swapsHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *swapsHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing swapsHandler onOpen method")
+	log.Println("Executing swapsHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/swaps: Permission denied")
@@ -352,16 +439,16 @@ func (h *swapsHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
 	return nil
 }
 
-func (h *swapsHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *swapsHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing swapsHandler onRead method")
+	log.Println("Executing swapsHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *swapsHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *swapsHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -371,9 +458,9 @@ func (h *swapsHandler) onWrite(cs *containerState, buf []byte) (int, error) {
 //
 type sysHandler struct{}
 
-func (h *sysHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *sysHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing sysHandler onOpen method")
+	log.Println("Executing sysHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/sys: Permission denied")
@@ -382,72 +469,98 @@ func (h *sysHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
 	return nil
 }
 
-func (h *sysHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *sysHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing sysHandler onRead method")
+	log.Println("Executing sysHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *sysHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *sysHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
+*/
 
 //
-// uptimeHandler
+// uptimeHandler -- to serve /proc/uptime
 //
 type uptimeHandler struct{}
 
-func (h *uptimeHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *uptimeHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing uptimeHandler onOpen method")
+	log.Println("Executing uptimeHandler's open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/uptime: Permission denied")
+		//return os.ErrPermission
 	}
 
 	return nil
 }
 
-func (h *uptimeHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *uptimeHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing uptimeHandler onRead method")
+	log.Println("Executing uptimeHandler's read() method")
 
 	if off > 0 {
 		return 0, io.EOF
 	}
 
+	//
+	// We can assume that by the time a user generates a request to read
+	// /proc/uptime, the embedding container has been fully initialized,
+	// so cs.ctime is already holding a valid value.
+	//
+	data := cs.ctime
+
 	// Calculate container's uptime.
-	uptime := time.Now().Unix() - cs.ctime.Unix()
+	uptime := time.Now().Unix() - data.Unix()
 	uptimeStr := strconv.FormatInt(uptime, 10)
 
+	//
 	// TODO: Notice that we are dumping the same values into the two columns
 	// expected in /proc/uptime. The value utilized for the first column is
 	// an accurate one (uptime seconds), however, the second one is just
 	// an approximation.
-	copy(buf, uptimeStr+" "+uptimeStr)
-
-	buf = buf[:len(buf)]
+	//
+	res := uptimeStr + " " + uptimeStr
+	copy(buf, res)
+	buf = buf[:len(res)]
 
 	return len(buf), nil
 }
 
-func (h *uptimeHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+// Read-only resource, no need for write() method.
+func (h *uptimeHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
 
 //
-// nfContrackMaxHandler
+// Uptime value is obtained directly from sysvisor-runc, so there's no need
+// for a fetch() method.
 //
-type nfContrackMaxHandler struct{}
+func (h *uptimeHandler) fetch(cs *containerState) error {
 
-func (h *nfContrackMaxHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+	return nil
+}
 
-	log.Println("Executing nfContrackMaxHandler onOpen method")
+func (h *uptimeHandler) resource() string {
+
+	return "/proc/uptime"
+}
+
+//
+// nfConntrackMaxHandler
+//
+type nfConntrackMaxHandler struct{}
+
+func (h *nfConntrackMaxHandler) open(cs *containerState, flags fuse.OpenFlags) error {
+
+	log.Println("Executing nfConntrackMaxHandler open() method")
 
 	if flags != fuse.OpenReadOnly && flags != fuse.OpenWriteOnly {
 		return errors.New("/proc/sys/net/netfilter/nf_conntrack_max: Permission denied")
@@ -456,55 +569,178 @@ func (h *nfContrackMaxHandler) onOpen(cs *containerState, flags fuse.OpenFlags) 
 	return nil
 }
 
-func (h *nfContrackMaxHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *nfConntrackMaxHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing nfContrakMaxHandler onRead method")
+	log.Println("Executing nfConntrakMaxHandler read() method")
 
 	if off > 0 {
 		return 0, io.EOF
 	}
 
-	// Obtain stored value
-	//val := cs.nfContrackMax
-	val := 0
-	valStr := strconv.Itoa(val)
-	length := len(valStr)
+	file := h.resource()
 
-	// Copy obtained value into result buffer
-	copy(buf, valStr)
+	//
+	// Check if this resource has been initialized for this container. Otherwise
+	// fetch the information from the host FS and store it accordingly within
+	// the container struct.
+	//
+	_, ok := cs.stateDataMap[file]
+	if !ok {
+		if err := h.fetch(cs); err != nil {
+			return 0, err
+		}
+	}
+
+	//
+	// At this point, some container-state data must be available to serve this
+	// request.
+	//
+	data, ok := cs.stateDataMap[file]["nf_conntrack_max"]
+	if !ok {
+		log.Println("Unexpected error")
+		return 0, io.EOF
+	}
+
+	copy(buf, data)
+	length := len(data)
 	buf = buf[:length]
 
 	return length, nil
 }
 
-func (h *nfContrackMaxHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *nfConntrackMaxHandler) write(cs *containerState, buf []byte) (int, error) {
 
-	log.Println("Executing nfContrakMaxHandler onWrite method")
+	log.Println("Executing nfConntrakMaxHandler write() method")
 
-	// Buffer length expected to be returned to callee.
-	buflen := len(buf)
+	file := h.resource()
 
-	val, err := strconv.Atoi(strings.TrimSpace(string(buf)))
+	newMax := strings.TrimSpace(string(buf))
+	newMaxInt, err := strconv.Atoi(newMax)
 	if err != nil {
+		log.Println("Unexpected error: %s", err)
 		return 0, err
 	}
 
-	// Store input value into container
-	//cs.nfContrackMax = val
+	// Obtain existing value stored in this container.
+	curMax, ok := cs.stateDataMap[file]["nf_conntrack_max"]
+	if !ok {
+		log.Println("Unexpected error", err)
+		return 0, io.EOF
+	}
+	curMaxInt, err := strconv.Atoi(curMax)
+	if err != nil {
+		log.Println("Unexpected error: %s", err)
+		return 0, err
+	}
 
-	log.Println("Storing nfcontrakMax value:", val)
+	//
+	// If new value is lower/equal than the existing one, then there's noting
+	// else to be done here.
+	//
+	if newMaxInt <= curMaxInt {
+		return len(buf), nil
+	}
 
-	return buflen, nil
+	//
+	// Obtain current value from host FS, and if this one is smaller than the
+	// one we have just received in this write() request, proceed to overwrite
+	// it with this new value.
+	//
+	if err := h.push(cs, newMaxInt); err != nil {
+		return 0, err
+	}
+
+	// Writing the new value into container-state struct.
+	cs.stateDataMap[file]["nf_conntrack_max"] = newMax
+
+	return len(buf), nil
 }
 
+func (h *nfConntrackMaxHandler) fetch(cs *containerState) error {
+
+	file := h.resource()
+
+	fileContent, err := ioutil.ReadFile(file)
+	if err != nil {
+		log.Printf("Could not read from file %s", file)
+		return err
+	}
+
+	nfContrackMaxMap := make(map[string]string)
+
+	lines := strings.Split(string(fileContent), "\n")
+
+	if len(lines) > 2 {
+		log.Printf("Unexpected number of lines for this file: %d\n", len(lines))
+		//log.Printf("Unexpected number of lines for this file")
+		return errors.New("Unexpected file format")
+	}
+
+	nfContrackMaxMap["nf_conntrack_max"] = lines[0]
+
+	cs.stateDataMap[file] = nfContrackMaxMap
+
+	return nil
+
+}
+
+func (h *nfConntrackMaxHandler) push(cs *containerState, newMaxInt int) error {
+
+	file := h.resource()
+
+	// Read from host FS to extract the existing nf_conntrack_max value.
+	fileContent, err := ioutil.ReadFile(file)
+	if err != nil {
+		log.Printf("Could not read from file %s", file)
+		return err
+	}
+
+	lines := strings.Split(string(fileContent), "\n")
+	if len(lines) > 2 {
+		log.Printf("Unexpected number of lines for this file: %d\n", len(lines))
+		return errors.New("Unexpected file format")
+	}
+
+	curHostMax := lines[0]
+	curHostMaxInt, err := strconv.Atoi(curHostMax)
+	if err != nil {
+		log.Println("Unexpected error: %s", err)
+		return err
+	}
+
+	//
+	// If the existing host FS value is larger than the new one to configure,
+	// then let's just return here as we want to keep the largest value
+	// in the host FS.
+	//
+	if newMaxInt <= curHostMaxInt {
+		return nil
+	}
+
+	// Push down to host FS the new (larger) value.
+	msg := []byte(strconv.Itoa(newMaxInt))
+	err = ioutil.WriteFile(file, msg, 0644)
+	if err != nil {
+		log.Printf("Unexpected error: %s\n", err)
+	}
+
+	return nil
+}
+
+func (h *nfConntrackMaxHandler) resource() string {
+
+	return "/proc/sys/net/netfilter/nf_conntrack_max"
+}
+
+/*
 //
 // nfCallIptableHandler
 //
 type nfCallIptableHandler struct{}
 
-func (h *nfCallIptableHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *nfCallIptableHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing nfCallIptableHandler onOpen method")
+	log.Println("Executing nfCallIptableHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/sys/net/bridge/bridge-nf-call-iptables: Permission denied")
@@ -513,16 +749,16 @@ func (h *nfCallIptableHandler) onOpen(cs *containerState, flags fuse.OpenFlags) 
 	return nil
 }
 
-func (h *nfCallIptableHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *nfCallIptableHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing nfCallIptableHandler onRead method")
+	log.Println("Executing nfCallIptableHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *nfCallIptableHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *nfCallIptableHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -532,9 +768,9 @@ func (h *nfCallIptableHandler) onWrite(cs *containerState, buf []byte) (int, err
 //
 type routeLocalnetHandler struct{}
 
-func (h *routeLocalnetHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *routeLocalnetHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing routeLocalnetHandler onOpen method")
+	log.Println("Executing routeLocalnetHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/sys/net/ipv4/conf/all/route_localnet: Permission denied")
@@ -543,16 +779,16 @@ func (h *routeLocalnetHandler) onOpen(cs *containerState, flags fuse.OpenFlags) 
 	return nil
 }
 
-func (h *routeLocalnetHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *routeLocalnetHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing routeLocalnetHandler onRead method")
+	log.Println("Executing routeLocalnetHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *routeLocalnetHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *routeLocalnetHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -562,9 +798,9 @@ func (h *routeLocalnetHandler) onWrite(cs *containerState, buf []byte) (int, err
 //
 type panicHandler struct{}
 
-func (h *panicHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *panicHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing panicHandler onOpen method")
+	log.Println("Executing panicHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/sys/kernel/panic: Permission denied")
@@ -573,16 +809,16 @@ func (h *panicHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
 	return nil
 }
 
-func (h *panicHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *panicHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing panicHandler onRead method")
+	log.Println("Executing panicHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *panicHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *panicHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -592,9 +828,9 @@ func (h *panicHandler) onWrite(cs *containerState, buf []byte) (int, error) {
 //
 type panicOopsHandler struct{}
 
-func (h *panicOopsHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *panicOopsHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing panicOopsHandler onOpen method")
+	log.Println("Executing panicOopsHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/sys/kernel/panic_on_oops: Permission denied")
@@ -603,16 +839,16 @@ func (h *panicOopsHandler) onOpen(cs *containerState, flags fuse.OpenFlags) erro
 	return nil
 }
 
-func (h *panicOopsHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *panicOopsHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing panicOopsHandler onRead method")
+	log.Println("Executing panicOopsHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *panicOopsHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *panicOopsHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -622,9 +858,9 @@ func (h *panicOopsHandler) onWrite(cs *containerState, buf []byte) (int, error) 
 //
 type overcommitMemoryHandler struct{}
 
-func (h *overcommitMemoryHandler) onOpen(cs *containerState, flags fuse.OpenFlags) error {
+func (h *overcommitMemoryHandler) open(cs *containerState, flags fuse.OpenFlags) error {
 
-	log.Println("Executing overcommitMemoryHandler onOpen method")
+	log.Println("Executing overcommitMemoryHandler open() method")
 
 	if flags != fuse.OpenReadOnly {
 		return errors.New("/proc/sys/vm/overcommit_memory: Permission denied")
@@ -633,16 +869,17 @@ func (h *overcommitMemoryHandler) onOpen(cs *containerState, flags fuse.OpenFlag
 	return nil
 }
 
-func (h *overcommitMemoryHandler) onRead(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *overcommitMemoryHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
 
-	log.Println("Executing overcommitMemoryHandler onRead method")
+	log.Println("Executing overcommitMemoryHandler read() method")
 
 	log.Println("Dumping something", cs.hostname)
 
 	return 0, nil
 }
 
-func (h *overcommitMemoryHandler) onWrite(cs *containerState, buf []byte) (int, error) {
+func (h *overcommitMemoryHandler) write(cs *containerState, buf []byte) (int, error) {
 
 	return 0, nil
 }
+*/

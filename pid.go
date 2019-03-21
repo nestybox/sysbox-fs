@@ -153,6 +153,47 @@ func (pi *pidInodeContainerMap) unregister(cs *containerState) error {
 }
 
 //
+// TODO: A bit of a stretch placing this method here as it symantically
+// belongs within containerState class. Think about improving this.
+//
+// Container state-update method, invoked by grpcServer goroutine.
+func (pi *pidInodeContainerMap) update(cs *containerState) error {
+
+	pi.Lock()
+	defer pi.Unlock()
+
+	//
+	// Identify the inode associated to the pid-ns of the container being
+	// unregistered.
+	//
+	inode, ok := pi.fs.containerIDInodeMap.get(cs.id)
+	if !ok {
+		log.Printf("Container update failure: could not find container with ",
+			"ID \"%s\"\n", cs.id)
+		return errors.New("Could not find container to update")
+	}
+
+	// Obtain the existing container-state struct.
+	currentCs, ok := pi.fs.pidInodeContainerMap.get(inode)
+	if !ok {
+		log.Printf("Container update failure: could not find container with ",
+			"pid-ns-inode \"%d\"\n", inode)
+		return errors.New("Could not find container to update")
+	}
+
+	//
+	// Update the existing container-state struct with the one being received.
+	// Only 'creation-time' attribute is supported for now.
+	//
+	currentCs.ctime = cs.ctime
+
+	log.Println("Container update successfully completed:",
+		currentCs.String())
+
+	return nil
+}
+
+//
 // Function determines if the inode associated to the pid-ns of a given pid is
 // already registed in Sysvisorfs.
 //
