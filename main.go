@@ -72,6 +72,12 @@ func main() {
 		os.Exit(-1)
 	}
 
+	// TODO: Enhance cli/parsing logic (this is lame).
+	if flag.Arg(0) == "nsenter" {
+		nsenter()
+		return
+	}
+
 	// Sysvisor-fs mountpoint
 	mountPoint := flag.Arg(0)
 

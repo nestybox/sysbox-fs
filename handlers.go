@@ -23,7 +23,7 @@ type handler interface {
 	open(cs *containerState, flags fuse.OpenFlags) error
 	read(cs *containerState, buf []byte, off int64) (int, error)
 	write(cs *containerState, buf []byte) (int, error)
-	fetch(cs *containerState) error
+	//fetch(cs *containerState) (string, error)
 	resource() string
 }
 
@@ -50,6 +50,7 @@ func newHandlerMap() *handlerMap {
 		// /proc/sys/net handlers
 		//
 		"/proc/sys/net/netfilter/nf_conntrack_max": &nfConntrackMaxHandler{},
+		"/proc/sys/net/ipv6/conf/all/disable_ipv6": &disableIpv6Handler{},
 		// "/proc/sys/net/bridge/bridge-nf-call-iptables": &nfCallIptableHandler{},
 		// "/proc/sys/net/ipv4/conf/all/route_localnet":   &routeLocalnetHandler{},
 		//
@@ -580,15 +581,22 @@ func (h *nfConntrackMaxHandler) read(cs *containerState, buf []byte, off int64) 
 	file := h.resource()
 
 	//
-	// Check if this resource has been initialized for this container. Otherwise
+	// Check if this resource has been initialized for this container. Otherwise,
 	// fetch the information from the host FS and store it accordingly within
 	// the container struct.
 	//
 	_, ok := cs.stateDataMap[file]
 	if !ok {
-		if err := h.fetch(cs); err != nil {
+		content, err := h.fetch(cs)
+		if err != nil {
 			return 0, err
 		}
+
+		nfConntrackMaxMap := map[string]string{
+			"nf_conntrack_max": content,
+		}
+
+		cs.stateDataMap[file] = nfConntrackMaxMap
 	}
 
 	//
@@ -618,36 +626,55 @@ func (h *nfConntrackMaxHandler) write(cs *containerState, buf []byte) (int, erro
 	newMaxInt, err := strconv.Atoi(newMax)
 	if err != nil {
 		log.Println("Unexpected error: %s", err)
-		return 0, err
-	}
-
-	// Obtain existing value stored in this container.
-	curMax, ok := cs.stateDataMap[file]["nf_conntrack_max"]
-	if !ok {
-		log.Println("Unexpected error", err)
 		return 0, io.EOF
 	}
-	curMaxInt, err := strconv.Atoi(curMax)
-	if err != nil {
-		log.Println("Unexpected error: %s", err)
-		return 0, err
-	}
 
 	//
-	// If new value is lower/equal than the existing one, then there's noting
-	// else to be done here.
+	// Check if this resource has been initialized for this container. If not,
+	// push it to the host FS and store it within the container struct.
 	//
-	if newMaxInt <= curMaxInt {
+	_, ok := cs.stateDataMap[file]
+	if !ok {
+		if err := h.push(cs, newMaxInt); err != nil {
+			return 0, io.EOF
+		}
+
+		nfConntrackMaxMap := map[string]string{
+			"nf_conntrack_max": newMax,
+		}
+		cs.stateDataMap[file] = nfConntrackMaxMap
+
 		return len(buf), nil
 	}
 
+	// Obtain existing value stored/cached in this container struct.
+	curMax, ok := cs.stateDataMap[file]["nf_conntrack_max"]
+	if !ok {
+		log.Println("Unexpected error")
+		return 0, io.EOF
+	}
+
+	curMaxInt, err := strconv.Atoi(curMax)
+	if err != nil {
+		log.Println("Unexpected error: %s", err)
+		return 0, io.EOF
+	}
+
 	//
-	// Obtain current value from host FS, and if this one is smaller than the
-	// one we have just received in this write() request, proceed to overwrite
-	// it with this new value.
+	// If new value is lower/equal than the existing one, then let's update this
+	// new value into the container struct and return here. Notice that we cannot
+	// push this (lower-than-current) value into the host FS, as we could be
+	// impacting other syscontainers.
 	//
+	if newMaxInt <= curMaxInt {
+		cs.stateDataMap[file]["nf_conntrack_max"] = newMax
+
+		return len(buf), nil
+	}
+
+	// Push new value to host FS.
 	if err := h.push(cs, newMaxInt); err != nil {
-		return 0, err
+		return 0, io.EOF
 	}
 
 	// Writing the new value into container-state struct.
@@ -656,31 +683,26 @@ func (h *nfConntrackMaxHandler) write(cs *containerState, buf []byte) (int, erro
 	return len(buf), nil
 }
 
-func (h *nfConntrackMaxHandler) fetch(cs *containerState) error {
+func (h *nfConntrackMaxHandler) fetch(cs *containerState) (string, error) {
 
 	file := h.resource()
 
+	// Read from host FS to extract the existing nf_conntrack_max value.
 	fileContent, err := ioutil.ReadFile(file)
 	if err != nil {
 		log.Printf("Could not read from file %s", file)
-		return err
+		return "", err
 	}
 
-	nfContrackMaxMap := make(map[string]string)
-
+	// Parse received data.
 	lines := strings.Split(string(fileContent), "\n")
 
 	if len(lines) > 2 {
 		log.Printf("Unexpected number of lines for this file: %d\n", len(lines))
-		//log.Printf("Unexpected number of lines for this file")
-		return errors.New("Unexpected file format")
+		return "", errors.New("Unexpected file format")
 	}
 
-	nfContrackMaxMap["nf_conntrack_max"] = lines[0]
-
-	cs.stateDataMap[file] = nfContrackMaxMap
-
-	return nil
+	return lines[0], nil
 
 }
 
@@ -730,6 +752,170 @@ func (h *nfConntrackMaxHandler) push(cs *containerState, newMaxInt int) error {
 func (h *nfConntrackMaxHandler) resource() string {
 
 	return "/proc/sys/net/netfilter/nf_conntrack_max"
+}
+
+//
+// disableIpv6Handler
+//
+type disableIpv6Handler struct{}
+
+func (h *disableIpv6Handler) open(cs *containerState, flags fuse.OpenFlags) error {
+
+	log.Println("Executing disableIpv6Handler open() method")
+
+	if flags != fuse.OpenReadOnly && flags != fuse.OpenWriteOnly {
+		return errors.New("/proc/sys/net/ipv6/conf/all/disable_ipv6: Permission denied")
+	}
+
+	return nil
+}
+
+func (h *disableIpv6Handler) read(cs *containerState, buf []byte, off int64) (int, error) {
+
+	log.Println("Executing disableIpv6Handler read() method")
+
+	if off > 0 {
+		return 0, io.EOF
+	}
+
+	file := h.resource()
+
+	//
+	// Check if this resource has been initialized for this container. Otherwise
+	// fetch the information from the host FS and store it accordingly within
+	// the container struct.
+	//
+	_, ok := cs.stateDataMap[file]
+	if !ok {
+		content, err := h.fetch(cs)
+		if err != nil {
+			return 0, err
+		}
+
+		disableIpv6Map := map[string]string{
+			"disable_ipv6": content,
+		}
+
+		cs.stateDataMap[file] = disableIpv6Map
+	}
+
+	//
+	// At this point, some container-state data must be available to serve this
+	// request.
+	//
+	data, ok := cs.stateDataMap[file]["disable_ipv6"]
+	if !ok {
+		log.Println("Unexpected error")
+		return 0, io.EOF
+	}
+
+	copy(buf, data)
+	length := len(data)
+	buf = buf[:length]
+
+	return length, nil
+}
+
+func (h *disableIpv6Handler) write(cs *containerState, buf []byte) (int, error) {
+
+	log.Println("Executing disableIpv6Handler write() method")
+
+	file := h.resource()
+
+	newVal := strings.TrimSpace(string(buf))
+	newValInt, err := strconv.Atoi(newVal)
+	if err != nil {
+		log.Println("Unexpected error 1: %s", err)
+		return 0, err
+	}
+
+	//
+	// Check if this resource has been initialized for this container. If not,
+	// push it to the host FS and store it within the container struct.
+	//
+	_, ok := cs.stateDataMap[file]
+	if !ok {
+		if err := h.push(cs, newVal); err != nil {
+			return 0, io.EOF
+		}
+
+		disableIpv6Map := map[string]string{
+			"disable_ipv6": newVal,
+		}
+		cs.stateDataMap[file] = disableIpv6Map
+
+		return len(buf), nil
+	}
+
+	// Obtain existing value stored in this container.
+	curVal, ok := cs.stateDataMap[file]["disable_ipv6"]
+	if !ok {
+		log.Println("Unexpected error", err)
+		return 0, io.EOF
+	}
+	curValInt, err := strconv.Atoi(curVal)
+	if err != nil {
+		log.Println("Unexpected error:", err)
+		return 0, io.EOF
+	}
+
+	//
+	// If new value matches the existing one, then there's noting else to be
+	// done here.
+	//
+	if newValInt == curValInt {
+		return len(buf), nil
+	}
+
+	// Push new value to host FS.
+	if err := h.push(cs, newVal); err != nil {
+		return 0, io.EOF
+	}
+
+	// Writing the new value into container-state struct.
+	cs.stateDataMap[file]["disable_ipv6"] = newVal
+
+	return len(buf), nil
+}
+
+func (h *disableIpv6Handler) fetch(cs *containerState) (string, error) {
+
+	event := &nsenterEvent{
+		Resource:  h.resource(),
+		Message:   readRequest,
+		Content:   "",
+		Pid:       cs.initPid,
+		Namespace: []nsType{string(nsTypeNet)},
+	}
+
+	res, err := event.launch()
+	if err != nil {
+		return "", err
+	}
+
+	return res.Content, nil
+}
+
+func (h *disableIpv6Handler) push(cs *containerState, newVal string) error {
+
+	event := &nsenterEvent{
+		Resource:  h.resource(),
+		Message:   writeRequest,
+		Content:   newVal,
+		Pid:       cs.initPid,
+		Namespace: []nsType{string(nsTypeNet)},
+	}
+
+	if _, err := event.launch(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *disableIpv6Handler) resource() string {
+
+	return "/proc/sys/net/ipv6/conf/all/disable_ipv6"
 }
 
 /*
