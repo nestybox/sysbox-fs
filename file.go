@@ -93,17 +93,24 @@ func (f *File) Open(
 
 	log.Println("Requested Open() operation for entry", f.path)
 
-	// Find the container-state corresponding to the container hosting this Pid.
-	cs, err := findContainerByPid(req.Pid)
-	if err != nil {
-		log.Printf("Could not find the container originating this request ",
-			"(PID %d)\n", req.Pid)
-		return nil, err
-	}
-
-	// Verify open() rights for sysvisorfs' emulated resources.
+	// Check if we are dealing with a sysvisor-fs' emulated resource.
 	if handler, ok := (sysfs.handlerMap)[f.path]; ok {
-		err := handler.open(cs, req.Flags)
+		//
+		// Find the container-state corresponding to the container hosting this
+		// Pid.
+		//
+		cs, err := findContainerByPid(req.Pid)
+		if err != nil {
+			log.Printf("Could not find the container originating this request ",
+				"(PID %d)\n", req.Pid)
+			return nil, err
+		}
+
+		// Handler execution. Notice that here we are just verifying open()
+		// rights for emulated resources, the actual opening action will take
+		// place further below.
+		err = handler.open(cs, req.Flags)
+
 		//
 		// TODO: If no open-rights are granted, the error-msg being returned
 		// back to the user must match the one reported for non-emulated
@@ -180,21 +187,26 @@ func (f *File) Read(
 		return fuse.ENOTSUP
 	}
 
-	// Find the container-state conrresponding to the container hosting this Pid.
-	cs, err := findContainerByPid(req.Pid)
-	if err != nil {
-		log.Printf("Could not find the container originating this request ",
-			"(PID %d)\n", req.Pid)
-		return err
-	}
-
 	// Adjust receiving buffer to the request's size.
 	resp.Data = resp.Data[:req.Size]
 
-	var n int
+	var (
+		n   int
+		err error
+	)
 
 	// Address special read() requests for virtualized resources.
 	if handler, ok := (sysfs.handlerMap)[f.path]; ok {
+		//
+		// Find the container-state conrresponding to the container hosting this
+		// Pid.
+		//
+		cs, err := findContainerByPid(req.Pid)
+		if err != nil {
+			log.Printf("Could not find the container originating this request ",
+				"(PID %d)\n", req.Pid)
+			return err
+		}
 
 		n, err = handler.read(cs, resp.Data, req.Offset)
 		if err != nil && err != io.EOF {
@@ -229,18 +241,23 @@ func (f *File) Write(
 		return fuse.ENOTSUP
 	}
 
-	// Find the container-state corresponding to the container hosting this Pid.
-	cs, err := findContainerByPid(req.Pid)
-	if err != nil {
-		log.Printf("Could not find the container originating this request ",
-			"(PID %d)\n", req.Pid)
-		return err
-	}
-
-	var n int
+	var (
+		n   int
+		err error
+	)
 
 	// Address special write() requests for virtualized resources.
 	if handler, ok := (sysfs.handlerMap)[f.path]; ok {
+		//
+		// Find the container-state corresponding to the container hosting this
+		// Pid.
+		//
+		cs, err := findContainerByPid(req.Pid)
+		if err != nil {
+			log.Printf("Could not find the container originating this request ",
+				"(PID %d)\n", req.Pid)
+			return err
+		}
 
 		n, err = handler.write(cs, req.Data)
 		if err != nil && err != io.EOF {
