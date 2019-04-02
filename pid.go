@@ -3,11 +3,12 @@ package main
 import (
 	"errors"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/spf13/afero"
 )
 
 //
@@ -125,8 +126,7 @@ func (pi *pidInodeContainerMap) unregister(cs *containerState) error {
 	//
 	inode, ok := pi.fs.containerIDInodeMap.get(cs.id)
 	if !ok {
-		log.Printf("Container unregistration failure: could not find container ",
-			" with ID \"%s\"\n", cs.id)
+		log.Printf("Container unregistration failure: could not find container with ID %s\n", cs.id)
 		return errors.New("Could not find container to unregister")
 	}
 
@@ -137,8 +137,7 @@ func (pi *pidInodeContainerMap) unregister(cs *containerState) error {
 	//
 	currentCs, ok := pi.fs.pidInodeContainerMap.get(inode)
 	if !ok {
-		log.Printf("Container unregistration failure: could not find container ",
-			" with pid-ns-inode \"%d\"\n", inode)
+		log.Printf("Container unregistration failure: could not find container with pid-ns-inode %d\n", inode)
 		return errors.New("Could not find container to unregister")
 	}
 
@@ -168,16 +167,14 @@ func (pi *pidInodeContainerMap) update(cs *containerState) error {
 	//
 	inode, ok := pi.fs.containerIDInodeMap.get(cs.id)
 	if !ok {
-		log.Printf("Container update failure: could not find container with ",
-			"ID \"%s\"\n", cs.id)
+		log.Printf("Container update failure: could not find container with ID \"%s\"\n", cs.id)
 		return errors.New("Could not find container to update")
 	}
 
 	// Obtain the existing container-state struct.
 	currentCs, ok := pi.fs.pidInodeContainerMap.get(inode)
 	if !ok {
-		log.Printf("Container update failure: could not find container with ",
-			"pid-ns-inode \"%d\"\n", inode)
+		log.Printf("Container update failure: could not find container with pid-ns-inode \"%d\"\n", inode)
 		return errors.New("Could not find container to update")
 	}
 
@@ -233,10 +230,21 @@ func findInodeByPid(pid uint32) (uint64, error) {
 		"ns/pid"}, "/")
 
 	// Extract pid-ns info from FS.
-	info, err := os.Stat(pidnsPath)
+	//info, err := os.Stat(pidnsPath)
+	info, err := appFS.Stat(pidnsPath)
 	if err != nil {
 		log.Println("No process file found for pid:", pid)
 		return 0, err
+	}
+
+	if unitTesting {
+		content, err := afero.ReadFile(appFS, pidnsPath)
+		if err != nil {
+			return 0, err
+		}
+		res, err := strconv.ParseUint(string(content), 10, 64)
+
+		return res, nil
 	}
 
 	stat, ok := info.Sys().(*syscall.Stat_t)

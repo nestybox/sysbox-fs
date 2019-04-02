@@ -12,8 +12,17 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	_ "bazil.org/fuse/fs/fstestutil"
+	"github.com/spf13/afero"
 )
 
+// Global variable enabled during UT execution. When set to 'true', I/O
+// routines operate over dummy buffers instead of regular file handlers.
+var unitTesting = false
+
+// TODO: Provide a better description.
+var appFS = afero.NewOsFs()
+
+// TODO: Beautify me please.
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usafe of %s\n", os.Args[0])
 	fmt.Fprintf(os.Stderr, " %s <file-system mount-point>\n", os.Args[0])
@@ -28,6 +37,7 @@ func usage() {
 func signalHandler(signalChan chan os.Signal, mountPoint string) {
 
 	s := <-signalChan
+
 	switch s {
 
 	// TODO: Handle SIGHUP differently -- e.g. re-read sysvisorfs conf file
@@ -94,7 +104,7 @@ func main() {
 	}
 	defer c.Close()
 	if p := c.Protocol(); !p.HasInvalidate() {
-		log.Panicln("Kernel FUSE support is too old to have invalidations: version %v", p)
+		log.Panicf("Kernel FUSE support is too old to have invalidations: version %v", p)
 	}
 
 	// Ensure sysvisor-fs is properly unmounted during shutdown.
