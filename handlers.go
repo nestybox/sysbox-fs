@@ -20,10 +20,10 @@ type handlerMap = map[string]handler
 // Handler interface.
 //
 type handler interface {
-	open(cs *containerState, flags fuse.OpenFlags) error
-	read(cs *containerState, buf []byte, off int64) (int, error)
-	write(cs *containerState, buf []byte) (int, error)
-	//fetch(cs *containerState) (string, error)
+	open(cs *containerState, flags *fuse.OpenFlags) error
+	read(node ioNode, cs *containerState, buf []byte, off int64) (int, error)
+	write(node ioNode, cs *containerState, buf []byte) (int, error)
+	fetch(node ioNode, cs *containerState) (string, error)
 	resource() string
 }
 
@@ -76,19 +76,23 @@ func newHandlerMap() *handlerMap {
 //
 type cpuInfoHandler struct{}
 
-func (h *cpuInfoHandler) open(cs *containerState, flags fuse.OpenFlags) error {
+func (h *cpuInfoHandler) open(cs *containerState, flags *fuse.OpenFlags) error {
 
 	log.Println("Executing cpuInfoHandler open() method")
 
-	if flags != fuse.OpenReadOnly {
+	// ReadOnly resource, enforce it.
+	if flags == nil || *flags != fuse.OpenReadOnly {
 		return errors.New("/proc/cpuinfo: Permission denied")
 	}
 
 	return nil
 }
 
-func (h *cpuInfoHandler) read(cs *containerState,
-	buf []byte, off int64) (int, error) {
+func (h *cpuInfoHandler) read(
+	node ioNode,
+	cs *containerState,
+	buf []byte,
+	off int64) (int, error) {
 
 	log.Println("Executing cpuInfoHandler read method")
 
@@ -105,7 +109,7 @@ func (h *cpuInfoHandler) read(cs *containerState,
 	//
 	_, ok := cs.stateDataMap[file]
 	if !ok {
-		if err := h.fetch(cs); err != nil {
+		if _, err := h.fetch(node, cs); err != nil {
 			return 0, err
 		}
 	}
@@ -137,25 +141,29 @@ func (h *cpuInfoHandler) read(cs *containerState,
 	return len(buf), nil
 }
 
-func (h *cpuInfoHandler) write(cs *containerState, buf []byte) (int, error) {
+func (h *cpuInfoHandler) write(
+	node ioNode,
+	cs *containerState,
+	buf []byte) (int, error) {
 
 	return 0, nil
 }
 
-func (h *cpuInfoHandler) fetch(cs *containerState) error {
+func (h *cpuInfoHandler) fetch(
+	node ioNode,
+	cs *containerState) (string, error) {
 
 	file := h.resource()
 
-	fileContent, err := ioutil.ReadFile(file)
+	content, err := ioutil.ReadAll(node)
 	if err != nil {
-		log.Printf("Container initialization failure: could not read %s ",
-			"file", file)
-		return err
+		log.Printf("Error reading %v file\n", file)
+		return "", err
 	}
 
 	cpuInfoMap := make(map[string]string)
 
-	lines := strings.Split(string(fileContent), "\n")
+	lines := strings.Split(string(content), "\n")
 
 	for _, line := range lines {
 		elems := strings.Split(line, ":")
@@ -173,7 +181,7 @@ func (h *cpuInfoHandler) fetch(cs *containerState) error {
 
 	cs.stateDataMap[file] = cpuInfoMap
 
-	return nil
+	return "", nil
 }
 
 func (h *cpuInfoHandler) resource() string {
@@ -490,19 +498,23 @@ func (h *sysHandler) write(cs *containerState, buf []byte) (int, error) {
 //
 type uptimeHandler struct{}
 
-func (h *uptimeHandler) open(cs *containerState, flags fuse.OpenFlags) error {
+func (h *uptimeHandler) open(cs *containerState, flags *fuse.OpenFlags) error {
 
 	log.Println("Executing uptimeHandler's open() method")
 
-	if flags != fuse.OpenReadOnly {
+	// ReadOnly resource, enforce it.
+	if flags == nil || *flags != fuse.OpenReadOnly {
 		return errors.New("/proc/uptime: Permission denied")
-		//return os.ErrPermission
 	}
 
 	return nil
 }
 
-func (h *uptimeHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *uptimeHandler) read(
+	node ioNode,
+	cs *containerState,
+	buf []byte,
+	off int64) (int, error) {
 
 	log.Println("Executing uptimeHandler's read() method")
 
@@ -535,7 +547,10 @@ func (h *uptimeHandler) read(cs *containerState, buf []byte, off int64) (int, er
 }
 
 // Read-only resource, no need for write() method.
-func (h *uptimeHandler) write(cs *containerState, buf []byte) (int, error) {
+func (h *uptimeHandler) write(
+	node ioNode,
+	cs *containerState,
+	buf []byte) (int, error) {
 
 	return 0, nil
 }
@@ -544,9 +559,11 @@ func (h *uptimeHandler) write(cs *containerState, buf []byte) (int, error) {
 // Uptime value is obtained directly from sysvisor-runc, so there's no need
 // for a fetch() method.
 //
-func (h *uptimeHandler) fetch(cs *containerState) error {
+func (h *uptimeHandler) fetch(
+	node ioNode,
+	cs *containerState) (string, error) {
 
-	return nil
+	return "", nil
 }
 
 func (h *uptimeHandler) resource() string {
@@ -559,18 +576,29 @@ func (h *uptimeHandler) resource() string {
 //
 type nfConntrackMaxHandler struct{}
 
-func (h *nfConntrackMaxHandler) open(cs *containerState, flags fuse.OpenFlags) error {
+func (h *nfConntrackMaxHandler) open(cs *containerState, flags *fuse.OpenFlags) error {
 
 	log.Println("Executing nfConntrackMaxHandler open() method")
 
-	if flags != fuse.OpenReadOnly && flags != fuse.OpenWriteOnly {
+	if flags == nil || (*flags != fuse.OpenReadOnly && *flags != fuse.OpenWriteOnly) {
 		return errors.New("/proc/sys/net/netfilter/nf_conntrack_max: Permission denied")
+	}
+
+	// During 'writeOnly' accesses, we must grant read-write rights temporarily
+	// to allow push() to carry out the expected 'write' operation, as well as a
+	// 'read' one too.
+	if *flags == fuse.OpenWriteOnly {
+		*flags = fuse.OpenReadWrite
 	}
 
 	return nil
 }
 
-func (h *nfConntrackMaxHandler) read(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *nfConntrackMaxHandler) read(
+	node ioNode,
+	cs *containerState,
+	buf []byte,
+	off int64) (int, error) {
 
 	log.Println("Executing nfConntrakMaxHandler read() method")
 
@@ -587,7 +615,7 @@ func (h *nfConntrackMaxHandler) read(cs *containerState, buf []byte, off int64) 
 	//
 	_, ok := cs.stateDataMap[file]
 	if !ok {
-		content, err := h.fetch(cs)
+		content, err := h.fetch(node, cs)
 		if err != nil {
 			return 0, err
 		}
@@ -616,7 +644,10 @@ func (h *nfConntrackMaxHandler) read(cs *containerState, buf []byte, off int64) 
 	return length, nil
 }
 
-func (h *nfConntrackMaxHandler) write(cs *containerState, buf []byte) (int, error) {
+func (h *nfConntrackMaxHandler) write(
+	node ioNode,
+	cs *containerState,
+	buf []byte) (int, error) {
 
 	log.Println("Executing nfConntrakMaxHandler write() method")
 
@@ -625,8 +656,8 @@ func (h *nfConntrackMaxHandler) write(cs *containerState, buf []byte) (int, erro
 	newMax := strings.TrimSpace(string(buf))
 	newMaxInt, err := strconv.Atoi(newMax)
 	if err != nil {
-		log.Println("Unexpected error: %s", err)
-		return 0, io.EOF
+		log.Println("Unexpected error:", err)
+		return 0, err
 	}
 
 	//
@@ -635,8 +666,8 @@ func (h *nfConntrackMaxHandler) write(cs *containerState, buf []byte) (int, erro
 	//
 	_, ok := cs.stateDataMap[file]
 	if !ok {
-		if err := h.push(cs, newMaxInt); err != nil {
-			return 0, io.EOF
+		if err := h.push(node, cs, newMaxInt); err != nil {
+			return 0, err
 		}
 
 		nfConntrackMaxMap := map[string]string{
@@ -651,13 +682,13 @@ func (h *nfConntrackMaxHandler) write(cs *containerState, buf []byte) (int, erro
 	curMax, ok := cs.stateDataMap[file]["nf_conntrack_max"]
 	if !ok {
 		log.Println("Unexpected error")
-		return 0, io.EOF
+		return 0, err
 	}
 
 	curMaxInt, err := strconv.Atoi(curMax)
 	if err != nil {
-		log.Println("Unexpected error: %s", err)
-		return 0, io.EOF
+		log.Println("Unexpected error:", err)
+		return 0, err
 	}
 
 	//
@@ -673,7 +704,7 @@ func (h *nfConntrackMaxHandler) write(cs *containerState, buf []byte) (int, erro
 	}
 
 	// Push new value to host FS.
-	if err := h.push(cs, newMaxInt); err != nil {
+	if err := h.push(node, cs, newMaxInt); err != nil {
 		return 0, io.EOF
 	}
 
@@ -683,19 +714,21 @@ func (h *nfConntrackMaxHandler) write(cs *containerState, buf []byte) (int, erro
 	return len(buf), nil
 }
 
-func (h *nfConntrackMaxHandler) fetch(cs *containerState) (string, error) {
+func (h *nfConntrackMaxHandler) fetch(
+	node ioNode,
+	cs *containerState) (string, error) {
 
 	file := h.resource()
 
 	// Read from host FS to extract the existing nf_conntrack_max value.
-	fileContent, err := ioutil.ReadFile(file)
+	content, err := ioutil.ReadAll(node)
 	if err != nil {
 		log.Printf("Could not read from file %s", file)
 		return "", err
 	}
 
 	// Parse received data.
-	lines := strings.Split(string(fileContent), "\n")
+	lines := strings.Split(string(content), "\n")
 
 	if len(lines) > 2 {
 		log.Printf("Unexpected number of lines for this file: %d\n", len(lines))
@@ -706,18 +739,21 @@ func (h *nfConntrackMaxHandler) fetch(cs *containerState) (string, error) {
 
 }
 
-func (h *nfConntrackMaxHandler) push(cs *containerState, newMaxInt int) error {
+func (h *nfConntrackMaxHandler) push(
+	node ioNode,
+	cs *containerState,
+	newMaxInt int) error {
 
 	file := h.resource()
 
 	// Read from host FS to extract the existing nf_conntrack_max value.
-	fileContent, err := ioutil.ReadFile(file)
+	content, err := ioutil.ReadAll(node)
 	if err != nil {
 		log.Printf("Could not read from file %s", file)
 		return err
 	}
 
-	lines := strings.Split(string(fileContent), "\n")
+	lines := strings.Split(string(content), "\n")
 	if len(lines) > 2 {
 		log.Printf("Unexpected number of lines for this file: %d\n", len(lines))
 		return errors.New("Unexpected file format")
@@ -726,7 +762,7 @@ func (h *nfConntrackMaxHandler) push(cs *containerState, newMaxInt int) error {
 	curHostMax := lines[0]
 	curHostMaxInt, err := strconv.Atoi(curHostMax)
 	if err != nil {
-		log.Println("Unexpected error: %s", err)
+		log.Println("Unexpected error:", err)
 		return err
 	}
 
@@ -741,7 +777,7 @@ func (h *nfConntrackMaxHandler) push(cs *containerState, newMaxInt int) error {
 
 	// Push down to host FS the new (larger) value.
 	msg := []byte(strconv.Itoa(newMaxInt))
-	err = ioutil.WriteFile(file, msg, 0644)
+	io.Copy(node, bytes.NewReader(msg))
 	if err != nil {
 		log.Printf("Unexpected error: %s\n", err)
 	}
@@ -759,18 +795,22 @@ func (h *nfConntrackMaxHandler) resource() string {
 //
 type disableIpv6Handler struct{}
 
-func (h *disableIpv6Handler) open(cs *containerState, flags fuse.OpenFlags) error {
+func (h *disableIpv6Handler) open(cs *containerState, flags *fuse.OpenFlags) error {
 
 	log.Println("Executing disableIpv6Handler open() method")
 
-	if flags != fuse.OpenReadOnly && flags != fuse.OpenWriteOnly {
+	if flags == nil || (*flags != fuse.OpenReadOnly && *flags != fuse.OpenWriteOnly) {
 		return errors.New("/proc/sys/net/ipv6/conf/all/disable_ipv6: Permission denied")
 	}
 
 	return nil
 }
 
-func (h *disableIpv6Handler) read(cs *containerState, buf []byte, off int64) (int, error) {
+func (h *disableIpv6Handler) read(
+	node ioNode,
+	cs *containerState,
+	buf []byte,
+	off int64) (int, error) {
 
 	log.Println("Executing disableIpv6Handler read() method")
 
@@ -787,7 +827,7 @@ func (h *disableIpv6Handler) read(cs *containerState, buf []byte, off int64) (in
 	//
 	_, ok := cs.stateDataMap[file]
 	if !ok {
-		content, err := h.fetch(cs)
+		content, err := h.fetch(node, cs)
 		if err != nil {
 			return 0, err
 		}
@@ -816,7 +856,10 @@ func (h *disableIpv6Handler) read(cs *containerState, buf []byte, off int64) (in
 	return length, nil
 }
 
-func (h *disableIpv6Handler) write(cs *containerState, buf []byte) (int, error) {
+func (h *disableIpv6Handler) write(
+	node ioNode,
+	cs *containerState,
+	buf []byte) (int, error) {
 
 	log.Println("Executing disableIpv6Handler write() method")
 
@@ -825,7 +868,7 @@ func (h *disableIpv6Handler) write(cs *containerState, buf []byte) (int, error) 
 	newVal := strings.TrimSpace(string(buf))
 	newValInt, err := strconv.Atoi(newVal)
 	if err != nil {
-		log.Println("Unexpected error 1: %s", err)
+		log.Println("Unexpected error:", err)
 		return 0, err
 	}
 
@@ -835,7 +878,7 @@ func (h *disableIpv6Handler) write(cs *containerState, buf []byte) (int, error) 
 	//
 	_, ok := cs.stateDataMap[file]
 	if !ok {
-		if err := h.push(cs, newVal); err != nil {
+		if err := h.push(node, cs, newVal); err != nil {
 			return 0, io.EOF
 		}
 
@@ -851,12 +894,12 @@ func (h *disableIpv6Handler) write(cs *containerState, buf []byte) (int, error) 
 	curVal, ok := cs.stateDataMap[file]["disable_ipv6"]
 	if !ok {
 		log.Println("Unexpected error", err)
-		return 0, io.EOF
+		return 0, errors.New("Unexpected error")
 	}
 	curValInt, err := strconv.Atoi(curVal)
 	if err != nil {
 		log.Println("Unexpected error:", err)
-		return 0, io.EOF
+		return 0, err
 	}
 
 	//
@@ -868,8 +911,8 @@ func (h *disableIpv6Handler) write(cs *containerState, buf []byte) (int, error) 
 	}
 
 	// Push new value to host FS.
-	if err := h.push(cs, newVal); err != nil {
-		return 0, io.EOF
+	if err := h.push(node, cs, newVal); err != nil {
+		return 0, err
 	}
 
 	// Writing the new value into container-state struct.
@@ -878,7 +921,9 @@ func (h *disableIpv6Handler) write(cs *containerState, buf []byte) (int, error) 
 	return len(buf), nil
 }
 
-func (h *disableIpv6Handler) fetch(cs *containerState) (string, error) {
+func (h *disableIpv6Handler) fetch(
+	node ioNode,
+	cs *containerState) (string, error) {
 
 	event := &nsenterEvent{
 		Resource:  h.resource(),
@@ -896,7 +941,10 @@ func (h *disableIpv6Handler) fetch(cs *containerState) (string, error) {
 	return res.Content, nil
 }
 
-func (h *disableIpv6Handler) push(cs *containerState, newVal string) error {
+func (h *disableIpv6Handler) push(
+	node ioNode,
+	cs *containerState,
+	newVal string) error {
 
 	event := &nsenterEvent{
 		Resource:  h.resource(),

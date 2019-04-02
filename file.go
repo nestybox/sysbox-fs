@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -27,14 +28,14 @@ func newInode() uint64 {
 //
 type File struct {
 
-	// File name
+	// File name.
 	path string
 
-	// FS attributes
+	// FS attributes.
 	attr *fuse.Attr
 
-	// Handle utilized by FUSE FS to refer to files/dirs currently opened.
-	handle *os.File
+	// ioNode object to handle all I/O related logic.
+	ionode ioNode
 }
 
 //
@@ -45,7 +46,7 @@ func NewFile(path string, attr *fuse.Attr) *File {
 	newFile := &File{
 		path:   path,
 		attr:   attr,
-		handle: nil,
+		ionode: nil,
 	}
 
 	newFile.attr.Inode = newInode()
@@ -101,15 +102,14 @@ func (f *File) Open(
 		//
 		cs, err := findContainerByPid(req.Pid)
 		if err != nil {
-			log.Printf("Could not find the container originating this request ",
-				"(PID %d)\n", req.Pid)
+			log.Printf("Could not find the container originating this request (PID %d)\n", req.Pid)
 			return nil, err
 		}
 
 		// Handler execution. Notice that here we are just verifying open()
 		// rights for emulated resources, the actual opening action will take
 		// place further below.
-		err = handler.open(cs, req.Flags)
+		err = handler.open(cs, &req.Flags)
 
 		//
 		// TODO: If no open-rights are granted, the error-msg being returned
@@ -132,10 +132,10 @@ func (f *File) Open(
 		}
 	}
 
-	handle, err := os.OpenFile(f.path, int(req.Flags), f.attr.Mode)
-	if err != nil {
-		log.Print("Open ERR: ", err)
-		return nil, err
+	f.ionode = newIoNode(f.path, int(req.Flags), f.attr.Mode)
+	if f.ionode == nil {
+		log.Print("Open ERR")
+		return nil, errors.New("Error opening file")
 	}
 
 	// procfs and sysfs hold non-seekable files.
@@ -157,8 +157,6 @@ func (f *File) Open(
 	//
 	resp.Flags |= fuse.OpenDirectIO
 
-	f.handle = handle
-
 	return f, nil
 }
 
@@ -169,7 +167,7 @@ func (f *File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 
 	log.Println("Requested Release() operation for entry", f.path)
 
-	return f.handle.Close()
+	return f.ionode.Close()
 }
 
 //
@@ -182,7 +180,7 @@ func (f *File) Read(
 
 	log.Println("Requested Read on file", f.path)
 
-	if f.handle == nil {
+	if f.ionode == nil {
 		log.Println("Read: File should be open by now -- aborting request")
 		return fuse.ENOTSUP
 	}
@@ -203,18 +201,16 @@ func (f *File) Read(
 		//
 		cs, err := findContainerByPid(req.Pid)
 		if err != nil {
-			log.Printf("Could not find the container originating this request ",
-				"(PID %d)\n", req.Pid)
+			log.Printf("Could not find the container originating this request (PID %d)\n", req.Pid)
 			return err
 		}
 
-		n, err = handler.read(cs, resp.Data, req.Offset)
+		n, err = handler.read(f.ionode, cs, resp.Data, req.Offset)
 		if err != nil && err != io.EOF {
 			return err
 		}
 	} else {
-		// Regular I/O instruction to read from host FS.
-		n, err = f.handle.ReadAt(resp.Data, req.Offset)
+		n, err = f.ionode.ReadAt(resp.Data, req.Offset)
 		if err != nil && err != io.EOF {
 			log.Println("Read ERR: ", err)
 			return err
@@ -236,7 +232,7 @@ func (f *File) Write(
 
 	log.Println("Requested Write on file", f.path)
 
-	if f.handle == nil {
+	if f.ionode == nil {
 		log.Println("Write: File should be opened by now -- aborting request")
 		return fuse.ENOTSUP
 	}
@@ -254,18 +250,16 @@ func (f *File) Write(
 		//
 		cs, err := findContainerByPid(req.Pid)
 		if err != nil {
-			log.Printf("Could not find the container originating this request ",
-				"(PID %d)\n", req.Pid)
+			log.Printf("Could not find the container originating this request (PID %d)\n", req.Pid)
 			return err
 		}
 
-		n, err = handler.write(cs, req.Data)
+		n, err = handler.write(f.ionode, cs, req.Data)
 		if err != nil && err != io.EOF {
 			return err
 		}
 	} else {
-		// Regular I/O instruction to write to host FS.
-		n, err = f.handle.Write(req.Data)
+		n, err = f.ionode.Write(req.Data)
 		if err != nil {
 			log.Println("Write ERR: ", err)
 			return err
