@@ -94,7 +94,7 @@ func (pi *pidInodeContainerMap) register(cs *containerState) error {
 	defer pi.Unlock()
 
 	//
-	// Verify that the new container to create is not already present in this
+	// Verify that the new container to register is not already present in this
 	// pidInodeMap.
 	//
 	if _, ok := pi.get((uint64)(cs.pidNsInode)); ok {
@@ -103,7 +103,15 @@ func (pi *pidInodeContainerMap) register(cs *containerState) error {
 		return errors.New("Container already registered")
 	}
 
-	// Insert an entry into the containerIdInodeMap.
+	//
+	// Verify that the associated container-id is not already present in the
+	// global containerIDnodeMap, and if that's not the case, proceed to insert
+	// it.
+	//
+	if _, ok := pi.fs.containerIDInodeMap.get(cs.id); ok {
+		log.Printf("Container with id %s is already registered\n", cs.id)
+		return errors.New("Container already registered")
+	}
 	pi.fs.containerIDInodeMap.set(cs.id, cs.pidNsInode)
 
 	// Insert the new containerState into the pidInodeContainerMap struct.
@@ -275,6 +283,7 @@ func findContainerByPid(pid uint32) (*containerState, error) {
 	}
 
 	// Find the container from which this request is generated from.
+	//spew.Dump(sysfs.pidInodeContainerMap)
 	cs, ok := sysfs.pidInodeContainerMap.lookup(inode)
 	if !ok {
 		return nil, errors.New("Could not find container")
