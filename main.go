@@ -129,7 +129,7 @@ func main() {
 	sysfs = newSysvisorFS("/")
 
 	// Initialize sysvisorfs' gRPC server for runC's interaction
-	go initGrpcServer(sysfs)
+	go sysfs.grpcServer.Init()
 
 	log.Println("About to serve sysvisorfs")
 	if err := srv.Serve(sysfs); err != nil {

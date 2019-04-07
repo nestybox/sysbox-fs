@@ -19,14 +19,14 @@ import (
 // name-spaces are already destroyed, which precludes the identification of
 // the inode associated to the pid-namespace.
 //
-type containerIDInodeMap struct {
+type containerInodeMap struct {
 	sync.RWMutex // unused at the moment
 	internal     map[string]uint64
 }
 
-func newContainerIDInodeMap() *containerIDInodeMap {
+func newContainerInodeMap() *containerInodeMap {
 
-	ci := &containerIDInodeMap{
+	ci := &containerInodeMap{
 		internal: make(map[string]uint64),
 	}
 
@@ -40,19 +40,19 @@ func newContainerIDInodeMap() *containerIDInodeMap {
 // of these methods by incorporating concurrency-primitives.
 //
 
-func (ci *containerIDInodeMap) get(key string) (uint64, bool) {
+func (ci *containerInodeMap) get(key string) (uint64, bool) {
 
 	val, ok := ci.internal[key]
 
 	return val, ok
 }
 
-func (ci *containerIDInodeMap) set(key string, value uint64) {
+func (ci *containerInodeMap) set(key string, value uint64) {
 
 	ci.internal[key] = value
 }
 
-func (ci *containerIDInodeMap) delete(key string) {
+func (ci *containerInodeMap) delete(key string) {
 
 	delete(ci.internal, key)
 }

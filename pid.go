@@ -17,24 +17,24 @@ import (
 //
 
 //
-// pidInodeContainerMap is used to keep track of the mapping between pid-namespaces
+// pidContainerMap is used to keep track of the mapping between pid-namespaces
 // (represented by their corresponding inode), and the associated container-state
 // struct.
 //
-type pidInodeContainerMap struct {
+type pidContainerMap struct {
 	sync.RWMutex
 	internal map[uint64]*containerState
 	fs       *sysvisorFS
 }
 
-func newPidInodeContainerMap(fs *sysvisorFS) *pidInodeContainerMap {
+func newPidContainerMap(fs *sysvisorFS) *pidContainerMap {
 
-	pi := &pidInodeContainerMap{
+	p := &pidContainerMap{
 		internal: make(map[uint64]*containerState),
 		fs:       fs,
 	}
 
-	return pi
+	return p
 }
 
 //
@@ -42,21 +42,21 @@ func newPidInodeContainerMap(fs *sysvisorFS) *pidInodeContainerMap {
 // acquiring the pidInodeMap's mutex by the caller function.
 //
 
-func (pi *pidInodeContainerMap) get(key uint64) (*containerState, bool) {
+func (p *pidContainerMap) get(key uint64) (*containerState, bool) {
 
-	val, ok := pi.internal[key]
+	val, ok := p.internal[key]
 
 	return val, ok
 }
 
-func (pi *pidInodeContainerMap) set(key uint64, value *containerState) {
+func (p *pidContainerMap) set(key uint64, value *containerState) {
 
-	pi.internal[key] = value
+	p.internal[key] = value
 }
 
-func (pi *pidInodeContainerMap) delete(key uint64) {
+func (p *pidContainerMap) delete(key uint64) {
 
-	delete(pi.internal, key)
+	delete(p.internal, key)
 }
 
 //
@@ -64,12 +64,12 @@ func (pi *pidInodeContainerMap) delete(key uint64) {
 // to be utilized by goroutines other than grpcServer one, and as such, it deals
 // himself with thread-safety concerns.
 //
-func (pi *pidInodeContainerMap) lookup(key uint64) (*containerState, bool) {
+func (p *pidContainerMap) lookup(key uint64) (*containerState, bool) {
 
-	pi.RLock()
-	defer pi.RUnlock()
+	p.RLock()
+	defer p.RUnlock()
 
-	cs, ok := pi.get(key)
+	cs, ok := p.get(key)
 	if !ok {
 		return nil, false
 	}
@@ -78,7 +78,7 @@ func (pi *pidInodeContainerMap) lookup(key uint64) (*containerState, bool) {
 }
 
 // Container registration method, invoked by grpcServer goroutine.
-func (pi *pidInodeContainerMap) register(cs *containerState) error {
+func (p *pidContainerMap) register(cs *containerState) error {
 	//
 	// Identify the inode corresponding to the pid-namespace associated to this
 	// containerState struct.
@@ -90,14 +90,14 @@ func (pi *pidInodeContainerMap) register(cs *containerState) error {
 	}
 	cs.pidNsInode = inode
 
-	pi.Lock()
-	defer pi.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	//
 	// Verify that the new container to register is not already present in this
 	// pidInodeMap.
 	//
-	if _, ok := pi.get((uint64)(cs.pidNsInode)); ok {
+	if _, ok := p.get((uint64)(cs.pidNsInode)); ok {
 		log.Printf("Container with pidInode %d is already registered\n",
 			cs.pidNsInode)
 		return errors.New("Container already registered")
@@ -108,14 +108,14 @@ func (pi *pidInodeContainerMap) register(cs *containerState) error {
 	// global containerIDnodeMap, and if that's not the case, proceed to insert
 	// it.
 	//
-	if _, ok := pi.fs.containerIDInodeMap.get(cs.id); ok {
+	if _, ok := p.fs.containerInodeMap.get(cs.id); ok {
 		log.Printf("Container with id %s is already registered\n", cs.id)
 		return errors.New("Container already registered")
 	}
-	pi.fs.containerIDInodeMap.set(cs.id, cs.pidNsInode)
+	p.fs.containerInodeMap.set(cs.id, cs.pidNsInode)
 
-	// Insert the new containerState into the pidInodeContainerMap struct.
-	pi.set(cs.pidNsInode, cs)
+	// Insert the new containerState into the pidContainerMap struct.
+	p.set(cs.pidNsInode, cs)
 
 	log.Println("Container registration successfully completed:", cs.String())
 
@@ -123,16 +123,16 @@ func (pi *pidInodeContainerMap) register(cs *containerState) error {
 }
 
 // Container unregistration method, invoked by grpcServer goroutine.
-func (pi *pidInodeContainerMap) unregister(cs *containerState) error {
+func (p *pidContainerMap) unregister(cs *containerState) error {
 
-	pi.Lock()
-	defer pi.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	//
 	// Identify the inode associated to the pid-ns of the container being
 	// unregistered.
 	//
-	inode, ok := pi.fs.containerIDInodeMap.get(cs.id)
+	inode, ok := p.fs.containerInodeMap.get(cs.id)
 	if !ok {
 		log.Printf("Container unregistration failure: could not find container with ID %s\n", cs.id)
 		return errors.New("Could not find container to unregister")
@@ -143,15 +143,15 @@ func (pi *pidInodeContainerMap) unregister(cs *containerState) error {
 	// complete view than the one held by "cs" parameter during unregistration
 	// phase.
 	//
-	currentCs, ok := pi.fs.pidInodeContainerMap.get(inode)
+	currentCs, ok := p.fs.pidContainerMap.get(inode)
 	if !ok {
 		log.Printf("Container unregistration failure: could not find container with pid-ns-inode %d\n", inode)
 		return errors.New("Could not find container to unregister")
 	}
 
 	// Eliminate all the existing state associated to this container.
-	pi.fs.containerIDInodeMap.delete(currentCs.id)
-	pi.delete(inode)
+	p.fs.containerInodeMap.delete(currentCs.id)
+	p.delete(inode)
 
 	log.Println("Container unregistration successfully completed:",
 		currentCs.String())
@@ -164,23 +164,23 @@ func (pi *pidInodeContainerMap) unregister(cs *containerState) error {
 // belongs within containerState class. Think about improving this.
 //
 // Container state-update method, invoked by grpcServer goroutine.
-func (pi *pidInodeContainerMap) update(cs *containerState) error {
+func (p *pidContainerMap) update(cs *containerState) error {
 
-	pi.Lock()
-	defer pi.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	//
 	// Identify the inode associated to the pid-ns of the container being
 	// unregistered.
 	//
-	inode, ok := pi.fs.containerIDInodeMap.get(cs.id)
+	inode, ok := p.fs.containerInodeMap.get(cs.id)
 	if !ok {
 		log.Printf("Container update failure: could not find container with ID \"%s\"\n", cs.id)
 		return errors.New("Could not find container to update")
 	}
 
 	// Obtain the existing container-state struct.
-	currentCs, ok := pi.fs.pidInodeContainerMap.get(inode)
+	currentCs, ok := p.fs.pidContainerMap.get(inode)
 	if !ok {
 		log.Printf("Container update failure: could not find container with pid-ns-inode \"%d\"\n", inode)
 		return errors.New("Could not find container to update")
@@ -202,7 +202,7 @@ func (pi *pidInodeContainerMap) update(cs *containerState) error {
 // Function determines if the inode associated to the pid-ns of a given pid is
 // already registed in Sysvisorfs.
 //
-func (pi *pidInodeContainerMap) pidInodeRegistered(pid uint32) bool {
+func (p *pidContainerMap) pidRegistered(pid uint32) bool {
 
 	// Identify the inode associated to this process' pid-ns.
 	inode, err := findInodeByPid(pid)
@@ -211,10 +211,10 @@ func (pi *pidInodeContainerMap) pidInodeRegistered(pid uint32) bool {
 		return false
 	}
 
-	pi.RLock()
-	defer pi.RUnlock()
+	p.RLock()
+	defer p.RUnlock()
 
-	if _, ok := pi.get(inode); ok {
+	if _, ok := p.get(inode); ok {
 		return true
 	}
 
@@ -283,8 +283,8 @@ func findContainerByPid(pid uint32) (*containerState, error) {
 	}
 
 	// Find the container from which this request is generated from.
-	//spew.Dump(sysfs.pidInodeContainerMap)
-	cs, ok := sysfs.pidInodeContainerMap.lookup(inode)
+	//spew.Dump(sysfs.pidContainerMap)
+	cs, ok := sysfs.pidContainerMap.lookup(inode)
 	if !ok {
 		return nil, errors.New("Could not find container")
 	}
