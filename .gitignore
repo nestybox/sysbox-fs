@@ -5,3 +5,8 @@ sysvisor-protobuf
 
 # Ignore virtual-studio-code metadata
 .vscode
+
+# GNU global tags
+GPATH
+GRTAGS
+GTAGS
