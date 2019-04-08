@@ -66,3 +66,10 @@ jobs:
       # Initiating UTs.
       #
       - run: go test -v
+
+      #
+      # Obtain coverage report and forward it to Codecov for visual representation
+      #
+      - run: go test -race -coverprofile=coverage.txt -covermode=atomic &&
+             bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
+
