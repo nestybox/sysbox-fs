@@ -100,7 +100,7 @@ func newSysvisorFS(path string) *sysvisorFS {
 	)
 
 	// Initialize sysvisorfs' gRPC server in a separate goroutine.
-	go sysfs.grpcServer.Init()
+	go newfs.grpcServer.Init()
 
 	return newfs
 }
