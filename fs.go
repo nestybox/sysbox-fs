@@ -9,7 +9,7 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	"github.com/nestybox/sysvisor/sysvisor-protobuf/sysvisorGrpc"
+	"github.com/nestybox/sysvisor/sysvisor-protobuf/sysvisorFsGrpc"
 )
 
 var sysfs *sysvisorFS
@@ -55,7 +55,7 @@ type sysvisorFS struct {
 	// Utilized as sysvisor-fs' ipc pipeline to enable communication with external
 	// entities (i.e sysvisor-runc).
 	//
-	grpcServer sysvisorGrpc.Server
+	grpcServer sysvisorFsGrpc.Server
 }
 
 //
@@ -90,12 +90,12 @@ func newSysvisorFS(path string) *sysvisorFS {
 	newfs.pidContainerMap = *newPidContainerMap(newfs)
 
 	// Instantiate a grpcServer for inter-process communication.
-	newfs.grpcServer = *sysvisorGrpc.NewServer(
+	newfs.grpcServer = *sysvisorFsGrpc.NewServer(
 		newfs,
-		&sysvisorGrpc.CallbacksMap{
-			sysvisorGrpc.ContainerRegisterMessage:   containerRegister,
-			sysvisorGrpc.ContainerUnregisterMessage: containerUnregister,
-			sysvisorGrpc.ContainerUpdateMessage:     containerUpdate,
+		&sysvisorFsGrpc.CallbacksMap{
+			sysvisorFsGrpc.ContainerRegisterMessage:   containerRegister,
+			sysvisorFsGrpc.ContainerUnregisterMessage: containerUnregister,
+			sysvisorFsGrpc.ContainerUpdateMessage:     containerUpdate,
 		},
 	)
 
@@ -118,7 +118,7 @@ func (fs *sysvisorFS) Root() (fs.Node, error) {
 // TODO-2: There's too much code-duplication here. Refactor.
 //
 
-func containerRegister(client interface{}, data *sysvisorGrpc.ContainerData) error {
+func containerRegister(client interface{}, data *sysvisorFsGrpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
@@ -147,7 +147,7 @@ func containerRegister(client interface{}, data *sysvisorGrpc.ContainerData) err
 	return nil
 }
 
-func containerUnregister(client interface{}, data *sysvisorGrpc.ContainerData) error {
+func containerUnregister(client interface{}, data *sysvisorFsGrpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
@@ -176,7 +176,7 @@ func containerUnregister(client interface{}, data *sysvisorGrpc.ContainerData) e
 	return nil
 }
 
-func containerUpdate(client interface{}, data *sysvisorGrpc.ContainerData) error {
+func containerUpdate(client interface{}, data *sysvisorFsGrpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
