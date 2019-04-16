@@ -60,7 +60,7 @@ jobs:
       # Launch protoc compiler.
       #
       - run: cd /go/src/github.com/nestybox/sysvisor/sysvisor-fs &&
-             protoc -I ../sysvisor-protobuf/ -I /usr/local/include/ ../sysvisor-protobuf/sysvisor-protobuf.proto --go_out=plugins=grpc:../sysvisor-protobuf
+             protoc -I ../sysvisor-protobuf/sysvisorFsGrpc/protobuf -I /usr/local/include/ ../sysvisor-protobuf/sysvisorFsGrpc/protobuf/protobuf.proto --go_out=plugins=grpc:../sysvisor-protobuf/sysvisorFsGrpc/protobuf
 
       #
       # Initiating UTs.
@@ -72,4 +72,3 @@ jobs:
       #
       - run: go test -race -coverprofile=coverage.txt -covermode=atomic &&
              bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
-
