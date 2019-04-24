@@ -1,4 +1,4 @@
-package main
+package implementations
 
 import (
 	"bytes"
@@ -307,7 +307,7 @@ func (e *nsenterEvent) launch() (*nsenterEvent, error) {
 // Sysvisor-fs' post-nsexec initialization function. To be executed within the
 // context of one (or more) container namespaces.
 //
-func nsenter() (err error) {
+func Nsenter() (err error) {
 
 	var (
 		pipefd      int

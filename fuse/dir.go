@@ -1,9 +1,8 @@
-package main
+package fuse
 
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -35,10 +34,10 @@ type Dir struct {
 //
 // NewDir method serves as Dir constructor.
 //
-func NewDir(path string, attr *fuse.Attr) *Dir {
+func NewDir(path string, attr *fuse.Attr, srv *fuseService) *Dir {
 
 	newDir := &Dir{
-		File: *NewFile(path, attr),
+		File: *NewFile(path, attr, srv),
 	}
 
 	return newDir
@@ -73,7 +72,7 @@ func (d *Dir) Lookup(
 		attr := StatToAttr(info.Sys().(*syscall.Stat_t))
 		attr.Mode = os.ModeDir | attr.Mode
 
-		return NewDir(path, &attr), nil
+		return NewDir(path, &attr, d.File.service), nil
 
 	}
 
@@ -82,7 +81,7 @@ func (d *Dir) Lookup(
 	// Obtaining FS file attributes
 	attr := StatToAttr(info.Sys().(*syscall.Stat_t))
 
-	return NewFile(path, &attr), nil
+	return NewFile(path, &attr, d.File.service), nil
 }
 
 //
@@ -110,7 +109,7 @@ func (d *Dir) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 
 	log.Println("Requested ReadDirAll on directory", d.path)
 
-	files, err := ioutil.ReadDir(d.path)
+	files, err := d.service.ios.ReadDirAllNode(d.ionode)
 	if err != nil {
 		fmt.Println("Error while running ReadDirAll(): ", err)
 		return nil, err
@@ -149,7 +148,7 @@ func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error
 	log.Println("Requested Mkdir() for directory", req.Name)
 
 	path := filepath.Join(d.path, req.Name)
-	newDir := NewDir(path, &fuse.Attr{})
+	newDir := NewDir(path, &fuse.Attr{}, d.File.service)
 
 	return newDir, nil
 }
