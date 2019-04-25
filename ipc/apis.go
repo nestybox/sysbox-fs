@@ -6,11 +6,11 @@ import (
 	"strconv"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor/sysvisor-protobuf/sysvisorGrpc"
+	"github.com/nestybox/sysvisor/sysvisor-protobuf/sysvisorFsGrpc"
 )
 
 type ipcService struct {
-	grpcServer *sysvisorGrpc.Server
+	grpcServer *sysvisorFsGrpc.Server
 	css        domain.ContainerStateService
 	ios        domain.IOService
 }
@@ -23,12 +23,12 @@ func NewIpcService(
 	newService := new(ipcService)
 	newService.css = css
 	newService.ios = ios
-	newService.grpcServer = sysvisorGrpc.NewServer(
+	newService.grpcServer = sysvisorFsGrpc.NewServer(
 		newService,
-		&sysvisorGrpc.CallbacksMap{
-			sysvisorGrpc.ContainerRegisterMessage:   ContainerRegister,
-			sysvisorGrpc.ContainerUnregisterMessage: ContainerUnregister,
-			sysvisorGrpc.ContainerUpdateMessage:     ContainerUpdate,
+		&sysvisorFsGrpc.CallbacksMap{
+			sysvisorFsGrpc.ContainerRegisterMessage:   ContainerRegister,
+			sysvisorFsGrpc.ContainerUnregisterMessage: ContainerUnregister,
+			sysvisorFsGrpc.ContainerUpdateMessage:     ContainerUpdate,
 		})
 
 	return newService
@@ -38,7 +38,7 @@ func (s *ipcService) Init() {
 	go s.grpcServer.Init()
 }
 
-func ContainerRegister(ctx interface{}, data *sysvisorGrpc.ContainerData) error {
+func ContainerRegister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
@@ -78,7 +78,7 @@ func ContainerRegister(ctx interface{}, data *sysvisorGrpc.ContainerData) error 
 	return nil
 }
 
-func ContainerUnregister(ctx interface{}, data *sysvisorGrpc.ContainerData) error {
+func ContainerUnregister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
@@ -106,7 +106,7 @@ func ContainerUnregister(ctx interface{}, data *sysvisorGrpc.ContainerData) erro
 	return nil
 }
 
-func ContainerUpdate(ctx interface{}, data *sysvisorGrpc.ContainerData) error {
+func ContainerUpdate(ctx interface{}, data *sysvisorFsGrpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
