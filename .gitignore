@@ -1,4 +1,5 @@
-sysvisor-fs
+# Ignore sysvisor-fs compilation artifact, but not cmd/sysvisor-fs package.
+/sysvisor-fs
 
 # Ignore protobuf auto-generated code
 sysvisor-protobuf

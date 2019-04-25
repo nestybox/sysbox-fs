@@ -13,15 +13,18 @@ import (
 )
 
 // Ensure IOnodeFile implements IOnode's interface.
-//var _ IOnode = (*IOnodeFile)(nil)
-//var _ IOnodeOps = (*IOnodeFileOps)(nil)
+var _ domain.IOnode = (*IOnodeFile)(nil)
+var _ domain.IOService = (*ioFileService)(nil)
 
+//
+// I/O Service providing FS interaction capabilities.
+//
 type ioFileService struct{}
 
 func (s *ioFileService) NewIOnode(p string, attr os.FileMode) domain.IOnode {
 	newFile := &IOnodeFile{
 		Path: p,
-		Attr: 0644,
+		Attr: attr,
 	}
 
 	return newFile
@@ -64,7 +67,7 @@ func (s *ioFileService) PidNsInode(i domain.IOnode) (domain.Inode, error) {
 }
 
 //
-//
+// IOnode class specialization for FS interaction.
 //
 type IOnodeFile struct {
 	Path  string
@@ -72,10 +75,6 @@ type IOnodeFile struct {
 	Attr  os.FileMode
 	File  *os.File
 }
-
-//func newIOnodeFile() domain.IOnodeIface {
-//	return &IOnodeFile{}
-//}
 
 func (i *IOnodeFile) Open() error {
 
