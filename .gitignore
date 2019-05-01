@@ -2,7 +2,7 @@
 /sysvisor-fs
 
 # Ignore protobuf auto-generated code
-sysvisor-protobuf
+sysvisor-ipc
 
 # Ignore virtual-studio-code metadata
 .vscode
