@@ -23,7 +23,7 @@ type NfConntrackMaxHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *NfConntrackMaxHandler) Open(node domain.IOnode) error {
+func (h *NfConntrackMaxHandler) Open(n domain.IOnode) error {
 
 	log.Printf("Executing %v open() method\n", h.Name)
 
@@ -47,18 +47,15 @@ func (h *NfConntrackMaxHandler) Open(node domain.IOnode) error {
 	return nil
 }
 
-func (h *NfConntrackMaxHandler) Close(node domain.IOnode) error {
+func (h *NfConntrackMaxHandler) Close(n domain.IOnode) error {
 
 	log.Printf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *NfConntrackMaxHandler) Read(
-	node domain.IOnode,
-	pidInode domain.Inode,
-	buf []byte,
-	off int64) (int, error) {
+func (h *NfConntrackMaxHandler) Read(n domain.IOnode, i domain.Inode,
+	buf []byte, off int64) (int, error) {
 
 	log.Printf("Executing %v read() method\n", h.Name)
 
@@ -71,10 +68,10 @@ func (h *NfConntrackMaxHandler) Read(
 	// Pid.
 	//
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pidInode)
+	cntr := css.ContainerLookupByPid(i)
 	if cntr == nil {
 		log.Printf("Could not find the container originating this request ",
-			"(pidNsInode %v)\n", pidInode)
+			"(pidNsInode %v)\n", i)
 		return 0, errors.New("Container not found")
 	}
 
@@ -85,7 +82,7 @@ func (h *NfConntrackMaxHandler) Read(
 	//
 	_, ok := cntr.Data[h.Path]
 	if !ok {
-		content, err := h.fetch(node, cntr)
+		content, err := h.fetch(n, cntr)
 		if err != nil {
 			return 0, err
 		}
@@ -115,9 +112,7 @@ func (h *NfConntrackMaxHandler) Read(
 	return length, nil
 }
 
-func (h *NfConntrackMaxHandler) Write(
-	node domain.IOnode,
-	pidInode domain.Inode,
+func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 	buf []byte) (int, error) {
 
 	log.Printf("Executing %v write() method\n", h.Name)
@@ -134,10 +129,10 @@ func (h *NfConntrackMaxHandler) Write(
 	// Pid.
 	//
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pidInode)
+	cntr := css.ContainerLookupByPid(i)
 	if cntr == nil {
 		log.Printf("Could not find the container originating this request ",
-			"(pidNsInode %v)\n", pidInode)
+			"(pidNsInode %v)\n", i)
 		return 0, errors.New("Container not found")
 	}
 
@@ -147,7 +142,7 @@ func (h *NfConntrackMaxHandler) Write(
 	//
 	_, ok := cntr.Data[h.Path]
 	if !ok {
-		if err := h.push(node, cntr, newMaxInt); err != nil {
+		if err := h.push(n, cntr, newMaxInt); err != nil {
 			return 0, err
 		}
 
@@ -185,7 +180,7 @@ func (h *NfConntrackMaxHandler) Write(
 	}
 
 	// Push new value to host FS.
-	if err := h.push(node, cntr, newMaxInt); err != nil {
+	if err := h.push(n, cntr, newMaxInt); err != nil {
 		return 0, io.EOF
 	}
 
@@ -195,19 +190,16 @@ func (h *NfConntrackMaxHandler) Write(
 	return len(buf), nil
 }
 
-func (h *NfConntrackMaxHandler) ReadDirAll(
-	node domain.IOnode,
-	pidInode domain.Inode) ([]os.FileInfo, error) {
+func (h *NfConntrackMaxHandler) ReadDirAll(n domain.IOnode,
+	i domain.Inode) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
-func (h *NfConntrackMaxHandler) fetch(
-	node domain.IOnode,
-	c *domain.Container) (string, error) {
+func (h *NfConntrackMaxHandler) fetch(n domain.IOnode, c *domain.Container) (string, error) {
 
 	// Read from host FS to extract the existing nf_conntrack_max value.
-	curHostMax := node.ReadLine()
+	curHostMax := n.ReadLine()
 	if curHostMax == "" {
 		log.Printf("Could not read from file %v\n", h.Path)
 		return "", errors.New("Could not read from file")
@@ -223,12 +215,10 @@ func (h *NfConntrackMaxHandler) fetch(
 	return curHostMax, nil
 }
 
-func (h *NfConntrackMaxHandler) push(
-	node domain.IOnode,
-	c *domain.Container,
+func (h *NfConntrackMaxHandler) push(n domain.IOnode, c *domain.Container,
 	newMaxInt int) error {
 
-	curHostMax := node.ReadLine()
+	curHostMax := n.ReadLine()
 	curHostMaxInt, err := strconv.Atoi(curHostMax)
 	if err != nil {
 		log.Println("Unexpected error:", err)
@@ -253,7 +243,7 @@ func (h *NfConntrackMaxHandler) push(
 
 	// Push down to host FS the new (larger) value.
 	msg := []byte(strconv.Itoa(newMaxInt))
-	_, err = node.Write(msg)
+	_, err = n.Write(msg)
 	if err != nil {
 		log.Printf("Could not write to file: %v\n", err)
 	}
