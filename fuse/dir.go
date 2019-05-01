@@ -110,7 +110,6 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 
 	log.Println("Requested ReadDirAll on directory", d.path)
 
-	//files, err := d.service.ios.ReadDirAllNode(d.ionode)
 	// If dealing with an emulated resource, execute the associated handle.
 	handler, ok := d.service.hds.LookupHandler(d.ionode)
 	if !ok {

@@ -2,6 +2,7 @@ package implementations
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -27,19 +28,19 @@ func (h *NfConntrackMaxHandler) Open(n domain.IOnode) error {
 
 	log.Printf("Executing %v open() method\n", h.Name)
 
-	flags := node.OpenFlags()
+	flags := n.OpenFlags()
 	if flags != syscall.O_RDONLY && flags != syscall.O_WRONLY {
-		return errors.New("/proc/sys/net/netfilter/nf_conntrack_max: Permission denied")
+		return fmt.Errorf("%v: Permission denied", h.Path)
 	}
 
 	// During 'writeOnly' accesses, we must grant read-write rights temporarily
 	// to allow push() to carry out the expected 'write' operation, as well as a
 	// 'read' one too.
 	if flags == syscall.O_WRONLY {
-		node.SetOpenFlags(syscall.O_RDWR)
+		n.SetOpenFlags(syscall.O_RDWR)
 	}
 
-	if err := node.Open(); err != nil {
+	if err := n.Open(); err != nil {
 		log.Printf("Error opening file %v\n", h.Path)
 		return errors.New("Error opening file")
 	}
@@ -63,10 +64,8 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, i domain.Inode,
 		return 0, io.EOF
 	}
 
-	//
 	// Find the container-state corresponding to the container hosting this
 	// Pid.
-	//
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(i)
 	if cntr == nil {
@@ -75,11 +74,9 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, i domain.Inode,
 		return 0, errors.New("Container not found")
 	}
 
-	//
 	// Check if this resource has been initialized for this container. Otherwise,
 	// fetch the information from the host FS and store it accordingly within
 	// the container struct.
-	//
 	_, ok := cntr.Data[h.Path]
 	if !ok {
 		content, err := h.fetch(n, cntr)
@@ -94,10 +91,8 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, i domain.Inode,
 		cntr.Data[h.Path] = nfConntrackMaxMap
 	}
 
-	//
 	// At this point, some container-state data must be available to serve this
 	// request.
-	//
 	data, ok := cntr.Data[h.Path][h.Name]
 	if !ok {
 		log.Println("Unexpected error")
@@ -124,10 +119,8 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 		return 0, err
 	}
 
-	//
 	// Find the container-state corresponding to the container hosting this
 	// Pid.
-	//
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(i)
 	if cntr == nil {
@@ -136,10 +129,8 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 		return 0, errors.New("Container not found")
 	}
 
-	//
 	// Check if this resource has been initialized for this container. If not,
 	// push it to the host FS and store it within the container struct.
-	//
 	_, ok := cntr.Data[h.Path]
 	if !ok {
 		if err := h.push(n, cntr, newMaxInt); err != nil {
@@ -167,12 +158,10 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 		return 0, err
 	}
 
-	//
 	// If new value is lower/equal than the existing one, then let's update this
 	// new value into the container struct and return here. Notice that we cannot
 	// push this (lower-than-current) value into the host FS, as we could be
 	// impacting other syscontainers.
-	//
 	if newMaxInt <= curMaxInt {
 		cntr.Data[h.Path][h.Name] = newMax
 
@@ -225,17 +214,15 @@ func (h *NfConntrackMaxHandler) push(n domain.IOnode, c *domain.Container,
 		return err
 	}
 
-	//
 	// If the existing host FS value is larger than the new one to configure,
 	// then let's just return here as we want to keep the largest value
 	// in the host FS.
-	//
 	if newMaxInt <= curHostMaxInt {
 		return nil
 	}
 
 	// Rewdind file offset back to its start point.
-	_, err = node.SeekReset()
+	_, err = n.SeekReset()
 	if err != nil {
 		log.Printf("Could not reset file offset: %v\n", err)
 		return err

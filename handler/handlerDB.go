@@ -9,72 +9,91 @@ import (
 	"github.com/nestybox/sysvisor/sysvisor-fs/handler/implementations"
 )
 
+//
+// Slice of sysvisor-fs' default handlers. Please keep me alphabetically
+// ordered within each functional bucket.
+//
 var DefaultHandlers = []domain.HandlerIface{
+	//
+	// /proc handlers
+	//
+	&implementations.ProcCgroupsHandler{
+		Name:      "procCgroups",
+		Path:      "/proc/cgroups",
+		Enabled:   false,
+		Cacheable: false,
+	},
+	&implementations.ProcLoadavgHandler{
+		Name:      "procLoadavg",
+		Path:      "/proc/laodavg",
+		Enabled:   false,
+		Cacheable: false,
+	},
+	&implementations.ProcMeminfoHandler{
+		Name:      "procMeminfo",
+		Path:      "/proc/meminfo",
+		Enabled:   false,
+		Cacheable: false,
+	},
+	&implementations.ProcPagetypeinfoHandler{
+		Name:      "procPagetypeinfo",
+		Path:      "/proc/pagetypeinfo",
+		Enabled:   false,
+		Cacheable: false,
+	},
+	&implementations.ProcPartitionsHandler{
+		Name:      "procPartitions",
+		Path:      "/proc/partitions",
+		Enabled:   false,
+		Cacheable: false,
+	},
+	&implementations.ProcStatHandler{
+		Name:      "procStat",
+		Path:      "/proc/stat",
+		Enabled:   false,
+		Cacheable: false,
+	},
+	&implementations.ProcSwapsHandler{
+		Name:      "procSwaps",
+		Path:      "/proc/swaps",
+		Enabled:   false,
+		Cacheable: false,
+	},
+	&implementations.ProcSysHandler{
+		Name:      "procSys",
+		Path:      "/proc/sys",
+		Enabled:   false,
+		Cacheable: false,
+	},
+	&implementations.ProcUptimeHandler{
+		Name:      "procUptime",
+		Path:      "/proc/uptime",
+		Enabled:   true,
+		Cacheable: false,
+	},
+	//
+	// /proc/sys/net/netfilter handlers
+	//
+	&implementations.NetNetfilter{
+		Name:      "netNetfilter",
+		Path:      "/proc/sys/net/netfilter",
+		Enabled:   true,
+		Cacheable: false,
+	},
+	&implementations.NfConntrackMaxHandler{
+		Name:      "nfConntrackMax",
+		Path:      "/proc/sys/net/netfilter/nf_conntrack_max",
+		Enabled:   true,
+		Cacheable: true,
+	},
+	//
+	// Common handler -- to be utilized for all namespaced resources.
+	//
 	&implementations.CommonHandler{
 		Name:      "common",
 		Path:      "commonHandler",
 		Enabled:   true,
 		Cacheable: false,
-	},
-	&implementations.ProcCgroupsHandler{
-		Name:    "procCgroups",
-		Path:    "/proc/cgroups",
-		Enabled: false,
-		Cacheable: false,
-	},
-	&implementations.ProcLoadavgHandler{
-		Name:    "procLoadavg",
-		Path:    "/proc/laodavg",
-		Enabled: false,
-		Cacheable:  false,
-	},
-	&implementations.ProcMeminfoHandler{
-		Name:    "procMeminfo",
-		Path:    "/proc/meminfo",
-		Enabled: false,
-		Cacheable:  false,
-	},
-	&implementations.ProcPagetypeinfoHandler{
-		Name:    "procPagetypeinfo",
-		Path:    "/proc/pagetypeinfo",
-		Enabled: false,
-		Cacheable:  false,
-	},
-	&implementations.ProcPartitionsHandler{
-		Name:    "procPartitions",
-		Path:    "/proc/partitions",
-		Enabled: false,
-		Cacheable:  false,
-	},
-	&implementations.ProcStatHandler{
-		Name:    "procStat",
-		Path:    "/proc/stat",
-		Enabled: false,
-		Cacheable:  false,
-	},
-	&implementations.ProcSwapsHandler{
-		Name:    "procSwaps",
-		Path:    "/proc/swaps",
-		Enabled: false,
-		Cacheable:  false,
-	},
-	&implementations.ProcSysHandler{
-		Name:    "procSys",
-		Path:    "/proc/sys",
-		Enabled: false,
-		Cacheable:  false,
-	},
-	&implementations.ProcUptimeHandler{
-		Name:    "procUptime",
-		Path:    "/proc/uptime",
-		Enabled: true,
-		Cacheable:  false,
-	},
-	&implementations.NfConntrackMaxHandler{
-		Name:    "nfConntrackMax",
-		Path:    "/proc/sys/net/netfilter/nf_conntrack_max",
-		Enabled: true,
-		Cacheable:  true,
 	},
 }
 
