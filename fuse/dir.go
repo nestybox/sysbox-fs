@@ -127,7 +127,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 	// Handler execution.
 	files, err := handler.ReadDirAll(d.ionode, pidInode)
 	if err != nil {
-		log.Printf("Error while running ReadDirAll(): ", err)
+		log.Println("Error while running ReadDirAll(): ", err)
 		return nil, err
 	}
 

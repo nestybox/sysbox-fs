@@ -49,8 +49,7 @@ func (h *NetNetfilter) ReadDirAll(n domain.IOnode, i domain.Inode) ([]os.FileInf
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(i)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request ",
-			"(pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
 		return nil, errors.New("Container not found")
 	}
 

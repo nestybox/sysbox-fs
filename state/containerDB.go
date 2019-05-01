@@ -81,8 +81,7 @@ func (css *containerStateService) ContainerUpdate(c *domain.Container) error {
 	currCntr, ok := css.pidTable[inode]
 	if !ok {
 		css.Unlock()
-		log.Printf("Container update failure: could not find container with ",
-			"pid-ns-inode \"%d\"\n", inode)
+		log.Println("Container update failure: could not find container with pid-ns-inode", inode)
 		return errors.New("Could not find container to update")
 	}
 
@@ -112,8 +111,7 @@ func (css *containerStateService) ContainerDelete(c *domain.Container) error {
 
 	if _, ok := css.pidTable[inode]; !ok {
 		css.Unlock()
-		log.Printf("Container deletion error: could not find container with ",
-			"PID-inode %v\n", inode)
+		log.Println("Container deletion error: could not find container with PID-inode", inode)
 		return errors.New("Container with PID-inode already present")
 	}
 

@@ -56,8 +56,7 @@ func (h *CommonHandler) Read(n domain.IOnode, i domain.Inode, buf []byte, off in
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(i)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request ",
-			"(pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
 		return 0, errors.New("Container not found")
 	}
 
@@ -116,8 +115,7 @@ func (h *CommonHandler) Write(n domain.IOnode, i domain.Inode, buf []byte) (int,
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(i)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request ",
-			"(pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
 		return 0, errors.New("Container not found")
 	}
 
@@ -173,8 +171,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, i domain.Inode) ([]os.FileIn
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(i)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request ",
-			"(pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
 		return nil, errors.New("Container not found")
 	}
 

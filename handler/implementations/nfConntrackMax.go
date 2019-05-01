@@ -69,8 +69,7 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, i domain.Inode,
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(i)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request ",
-			"(pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
 		return 0, errors.New("Container not found")
 	}
 
@@ -124,8 +123,7 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(i)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request ",
-			"(pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
 		return 0, errors.New("Container not found")
 	}
 

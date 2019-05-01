@@ -66,8 +66,7 @@ func (h *ProcUptimeHandler) Read(
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request ",
-			"(pidNsInode %v)\n", pidInode)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
 		return 0, errors.New("Container not found")
 	}
 
