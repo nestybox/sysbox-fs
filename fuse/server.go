@@ -54,7 +54,7 @@ func NewFuseService(
 	}
 
 	//
-	newfs.root = NewDir(path, &attr, newfs)
+	newfs.root = NewDir(path, path, &attr, newfs)
 
 	return newfs
 }

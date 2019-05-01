@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"os"
 	"strconv"
 	"syscall"
 	"time"
@@ -15,17 +16,18 @@ import (
 // /proc/uptime Handler
 //
 type ProcUptimeHandler struct {
-	Name    string
-	Path    string
-	Enabled bool
-	Service domain.HandlerService
+	Name      string
+	Path      string
+	Enabled   bool
+	Cacheable bool
+	Service   domain.HandlerService
 }
 
 func (h *ProcUptimeHandler) Open(node domain.IOnode) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 
-	flags := node.GetOpenFlags()
+	flags := node.OpenFlags()
 	if flags != syscall.O_RDONLY {
 		return errors.New("/proc/uptime: Permission denied")
 	}
@@ -34,6 +36,13 @@ func (h *ProcUptimeHandler) Open(node domain.IOnode) error {
 		log.Printf("Error opening file %v\n", h.Path)
 		return errors.New("Error opening file")
 	}
+
+	return nil
+}
+
+func (h *ProcUptimeHandler) Close(node domain.IOnode) error {
+
+	log.Printf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
@@ -92,6 +101,13 @@ func (h *ProcUptimeHandler) Write(
 	buf []byte) (int, error) {
 
 	return 0, nil
+}
+
+func (h *ProcUptimeHandler) ReadDirAll(
+	node domain.IOnode,
+	pidInode domain.Inode) ([]os.FileInfo, error) {
+
+	return nil, nil
 }
 
 func (h *ProcUptimeHandler) GetName() string {

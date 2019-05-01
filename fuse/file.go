@@ -2,7 +2,7 @@ package fuse
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -15,18 +15,10 @@ import (
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
 
-// Global variable to keep track of inode values assigned to virtual fsNodes.
-var inode uint64
-
-func newInode() uint64 {
-	inode++
-	return inode
-}
-
-// Ensure fuseFile implements file.Service
-//var _ ionode.Interface = fuseFile{}
-
 type File struct {
+	// File name.
+	name string
+
 	// File absolute-path + name.
 	path string
 
@@ -43,13 +35,14 @@ type File struct {
 //
 // NewFile method serves as File constructor.
 //
-func NewFile(path string, attr *fuse.Attr, srv *fuseService) *File {
+func NewFile(name string, path string, attr *fuse.Attr, srv *fuseService) *File {
 
 	newFile := &File{
+		name:    name,
 		path:    path,
 		attr:    attr,
 		service: srv,
-		ionode:  srv.ios.NewIOnode(path, attr.Mode),
+		ionode:  srv.ios.NewIOnode(name, path, attr.Mode),
 	}
 
 	return newFile
@@ -96,36 +89,34 @@ func (f *File) Open(
 	log.Println("Requested Open() operation for entry", f.path)
 
 	f.ionode.SetOpenFlags(int(req.Flags))
-	// If dealing with an emulated resource, execute the associated handle.
-	if handler, ok := f.service.hds.LookupHandler(f.path); ok {
 
-		// Handler execution.
-		err := handler.Open(f.ionode)
-		//
-		// TODO: If no open-rights are granted, the error-msg being returned
-		// back to the user must match the one reported for non-emulated
-		// resources. At this moment, we are observing slightly different
-		// error messages:
-		//
-		// * Within a syscontainer:
-		//
-		// root@691a4b387c60:/# cat > /proc/uptime
-		// bash: /proc/uptime: Input/output error
-		//
-		// * Within the regular host FS:
-		//
-		// $ sudo cat > /proc/uptime
-		// bash: /proc/uptime: Permission denied
-		//
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-	} else {
+	// Identify the associated handler and execute it accordingly.
+	handler, ok := f.service.hds.LookupHandler(f.ionode)
+	if !ok {
+		log.Printf("No supported handler for %v resource", f.path)
+		return nil, fmt.Errorf("No supported handler for %v resource", f.path)
+	}
 
-		if err := f.service.ios.OpenNode(f.ionode); err != nil {
-			log.Print("Open ERR")
-			return nil, errors.New("Error opening file")
-		}
+	// Handler execution.
+	err := handler.Open(f.ionode)
+	//
+	// TODO: If no open-rights are granted, the error-msg being returned
+	// back to the user must match the one reported for non-emulated
+	// resources. At this moment, we are observing slightly different
+	// error messages:
+	//
+	// * Within a syscontainer:
+	//
+	// root@691a4b387c60:/# cat > /proc/uptime
+	// bash: /proc/uptime: Input/output error
+	//
+	// * Within the regular host FS:
+	//
+	// $ sudo cat > /proc/uptime
+	// bash: /proc/uptime: Permission denied
+	//
+	if err != nil && err != io.EOF {
+		return nil, err
 	}
 
 	// procfs and sysfs hold non-seekable files.
@@ -157,7 +148,17 @@ func (f *File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 
 	log.Println("Requested Release() operation for entry", f.path)
 
-	return f.service.ios.CloseNode(f.ionode)
+	// Identify the associated handler and execute it accordingly.
+	handler, ok := f.service.hds.LookupHandler(f.ionode)
+	if !ok {
+		log.Printf("No supported handler for %v resource", f.path)
+		return fmt.Errorf("No supported handler for %v resource", f.path)
+	}
+
+	// Handler execution.
+	err := handler.Close(f.ionode)
+
+	return err
 }
 
 //
@@ -168,7 +169,7 @@ func (f *File) Read(
 	req *fuse.ReadRequest,
 	resp *fuse.ReadResponse) error {
 
-	log.Println("Requested Read on file", f.path)
+	log.Println("Requested Read() operation for entry", f.path)
 
 	if f.ionode == nil {
 		log.Println("Read: File should be open by now -- aborting request")
@@ -183,28 +184,25 @@ func (f *File) Read(
 		err error
 	)
 
-	// If dealing with an emulated resource, execute the associated handle.
-	if handler, ok := f.service.hds.LookupHandler(f.path); ok {
+	// Identify the associated handler and execute it accordingly.
+	handler, ok := f.service.hds.LookupHandler(f.ionode)
+	if !ok {
+		log.Printf("No supported handler for %v resource", f.path)
+		return fmt.Errorf("No supported handler for %v resource", f.path)
+	}
 
-		// Identify the pidNsInode corresponding to this pid.
-		tmpNode := f.service.ios.NewIOnode(strconv.Itoa(int(req.Pid)), 0)
-		pidInode, err := f.service.ios.PidNsInode(tmpNode)
-		if err != nil {
-			return err
-		}
+	// Identify the pidNsInode corresponding to this pid.
+	tmpNode := f.service.ios.NewIOnode("", strconv.Itoa(int(req.Pid)), 0)
+	pidInode, err := f.service.ios.PidNsInode(tmpNode)
+	if err != nil {
+		return err
+	}
 
-		// Handler execution.
-		n, err = handler.Read(f.ionode, pidInode, resp.Data, req.Offset)
-		if err != nil && err != io.EOF {
-			return err
-		}
-
-	} else {
-		n, err = f.service.ios.ReadAtNode(f.ionode, resp.Data, req.Offset)
-		if err != nil && err != io.EOF {
-			log.Println("Read ERR: ", err)
-			return err
-		}
+	// Handler execution.
+	n, err = handler.Read(f.ionode, pidInode, resp.Data, req.Offset)
+	if err != nil && err != io.EOF {
+		log.Println("Read ERR: ", err)
+		return err
 	}
 
 	resp.Data = resp.Data[:n]
@@ -220,7 +218,7 @@ func (f *File) Write(
 	req *fuse.WriteRequest,
 	resp *fuse.WriteResponse) error {
 
-	log.Println("Requested Write on file", f.path)
+	log.Println("Requested Write() operation for entry", f.path)
 
 	if f.ionode == nil {
 		log.Println("Write: File should be opened by now -- aborting request")
@@ -232,28 +230,25 @@ func (f *File) Write(
 		err error
 	)
 
-	// If dealing with an emulated resource, execute the associated handle.
-	if handler, ok := f.service.hds.LookupHandler(f.path); ok {
+	// Identify the associated handler and execute it accordingly.
+	handler, ok := f.service.hds.LookupHandler(f.ionode)
+	if !ok {
+		log.Printf("No supported handler for %v resource", f.path)
+		return fmt.Errorf("No supported handler for %v resource", f.path)
+	}
 
-		// Identify the pidNsInode corresponding to this pid.
-		tmpNode := f.service.ios.NewIOnode(strconv.Itoa(int(req.Pid)), 0)
-		pidInode, err := f.service.ios.PidNsInode(tmpNode)
-		if err != nil {
-			return err
-		}
+	// Identify the pidNsInode corresponding to this pid.
+	tmpNode := f.service.ios.NewIOnode("", strconv.Itoa(int(req.Pid)), 0)
+	pidInode, err := f.service.ios.PidNsInode(tmpNode)
+	if err != nil {
+		return err
+	}
 
-		// Handler execution.
-		n, err = handler.Write(f.ionode, pidInode, req.Data)
-		if err != nil && err != io.EOF {
-			return err
-		}
-
-	} else {
-		n, err = f.service.ios.WriteNode(f.ionode, req.Data)
-		if err != nil {
-			log.Println("Write ERR: ", err)
-			return err
-		}
+	// Handler execution.
+	n, err = handler.Write(f.ionode, pidInode, req.Data)
+	if err != nil && err != io.EOF {
+		log.Println("Write ERR: ", err)
+		return err
 	}
 
 	resp.Size = n

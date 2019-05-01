@@ -10,86 +10,72 @@ import (
 )
 
 var DefaultHandlers = []domain.HandlerIface{
+	&implementations.CommonHandler{
+		Name:      "common",
+		Path:      "commonHandler",
+		Enabled:   true,
+		Cacheable: false,
+	},
 	&implementations.ProcCgroupsHandler{
 		Name:    "procCgroups",
 		Path:    "/proc/cgroups",
 		Enabled: false,
+		Cacheable: false,
 	},
 	&implementations.ProcLoadavgHandler{
 		Name:    "procLoadavg",
 		Path:    "/proc/laodavg",
 		Enabled: false,
+		Cacheable:  false,
 	},
 	&implementations.ProcMeminfoHandler{
 		Name:    "procMeminfo",
 		Path:    "/proc/meminfo",
 		Enabled: false,
+		Cacheable:  false,
 	},
 	&implementations.ProcPagetypeinfoHandler{
 		Name:    "procPagetypeinfo",
 		Path:    "/proc/pagetypeinfo",
 		Enabled: false,
+		Cacheable:  false,
 	},
 	&implementations.ProcPartitionsHandler{
 		Name:    "procPartitions",
 		Path:    "/proc/partitions",
 		Enabled: false,
+		Cacheable:  false,
 	},
 	&implementations.ProcStatHandler{
 		Name:    "procStat",
 		Path:    "/proc/stat",
 		Enabled: false,
+		Cacheable:  false,
 	},
 	&implementations.ProcSwapsHandler{
 		Name:    "procSwaps",
 		Path:    "/proc/swaps",
 		Enabled: false,
+		Cacheable:  false,
 	},
 	&implementations.ProcSysHandler{
 		Name:    "procSys",
 		Path:    "/proc/sys",
 		Enabled: false,
+		Cacheable:  false,
 	},
 	&implementations.ProcUptimeHandler{
 		Name:    "procUptime",
 		Path:    "/proc/uptime",
 		Enabled: true,
+		Cacheable:  false,
 	},
 	&implementations.NfConntrackMaxHandler{
 		Name:    "nfConntrackMax",
 		Path:    "/proc/sys/net/netfilter/nf_conntrack_max",
 		Enabled: true,
+		Cacheable:  true,
 	},
-	&implementations.DisableIPv6Handler{
-		Name:    "disableIPv6",
-		Path:    "/proc/sys/net/ipv6/conf/all/disable_ipv6",
-		Enabled: true,
-	},
-	// &domain.Handler{
-	// 	Name:    "nfCallIptable",
-	// 	Path:    "/proc/sys/net/bridge/bridge-nf-call-iptables",
-	// 	Enabled: true,
-	// },
-	// &domain.Handler{
-	// 	Name:    "routeLocalnet",
-	// 	Path:    "/proc/sys/net/ipv4/conf/all/route_localnet",
-	// 	Enabled: true,
-	// },
-	// &domain.Handler{
-	// 	Name:    "panic",
-	// 	Path:    "/proc/sys/kernel/panic",
-	// 	Enabled: true,
-	// },
-	// &domain.Handler{
-	// 	Name:    "panicOops",
-	// 	Path:    "/proc/sys/kernel/panic_on_oops",
-	// 	Enabled: true,
-	// },
-	// &domain.Handler{
-	// 	Name:    "overcommitMemory",
-	// 	Path:    "/proc/sys/vm/overcommit_memory",
-	// 	Enabled: true,
-	// },
 }
 
 type handlerService struct {
@@ -154,13 +140,19 @@ func (hs *handlerService) UnregisterHandler(h domain.HandlerIface) error {
 	return nil
 }
 
-func (hs *handlerService) LookupHandler(name string) (domain.HandlerIface, bool) {
+func (hs *handlerService) LookupHandler(i domain.IOnode) (domain.HandlerIface, bool) {
+
 	hs.RLock()
 	defer hs.RUnlock()
 
-	h, ok := hs.handlerDB[name]
+	h, ok := hs.handlerDB[i.Path()]
 	if !ok {
-		return nil, false
+		h, ok := hs.handlerDB["commonHandler"]
+		if !ok {
+			return nil, false
+		}
+
+		return h, true
 	}
 
 	return h, true

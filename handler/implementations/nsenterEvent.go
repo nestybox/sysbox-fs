@@ -14,6 +14,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/opencontainers/runc/libcontainer"
 	_ "github.com/opencontainers/runc/libcontainer/nsenter"
@@ -31,7 +34,7 @@ func init() {
 
 // Aliases to leverage strong-typing.
 type nsType = string
-type nsenterEventType = string
+type nsenterMsgType = string
 
 // nsType defines all namespace types
 const (
@@ -53,12 +56,54 @@ type pid struct {
 // by nsenterEvent class.
 //
 const (
-	readRequest   nsenterEventType = "readRequest"
-	readResponse  nsenterEventType = "readResponse"
-	writeRequest  nsenterEventType = "writeRequest"
-	writeResponse nsenterEventType = "writeResponse"
-	errorResponse nsenterEventType = "errorResponse"
+	readFileRequest   nsenterMsgType = "readFileRequest"
+	readFileResponse  nsenterMsgType = "readFileResponse"
+	writeFileRequest  nsenterMsgType = "writeFileRequest"
+	writeFileResponse nsenterMsgType = "writeFileResponse"
+	readDirRequest    nsenterMsgType = "readDirRequest"
+	readDirResponse   nsenterMsgType = "readDirResponse"
+	errorResponse     nsenterMsgType = "errorResponse"
 )
+
+type nsenterMessage struct {
+	// Message type being exchanged.
+	Type nsenterMsgType `json:"message"`
+
+	// Message payload.
+	Payload interface{} `json:"payload"`
+}
+
+type nsenterDir struct {
+	Dname    string
+	Dsize    int64
+	Dmode    os.FileMode
+	DmodTime time.Time
+	DisDir   bool
+}
+
+func (c nsenterDir) Name() string {
+	return c.Dname
+}
+
+func (c nsenterDir) Size() int64 {
+	return c.Dsize
+}
+
+func (c nsenterDir) Mode() os.FileMode {
+	return c.Dmode
+}
+
+func (c nsenterDir) ModTime() time.Time {
+	return c.DmodTime
+}
+
+func (c nsenterDir) IsDir() bool {
+	return c.DisDir
+}
+
+func (c nsenterDir) Sys() interface{} {
+	return nil
+}
 
 //
 // nsenterEvent struct serves as a transport abstraction to represent all the
@@ -67,107 +112,108 @@ const (
 // utilized to carry out actions over namespaced resources, and as such, cannot
 // be performed by sysvisor-fs' main instance.
 //
-// Every transaction is represented by an event structure (nsenterEvent), which
-// holds all the elements, as well as the context, necessary to complete any
-// action demanding inter-namespace message exchanges.
+// Every bidirectional transaction is represented by an event structure
+// (nsenterEvent), which holds both 'request' and 'response' messages, as well
+// as the context necessary to complete any action demanding inter-namespace
+// message exchanges.
 //
 type nsenterEvent struct {
 
 	// File/Dir being accessed within a container context.
 	Resource string `json:"resource"`
 
-	// Message type being exchanged.
-	Message nsenterEventType `json:"message"`
-
-	// Content/payload of the message.
-	Content string `json:"content"`
-
 	// initPid associated to the targeted container.
 	Pid uint32 `json:"pid"`
 
 	// namespace-types to attach to.
 	Namespace []nsType `json:"namespace"`
+
+	// Request message to be sent.
+	ReqMsg *nsenterMessage `json:"request"`
+
+	// Request message to be received.
+	ResMsg *nsenterMessage `json:"response"`
 }
 
-func (e *nsenterEvent) processWriteRequest() (*nsenterEvent, error) {
-
-	err := ioutil.WriteFile(e.Resource, []byte(e.Content), 0644)
-	if err != nil {
-		log.Printf("Error writing to %s resource", e.Resource)
-		return &nsenterEvent{Message: errorResponse, Content: err.Error()}, nil
-	}
-
-	return &nsenterEvent{Message: writeResponse}, nil
-}
-
-func (e *nsenterEvent) processReadRequest() (*nsenterEvent, error) {
-
-	fileContent, err := ioutil.ReadFile(e.Resource)
-	if err != nil {
-		log.Printf("Error reading from %s resource", e.Resource)
-		return &nsenterEvent{Message: errorResponse, Content: err.Error()}, nil
-	}
-
-	res := &nsenterEvent{
-		Message: readResponse,
-		Content: strings.TrimSpace(string(fileContent)),
-	}
-
-	return res, nil
-}
-
-func (e *nsenterEvent) processRequest(pipe io.Reader) (*nsenterEvent, error) {
-
-	var event nsenterEvent
-
-	if err := json.NewDecoder(pipe).Decode(&event); err != nil {
-		return nil, errors.New("Error decoding received nsenterEvent request")
-	}
-
-	switch event.Message {
-	case readRequest:
-		return event.processReadRequest()
-	case writeRequest:
-		return event.processWriteRequest()
-	default:
-		event.Message = errorResponse
-		event.Content = "Unsupported request"
-	}
-
-	return &event, nil
-}
+///////////////////////////////////////////////////////////////////////////////
+//
+// nsenterEvent methods below execute within the context of sysvisor-fs' main
+// instance, upon invokation of sysvisor-fs' handler logic.
+//
+///////////////////////////////////////////////////////////////////////////////
 
 //
-// Invoked by sysvisor-fs handler routines to parse the response generated
+// Called by sysvisor-fs handler routines to parse the response generated
 // by sysvisor-fs' grand-child processes.
 //
-func (e *nsenterEvent) processResponse(pipe io.Reader) (*nsenterEvent, error) {
+func (e *nsenterEvent) processResponse(pipe io.Reader) error {
 
-	var event nsenterEvent
-
-	dec := json.NewDecoder(pipe)
-
-	if err := dec.Decode(&event); err != nil {
-		log.Println("Error decoding received nsenterEvent reponse")
-		return nil, errors.New("Error decoding received event response")
+	//var event nsenterEvent
+	var payload json.RawMessage
+	nsenterMsg := nsenterMessage{
+		Payload: &payload,
 	}
 
-	// Log received message for debugging purposes.
-	switch event.Message {
-	case readResponse:
+	// Read all state received from the incoming pipe.
+	data, err := ioutil.ReadAll(pipe)
+	if err != nil || data == nil {
+		return err
+	}
+
+	// Received message will be decoded in two phases. The first unmarshal call
+	// takes care of decoding the message-type being received. Based on the
+	// obtained type, we are able to decode the polimorphic payload generated
+	// by the remote-end. This second step is executed as part of a subsequent
+	// unmarshal instruction (further below).
+	if err = json.Unmarshal(data, &nsenterMsg); err != nil {
+		log.Println("Error decoding received nsenterMsg reponse")
+		return errors.New("Error decoding received event response")
+	}
+
+	switch nsenterMsg.Type {
+
+	case readFileResponse:
 		log.Println("Received nsenterEvent readResponse message")
+
+		var p string
+		if err := json.Unmarshal(payload, &p); err != nil {
+			log.Fatal(err)
+		}
+
+		e.ResMsg = &nsenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
 		break
-	case writeResponse:
+
+	case writeFileResponse:
 		log.Println("Received nsenterEvent writeResponse message")
 		break
-	case errorResponse:
-		log.Println("Received nsenterEvent errorResponse message:", event.Content)
+
+	case readDirResponse:
+		log.Println("Received nsenterEvent readDirAllResponse message")
+
+		var p []nsenterDir
+		if err := json.Unmarshal(payload, &p); err != nil {
+			log.Fatal(err)
+		}
+
+		e.ResMsg = &nsenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+
 		break
+
+	case errorResponse:
+		log.Println("Received nsenterEvent errorResponse message")
+		break
+
 	default:
-		return nil, errors.New("Received unsupported nsenterEvent message")
+		return errors.New("Received unsupported nsenterEvent message")
 	}
 
-	return &event, nil
+	return nil
 }
 
 //
@@ -199,14 +245,14 @@ func (e *nsenterEvent) namespacePaths() []string {
 // nsexec logic, which will serve to enter the container namespaces that host
 // these resources.
 //
-func (e *nsenterEvent) launch() (*nsenterEvent, error) {
+func (e *nsenterEvent) launch() error {
 
 	log.Println("Executing nsenterEvent's launch() method")
 
 	// Create a socket pair.
 	parentPipe, childPipe, err := utils.NewSockPair("nsenterPipe")
 	if err != nil {
-		return nil, errors.New("Error creating sysvisor-fs nsenter pipe")
+		return errors.New("Error creating sysvisor-fs nsenter pipe")
 	}
 	defer parentPipe.Close()
 
@@ -235,23 +281,23 @@ func (e *nsenterEvent) launch() (*nsenterEvent, error) {
 	err = cmd.Start()
 	childPipe.Close()
 	if err != nil {
-		return nil, errors.New("Error launching sysvisor-fs first child process")
+		return errors.New("Error launching sysvisor-fs first child process")
 	}
 
 	// Send the config to child process.
 	if _, err := io.Copy(parentPipe, bytes.NewReader(r.Serialize())); err != nil {
-		return nil, errors.New("Error copying payload to pipe")
+		return errors.New("Error copying payload to pipe")
 	}
 
 	// Wait for sysvisor-fs' first child process to finish.
 	status, err := cmd.Process.Wait()
 	if err != nil {
 		cmd.Wait()
-		return nil, err
+		return err
 	}
 	if !status.Success() {
 		cmd.Wait()
-		return nil, errors.New("Error waiting for sysvisor-fs first child process")
+		return errors.New("Error waiting for sysvisor-fs first child process")
 	}
 
 	// Receive sysvisor-fs' first-child pid.
@@ -259,12 +305,12 @@ func (e *nsenterEvent) launch() (*nsenterEvent, error) {
 	decoder := json.NewDecoder(parentPipe)
 	if err := decoder.Decode(&pid); err != nil {
 		cmd.Wait()
-		return nil, errors.New("Error receiving first-child pid")
+		return errors.New("Error receiving first-child pid")
 	}
 
 	firstChildProcess, err := os.FindProcess(pid.PidFirstChild)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Wait for sysvisor-fs' second child process to finish. Ignore the error in
@@ -275,32 +321,147 @@ func (e *nsenterEvent) launch() (*nsenterEvent, error) {
 	// go runtime.
 	process, err := os.FindProcess(pid.Pid)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	cmd.Process = process
 
 	// Transfer the nsenterEvent details to grand-child for processing.
 	if err := utils.WriteJSON(parentPipe, e); err != nil {
-		return nil, errors.New("Error writing nsenterEvent through pipe")
+		return errors.New("Error writing nsenterEvent through pipe")
 	}
 
 	// Wait for sysvisor-fs' grand-child response and process it accordingly.
-	res, ierr := e.processResponse(parentPipe)
+	ierr := e.processResponse(parentPipe)
 
 	// Destroy the socket pair.
 	if err := unix.Shutdown(int(parentPipe.Fd()), unix.SHUT_WR); err != nil {
-		return nil, errors.New("Shutting down sysvisor-fs nsenter pipe")
+		return errors.New("Shutting down sysvisor-fs nsenter pipe")
 	}
 
 	if ierr != nil {
 		cmd.Wait()
-		return nil, ierr
+		return ierr
 	}
 
 	// Wait for grand-child exit()
 	cmd.Wait()
 
-	return res, nil
+	return nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// nsenterEvent methods below execute within the context of container
+// namespaces. In other words, they are invoke as part of "sysvisor-fs nsenter"
+// execution.
+//
+///////////////////////////////////////////////////////////////////////////////
+
+func (e *nsenterEvent) processFileWriteRequest() error {
+
+	payload := []byte(e.ReqMsg.Payload.(string))
+	err := ioutil.WriteFile(e.Resource, payload, 0644)
+	if err != nil {
+		log.Printf("Error writing to %s resource", e.Resource)
+		e.ResMsg = &nsenterMessage{
+			Type:    errorResponse,
+			Payload: err.Error(),
+		}
+
+		return err
+	}
+
+	e.ResMsg = &nsenterMessage{
+		Type:    writeFileResponse,
+		Payload: nil,
+	}
+
+	return nil
+}
+
+func (e *nsenterEvent) processFileReadRequest() error {
+
+	fileContent, err := ioutil.ReadFile(e.Resource)
+	if err != nil {
+		log.Printf("Error reading from %s resource", e.Resource)
+		e.ResMsg = &nsenterMessage{
+			Type:    errorResponse,
+			Payload: err.Error(),
+		}
+
+		return err
+	}
+
+	e.ResMsg = &nsenterMessage{
+		Type:    readFileResponse,
+		Payload: strings.TrimSpace(string(fileContent)),
+	}
+
+	return nil
+}
+
+func (e *nsenterEvent) processDirReadRequest() error {
+
+	dirContent, err := ioutil.ReadDir(e.Resource)
+	if err != nil {
+		log.Printf("Error reading from %s resource", e.Resource)
+		e.ResMsg = &nsenterMessage{
+			Type:    errorResponse,
+			Payload: err.Error(),
+		}
+
+		return err
+	}
+
+	var dirContentList []nsenterDir
+
+	for _, entry := range dirContent {
+		elem := nsenterDir{
+			Dname:    entry.Name(),
+			Dsize:    entry.Size(),
+			Dmode:    entry.Mode(),
+			DmodTime: entry.ModTime(),
+			DisDir:   entry.IsDir(),
+		}
+		dirContentList = append(dirContentList, elem)
+	}
+
+	e.ResMsg = &nsenterMessage{
+		Type:    readDirResponse,
+		Payload: dirContentList,
+	}
+
+	return nil
+}
+
+// Method in charge of processing  all requests generated by sysvisor-fs master
+// instance.
+func (e *nsenterEvent) processRequest(pipe io.Reader) error {
+
+	// Decode message into our own nsenterEvent struct.
+	if err := json.NewDecoder(pipe).Decode(&e); err != nil {
+		return errors.New("Error decoding received nsenterEvent request")
+	}
+
+	switch e.ReqMsg.Type {
+
+	case readFileRequest:
+		return e.processFileReadRequest()
+
+	case writeFileRequest:
+		return e.processFileWriteRequest()
+
+	case readDirRequest:
+		return e.processDirReadRequest()
+
+	default:
+		e.ResMsg = &nsenterMessage{
+			Type:    errorResponse,
+			Payload: "Unsupported request",
+		}
+	}
+
+	return nil
 }
 
 //
@@ -329,12 +490,14 @@ func Nsenter() (err error) {
 	os.Clearenv()
 
 	var event nsenterEvent
-	res, err := event.processRequest(pipe)
+	err = event.processRequest(pipe)
 	if err != nil {
 		return err
 	}
 
-	_ = utils.WriteJSON(pipe, res)
+	log.Printf("Rodny testing on the request-processing side")
+	spew.Dump(event)
+	_ = utils.WriteJSON(pipe, event.ResMsg)
 
 	return nil
 }

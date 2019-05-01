@@ -24,15 +24,20 @@ type IOnode interface {
 	Close() error
 	ReadAt(p []byte, off int64) (n int, err error)
 	ReadDirAll() ([]os.FileInfo, error)
-	SetOpenFlags(flags int)
-	GetOpenFlags() int
 	ReadLine() string
 	SeekReset() (int64, error)
 	PidNsInode() (Inode, error)
+	//
+	// Required getters/setters.
+	//
+	Name() string
+	Path() string
+	OpenFlags() int
+	SetOpenFlags(flags int)
 }
 
 type IOService interface {
-	NewIOnode(p string, attr os.FileMode) IOnode
+	NewIOnode(n string, p string, attr os.FileMode) IOnode
 	OpenNode(i IOnode) error
 	ReadNode(i IOnode, p []byte) (int, error)
 	WriteNode(i IOnode, p []byte) (int, error)

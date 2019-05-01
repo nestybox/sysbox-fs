@@ -49,7 +49,7 @@ func ContainerRegister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) erro
 	ipcService := ctx.(*ipcService)
 
 	// Identify the pidNsInode corresponding to this pid.
-	tmpNode := ipcService.ios.NewIOnode(strconv.Itoa(int(data.InitPid)), 0)
+	tmpNode := ipcService.ios.NewIOnode("", strconv.Itoa(int(data.InitPid)), 0)
 	pidInode, err := ipcService.ios.PidNsInode(tmpNode)
 	if err != nil {
 		return err

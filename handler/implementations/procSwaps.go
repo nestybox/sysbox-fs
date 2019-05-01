@@ -3,6 +3,7 @@ package implementations
 import (
 	"io"
 	"log"
+	"os"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
@@ -11,15 +12,23 @@ import (
 // /proc/swaps Handler
 //
 type ProcSwapsHandler struct {
-	Name    string
-	Path    string
-	Enabled bool
-	Service domain.HandlerService
+	Name      string
+	Path      string
+	Enabled   bool
+	Cacheable bool
+	Service   domain.HandlerService
 }
 
 func (h *ProcSwapsHandler) Open(node domain.IOnode) error {
 
 	log.Printf("Executing %v open() method", h.Name)
+
+	return nil
+}
+
+func (h *ProcSwapsHandler) Close(node domain.IOnode) error {
+
+	log.Printf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
@@ -45,6 +54,13 @@ func (h *ProcSwapsHandler) Write(
 	buf []byte) (int, error) {
 
 	return 0, nil
+}
+
+func (h *ProcSwapsHandler) ReadDirAll(
+	node domain.IOnode,
+	pidInode domain.Inode) ([]os.FileInfo, error) {
+
+	return nil, nil
 }
 
 func (h *ProcSwapsHandler) GetName() string {

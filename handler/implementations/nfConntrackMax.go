@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"syscall"
@@ -15,17 +16,18 @@ import (
 // /proc/sys/net/netfilter/nf_conntrack_max handler
 //
 type NfConntrackMaxHandler struct {
-	Name    string
-	Path    string
-	Enabled bool
-	Service domain.HandlerService
+	Name      string
+	Path      string
+	Enabled   bool
+	Cacheable bool
+	Service   domain.HandlerService
 }
 
 func (h *NfConntrackMaxHandler) Open(node domain.IOnode) error {
 
 	log.Printf("Executing %v open() method\n", h.Name)
 
-	flags := node.GetOpenFlags()
+	flags := node.OpenFlags()
 	if flags != syscall.O_RDONLY && flags != syscall.O_WRONLY {
 		return errors.New("/proc/sys/net/netfilter/nf_conntrack_max: Permission denied")
 	}
@@ -41,6 +43,13 @@ func (h *NfConntrackMaxHandler) Open(node domain.IOnode) error {
 		log.Printf("Error opening file %v\n", h.Path)
 		return errors.New("Error opening file")
 	}
+
+	return nil
+}
+
+func (h *NfConntrackMaxHandler) Close(node domain.IOnode) error {
+
+	log.Printf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
@@ -184,6 +193,13 @@ func (h *NfConntrackMaxHandler) Write(
 	cntr.Data[h.Path][h.Name] = newMax
 
 	return len(buf), nil
+}
+
+func (h *NfConntrackMaxHandler) ReadDirAll(
+	node domain.IOnode,
+	pidInode domain.Inode) ([]os.FileInfo, error) {
+
+	return nil, nil
 }
 
 func (h *NfConntrackMaxHandler) fetch(

@@ -3,6 +3,7 @@ package implementations
 import (
 	"io"
 	"log"
+	"os"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
@@ -11,15 +12,23 @@ import (
 // /proc/cgroups Handler
 //
 type ProcDevicesHandler struct {
-	Name    string
-	Path    string
-	Enabled bool
-	Service domain.HandlerService
+	Name      string
+	Path      string
+	Enabled   bool
+	Cacheable bool
+	Service   domain.HandlerService
 }
 
 func (h *ProcDevicesHandler) Open(node domain.IOnode) error {
 
 	log.Printf("Executing %v open() method", h.Name)
+
+	return nil
+}
+
+func (h *ProcDevicesHandler) Close(node domain.IOnode) error {
+
+	log.Printf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
@@ -45,6 +54,13 @@ func (h *ProcDevicesHandler) Write(
 	buf []byte) (int, error) {
 
 	return 0, nil
+}
+
+func (h *ProcDevicesHandler) ReadDirAll(
+	node domain.IOnode,
+	pidInode domain.Inode) ([]os.FileInfo, error) {
+
+	return nil, nil
 }
 
 func (h *ProcDevicesHandler) GetName() string {
