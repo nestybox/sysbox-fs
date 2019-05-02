@@ -167,5 +167,12 @@ func (css *containerStateService) ContainerLookupByPid(pidInode domain.Inode) do
 		return nil
 	}
 
+	// Althought not strickly needed, let's check in container's idTable too for
+	// data-consistency's sake.
+	_, ok = css.idTable[cntr.id]
+	if !ok {
+		return nil
+	}
+
 	return cntr
 }
