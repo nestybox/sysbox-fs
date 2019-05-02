@@ -72,7 +72,6 @@ func (s *ioFileService) PathNode(i domain.IOnode) string {
 	return i.Path()
 }
 
-
 //
 // IOnode class specialization for FS interaction.
 //
@@ -169,4 +168,3 @@ func (i *IOnodeFile) OpenFlags() int {
 func (i *IOnodeFile) SetOpenFlags(flags int) {
 	i.flags = flags
 }
-

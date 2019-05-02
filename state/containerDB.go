@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
@@ -11,14 +12,14 @@ import (
 type containerStateService struct {
 	sync.RWMutex
 	idTable  map[string]domain.Inode
-	pidTable map[domain.Inode]*domain.Container
+	pidTable map[domain.Inode]*container
 }
 
 func NewContainerStateService() domain.ContainerStateService {
 
 	newCSS := &containerStateService{
 		idTable:  make(map[string]domain.Inode),
-		pidTable: make(map[domain.Inode]*domain.Container),
+		pidTable: make(map[domain.Inode]*container),
 	}
 
 	return newCSS
@@ -28,52 +29,68 @@ func (css *containerStateService) ContainerCreate(
 	id string,
 	initpid uint32,
 	hostname string,
-	inode domain.Inode) *domain.Container {
+	inode domain.Inode,
+	ctime time.Time,
+	uidFirst uint32,
+	uidSize uint32,
+	gidFirst uint32,
+	gidSize uint32,
+) domain.ContainerIface {
 
-	newcntr := &domain.Container{
-		ID:       id,
-		InitPid:  initpid,
-		Hostname: hostname,
-		PidInode: inode,
-		Data:     make(map[string]map[string]string),
+	newcntr := &container{
+		id:       id,
+		initPid:  initpid,
+		hostname: hostname,
+		pidInode: inode,
+		ctime:    ctime,
+		uidFirst: uidFirst,
+		uidSize:  uidSize,
+		gidFirst: gidFirst,
+		gidSize:  gidSize,
 	}
 
 	return newcntr
 }
 
-func (css *containerStateService) ContainerAdd(c *domain.Container) error {
+func (css *containerStateService) ContainerAdd(c domain.ContainerIface) error {
 	css.Lock()
 
-	if _, ok := css.idTable[c.ID]; ok {
+	cntr := c.(*container)
+
+	// Ensure that new container's id is not already present.
+	if _, ok := css.idTable[cntr.id]; ok {
 		css.Unlock()
-		log.Printf("Container addition error: container ID %v already present\n", c.ID)
+		log.Printf("Container addition error: container ID %v already present\n", cntr.id)
 		return errors.New("Container ID already present")
 	}
 
-	if _, ok := css.pidTable[c.PidInode]; ok {
+	// Ensure that new container's pidNsInode is not already registered.
+	if _, ok := css.pidTable[cntr.pidInode]; ok {
 		css.Unlock()
-		log.Printf("Container addition error: container with PID-inode %v already present\n", c.PidInode)
+		log.Printf("Container addition error: container with PID-inode %v already present\n", cntr.pidInode)
 		return errors.New("Container with PID-inode already present")
 	}
 
-	css.idTable[c.ID] = c.PidInode
-	css.pidTable[c.PidInode] = c
+	css.idTable[cntr.id] = cntr.pidInode
+	css.pidTable[cntr.pidInode] = cntr
 	css.Unlock()
 
 	return nil
 }
 
-func (css *containerStateService) ContainerUpdate(c *domain.Container) error {
+func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error {
 	css.Lock()
+
+	cntr := c.(*container)
 
 	//
 	// Identify the inode associated to the pid-ns of the container being
 	// updated.
 	//
-	inode, ok := css.idTable[c.ID]
+	inode, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
-		log.Printf("Container update failure: container ID %v not found\n", c.ID)
+		log.Printf("Container update failure: container ID %v not found\n", cntr.id)
 		return errors.New("Container ID not found")
 	}
 
@@ -89,23 +106,25 @@ func (css *containerStateService) ContainerUpdate(c *domain.Container) error {
 	// Update the existing container-state struct with the one being received.
 	// Only 'creation-time' attribute is supported for now.
 	//
-	currCntr.Ctime = c.Ctime
+	currCntr.SetCtime(cntr.ctime)
 	css.Unlock()
 
 	return nil
 }
 
-func (css *containerStateService) ContainerDelete(c *domain.Container) error {
+func (css *containerStateService) ContainerDelete(c domain.ContainerIface) error {
 	css.Lock()
+
+	cntr := c.(*container)
 
 	//
 	// Identify the inode associated to the pid-ns of the container being
 	// eliminated.
 	//
-	inode, ok := css.idTable[c.ID]
+	inode, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
-		log.Printf("Container deletion failure: container ID %v not found\n", c.ID)
+		log.Printf("Container deletion failure: container ID %v not found\n", cntr.id)
 		return errors.New("Container ID not found")
 	}
 
@@ -115,14 +134,14 @@ func (css *containerStateService) ContainerDelete(c *domain.Container) error {
 		return errors.New("Container with PID-inode already present")
 	}
 
-	delete(css.idTable, c.ID)
+	delete(css.idTable, cntr.id)
 	delete(css.pidTable, inode)
 	css.Unlock()
 
 	return nil
 }
 
-func (css *containerStateService) ContainerLookupById(id string) *domain.Container {
+func (css *containerStateService) ContainerLookupById(id string) domain.ContainerIface {
 	css.RLock()
 	defer css.RUnlock()
 
@@ -131,22 +150,22 @@ func (css *containerStateService) ContainerLookupById(id string) *domain.Contain
 		return nil
 	}
 
-	cont, ok := css.pidTable[pidInode]
+	cntr, ok := css.pidTable[pidInode]
 	if !ok {
 		return nil
 	}
 
-	return cont
+	return cntr
 }
 
-func (css *containerStateService) ContainerLookupByPid(pidInode domain.Inode) *domain.Container {
+func (css *containerStateService) ContainerLookupByPid(pidInode domain.Inode) domain.ContainerIface {
 	css.RLock()
 	defer css.RUnlock()
 
-	cont, ok := css.pidTable[pidInode]
+	cntr, ok := css.pidTable[pidInode]
 	if !ok {
 		return nil
 	}
 
-	return cont
+	return cntr
 }

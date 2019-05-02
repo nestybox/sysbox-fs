@@ -72,7 +72,7 @@ func (h *NetNetfilter) ReadDirAll(n domain.IOnode, i domain.Inode) ([]os.FileInf
 		Dsize: 0,
 		// TODO: Replace this literal with a proper global-type.
 		Dmode:    0644,
-		DmodTime: cntr.Ctime,
+		DmodTime: cntr.Ctime(),
 		DisDir:   false,
 	}
 

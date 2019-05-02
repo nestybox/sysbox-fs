@@ -55,18 +55,18 @@ func ContainerRegister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) erro
 		return err
 	}
 
-	cntr := &domain.Container{
-		ID:       data.Id,
-		InitPid:  uint32(data.InitPid),
-		Hostname: data.Hostname,
-		Ctime:    data.Ctime,
-		UIDFirst: uint32(data.UidFirst),
-		UIDSize:  uint32(data.UidSize),
-		GIDFirst: uint32(data.GidFirst),
-		GIDSize:  uint32(data.GidSize),
-		PidInode: pidInode,
-		Data:     make(map[string]map[string]string),
-	}
+	// Create new container and add it to the containerDB.
+	cntr := ipcService.css.ContainerCreate(
+		data.Id,
+		uint32(data.InitPid),
+		data.Hostname,
+		pidInode,
+		data.Ctime,
+		uint32(data.UidFirst),
+		uint32(data.UidSize),
+		uint32(data.GidFirst),
+		uint32(data.GidSize),
+	)
 
 	err = ipcService.css.ContainerAdd(cntr)
 	if err != nil {
@@ -84,18 +84,22 @@ func ContainerUnregister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) er
 		return errors.New("Invalid input parameters")
 	}
 
-	cntr := &domain.Container{
-		ID:       data.Id,
-		InitPid:  uint32(data.InitPid),
-		Hostname: data.Hostname,
-		Ctime:    data.Ctime,
-		UIDFirst: uint32(data.UidFirst),
-		UIDSize:  uint32(data.UidSize),
-		GIDFirst: uint32(data.GidFirst),
-		GIDSize:  uint32(data.GidSize),
-	}
-
 	ipcService := ctx.(*ipcService)
+
+	// Create temporary container struct to be passed as reference to containerDB,
+	// where the matching (real) container will be identified and then eliminated.
+	cntr := ipcService.css.ContainerCreate(
+		data.Id,
+		uint32(data.InitPid),
+		data.Hostname,
+		0,
+		data.Ctime,
+		uint32(data.UidFirst),
+		uint32(data.UidSize),
+		uint32(data.GidFirst),
+		uint32(data.GidSize),
+	)
+
 	err := ipcService.css.ContainerDelete(cntr)
 	if err != nil {
 		return err
@@ -112,18 +116,22 @@ func ContainerUpdate(ctx interface{}, data *sysvisorFsGrpc.ContainerData) error 
 		return errors.New("Invalid input parameters")
 	}
 
-	cntr := &domain.Container{
-		ID:       data.Id,
-		InitPid:  uint32(data.InitPid),
-		Hostname: data.Hostname,
-		Ctime:    data.Ctime,
-		UIDFirst: uint32(data.UidFirst),
-		UIDSize:  uint32(data.UidSize),
-		GIDFirst: uint32(data.GidFirst),
-		GIDSize:  uint32(data.GidSize),
-	}
-
 	ipcService := ctx.(*ipcService)
+
+	// Create temporary container struct to be passed as reference to containerDB,
+	// where the matching (real) container will identified and then updated.
+	cntr := ipcService.css.ContainerCreate(
+		data.Id,
+		uint32(data.InitPid),
+		data.Hostname,
+		0,
+		data.Ctime,
+		uint32(data.UidFirst),
+		uint32(data.UidSize),
+		uint32(data.GidFirst),
+		uint32(data.GidSize),
+	)
+
 	err := ipcService.css.ContainerUpdate(cntr)
 	if err != nil {
 		return err

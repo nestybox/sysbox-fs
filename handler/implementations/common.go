@@ -37,14 +37,14 @@ func (h *CommonHandler) Close(node domain.IOnode) error {
 
 func (h *CommonHandler) Read(n domain.IOnode, i domain.Inode, buf []byte, off int64) (int, error) {
 
-	name := n.Name()
-	path := n.Path()
-
 	log.Printf("Executing Read() method on %v handler", h.Name)
 
 	if off > 0 {
 		return 0, io.EOF
 	}
+
+	name := n.Name()
+	path := n.Path()
 
 	var (
 		result string
@@ -64,26 +64,24 @@ func (h *CommonHandler) Read(n domain.IOnode, i domain.Inode, buf []byte, off in
 		// Check if this resource has been initialized for this container. Otherwise,
 		// fetch the information from the host FS and store it accordingly within
 		// the container struct.
-		_, ok := cntr.Data[path]
+		result, ok := cntr.Data(path, name)
 		if !ok {
-			content, err := h.fetchFile(n, cntr)
+			data, err := h.fetchFile(n, cntr)
 			if err != nil {
 				return 0, err
 			}
 
-			data := map[string]string{
-				name: content,
-			}
-
-			cntr.Data[path] = data
+			cntr.SetData(path, name, data)
 		}
 
-		// At this point, some container-state data must be available to serve this
-		// request.
-		result, ok = cntr.Data[path][name]
-		if !ok {
-			log.Println("Unexpected error")
-			return 0, io.EOF
+		// At this point, there must be some container-state data available to
+		// serve this request.
+		if result == "" {
+			result, ok = cntr.Data(path, name)
+			if !ok {
+				log.Println("Unexpected error")
+				return 0, io.EOF
+			}
 		}
 
 	} else {
@@ -122,25 +120,15 @@ func (h *CommonHandler) Write(n domain.IOnode, i domain.Inode, buf []byte) (int,
 	if h.Cacheable {
 		// Check if this resource has been initialized for this container. If not,
 		// push it to the host FS and store it within the container struct.
-		_, ok := cntr.Data[path]
+		curContent, ok := cntr.Data(path, name)
 		if !ok {
 			if err := h.push(n, cntr, newContent); err != nil {
 				return 0, err
 			}
 
-			data := map[string]string{
-				name: newContent,
-			}
-			cntr.Data[path] = data
+			cntr.SetData(path, name, newContent)
 
 			return len(buf), nil
-		}
-
-		// Obtain existing value stored/cached in this container struct.
-		curContent, ok := cntr.Data[path][name]
-		if !ok {
-			log.Println("Unexpected error")
-			return 0, errors.New("Unexpected error")
 		}
 
 		// If new value matches the existing one, then there's noting else to be
@@ -150,7 +138,7 @@ func (h *CommonHandler) Write(n domain.IOnode, i domain.Inode, buf []byte) (int,
 		}
 
 		// Writing the new value into container-state struct.
-		cntr.Data[path][name] = newContent
+		cntr.SetData(path, name, newContent)
 
 	} else {
 		// Push new value to host FS.
@@ -184,11 +172,11 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, i domain.Inode) ([]os.FileIn
 }
 
 // Auxiliar method to fetch the content of any given file within a container.
-func (h *CommonHandler) fetchFile(n domain.IOnode, c *domain.Container) (string, error) {
+func (h *CommonHandler) fetchFile(n domain.IOnode, c domain.ContainerIface) (string, error) {
 
 	event := &nsenterEvent{
 		Resource:  n.Path(),
-		Pid:       c.InitPid,
+		Pid:       c.InitPid(),
 		Namespace: []nsType{string(nsTypeNet)},
 		ReqMsg: &nsenterMessage{
 			Type:    readFileRequest,
@@ -203,16 +191,15 @@ func (h *CommonHandler) fetchFile(n domain.IOnode, c *domain.Container) (string,
 		return "", err
 	}
 
-	//return event.ResMsg.Payload.(*nsenterFilePayload).data, nil
 	return event.ResMsg.Payload.(string), nil
 }
 
 // Auxiliar method to fetch the content of any given folder within a container.
-func (h *CommonHandler) fetchDir(n domain.IOnode, c *domain.Container) ([]os.FileInfo, error) {
+func (h *CommonHandler) fetchDir(n domain.IOnode, c domain.ContainerIface) ([]os.FileInfo, error) {
 
 	event := &nsenterEvent{
 		Resource:  n.Path(),
-		Pid:       c.InitPid,
+		Pid:       c.InitPid(),
 		Namespace: []nsType{string(nsTypeNet)},
 		ReqMsg: &nsenterMessage{
 			Type:    readDirRequest,
@@ -240,11 +227,11 @@ func (h *CommonHandler) fetchDir(n domain.IOnode, c *domain.Container) ([]os.Fil
 }
 
 // Auxiliar method to inject content into any given file within a container.
-func (h *CommonHandler) push(n domain.IOnode, c *domain.Container, s string) error {
+func (h *CommonHandler) push(n domain.IOnode, c domain.ContainerIface, s string) error {
 
 	event := &nsenterEvent{
 		Resource:  n.Path(),
-		Pid:       c.InitPid,
+		Pid:       c.InitPid(),
 		Namespace: []nsType{string(nsTypeNet)},
 		ReqMsg: &nsenterMessage{
 			Type:    writeFileRequest,
@@ -257,7 +244,8 @@ func (h *CommonHandler) push(n domain.IOnode, c *domain.Container, s string) err
 		return err
 	}
 
-	//if respone.
+	// TODO: Verify that the response itself is a non-error one.
+
 	return nil
 }
 

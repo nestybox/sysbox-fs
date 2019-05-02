@@ -64,6 +64,9 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, i domain.Inode,
 		return 0, io.EOF
 	}
 
+	name := n.Name()
+	path := n.Path()
+
 	// Find the container-state corresponding to the container hosting this
 	// Pid.
 	css := h.Service.StateService()
@@ -76,26 +79,24 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, i domain.Inode,
 	// Check if this resource has been initialized for this container. Otherwise,
 	// fetch the information from the host FS and store it accordingly within
 	// the container struct.
-	_, ok := cntr.Data[h.Path]
+	data, ok := cntr.Data(path, name)
 	if !ok {
-		content, err := h.fetch(n, cntr)
+		data, err := h.fetch(n, cntr)
 		if err != nil {
 			return 0, err
 		}
 
-		nfConntrackMaxMap := map[string]string{
-			h.Name: content,
-		}
-
-		cntr.Data[h.Path] = nfConntrackMaxMap
+		cntr.SetData(path, name, data)
 	}
 
 	// At this point, some container-state data must be available to serve this
 	// request.
-	data, ok := cntr.Data[h.Path][h.Name]
-	if !ok {
-		log.Println("Unexpected error")
-		return 0, io.EOF
+	if data == "" {
+		data, ok = cntr.Data(path, name)
+		if !ok {
+			log.Println("Unexpected error")
+			return 0, io.EOF
+		}
 	}
 
 	data += "\n"
@@ -110,6 +111,9 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 	buf []byte) (int, error) {
 
 	log.Printf("Executing %v write() method\n", h.Name)
+
+	name := n.Name()
+	path := n.Path()
 
 	newMax := strings.TrimSpace(string(buf))
 	newMaxInt, err := strconv.Atoi(newMax)
@@ -129,25 +133,15 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 
 	// Check if this resource has been initialized for this container. If not,
 	// push it to the host FS and store it within the container struct.
-	_, ok := cntr.Data[h.Path]
+	curMax, ok := cntr.Data(path, name)
 	if !ok {
 		if err := h.push(n, cntr, newMaxInt); err != nil {
 			return 0, err
 		}
 
-		nfConntrackMaxMap := map[string]string{
-			h.Name: newMax,
-		}
-		cntr.Data[h.Path] = nfConntrackMaxMap
+		cntr.SetData(path, name, newMax)
 
 		return len(buf), nil
-	}
-
-	// Obtain existing value stored/cached in this container struct.
-	curMax, ok := cntr.Data[h.Path][h.Name]
-	if !ok {
-		log.Println("Unexpected error")
-		return 0, err
 	}
 
 	curMaxInt, err := strconv.Atoi(curMax)
@@ -161,7 +155,7 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 	// push this (lower-than-current) value into the host FS, as we could be
 	// impacting other syscontainers.
 	if newMaxInt <= curMaxInt {
-		cntr.Data[h.Path][h.Name] = newMax
+		cntr.SetData(path, name, newMax)
 
 		return len(buf), nil
 	}
@@ -172,7 +166,7 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 	}
 
 	// Writing the new value into container-state struct.
-	cntr.Data[h.Path][h.Name] = newMax
+	cntr.SetData(path, name, newMax)
 
 	return len(buf), nil
 }
@@ -183,7 +177,7 @@ func (h *NfConntrackMaxHandler) ReadDirAll(n domain.IOnode,
 	return nil, nil
 }
 
-func (h *NfConntrackMaxHandler) fetch(n domain.IOnode, c *domain.Container) (string, error) {
+func (h *NfConntrackMaxHandler) fetch(n domain.IOnode, c domain.ContainerIface) (string, error) {
 
 	// Read from host FS to extract the existing nf_conntrack_max value.
 	curHostMax := n.ReadLine()
@@ -202,7 +196,7 @@ func (h *NfConntrackMaxHandler) fetch(n domain.IOnode, c *domain.Container) (str
 	return curHostMax, nil
 }
 
-func (h *NfConntrackMaxHandler) push(n domain.IOnode, c *domain.Container,
+func (h *NfConntrackMaxHandler) push(n domain.IOnode, c domain.ContainerIface,
 	newMaxInt int) error {
 
 	curHostMax := n.ReadLine()
@@ -219,7 +213,7 @@ func (h *NfConntrackMaxHandler) push(n domain.IOnode, c *domain.Container,
 		return nil
 	}
 
-	// Rewdind file offset back to its start point.
+	// Rewinding file offset back to its start point.
 	_, err = n.SeekReset()
 	if err != nil {
 		log.Printf("Could not reset file offset: %v\n", err)
