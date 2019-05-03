@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_container_ID(t *testing.T) {
@@ -271,6 +272,8 @@ func Test_container_SetCtime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.c.SetCtime(tt.args.t)
 		})
+
+		assert.Equal(t, tt.args.t, tt.c.Ctime(), "ctime fields are not matching")
 	}
 }
 
@@ -308,5 +311,12 @@ func Test_container_SetData(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.c.SetData(tt.args.path, tt.args.name, tt.args.data)
 		})
+
+		data, ok := tt.c.Data(tt.args.path, tt.args.name)
+		if !ok {
+			t.Errorf("Unexpected result during execution of testcase %v", tt.name)
+		}
+
+		assert.Equal(t, tt.args.data, data, "data fields are not matching")
 	}
 }

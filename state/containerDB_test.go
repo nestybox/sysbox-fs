@@ -149,6 +149,13 @@ func Test_containerStateService_ContainerAdd(t *testing.T) {
 				t.Errorf("containerStateService.ContainerAdd() error = %v, wantErr %v",
 					err, tt.wantErr)
 			}
+
+			// Verify that containers were properly added.
+			if cntr := tt.css.ContainerLookupById(tt.args.c.ID()); cntr == nil {
+				if !tt.wantErr {
+					t.Errorf("Unexpected result during execution of testcase %v", tt.name)
+				}
+			}
 		})
 	}
 }
@@ -262,6 +269,11 @@ func Test_containerStateService_ContainerDelete(t *testing.T) {
 			if err := tt.css.ContainerDelete(tt.args.c); (err != nil) != tt.wantErr {
 				t.Errorf("containerStateService.ContainerDelete() error = %v, wantErr %v",
 					err, tt.wantErr)
+			}
+
+			// Verify that containers are properly deleted.
+			if cntr := tt.css.ContainerLookupById(tt.args.c.ID()); cntr != nil {
+				t.Errorf("Unexpected result during execution of testcase %v", tt.name)
 			}
 		})
 	}
