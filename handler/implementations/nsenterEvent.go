@@ -16,8 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/opencontainers/runc/libcontainer"
 	_ "github.com/opencontainers/runc/libcontainer/nsenter"
 	"github.com/opencontainers/runc/libcontainer/utils"
@@ -495,8 +493,6 @@ func Nsenter() (err error) {
 		return err
 	}
 
-	log.Printf("Rodny testing on the request-processing side")
-	spew.Dump(event)
 	_ = utils.WriteJSON(pipe, event.ResMsg)
 
 	return nil
