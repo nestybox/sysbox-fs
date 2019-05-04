@@ -84,11 +84,15 @@ func (c *container) String() string {
 	c.RLock()
 	defer c.RUnlock()
 
-	return "\n\t\t id: " + c.id + "\n" +
+	result := "\n\t\t id: " + c.id + "\n" +
 		"\t\t initPid: " + strconv.Itoa(int(c.initPid)) + "\n" +
 		"\t\t hostname: " + c.hostname + "\n" +
 		"\t\t ctime: " + c.ctime.String() + "\n" +
-		"\t\t pidNsInode: " + strconv.FormatUint(c.pidInode, 10)
+		"\t\t pidNsInode: " + strconv.FormatUint(c.pidInode, 10) + "\n" +
+		"\t\t UID: " + strconv.Itoa(int(c.uidFirst)) + "\n" +
+		"\t\t GID: " + strconv.Itoa(int(c.gidFirst))
+
+	return result
 }
 
 //

@@ -75,6 +75,8 @@ func (css *containerStateService) ContainerAdd(c domain.ContainerIface) error {
 	css.pidTable[cntr.pidInode] = cntr
 	css.Unlock()
 
+	log.Printf("#### Added container #### %v \n", cntr.String())
+
 	return nil
 }
 
@@ -109,6 +111,8 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	currCntr.SetCtime(cntr.ctime)
 	css.Unlock()
 
+	log.Printf("#### Updated container #### %v \n", currCntr.String())
+
 	return nil
 }
 
@@ -128,15 +132,18 @@ func (css *containerStateService) ContainerDelete(c domain.ContainerIface) error
 		return errors.New("Container ID not found")
 	}
 
-	if _, ok := css.pidTable[inode]; !ok {
+	currCntr, ok := css.pidTable[inode]
+	if !ok {
 		css.Unlock()
 		log.Println("Container deletion error: could not find container with PID-inode", inode)
 		return errors.New("Container with PID-inode already present")
 	}
 
-	delete(css.idTable, cntr.id)
+	delete(css.idTable, currCntr.id)
 	delete(css.pidTable, inode)
 	css.Unlock()
+
+	log.Printf("#### Deleted container #### %v \n", currCntr.String())
 
 	return nil
 }

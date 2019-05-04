@@ -73,7 +73,7 @@ func ContainerRegister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) erro
 		return err
 	}
 
-	log.Println("Container registration successfully completed:", cntr.String())
+	log.Println("Container registration successfully completed.")
 
 	return nil
 }
@@ -105,7 +105,7 @@ func ContainerUnregister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) er
 		return err
 	}
 
-	log.Println("Container unregistration successfully completed:", cntr.String())
+	log.Println("Container unregistration successfully completed.")
 
 	return nil
 }
@@ -137,7 +137,7 @@ func ContainerUpdate(ctx interface{}, data *sysvisorFsGrpc.ContainerData) error 
 		return err
 	}
 
-	log.Println("Container update successfully completed:", cntr.String())
+	log.Println("Container update successfully completed.")
 
 	return nil
 }
