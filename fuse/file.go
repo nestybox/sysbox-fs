@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -55,6 +54,8 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 
 	log.Println("Requested Attr() operation for entry", f.path)
 
+	// Simply return the attributes that were previously collected during the
+	// lookup() execution.
 	*a = *f.attr
 
 	return nil
@@ -70,6 +71,8 @@ func (f *File) Getattr(
 
 	log.Println("Requested GetAttr() operation for entry", f.path)
 
+	// Simply return the attributes that were previously collected during the
+	// lookup() execution.
 	resp.Attr = *f.attr
 
 	resp.Attr.Uid = req.Uid
@@ -90,7 +93,7 @@ func (f *File) Open(
 
 	f.ionode.SetOpenFlags(int(req.Flags))
 
-	// Identify the associated handler and execute it accordingly.
+	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
 	if !ok {
 		log.Printf("No supported handler for %v resource", f.path)
@@ -148,7 +151,7 @@ func (f *File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 
 	log.Println("Requested Release() operation for entry", f.path)
 
-	// Identify the associated handler and execute it accordingly.
+	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
 	if !ok {
 		log.Printf("No supported handler for %v resource", f.path)
@@ -179,11 +182,6 @@ func (f *File) Read(
 	// Adjust receiving buffer to the request's size.
 	resp.Data = resp.Data[:req.Size]
 
-	var (
-		n   int
-		err error
-	)
-
 	// Identify the associated handler and execute it accordingly.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
 	if !ok {
@@ -191,15 +189,8 @@ func (f *File) Read(
 		return fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
-	// Identify the pidNsInode corresponding to this pid.
-	tmpNode := f.service.ios.NewIOnode("", strconv.Itoa(int(req.Pid)), 0)
-	pidInode, err := f.service.ios.PidNsInode(tmpNode)
-	if err != nil {
-		return err
-	}
-
 	// Handler execution.
-	n, err = handler.Read(f.ionode, pidInode, resp.Data, req.Offset)
+	n, err := handler.Read(f.ionode, req.Pid, resp.Data, req.Offset)
 	if err != nil && err != io.EOF {
 		log.Println("Read ERR: ", err)
 		return err
@@ -225,27 +216,15 @@ func (f *File) Write(
 		return fuse.ENOTSUP
 	}
 
-	var (
-		n   int
-		err error
-	)
-
-	// Identify the associated handler and execute it accordingly.
+	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
 	if !ok {
 		log.Printf("No supported handler for %v resource", f.path)
 		return fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
-	// Identify the pidNsInode corresponding to this pid.
-	tmpNode := f.service.ios.NewIOnode("", strconv.Itoa(int(req.Pid)), 0)
-	pidInode, err := f.service.ios.PidNsInode(tmpNode)
-	if err != nil {
-		return err
-	}
-
 	// Handler execution.
-	n, err = handler.Write(f.ionode, pidInode, req.Data)
+	n, err := handler.Write(f.ionode, req.Pid, req.Data)
 	if err != nil && err != io.EOF {
 		log.Println("Write ERR: ", err)
 		return err
@@ -278,7 +257,7 @@ func (f *File) ModTime() time.Time {
 }
 
 //
-// StatToAttr helper function to translate FS node-parameters from unix/kernel
+// statToAttr helper function to translate FS node-parameters from unix/kernel
 // format to FUSE ones.
 //
 // Kernel FS node attribs:  fuse.attr (fuse_kernel*.go)
@@ -286,7 +265,7 @@ func (f *File) ModTime() time.Time {
 //
 // TODO: Place me in a more appropiate location
 //
-func StatToAttr(s *syscall.Stat_t) fuse.Attr {
+func statToAttr(s *syscall.Stat_t) fuse.Attr {
 
 	var a fuse.Attr
 

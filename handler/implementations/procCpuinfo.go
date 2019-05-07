@@ -9,9 +9,9 @@ import (
 )
 
 //
-// /proc/stat Handler
+// /proc/cpuinfo Handler
 //
-type ProcStatHandler struct {
+type ProcCpuinfoHandler struct {
 	Name      string
 	Path      string
 	Enabled   bool
@@ -19,28 +19,28 @@ type ProcStatHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *ProcStatHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *ProcCpuinfoHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
 	return os.Stat(n.Path())
 }
 
-func (h *ProcStatHandler) Open(n domain.IOnode) error {
+func (h *ProcCpuinfoHandler) Open(node domain.IOnode) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 
 	return nil
 }
 
-func (h *ProcStatHandler) Close(n domain.IOnode) error {
+func (h *ProcCpuinfoHandler) Close(node domain.IOnode) error {
 
 	log.Printf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *ProcStatHandler) Read(n domain.IOnode, pid uint32,
+func (h *ProcCpuinfoHandler) Read(n domain.IOnode, pid uint32,
 	buf []byte, off int64) (int, error) {
 
 	log.Printf("Executing %v read() method", h.Name)
@@ -52,34 +52,33 @@ func (h *ProcStatHandler) Read(n domain.IOnode, pid uint32,
 	return 0, nil
 }
 
-func (h *ProcStatHandler) Write(n domain.IOnode, pid uint32,
+func (h *ProcCpuinfoHandler) Write(n domain.IOnode, pid uint32,
 	buf []byte) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcStatHandler) ReadDirAll(n domain.IOnode,
-	pid uint32) ([]os.FileInfo, error) {
+func (h *ProcCpuinfoHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
-func (h *ProcStatHandler) GetName() string {
+func (h *ProcCpuinfoHandler) GetName() string {
 	return h.Name
 }
 
-func (h *ProcStatHandler) GetPath() string {
+func (h *ProcCpuinfoHandler) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcStatHandler) GetEnabled() bool {
+func (h *ProcCpuinfoHandler) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *ProcStatHandler) SetEnabled(val bool) {
+func (h *ProcCpuinfoHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcStatHandler) SetService(hs domain.HandlerService) {
+func (h *ProcCpuinfoHandler) SetService(hs domain.HandlerService) {
 	h.Service = hs
 }

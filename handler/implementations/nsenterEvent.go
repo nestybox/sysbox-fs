@@ -14,8 +14,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
+	"syscall"
 
+	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 	"github.com/opencontainers/runc/libcontainer"
 	_ "github.com/opencontainers/runc/libcontainer/nsenter"
 	"github.com/opencontainers/runc/libcontainer/utils"
@@ -54,6 +55,8 @@ type pid struct {
 // by nsenterEvent class.
 //
 const (
+	lookupRequest     nsenterMsgType = "lookupRequest"
+	lookupResponse    nsenterMsgType = "lookupResponse"
 	readFileRequest   nsenterMsgType = "readFileRequest"
 	readFileResponse  nsenterMsgType = "readFileResponse"
 	writeFileRequest  nsenterMsgType = "writeFileRequest"
@@ -69,38 +72,6 @@ type nsenterMessage struct {
 
 	// Message payload.
 	Payload interface{} `json:"payload"`
-}
-
-type nsenterDir struct {
-	Dname    string
-	Dsize    int64
-	Dmode    os.FileMode
-	DmodTime time.Time
-	DisDir   bool
-}
-
-func (c nsenterDir) Name() string {
-	return c.Dname
-}
-
-func (c nsenterDir) Size() int64 {
-	return c.Dsize
-}
-
-func (c nsenterDir) Mode() os.FileMode {
-	return c.Dmode
-}
-
-func (c nsenterDir) ModTime() time.Time {
-	return c.DmodTime
-}
-
-func (c nsenterDir) IsDir() bool {
-	return c.DisDir
-}
-
-func (c nsenterDir) Sys() interface{} {
-	return nil
 }
 
 //
@@ -146,7 +117,6 @@ type nsenterEvent struct {
 //
 func (e *nsenterEvent) processResponse(pipe io.Reader) error {
 
-	//var event nsenterEvent
 	var payload json.RawMessage
 	nsenterMsg := nsenterMessage{
 		Payload: &payload,
@@ -162,13 +132,27 @@ func (e *nsenterEvent) processResponse(pipe io.Reader) error {
 	// takes care of decoding the message-type being received. Based on the
 	// obtained type, we are able to decode the polimorphic payload generated
 	// by the remote-end. This second step is executed as part of a subsequent
-	// unmarshal instruction (further below).
+	// unmarshal instruction (see further below).
 	if err = json.Unmarshal(data, &nsenterMsg); err != nil {
 		log.Println("Error decoding received nsenterMsg reponse")
 		return errors.New("Error decoding received event response")
 	}
 
 	switch nsenterMsg.Type {
+
+	case lookupResponse:
+		log.Println("Received nsenterEvent lookupResponse message")
+
+		var p domain.FileInfo
+		if err := json.Unmarshal(payload, &p); err != nil {
+			log.Fatal(err)
+		}
+
+		e.ResMsg = &nsenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+		break
 
 	case readFileResponse:
 		log.Println("Received nsenterEvent readResponse message")
@@ -191,7 +175,7 @@ func (e *nsenterEvent) processResponse(pipe io.Reader) error {
 	case readDirResponse:
 		log.Println("Received nsenterEvent readDirAllResponse message")
 
-		var p []nsenterDir
+		var p []domain.FileInfo
 		if err := json.Unmarshal(payload, &p); err != nil {
 			log.Fatal(err)
 		}
@@ -355,12 +339,15 @@ func (e *nsenterEvent) launch() error {
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-func (e *nsenterEvent) processFileWriteRequest() error {
+func (e *nsenterEvent) processLookupRequest() error {
 
-	payload := []byte(e.ReqMsg.Payload.(string))
-	err := ioutil.WriteFile(e.Resource, payload, 0644)
+	path := e.Resource
+
+	// Verify if the resource being looked up is reachable and obtain FileInfo
+	// details.
+	info, err := os.Stat(path)
 	if err != nil {
-		log.Printf("Error writing to %s resource", e.Resource)
+		log.Println("No directory", path, "found in FS")
 		e.ResMsg = &nsenterMessage{
 			Type:    errorResponse,
 			Payload: err.Error(),
@@ -369,9 +356,20 @@ func (e *nsenterEvent) processFileWriteRequest() error {
 		return err
 	}
 
+	// Allocate new FileInfo struct to return to sysvisor-fs' main instance.
+	fileInfo := domain.FileInfo{
+		Fname:    info.Name(),
+		Fsize:    info.Size(),
+		Fmode:    info.Mode(),
+		FmodTime: info.ModTime(),
+		FisDir:   info.IsDir(),
+		Fsys:     info.Sys().(*syscall.Stat_t),
+	}
+
+	// Create a response message.
 	e.ResMsg = &nsenterMessage{
-		Type:    writeFileResponse,
-		Payload: nil,
+		Type:    lookupResponse,
+		Payload: fileInfo,
 	}
 
 	return nil
@@ -379,6 +377,7 @@ func (e *nsenterEvent) processFileWriteRequest() error {
 
 func (e *nsenterEvent) processFileReadRequest() error {
 
+	// Perform read operation and return error msg should this one fail.
 	fileContent, err := ioutil.ReadFile(e.Resource)
 	if err != nil {
 		log.Printf("Error reading from %s resource", e.Resource)
@@ -390,6 +389,7 @@ func (e *nsenterEvent) processFileReadRequest() error {
 		return err
 	}
 
+	// Create a response message.
 	e.ResMsg = &nsenterMessage{
 		Type:    readFileResponse,
 		Payload: strings.TrimSpace(string(fileContent)),
@@ -398,8 +398,34 @@ func (e *nsenterEvent) processFileReadRequest() error {
 	return nil
 }
 
+func (e *nsenterEvent) processFileWriteRequest() error {
+
+	payload := []byte(e.ReqMsg.Payload.(string))
+
+	// Perform write operation and return error msg should this one fail.
+	err := ioutil.WriteFile(e.Resource, payload, 0644)
+	if err != nil {
+		log.Printf("Error writing to %s resource", e.Resource)
+		e.ResMsg = &nsenterMessage{
+			Type:    errorResponse,
+			Payload: err.Error(),
+		}
+
+		return err
+	}
+
+	// Create a response message.
+	e.ResMsg = &nsenterMessage{
+		Type:    writeFileResponse,
+		Payload: nil,
+	}
+
+	return nil
+}
+
 func (e *nsenterEvent) processDirReadRequest() error {
 
+	// Perform readDir operation and return error msg should this one fail.
 	dirContent, err := ioutil.ReadDir(e.Resource)
 	if err != nil {
 		log.Printf("Error reading from %s resource", e.Resource)
@@ -411,19 +437,22 @@ func (e *nsenterEvent) processDirReadRequest() error {
 		return err
 	}
 
-	var dirContentList []nsenterDir
+	// Create a FileInfo slice to return to sysvisor-fs' main instance.
+	var dirContentList []domain.FileInfo
 
 	for _, entry := range dirContent {
-		elem := nsenterDir{
-			Dname:    entry.Name(),
-			Dsize:    entry.Size(),
-			Dmode:    entry.Mode(),
-			DmodTime: entry.ModTime(),
-			DisDir:   entry.IsDir(),
+		elem := domain.FileInfo{
+			Fname:    entry.Name(),
+			Fsize:    entry.Size(),
+			Fmode:    entry.Mode(),
+			FmodTime: entry.ModTime(),
+			FisDir:   entry.IsDir(),
+			Fsys:     entry.Sys().(*syscall.Stat_t),
 		}
 		dirContentList = append(dirContentList, elem)
 	}
 
+	// Create a response message.
 	e.ResMsg = &nsenterMessage{
 		Type:    readDirResponse,
 		Payload: dirContentList,
@@ -432,7 +461,7 @@ func (e *nsenterEvent) processDirReadRequest() error {
 	return nil
 }
 
-// Method in charge of processing  all requests generated by sysvisor-fs master
+// Method in charge of processing all requests generated by sysvisor-fs' master
 // instance.
 func (e *nsenterEvent) processRequest(pipe io.Reader) error {
 
@@ -442,6 +471,9 @@ func (e *nsenterEvent) processRequest(pipe io.Reader) error {
 	}
 
 	switch e.ReqMsg.Type {
+
+	case lookupRequest:
+		return e.processLookupRequest()
 
 	case readFileRequest:
 		return e.processFileReadRequest()

@@ -228,7 +228,9 @@ func Test_container_String(t *testing.T) {
 		 initPid: 1001
 		 hostname: syscont
 		 ctime: 0001-01-01 00:00:00 +0000 UTC
-		 pidNsInode: 123456`
+		 pidNsInode: 123456
+		 UID: 0
+		 GID: 0`
 
 	tests := []struct {
 		name string

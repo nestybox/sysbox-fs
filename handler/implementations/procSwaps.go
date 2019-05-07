@@ -19,25 +19,29 @@ type ProcSwapsHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *ProcSwapsHandler) Open(node domain.IOnode) error {
+func (h *ProcSwapsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+
+	log.Printf("Executing Lookup() method on %v handler", h.Name)
+
+	return os.Stat(n.Path())
+}
+
+func (h *ProcSwapsHandler) Open(n domain.IOnode) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 
 	return nil
 }
 
-func (h *ProcSwapsHandler) Close(node domain.IOnode) error {
+func (h *ProcSwapsHandler) Close(n domain.IOnode) error {
 
 	log.Printf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *ProcSwapsHandler) Read(
-	node domain.IOnode,
-	pidInode domain.Inode,
-	buf []byte,
-	off int64) (int, error) {
+func (h *ProcSwapsHandler) Read(n domain.IOnode, pid uint32,
+	buf []byte, off int64) (int, error) {
 
 	log.Printf("Executing %v read() method", h.Name)
 
@@ -48,17 +52,14 @@ func (h *ProcSwapsHandler) Read(
 	return 0, nil
 }
 
-func (h *ProcSwapsHandler) Write(
-	node domain.IOnode,
-	pidInode domain.Inode,
+func (h *ProcSwapsHandler) Write(n domain.IOnode, pid uint32,
 	buf []byte) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcSwapsHandler) ReadDirAll(
-	node domain.IOnode,
-	pidInode domain.Inode) ([]os.FileInfo, error) {
+func (h *ProcSwapsHandler) ReadDirAll(n domain.IOnode,
+	pid uint32) ([]os.FileInfo, error) {
 
 	return nil, nil
 }

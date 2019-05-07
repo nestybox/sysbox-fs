@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"syscall"
 
 	"bazil.org/fuse"
@@ -54,33 +53,34 @@ func (d *Dir) Lookup(
 
 	log.Println("Requested Lookup for", req.Name)
 
-	path := filepath.Join(d.path, req.Name)
+	path := filepath.Join(d.path, "/", req.Name)
 
-	// Return right away if the resource being queried is not available.
-	info, err := os.Stat(path)
-	if err != nil {
-		fmt.Println("No directory", path, "found in FS")
-		return nil, fuse.ENOENT
+	// Upon arrival of lookup() request we must construct a temporary ionode
+	// that reflects the path of the element that needs to be looked up.
+	newIOnode := d.service.ios.NewIOnode(req.Name, path, 0)
+
+	// Lookup the associated handler within handler-DB.
+	handler, ok := d.service.hds.LookupHandler(newIOnode)
+	if !ok {
+		log.Printf("No supported handler for %v resource", d.path)
+		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
 	}
+
+	// Handler execution.
+	info, err := handler.Lookup(newIOnode, req.Pid)
+	if err != nil {
+		log.Println("Error while running Lookup(): ", err)
+		return nil, err
+	}
+
+	// Extract received file attributes and create a new element within
+	// sysvisor file-system.
+	attr := statToAttr(info.Sys().(*syscall.Stat_t))
 
 	if info.IsDir() {
-		log.Println("Found match for directory lookup with size", info.Size())
-
-		//
-		// Obtaining FS directory attributes. Notice that directory 'mode' must
-		// be explicitly defined.
-		//
-		attr := StatToAttr(info.Sys().(*syscall.Stat_t))
 		attr.Mode = os.ModeDir | attr.Mode
-
 		return NewDir(req.Name, path, &attr, d.File.service), nil
-
 	}
-
-	log.Println("Found match for file lookup with size", info.Size())
-
-	// Obtaining FS file attributes
-	attr := StatToAttr(info.Sys().(*syscall.Stat_t))
 
 	return NewFile(req.Name, path, &attr, d.File.service), nil
 }
@@ -110,22 +110,15 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 
 	log.Println("Requested ReadDirAll on directory", d.path)
 
-	// If dealing with an emulated resource, execute the associated handle.
+	// Lookup the associated handler within handler-DB.
 	handler, ok := d.service.hds.LookupHandler(d.ionode)
 	if !ok {
 		log.Printf("No supported handler for %v resource", d.path)
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
 	}
 
-	// Identify the pidNsInode corresponding to this pid.
-	tmpNode := d.service.ios.NewIOnode("", strconv.Itoa(int(req.Pid)), 0)
-	pidInode, err := d.service.ios.PidNsInode(tmpNode)
-	if err != nil {
-		return nil, err
-	}
-
 	// Handler execution.
-	files, err := handler.ReadDirAll(d.ionode, pidInode)
+	files, err := handler.ReadDirAll(d.ionode, req.Pid)
 	if err != nil {
 		log.Println("Error while running ReadDirAll(): ", err)
 		return nil, err

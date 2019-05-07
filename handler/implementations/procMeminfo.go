@@ -19,25 +19,29 @@ type ProcMeminfoHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *ProcMeminfoHandler) Open(node domain.IOnode) error {
+func (h *ProcMeminfoHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+
+	log.Printf("Executing Lookup() method on %v handler", h.Name)
+
+	return os.Stat(n.Path())
+}
+
+func (h *ProcMeminfoHandler) Open(n domain.IOnode) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 
 	return nil
 }
 
-func (h *ProcMeminfoHandler) Close(node domain.IOnode) error {
+func (h *ProcMeminfoHandler) Close(n domain.IOnode) error {
 
 	log.Printf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *ProcMeminfoHandler) Read(
-	node domain.IOnode,
-	pidInode domain.Inode,
-	buf []byte,
-	off int64) (int, error) {
+func (h *ProcMeminfoHandler) Read(n domain.IOnode, pid uint32,
+	buf []byte, off int64) (int, error) {
 
 	log.Printf("Executing %v read() method", h.Name)
 
@@ -48,17 +52,14 @@ func (h *ProcMeminfoHandler) Read(
 	return 0, nil
 }
 
-func (h *ProcMeminfoHandler) Write(
-	node domain.IOnode,
-	pidInode domain.Inode,
+func (h *ProcMeminfoHandler) Write(n domain.IOnode, pid uint32,
 	buf []byte) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcMeminfoHandler) ReadDirAll(
-	node domain.IOnode,
-	pidInode domain.Inode) ([]os.FileInfo, error) {
+func (h *ProcMeminfoHandler) ReadDirAll(n domain.IOnode,
+	pid uint32) ([]os.FileInfo, error) {
 
 	return nil, nil
 }

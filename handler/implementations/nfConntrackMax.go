@@ -24,6 +24,13 @@ type NfConntrackMaxHandler struct {
 	Service   domain.HandlerService
 }
 
+func (h *NfConntrackMaxHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+
+	log.Printf("Executing Lookup() method on %v handler", h.Name)
+
+	return os.Stat(n.Path())
+}
+
 func (h *NfConntrackMaxHandler) Open(n domain.IOnode) error {
 
 	log.Printf("Executing %v open() method\n", h.Name)
@@ -55,7 +62,7 @@ func (h *NfConntrackMaxHandler) Close(n domain.IOnode) error {
 	return nil
 }
 
-func (h *NfConntrackMaxHandler) Read(n domain.IOnode, i domain.Inode,
+func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 	buf []byte, off int64) (int, error) {
 
 	log.Printf("Executing %v read() method\n", h.Name)
@@ -67,12 +74,20 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, i domain.Inode,
 	name := n.Name()
 	path := n.Path()
 
+	// Identify the pidNsInode corresponding to this pid.
+	ios := h.Service.IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
+	if err != nil {
+		return 0, err
+	}
+
 	// Find the container-state corresponding to the container hosting this
 	// Pid.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(i)
+	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
 		return 0, errors.New("Container not found")
 	}
 
@@ -107,7 +122,7 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, i domain.Inode,
 	return length, nil
 }
 
-func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
+func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,
 	buf []byte) (int, error) {
 
 	log.Printf("Executing %v write() method\n", h.Name)
@@ -122,12 +137,20 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 		return 0, err
 	}
 
+	// Identify the pidNsInode corresponding to this pid.
+	ios := h.Service.IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
+	if err != nil {
+		return 0, err
+	}
+
 	// Find the container-state corresponding to the container hosting this
 	// Pid.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(i)
+	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
 		return 0, errors.New("Container not found")
 	}
 
@@ -171,8 +194,7 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, i domain.Inode,
 	return len(buf), nil
 }
 
-func (h *NfConntrackMaxHandler) ReadDirAll(n domain.IOnode,
-	i domain.Inode) ([]os.FileInfo, error) {
+func (h *NfConntrackMaxHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
 
 	return nil, nil
 }

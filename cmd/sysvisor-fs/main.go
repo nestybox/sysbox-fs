@@ -93,11 +93,12 @@ func main() {
 
 	var containerStateService = state.NewContainerStateService()
 
+	var ioService = sysio.NewIOService(sysio.IOFileService)
+
 	var handlerService = handler.NewHandlerService(
 		handler.DefaultHandlers,
-		containerStateService)
-
-	var ioService = sysio.NewIOService(sysio.IOFileService)
+		containerStateService,
+		ioService)
 
 	var ipcService = ipc.NewIpcService(containerStateService, ioService)
 	ipcService.Init()

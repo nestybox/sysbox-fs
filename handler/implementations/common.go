@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
@@ -21,6 +22,50 @@ type CommonHandler struct {
 	Service   domain.HandlerService
 }
 
+func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+
+	log.Printf("Executing Lookup() method on %v handler", h.Name)
+
+	// Identify the pidNsInode corresponding to this pid.
+	ios := h.Service.IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the container-state corresponding to the container hosting this
+	// Pid.
+	css := h.Service.StateService()
+	cntr := css.ContainerLookupByPid(pidInode)
+	if cntr == nil {
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		return nil, errors.New("Container not found")
+	}
+
+	// Create nsenterEvent to initiate interaction with container namespaces.
+	event := &nsenterEvent{
+		Resource:  n.Path(),
+		Pid:       cntr.InitPid(),
+		Namespace: []nsType{string(nsTypeNet)},
+		ReqMsg: &nsenterMessage{
+			Type:    lookupRequest,
+			Payload: n.Path(),
+		},
+	}
+
+	// Launch nsenter-event.
+	err = event.launch()
+	if err != nil {
+		return nil, err
+	}
+
+	// Dereference received FileInfo payload.
+	info := event.ResMsg.Payload.(domain.FileInfo)
+
+	return info, nil
+}
+
 func (h *CommonHandler) Open(node domain.IOnode) error {
 
 	log.Printf("Executing Open() method on %v handler", h.Name)
@@ -35,7 +80,7 @@ func (h *CommonHandler) Close(node domain.IOnode) error {
 	return nil
 }
 
-func (h *CommonHandler) Read(n domain.IOnode, i domain.Inode, buf []byte, off int64) (int, error) {
+func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64) (int, error) {
 
 	log.Printf("Executing Read() method on %v handler", h.Name)
 
@@ -51,12 +96,20 @@ func (h *CommonHandler) Read(n domain.IOnode, i domain.Inode, buf []byte, off in
 		err    error
 	)
 
+	// Identify the pidNsInode corresponding to this pid.
+	ios := h.Service.IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
+	if err != nil {
+		return 0, err
+	}
+
 	// Find the container-state corresponding to the container hosting this
 	// Pid.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(i)
+	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
 		return 0, errors.New("Container not found")
 	}
 
@@ -99,7 +152,7 @@ func (h *CommonHandler) Read(n domain.IOnode, i domain.Inode, buf []byte, off in
 	return length, nil
 }
 
-func (h *CommonHandler) Write(n domain.IOnode, i domain.Inode, buf []byte) (int, error) {
+func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, error) {
 
 	log.Printf("Executing Write() method on %v handler", h.Name)
 
@@ -108,12 +161,20 @@ func (h *CommonHandler) Write(n domain.IOnode, i domain.Inode, buf []byte) (int,
 
 	newContent := strings.TrimSpace(string(buf))
 
+	// Identify the pidNsInode corresponding to this pid.
+	ios := h.Service.IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
+	if err != nil {
+		return 0, err
+	}
+
 	// Find the container-state corresponding to the container hosting this
 	// Pid.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(i)
+	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
 		return 0, errors.New("Container not found")
 	}
 
@@ -150,25 +211,54 @@ func (h *CommonHandler) Write(n domain.IOnode, i domain.Inode, buf []byte) (int,
 	return len(buf), nil
 }
 
-func (h *CommonHandler) ReadDirAll(n domain.IOnode, i domain.Inode) ([]os.FileInfo, error) {
+func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
 
 	log.Printf("Executing ReadDirAll() method on %v handler", h.Name)
 
-	// Find the container-state corresponding to the container hosting this
-	// Pid.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(i)
-	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
-		return nil, errors.New("Container not found")
-	}
-
-	content, err := h.fetchDir(n, cntr)
+	// Identify the pidNsInode corresponding to this pid.
+	ios := h.Service.IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
 	if err != nil {
 		return nil, err
 	}
 
-	return content, nil
+	// Find the container-state corresponding to the container hosting this
+	// Pid.
+	css := h.Service.StateService()
+	cntr := css.ContainerLookupByPid(pidInode)
+	if cntr == nil {
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		return nil, errors.New("Container not found")
+	}
+
+	// Create nsenterEvent to initiate interaction with container namespaces.
+	event := &nsenterEvent{
+		Resource:  n.Path(),
+		Pid:       cntr.InitPid(),
+		Namespace: []nsType{string(nsTypeNet)},
+		ReqMsg: &nsenterMessage{
+			Type:    readDirRequest,
+			Payload: n.Path(),
+		},
+	}
+
+	// Launch nsenter-event.
+	err = event.launch()
+	if err != nil {
+		return nil, err
+	}
+
+	// Transform event-response payload into a FileInfo slice. Notice that to
+	// convert []T1 struct to a []T2 one, we must iterate through each element
+	// and do the conversion one element at a time.
+	dirEntries := event.ResMsg.Payload.([]domain.FileInfo)
+	osFileEntries := make([]os.FileInfo, len(dirEntries))
+	for i, v := range dirEntries {
+		osFileEntries[i] = v
+	}
+
+	return osFileEntries, nil
 }
 
 // Auxiliar method to fetch the content of any given file within a container.
@@ -192,38 +282,6 @@ func (h *CommonHandler) fetchFile(n domain.IOnode, c domain.ContainerIface) (str
 	}
 
 	return event.ResMsg.Payload.(string), nil
-}
-
-// Auxiliar method to fetch the content of any given folder within a container.
-func (h *CommonHandler) fetchDir(n domain.IOnode, c domain.ContainerIface) ([]os.FileInfo, error) {
-
-	event := &nsenterEvent{
-		Resource:  n.Path(),
-		Pid:       c.InitPid(),
-		Namespace: []nsType{string(nsTypeNet)},
-		ReqMsg: &nsenterMessage{
-			Type:    readDirRequest,
-			Payload: n.Path(),
-		},
-	}
-
-	// Launch nsenter-event to obtain dir state within container
-	// namespaces.
-	err := event.launch()
-	if err != nil {
-		return nil, err
-	}
-
-	// Transform event-response payload into a FileInfo slice. Notice that to
-	// convert []T1 struct to a []T2 one we must iterate through each element
-	// and do the conversion one element at a time.
-	dirEntries := event.ResMsg.Payload.([]nsenterDir)
-	osFileEntries := make([]os.FileInfo, len(dirEntries))
-	for i, v := range dirEntries {
-		osFileEntries[i] = v
-	}
-
-	return osFileEntries, nil
 }
 
 // Auxiliar method to inject content into any given file within a container.

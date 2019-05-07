@@ -24,6 +24,13 @@ type ProcUptimeHandler struct {
 	Service   domain.HandlerService
 }
 
+func (h *ProcUptimeHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+
+	log.Printf("Executing Lookup() method on %v handler", h.Name)
+
+	return os.Stat(n.Path())
+}
+
 func (h *ProcUptimeHandler) Open(n domain.IOnode) error {
 
 	log.Printf("Executing %v open() method", h.Name)
@@ -48,7 +55,8 @@ func (h *ProcUptimeHandler) Close(n domain.IOnode) error {
 	return nil
 }
 
-func (h *ProcUptimeHandler) Read(n domain.IOnode, i domain.Inode, buf []byte, off int64) (int, error) {
+func (h *ProcUptimeHandler) Read(n domain.IOnode, pid uint32,
+	buf []byte, off int64) (int, error) {
 
 	log.Printf("Executing %v read() method", h.Name)
 
@@ -56,14 +64,20 @@ func (h *ProcUptimeHandler) Read(n domain.IOnode, i domain.Inode, buf []byte, of
 		return 0, io.EOF
 	}
 
-	//
+	// Identify the pidNsInode corresponding to this pid.
+	ios := h.Service.IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
+	if err != nil {
+		return 0, err
+	}
+
 	// Find the container-state corresponding to the container hosting this
 	// Pid.
-	//
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(i)
+	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
 		return 0, errors.New("Container not found")
 	}
 
@@ -91,12 +105,12 @@ func (h *ProcUptimeHandler) Read(n domain.IOnode, i domain.Inode, buf []byte, of
 	return len(buf), nil
 }
 
-func (h *ProcUptimeHandler) Write(n domain.IOnode, i domain.Inode, buf []byte) (int, error) {
+func (h *ProcUptimeHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcUptimeHandler) ReadDirAll(n domain.IOnode, i domain.Inode) ([]os.FileInfo, error) {
+func (h *ProcUptimeHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
 
 	return nil, nil
 }

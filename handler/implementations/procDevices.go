@@ -1,5 +1,6 @@
 package implementations
 
+/*
 import (
 	"io"
 	"log"
@@ -82,3 +83,4 @@ func (h *ProcDevicesHandler) SetEnabled(val bool) {
 func (h *ProcDevicesHandler) SetService(hs domain.HandlerService) {
 	h.Service = hs
 }
+*/

@@ -24,7 +24,7 @@ type fuseService struct {
 }
 
 //
-//
+// NewFuseService serves as sysvisor-fs' fuse-server constructor.
 //
 func NewFuseService(
 	path string,
@@ -32,16 +32,23 @@ func NewFuseService(
 	ios domain.IOService,
 	hds domain.HandlerService) domain.FuseService {
 
-	// Verify the existence of the provided path in the host FS.
-	info, err := os.Stat(path)
+	// Verify the existence of the requested path in the host FS.
+	pathInfo, err := os.Stat(path)
 	if err != nil {
-		fmt.Println("File-System path \"", path, "\" not found")
+		log.Println("File-System path not found:", path)
+		return nil
+	}
+
+	// Verify the existence of the requested mountpoint in the host FS.
+	_, err = os.Stat(mountPoint)
+	if err != nil {
+		log.Println("File-System mountpoint not found:", mountPoint)
 		return nil
 	}
 
 	// Creating a first node corresponding to the root element in
 	// sysvisorfs.
-	attr := StatToAttr(info.Sys().(*syscall.Stat_t))
+	attr := statToAttr(pathInfo.Sys().(*syscall.Stat_t))
 	attr.Mode = os.ModeDir | os.FileMode(int(0777))
 
 	newfs := &fuseService{
@@ -53,7 +60,7 @@ func NewFuseService(
 		root:       nil,
 	}
 
-	//
+	// Build sysvisor-fs top-most directory (root).
 	newfs.root = NewDir(path, path, &attr, newfs)
 
 	return newfs

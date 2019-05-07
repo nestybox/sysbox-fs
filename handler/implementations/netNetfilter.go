@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
@@ -19,6 +20,50 @@ type NetNetfilter struct {
 	Service   domain.HandlerService
 }
 
+func (h *NetNetfilter) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+
+	log.Printf("Executing Lookup() method on %v handler", h.Name)
+
+	// Identify the pidNsInode corresponding to this pid.
+	ios := h.Service.IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the container-state corresponding to the container hosting this
+	// Pid.
+	css := h.Service.StateService()
+	cntr := css.ContainerLookupByPid(pidInode)
+	if cntr == nil {
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		return nil, errors.New("Container not found")
+	}
+
+	// Create nsenterEvent to initiate interaction with container namespaces.
+	event := &nsenterEvent{
+		Resource:  n.Path(),
+		Pid:       cntr.InitPid(),
+		Namespace: []nsType{string(nsTypeNet)},
+		ReqMsg: &nsenterMessage{
+			Type:    lookupRequest,
+			Payload: n.Path(),
+		},
+	}
+
+	// Launch nsenter-event.
+	err = event.launch()
+	if err != nil {
+		return nil, err
+	}
+
+	// Dereference received FileInfo payload.
+	info := event.ResMsg.Payload.(domain.FileInfo)
+
+	return info, nil
+}
+
 func (h *NetNetfilter) Open(node domain.IOnode) error {
 
 	return nil
@@ -29,27 +74,35 @@ func (h *NetNetfilter) Close(node domain.IOnode) error {
 	return nil
 }
 
-func (h *NetNetfilter) Read(n domain.IOnode, i domain.Inode,
+func (h *NetNetfilter) Read(n domain.IOnode, pid uint32,
 	buf []byte, off int64) (int, error) {
 
 	return 0, nil
 }
 
-func (h *NetNetfilter) Write(n domain.IOnode, i domain.Inode, buf []byte) (int, error) {
+func (h *NetNetfilter) Write(n domain.IOnode, pid uint32, buf []byte) (int, error) {
 
 	return len(buf), nil
 }
 
-func (h *NetNetfilter) ReadDirAll(n domain.IOnode, i domain.Inode) ([]os.FileInfo, error) {
+func (h *NetNetfilter) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
 
 	log.Printf("Executing ReadDirAll() method on %v handler", h.Name)
+
+	// Identify the pidNsInode corresponding to this pid.
+	ios := h.Service.IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
+	if err != nil {
+		return nil, err
+	}
 
 	// Find the container-state corresponding to the container hosting this
 	// Pid.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(i)
+	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", i)
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
 		return nil, errors.New("Container not found")
 	}
 
@@ -60,20 +113,20 @@ func (h *NetNetfilter) ReadDirAll(n domain.IOnode, i domain.Inode) ([]os.FileInf
 		Service: h.Service,
 	}
 
-	dirContent, err := commonHandler.ReadDirAll(n, i)
+	dirContent, err := commonHandler.ReadDirAll(n, pid)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create a fake dentry that can be appended to the info collected by
 	// commonHandler.
-	fakeFile := &nsenterDir{
-		Dname: "nf_conntrack_max",
-		Dsize: 0,
+	fakeFile := &domain.FileInfo{
+		Fname: "nf_conntrack_max",
+		Fsize: 0,
 		// TODO: Replace this literal with a proper global-type.
-		Dmode:    0644,
-		DmodTime: cntr.Ctime(),
-		DisDir:   false,
+		Fmode:    0644,
+		FmodTime: cntr.Ctime(),
+		FisDir:   false,
 	}
 
 	dirContent = append(dirContent, fakeFile)

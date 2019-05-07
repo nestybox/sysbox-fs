@@ -17,11 +17,23 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /proc handlers
 	//
+	&implementations.ProcHandler{
+		Name:      "proc",
+		Path:      "/proc",
+		Enabled:   true,
+		Cacheable: true,
+	},
 	&implementations.ProcCgroupsHandler{
 		Name:      "procCgroups",
 		Path:      "/proc/cgroups",
 		Enabled:   false,
 		Cacheable: false,
+	},
+	&implementations.ProcCpuinfoHandler{
+		Name:      "procCpuinfo",
+		Path:      "/proc/cpuinfo",
+		Enabled:   true,
+		Cacheable: true,
 	},
 	&implementations.ProcLoadavgHandler{
 		Name:      "procLoadavg",
@@ -62,7 +74,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.ProcSysHandler{
 		Name:      "procSys",
 		Path:      "/proc/sys",
-		Enabled:   false,
+		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcUptimeHandler{
@@ -101,15 +113,18 @@ type handlerService struct {
 	sync.RWMutex
 	handlerDB map[string]domain.HandlerIface
 	css       domain.ContainerStateService
+	ios       domain.IOService
 }
 
 func NewHandlerService(
 	hs []domain.HandlerIface,
-	css domain.ContainerStateService) domain.HandlerService {
+	css domain.ContainerStateService,
+	ios domain.IOService) domain.HandlerService {
 
 	newhs := &handlerService{
 		handlerDB: make(map[string]domain.HandlerIface),
 		css:       css,
+		ios:       ios,
 	}
 
 	// Register all handlers declared as 'enabled'.
@@ -215,4 +230,8 @@ func (hs *handlerService) DisableHandler(h domain.HandlerIface) error {
 
 func (hs *handlerService) StateService() domain.ContainerStateService {
 	return hs.css
+}
+
+func (hs *handlerService) IOService() domain.IOService {
+	return hs.ios
 }
