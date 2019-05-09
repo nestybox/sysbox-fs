@@ -292,7 +292,52 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 		osFileEntries[i] = v
 	}
 
+	// Obtain FileEntries corresponding to emulated resources that could
+	// potentially live in this folder.
+	osEmulatedFileEntries := h.emulatedFilesInfo(n, pid)
+
+	osFileEntries = append(osFileEntries, osEmulatedFileEntries...)
+
 	return osFileEntries, nil
+}
+
+// Auxiliar routine to aid during ReadDirAll() execution.
+func (h *CommonHandler) emulatedFilesInfo(n domain.IOnode, pid uint32) []os.FileInfo {
+
+	var emulatedResources []string
+	var emulatedFilesInfo []os.FileInfo
+
+	// Obtain a list of all the emulated resources falling within the current
+	// directory.
+	emulatedResources = h.Service.DirHandlerEntries(n.Path())
+
+	// For every emulated resource, invoke its Lookup() handler to obtain
+	// the information required to satisfy this ongoing readDirAll()
+	// instruction.
+	for _, handlerPath := range emulatedResources {
+
+		// Lookup the associated handler within handler-DB.
+		handler, ok := h.Service.FindHandler(handlerPath)
+		if !ok {
+			log.Printf("No supported handler for %v resource", handlerPath)
+			return nil
+		}
+
+		// Create temporary ionode to represent handler-path.
+		ios := h.Service.IOService()
+		newIOnode := ios.NewIOnode("", handlerPath, 0)
+
+		// Handler execution.
+		info, err := handler.Lookup(newIOnode, pid)
+		if err != nil {
+			log.Println("Error while running Lookup(): ", err)
+			return nil
+		}
+
+		emulatedFilesInfo = append(emulatedFilesInfo, info)
+	}
+
+	return emulatedFilesInfo
 }
 
 // Auxiliar method to fetch the content of any given file within a container.

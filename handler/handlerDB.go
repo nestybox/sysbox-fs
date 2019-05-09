@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"log"
+	"path"
 	"sync"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
@@ -91,13 +92,6 @@ var DefaultHandlers = []domain.HandlerIface{
 	},
 	//
 	// /proc/sys/net/netfilter handlers
-	//
-	&implementations.NetNetfilter{
-		Name:      "netNetfilter",
-		Path:      "/proc/sys/net/netfilter",
-		Enabled:   true,
-		Cacheable: false,
-	},
 	&implementations.NfConntrackMaxHandler{
 		Name:      "nfConntrackMax",
 		Path:      "/proc/sys/net/netfilter/nf_conntrack_max",
@@ -117,20 +111,35 @@ var DefaultHandlers = []domain.HandlerIface{
 
 type handlerService struct {
 	sync.RWMutex
+
+	// Map to store association between handler's path (key) and the handler
+	// object (value).
 	handlerDB map[string]domain.HandlerIface
-	css       domain.ContainerStateService
-	ios       domain.IOService
+
+	// Map to keep track of the resources being emulated and the directory where
+	// these are being placed. Map is indexed by directory path (string), and
+	// the value corresponds to a slice of strings that holds the full path of
+	// the emulated resources seating in each directory.
+	dirHandlerMap map[string][]string
+
+	// Pointer to the service providing container-state storage functionality.
+	css domain.ContainerStateService
+
+	// Pointer to the service providing file-system I/O capabilities.
+	ios domain.IOService
 }
 
+// HandlerService constructor.
 func NewHandlerService(
 	hs []domain.HandlerIface,
 	css domain.ContainerStateService,
 	ios domain.IOService) domain.HandlerService {
 
 	newhs := &handlerService{
-		handlerDB: make(map[string]domain.HandlerIface),
-		css:       css,
-		ios:       ios,
+		handlerDB:     make(map[string]domain.HandlerIface),
+		dirHandlerMap: make(map[string][]string),
+		css:           css,
+		ios:           ios,
 	}
 
 	// Register all handlers declared as 'enabled'.
@@ -140,7 +149,53 @@ func NewHandlerService(
 		}
 	}
 
+	// Create a directory-handler map to keep track of the associattion between
+	// emulated resource paths, and the parent directory hosting them.
+	newhs.createDirHandlerMap()
+
 	return newhs
+}
+
+func (hs *handlerService) createDirHandlerMap() {
+	hs.Lock()
+	defer hs.Unlock()
+
+	var dirHandlerMap = hs.dirHandlerMap
+
+	// Iterate through all the registered handlers to populate the dirHandlerMap
+	// structure. Even though this is an O(n^2) logic, notice that 'n' here is
+	// very small (number of handlers), and that this is only executed during
+	// process initialization.
+	for h1, _ := range hs.handlerDB {
+		dir_h1 := path.Dir(h1)
+
+		for h2, _ := range hs.handlerDB {
+			dir_h2 := path.Dir(h2)
+
+			// A potential handler candidate must fully match the dir-path of
+			// the original one.
+			if dir_h1 == dir_h2 {
+				var dup = false
+				dirHandlerMapSlice := dirHandlerMap[dir_h1]
+
+				// Avoid pushing duplicated elements into any given slice.
+				for _, elem := range dirHandlerMapSlice {
+					if elem == h1 {
+						dup = true
+						break
+					}
+				}
+
+				// Proceed to push a new entry if no dups have been encountered.
+				if !dup {
+					dirHandlerMapSlice = append(dirHandlerMapSlice, h1)
+					dirHandlerMap[dir_h1] = dirHandlerMapSlice
+				}
+			}
+		}
+	}
+
+	hs.dirHandlerMap = dirHandlerMap
 }
 
 func (hs *handlerService) RegisterHandler(h domain.HandlerIface) error {
@@ -245,6 +300,13 @@ func (hs *handlerService) DisableHandler(h domain.HandlerIface) error {
 	hs.Unlock()
 
 	return nil
+}
+
+func (hs *handlerService) DirHandlerEntries(s string) []string {
+	hs.RLock()
+	defer hs.RUnlock()
+
+	return hs.dirHandlerMap[s]
 }
 
 func (hs *handlerService) StateService() domain.ContainerStateService {
