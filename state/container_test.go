@@ -1,6 +1,8 @@
 package state
 
 import (
+	"io/ioutil"
+	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -8,6 +10,14 @@ import (
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+
+	// Disable log generation during UT.
+	log.SetOutput(ioutil.Discard)
+
+	m.Run()
+}
 
 func Test_container_ID(t *testing.T) {
 
