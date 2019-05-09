@@ -3,6 +3,7 @@ package implementations
 import (
 	"log"
 	"os"
+	"syscall"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
@@ -23,6 +24,13 @@ func (h *ProcHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
 	return os.Stat(n.Path())
+}
+
+func (h *ProcHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+
+	log.Printf("Executing Getattr() method on %v handler", h.Name)
+
+	return nil, nil
 }
 
 func (h *ProcHandler) Open(node domain.IOnode) error {
@@ -68,6 +76,10 @@ func (h *ProcHandler) GetPath() string {
 
 func (h *ProcHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *ProcHandler) GetService() domain.HandlerService {
+	return h.Service
 }
 
 func (h *ProcHandler) SetEnabled(val bool) {

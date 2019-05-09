@@ -16,6 +16,8 @@ type ContainerIface interface {
 	PidInode() Inode
 	Data(path string, name string) (string, bool)
 	String() string
+	UID() uint32
+	GID() uint32
 	//
 	// Setters
 	//

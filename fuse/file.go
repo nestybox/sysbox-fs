@@ -71,12 +71,26 @@ func (f *File) Getattr(
 
 	log.Println("Requested GetAttr() operation for entry", f.path)
 
-	// Simply return the attributes that were previously collected during the
-	// lookup() execution.
-	resp.Attr = *f.attr
+	// Lookup the associated handler within handler-DB.
+	handler, ok := f.service.hds.LookupHandler(f.ionode)
+	if !ok {
+		log.Printf("No supported handler for %v resource", f.path)
+		return fmt.Errorf("No supported handler for %v resource", f.path)
+	}
 
-	resp.Attr.Uid = req.Uid
-	resp.Attr.Gid = req.Gid
+	// Handler execution.
+	stat, err := handler.Getattr(f.ionode, req.Pid)
+	if err != nil {
+		log.Println("Error while running Getattr(): ", err)
+		return err
+	}
+
+	// Simply return the attributes that were previously collected during the
+	// lookup() execution, with the exception of the UID/GID, which must be
+	// updated based on the obtained response.
+	resp.Attr = *f.attr
+	resp.Attr.Uid = stat.Uid
+	resp.Attr.Gid = stat.Gid
 
 	return nil
 }

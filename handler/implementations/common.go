@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
@@ -64,6 +65,39 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	info := event.ResMsg.Payload.(domain.FileInfo)
 
 	return info, nil
+}
+
+func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+
+	log.Printf("Executing Getattr() method on %v handler", h.Name)
+
+	// Identify the pidNsInode corresponding to this pid.
+	ios := h.GetService().IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
+	if err != nil {
+		return nil, nil
+	}
+
+	// Find the container-state corresponding to the container hosting this
+	// Pid.
+	css := h.GetService().StateService()
+	cntr := css.ContainerLookupByPid(pidInode)
+	if cntr == nil {
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+
+		stat := &syscall.Stat_t{
+			Uid: 0,
+			Gid: 0,
+		}
+		return stat, nil
+	}
+
+	stat := &syscall.Stat_t{
+		Uid: cntr.UID(),
+		Gid: cntr.GID(),
+	}
+	return stat, nil
 }
 
 func (h *CommonHandler) Open(node domain.IOnode) error {
@@ -317,6 +351,10 @@ func (h *CommonHandler) GetPath() string {
 
 func (h *CommonHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *CommonHandler) GetService() domain.HandlerService {
+	return h.Service
 }
 
 func (h *CommonHandler) SetEnabled(val bool) {

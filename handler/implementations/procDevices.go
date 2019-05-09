@@ -1,16 +1,17 @@
 package implementations
 
-/*
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
+	"syscall"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
 
 //
-// /proc/cgroups Handler
+// /proc/devices Handler
 //
 type ProcDevicesHandler struct {
 	Name      string
@@ -20,25 +21,42 @@ type ProcDevicesHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *ProcDevicesHandler) Open(node domain.IOnode) error {
+func (h *ProcDevicesHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+
+	log.Printf("Executing Lookup() method on %v handler", h.Name)
+
+	return os.Stat(n.Path())
+}
+
+func (h *ProcDevicesHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+
+	log.Printf("Executing Getattr() method on %v handler", h.Name)
+
+	// Let's refer to the commonHandler for this task.
+	commonHandler, ok := h.Service.FindHandler("commonHandler")
+	if !ok {
+		return nil, fmt.Errorf("No commonHandler found")
+	}
+
+	return commonHandler.Getattr(n, pid)
+}
+
+func (h *ProcDevicesHandler) Open(n domain.IOnode) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 
 	return nil
 }
 
-func (h *ProcDevicesHandler) Close(node domain.IOnode) error {
+func (h *ProcDevicesHandler) Close(n domain.IOnode) error {
 
 	log.Printf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *ProcDevicesHandler) Read(
-	node domain.IOnode,
-	pidInode domain.Inode,
-	buf []byte,
-	off int64) (int, error) {
+func (h *ProcDevicesHandler) Read(n domain.IOnode, pid uint32,
+	buf []byte, off int64) (int, error) {
 
 	log.Printf("Executing %v read() method", h.Name)
 
@@ -49,17 +67,14 @@ func (h *ProcDevicesHandler) Read(
 	return 0, nil
 }
 
-func (h *ProcDevicesHandler) Write(
-	node domain.IOnode,
-	pidInode domain.Inode,
+func (h *ProcDevicesHandler) Write(n domain.IOnode, pid uint32,
 	buf []byte) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcDevicesHandler) ReadDirAll(
-	node domain.IOnode,
-	pidInode domain.Inode) ([]os.FileInfo, error) {
+func (h *ProcDevicesHandler) ReadDirAll(n domain.IOnode,
+	pid uint32) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
@@ -76,6 +91,10 @@ func (h *ProcDevicesHandler) GetEnabled() bool {
 	return h.Enabled
 }
 
+func (h *ProcDevicesHandler) GetService() domain.HandlerService {
+	return h.Service
+}
+
 func (h *ProcDevicesHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
@@ -83,4 +102,3 @@ func (h *ProcDevicesHandler) SetEnabled(val bool) {
 func (h *ProcDevicesHandler) SetService(hs domain.HandlerService) {
 	h.Service = hs
 }
-*/

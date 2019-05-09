@@ -2,9 +2,11 @@ package implementations
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
+	"syscall"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
@@ -62,6 +64,18 @@ func (h *NetNetfilter) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) 
 	info := event.ResMsg.Payload.(domain.FileInfo)
 
 	return info, nil
+}
+
+func (h *NetNetfilter) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+
+	log.Printf("Executing Getattr() method on %v handler", h.Name)
+
+	commonHandler, ok := h.Service.FindHandler("commonHandler")
+	if !ok {
+		return nil, fmt.Errorf("No commonHandler found")
+	}
+
+	return commonHandler.Getattr(n, pid)
 }
 
 func (h *NetNetfilter) Open(node domain.IOnode) error {
@@ -144,6 +158,10 @@ func (h *NetNetfilter) GetPath() string {
 
 func (h *NetNetfilter) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *NetNetfilter) GetService() domain.HandlerService {
+	return h.Service
 }
 
 func (h *NetNetfilter) SetEnabled(val bool) {

@@ -31,6 +31,18 @@ func (h *NfConntrackMaxHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo
 	return os.Stat(n.Path())
 }
 
+func (h *NfConntrackMaxHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+
+	log.Printf("Executing Getattr() method on %v handler", h.Name)
+
+	commonHandler, ok := h.Service.FindHandler("commonHandler")
+	if !ok {
+		return nil, fmt.Errorf("No commonHandler found")
+	}
+
+	return commonHandler.Getattr(n, pid)
+}
+
 func (h *NfConntrackMaxHandler) Open(n domain.IOnode) error {
 
 	log.Printf("Executing %v open() method\n", h.Name)
@@ -262,6 +274,10 @@ func (h *NfConntrackMaxHandler) GetPath() string {
 
 func (h *NfConntrackMaxHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *NfConntrackMaxHandler) GetService() domain.HandlerService {
+	return h.Service
 }
 
 func (h *NfConntrackMaxHandler) SetEnabled(val bool) {

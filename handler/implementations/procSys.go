@@ -2,10 +2,12 @@ package implementations
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"strconv"
+	"syscall"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
@@ -27,6 +29,19 @@ func (h *ProcSysHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
 	return os.Stat(n.Path())
+}
+
+func (h *ProcSysHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+
+	log.Printf("Executing Getattr() method on %v handler", h.Name)
+
+	// Let's refer to the commonHandler for this task.
+	commonHandler, ok := h.Service.FindHandler("commonHandler")
+	if !ok {
+		return nil, fmt.Errorf("No commonHandler found")
+	}
+
+	return commonHandler.Getattr(n, pid)
 }
 
 func (h *ProcSysHandler) Open(node domain.IOnode) error {
@@ -121,6 +136,10 @@ func (h *ProcSysHandler) GetPath() string {
 
 func (h *ProcSysHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *ProcSysHandler) GetService() domain.HandlerService {
+	return h.Service
 }
 
 func (h *ProcSysHandler) SetEnabled(val bool) {

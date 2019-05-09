@@ -35,6 +35,12 @@ var DefaultHandlers = []domain.HandlerIface{
 		Enabled:   true,
 		Cacheable: true,
 	},
+	&implementations.ProcDevicesHandler{
+		Name:      "procDevices",
+		Path:      "/proc/devices",
+		Enabled:   false,
+		Cacheable: false,
+	},
 	&implementations.ProcLoadavgHandler{
 		Name:      "procLoadavg",
 		Path:      "/proc/laodavg",
@@ -187,6 +193,19 @@ func (hs *handlerService) LookupHandler(i domain.IOnode) (domain.HandlerIface, b
 		}
 
 		return h, true
+	}
+
+	return h, true
+}
+
+func (hs *handlerService) FindHandler(s string) (domain.HandlerIface, bool) {
+
+	hs.RLock()
+	defer hs.RUnlock()
+
+	h, ok := hs.handlerDB[s]
+	if !ok {
+		return nil, false
 	}
 
 	return h, true

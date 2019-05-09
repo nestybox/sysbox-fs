@@ -64,6 +64,20 @@ func (c *container) PidInode() domain.Inode {
 	return c.pidInode
 }
 
+func (c *container) UID() uint32 {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.uidFirst
+}
+
+func (c *container) GID() uint32 {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.gidFirst
+}
+
 func (c *container) Data(path string, name string) (string, bool) {
 	c.RLock()
 	defer c.RUnlock()
