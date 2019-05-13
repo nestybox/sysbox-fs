@@ -28,7 +28,7 @@ func (h *ProcUptimeHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, er
 
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
-	return os.Stat(n.Path())
+	return n.Stat()
 }
 
 func (h *ProcUptimeHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {

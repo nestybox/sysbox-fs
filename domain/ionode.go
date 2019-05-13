@@ -25,6 +25,7 @@ type IOnode interface {
 	ReadAt(p []byte, off int64) (n int, err error)
 	ReadDirAll() ([]os.FileInfo, error)
 	ReadLine() string
+	Stat() (os.FileInfo, error)
 	SeekReset() (int64, error)
 	PidNsInode() (Inode, error)
 	//
@@ -45,6 +46,8 @@ type IOService interface {
 	ReadAtNode(i IOnode, p []byte, off int64) (int, error)
 	ReadDirAllNode(i IOnode) ([]os.FileInfo, error)
 	ReadLineNode(i IOnode) string
+	StatNode(i IOnode) (os.FileInfo, error)
 	SeekResetNode(i IOnode) (int64, error)
 	PidNsInode(i IOnode) (Inode, error)
+	PathNode(i IOnode) string
 }

@@ -2,8 +2,8 @@ package sysio
 
 import (
 	"bufio"
+	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -11,7 +11,11 @@ import (
 	"syscall"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
+	"github.com/spf13/afero"
 )
+
+//
+var appFS = afero.NewOsFs()
 
 // Ensure IOnodeFile implements IOnode's interface.
 var _ domain.IOnode = (*IOnodeFile)(nil)
@@ -60,6 +64,10 @@ func (s *ioFileService) ReadLineNode(i domain.IOnode) string {
 	return i.ReadLine()
 }
 
+func (s *ioFileService) StatNode(i domain.IOnode) (os.FileInfo, error) {
+	return i.Stat()
+}
+
 func (s *ioFileService) SeekResetNode(i domain.IOnode) (int64, error) {
 	return i.SeekReset()
 }
@@ -80,12 +88,12 @@ type IOnodeFile struct {
 	path  string
 	flags int
 	attr  os.FileMode
-	file  *os.File
+	file  afero.File
 }
 
 func (i *IOnodeFile) Open() error {
 
-	file, err := os.OpenFile(i.path, i.flags, i.attr)
+	file, err := appFS.OpenFile(i.path, i.flags, i.attr)
 	if err != nil {
 		return err
 	}
@@ -96,32 +104,76 @@ func (i *IOnodeFile) Open() error {
 }
 
 func (i *IOnodeFile) Read(p []byte) (n int, err error) {
+
+	if i.file == nil {
+		return 0, fmt.Errorf("File not currently opened.")
+	}
+
 	return i.file.Read(p)
+
 }
 
 func (i *IOnodeFile) Write(p []byte) (n int, err error) {
+
+	if i.file == nil {
+		return 0, fmt.Errorf("File not currently opened.")
+	}
+
 	return i.file.Write(p)
 }
 
 func (i *IOnodeFile) Close() error {
+
+	if i.file == nil {
+		return fmt.Errorf("File not currently opened.")
+	}
+
 	return i.file.Close()
 }
 
 func (i *IOnodeFile) ReadAt(p []byte, off int64) (n int, err error) {
+
+	if i.file == nil {
+		return 0, fmt.Errorf("File not currently opened.")
+	}
+
 	return i.file.ReadAt(p, off)
 }
 
 func (i *IOnodeFile) ReadDirAll() ([]os.FileInfo, error) {
-	return ioutil.ReadDir(i.path)
+	return afero.ReadDir(appFS, i.path)
 }
 
 func (i *IOnodeFile) ReadLine() string {
-	scanner := bufio.NewScanner(i.file)
+
+	var res string
+
+	// Open file and return empty string if an error is received.
+	inFile, err := appFS.Open(i.path)
+	if err != nil {
+		return res
+	}
+	defer inFile.Close()
+
+	// Rely on bufio scanner to be able to break file in lines.
+	scanner := bufio.NewScanner(inFile)
+	scanner.Split(bufio.ScanLines)
 	scanner.Scan()
-	return scanner.Text()
+	res = scanner.Text()
+
+	return res
+}
+
+func (i *IOnodeFile) Stat() (os.FileInfo, error) {
+	return appFS.Stat(i.path)
 }
 
 func (i *IOnodeFile) SeekReset() (int64, error) {
+
+	if i.file == nil {
+		return 0, fmt.Errorf("File not currently opened.")
+	}
+
 	return i.file.Seek(io.SeekStart, 0)
 }
 
@@ -138,7 +190,7 @@ func (i *IOnodeFile) PidNsInode() (domain.Inode, error) {
 		"ns/pid"}, "/")
 
 	// Extract pid-ns info from FS.
-	info, err := os.Stat(pidnsPath)
+	info, err := appFS.Stat(pidnsPath)
 	if err != nil {
 		log.Println("No process file found for pid:", pid)
 		return 0, err

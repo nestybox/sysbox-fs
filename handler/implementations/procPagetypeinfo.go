@@ -25,7 +25,7 @@ func (h *ProcPagetypeinfoHandler) Lookup(n domain.IOnode, pid uint32) (os.FileIn
 
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
-	return os.Stat(n.Path())
+	return n.Stat()
 }
 
 func (h *ProcPagetypeinfoHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
