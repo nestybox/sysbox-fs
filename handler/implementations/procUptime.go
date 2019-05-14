@@ -100,9 +100,12 @@ func (h *ProcUptimeHandler) Read(n domain.IOnode, pid uint32,
 	//
 	data := cntr.Ctime()
 
-	// Calculate container's uptime.
-	uptime := time.Now().Unix() - data.Unix()
-	uptimeStr := strconv.FormatInt(uptime, 10)
+	// Calculate container's uptime, convert it to float to obtain required
+	// precission (as per host FS), and finally format it into string for
+	// storage purposes.
+	uptimeDur := time.Now().Sub(data) / time.Nanosecond
+	var uptime float64 = uptimeDur.Seconds()
+	uptimeStr := fmt.Sprintf("%.2f", uptime)
 
 	//
 	// TODO: Notice that we are dumping the same values into the two columns
