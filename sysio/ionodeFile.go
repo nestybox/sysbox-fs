@@ -15,7 +15,7 @@ import (
 )
 
 //
-var appFS = afero.NewOsFs()
+var AppFs = afero.NewOsFs()
 
 // Ensure IOnodeFile implements IOnode's interface.
 var _ domain.IOnode = (*IOnodeFile)(nil)
@@ -93,7 +93,7 @@ type IOnodeFile struct {
 
 func (i *IOnodeFile) Open() error {
 
-	file, err := appFS.OpenFile(i.path, i.flags, i.attr)
+	file, err := AppFs.OpenFile(i.path, i.flags, i.attr)
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func (i *IOnodeFile) ReadAt(p []byte, off int64) (n int, err error) {
 }
 
 func (i *IOnodeFile) ReadDirAll() ([]os.FileInfo, error) {
-	return afero.ReadDir(appFS, i.path)
+	return afero.ReadDir(AppFs, i.path)
 }
 
 func (i *IOnodeFile) ReadLine() string {
@@ -149,7 +149,7 @@ func (i *IOnodeFile) ReadLine() string {
 	var res string
 
 	// Open file and return empty string if an error is received.
-	inFile, err := appFS.Open(i.path)
+	inFile, err := AppFs.Open(i.path)
 	if err != nil {
 		return res
 	}
@@ -165,7 +165,7 @@ func (i *IOnodeFile) ReadLine() string {
 }
 
 func (i *IOnodeFile) Stat() (os.FileInfo, error) {
-	return appFS.Stat(i.path)
+	return AppFs.Stat(i.path)
 }
 
 func (i *IOnodeFile) SeekReset() (int64, error) {
@@ -190,7 +190,7 @@ func (i *IOnodeFile) PidNsInode() (domain.Inode, error) {
 		"ns/pid"}, "/")
 
 	// Extract pid-ns info from FS.
-	info, err := appFS.Stat(pidnsPath)
+	info, err := AppFs.Stat(pidnsPath)
 	if err != nil {
 		log.Println("No process file found for pid:", pid)
 		return 0, err

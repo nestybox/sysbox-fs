@@ -50,10 +50,10 @@ func Test_ioFileService_NewIOnode(t *testing.T) {
 func Test_ioFileService_OpenNode(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
 
 	// Required IOSservice and associated IOnode.
 	var ios = NewIOService(IOFileService)
@@ -85,10 +85,10 @@ func Test_ioFileService_OpenNode(t *testing.T) {
 func Test_ioFileService_ReadNode(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
 
 	// Required IOSservice and associated IOnode.
 	var ios = NewIOService(IOFileService)
@@ -131,10 +131,10 @@ func Test_ioFileService_ReadNode(t *testing.T) {
 func Test_ioFileService_WriteNode(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
 
 	// Required IOSservice and associated IOnode.
 	var ios = NewIOService(IOFileService)
@@ -180,10 +180,10 @@ func Test_ioFileService_WriteNode(t *testing.T) {
 func Test_ioFileService_CloseNode(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
 
 	// Required IOSservice and associated IOnode.
 	var ios = NewIOService(IOFileService)
@@ -218,10 +218,10 @@ func Test_ioFileService_CloseNode(t *testing.T) {
 func Test_ioFileService_ReadAtNode(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
 
 	// Required IOSservice and associated IOnode.
 	var ios = NewIOService(IOFileService)
@@ -295,10 +295,10 @@ func Test_ioFileService_ReadDirAllNode(t *testing.T) {
 func Test_ioFileService_ReadLineNode(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
 
 	// Required IOSservice and associated IOnode.
 	var ios = NewIOService(IOFileService)
@@ -333,10 +333,10 @@ func Test_ioFileService_ReadLineNode(t *testing.T) {
 func Test_ioFileService_StatNode(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
 
 	// Required IOSservice and associated IOnode.
 	var ios = NewIOService(IOFileService)
@@ -379,10 +379,10 @@ func Test_ioFileService_StatNode(t *testing.T) {
 func Test_ioFileService_SeekResetNode(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
 
 	// Required IOSservice and associated IOnode.
 	var ios = NewIOService(IOFileService)
@@ -483,10 +483,10 @@ func Test_ioFileService_PathNode(t *testing.T) {
 func TestIOnodeFile_Open(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
 
 	var ios = NewIOService(IOFileService)
 	var i1 = ios.NewIOnode("uptime1", "/proc/uptime1", 0644)
@@ -517,13 +517,13 @@ func TestIOnodeFile_Open(t *testing.T) {
 func TestIOnodeFile_Read(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime2", []byte("123\n456\n789"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime3", []byte("123\n456"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime4", []byte("123\n456"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime2", []byte("123\n456\n789"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime3", []byte("123\n456"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime4", []byte("123\n456"), 0644)
 
 	var ios = NewIOService(IOFileService)
 	var i1 = ios.NewIOnode("uptime1", "/proc/uptime1", 0644)
@@ -586,7 +586,7 @@ func TestIOnodeFile_Read(t *testing.T) {
 
 			// Let's also ensure that the content of the original file and the
 			// result-buffer is fully matching.
-			content, erri := afero.ReadFile(appFS, tt.i.Path())
+			content, erri := afero.ReadFile(AppFs, tt.i.Path())
 			if erri != nil {
 				t.Errorf("IOnodeFile.Read() error = %v, couldn't read back from file",
 					erri)
@@ -604,12 +604,12 @@ func TestIOnodeFile_Read(t *testing.T) {
 func TestIOnodeFile_Write(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime2", []byte("123"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime3", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime2", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime3", []byte("123"), 0644)
 
 	var ios = NewIOService(IOFileService)
 	var i1 = ios.NewIOnode("uptime1", "/proc/uptime1", 0)
@@ -664,7 +664,7 @@ func TestIOnodeFile_Write(t *testing.T) {
 
 			// Let's also ensure that the content of the original buffer and the
 			// destination file is fully matching.
-			content, erri := afero.ReadFile(appFS, tt.i.Path())
+			content, erri := afero.ReadFile(AppFs, tt.i.Path())
 			if erri != nil {
 				t.Errorf("IOnodeFile.Write() error = %v, couldn't read back from file",
 					erri)
@@ -682,11 +682,11 @@ func TestIOnodeFile_Write(t *testing.T) {
 func TestIOnodeFile_Close(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime2", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime2", []byte("123"), 0644)
 
 	var ios = NewIOService(IOFileService)
 	var i1 = ios.NewIOnode("uptime1", "/proc/uptime1", 0644)
@@ -719,12 +719,12 @@ func TestIOnodeFile_Close(t *testing.T) {
 func TestIOnodeFile_ReadAt(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime3", []byte("123456789"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime4", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime3", []byte("123456789"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime4", []byte("123"), 0644)
 
 	var ios = NewIOService(IOFileService)
 	var i1 = ios.NewIOnode("uptime1", "/proc/uptime1", 0644)
@@ -783,15 +783,15 @@ func TestIOnodeFile_ReadAt(t *testing.T) {
 func TestIOnodeFile_ReadDirAll(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	appFS.MkdirAll("/proc/sys", 0755)
-	afero.WriteFile(appFS, "/proc/sys/fs", []byte("456"), 0644)
-	afero.WriteFile(appFS, "/proc/sys/kernel", []byte("123"), 0644)
-	afero.WriteFile(appFS, "/proc/sys/net", []byte("789"), 0644)
-	afero.WriteFile(appFS, "/proc/sys/user", []byte("131415"), 0644)
-	afero.WriteFile(appFS, "/proc/sys/vm", []byte("101112"), 0644)
+	AppFs.MkdirAll("/proc/sys", 0755)
+	afero.WriteFile(AppFs, "/proc/sys/fs", []byte("456"), 0644)
+	afero.WriteFile(AppFs, "/proc/sys/kernel", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/sys/net", []byte("789"), 0644)
+	afero.WriteFile(AppFs, "/proc/sys/user", []byte("131415"), 0644)
+	afero.WriteFile(AppFs, "/proc/sys/vm", []byte("101112"), 0644)
 
 	var expected1 = []domain.FileInfo{
 		domain.FileInfo{Fname: "fs", Fmode: 0644},
@@ -841,12 +841,12 @@ func TestIOnodeFile_ReadDirAll(t *testing.T) {
 func TestIOnodeFile_ReadLine(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime2", []byte("123\n456\n789"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime3", []byte(""), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime2", []byte("123\n456\n789"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime3", []byte(""), 0644)
 
 	var ios = NewIOService(IOFileService)
 	var i1 = ios.NewIOnode("uptime1", "/proc/uptime1", 0644)
@@ -886,11 +886,11 @@ func TestIOnodeFile_ReadLine(t *testing.T) {
 func TestIOnodeFile_Stat(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	appFS.MkdirAll("/proc/sys", 0755)
-	afero.WriteFile(appFS, "/proc/uptime", []byte("123"), 0644)
+	AppFs.MkdirAll("/proc/sys", 0755)
+	afero.WriteFile(AppFs, "/proc/uptime", []byte("123"), 0644)
 
 	var ios = NewIOService(IOFileService)
 	var i1 = ios.NewIOnode("sys", "/proc/sys", 0755|os.ModeDir)
@@ -933,11 +933,11 @@ func TestIOnodeFile_Stat(t *testing.T) {
 func TestIOnodeFile_SeekReset(t *testing.T) {
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/uptime1", []byte("123456"), 0644)
-	afero.WriteFile(appFS, "/proc/uptime2", []byte("123456"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime1", []byte("123456"), 0644)
+	afero.WriteFile(AppFs, "/proc/uptime2", []byte("123456"), 0644)
 
 	var ios = NewIOService(IOFileService)
 	var i1 = ios.NewIOnode("uptime1", "/proc/uptime1", 0644)
@@ -991,7 +991,7 @@ func TestIOnodeFile_SeekReset(t *testing.T) {
 			// result of reading the file (taking into account the new offset),
 			// is exactly the same, which would imply that seekReset() is doing
 			// what expected.
-			fileContent, erri := afero.ReadFile(appFS, tt.i.Path())
+			fileContent, erri := afero.ReadFile(AppFs, tt.i.Path())
 			if erri != nil {
 				t.Errorf("IOnodeFile.SeekReset() error = %v, couldn't read back from file",
 					erri)
@@ -1026,10 +1026,10 @@ func TestIOnodeFile_PidNsInode(t *testing.T) {
 	t.Skip("Skipping IOnodeFile.PidNsInode() for now")
 
 	// Initialize memory-based mock FS.
-	appFS = afero.NewMemMapFs()
+	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(appFS, "/proc/123456/ns/pid", []byte("testing"), 0644)
+	afero.WriteFile(AppFs, "/proc/123456/ns/pid", []byte("testing"), 0644)
 
 	var ios = NewIOService(IOFileService)
 	var i1 = ios.NewIOnode("", "123456", 0644)

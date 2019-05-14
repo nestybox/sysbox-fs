@@ -11,7 +11,11 @@ import (
 	"bazil.org/fuse/fs"
 	_ "bazil.org/fuse/fs/fstestutil"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
+	"github.com/spf13/afero"
+
+	"github.com/nestybox/sysvisor/sysvisor-fs/sysio"
 )
 
 type fuseService struct {
@@ -33,14 +37,16 @@ func NewFuseService(
 	hds domain.HandlerService) domain.FuseService {
 
 	// Verify the existence of the requested path in the host FS.
-	pathInfo, err := os.Stat(path)
+	pathIOnode := ios.NewIOnode(path, path, os.ModeDir)
+	pathInfo, err := pathIOnode.Stat()
 	if err != nil {
 		log.Println("File-System path not found:", path)
 		return nil
 	}
 
 	// Verify the existence of the requested mountpoint in the host FS.
-	_, err = os.Stat(mountPoint)
+	mountPointIOnode := ios.NewIOnode(mountPoint, mountPoint, os.ModeDir)
+	_, err = mountPointIOnode.Stat()
 	if err != nil {
 		log.Println("File-System mountpoint not found:", mountPoint)
 		return nil
@@ -48,8 +54,16 @@ func NewFuseService(
 
 	// Creating a first node corresponding to the root element in
 	// sysvisorfs.
-	attr := statToAttr(pathInfo.Sys().(*syscall.Stat_t))
+	var attr fuse.Attr
+	_, ok := sysio.AppFs.(*afero.OsFs)
+	if ok {
+		attr = statToAttr(pathInfo.Sys().(*syscall.Stat_t))
+	} else {
+		attr = fuse.Attr{}
+	}
+
 	attr.Mode = os.ModeDir | os.FileMode(int(0777))
+	spew.Dump(attr)
 
 	newfs := &fuseService{
 		path:       path,
