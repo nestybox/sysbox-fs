@@ -1,4 +1,4 @@
-package implementations
+package nsenter
 
 import (
 	"bytes"
@@ -31,47 +31,10 @@ func init() {
 	}
 }
 
-// Aliases to leverage strong-typing.
-type nsType = string
-type nsenterMsgType = string
-
-// nsType defines all namespace types
-const (
-	nsTypeCgroup nsType = "cgroup"
-	nsTypeIpc    nsType = "ipc"
-	nsTypeNet    nsType = "net"
-	nsTypePid    nsType = "pid"
-	nsTypeUts    nsType = "uts"
-)
-
 // Pid struct. Utilized by sysvisor-runc's nsexec code.
 type pid struct {
 	Pid           int `json:"pid"`
 	PidFirstChild int `json:"pid_first"`
-}
-
-//
-// nsenterEvent types. Define all possible messages that can be hndled
-// by nsenterEvent class.
-//
-const (
-	lookupRequest     nsenterMsgType = "lookupRequest"
-	lookupResponse    nsenterMsgType = "lookupResponse"
-	readFileRequest   nsenterMsgType = "readFileRequest"
-	readFileResponse  nsenterMsgType = "readFileResponse"
-	writeFileRequest  nsenterMsgType = "writeFileRequest"
-	writeFileResponse nsenterMsgType = "writeFileResponse"
-	readDirRequest    nsenterMsgType = "readDirRequest"
-	readDirResponse   nsenterMsgType = "readDirResponse"
-	errorResponse     nsenterMsgType = "errorResponse"
-)
-
-type nsenterMessage struct {
-	// Message type being exchanged.
-	Type nsenterMsgType `json:"message"`
-
-	// Message payload.
-	Payload interface{} `json:"payload"`
 }
 
 //
@@ -95,13 +58,36 @@ type nsenterEvent struct {
 	Pid uint32 `json:"pid"`
 
 	// namespace-types to attach to.
-	Namespace []nsType `json:"namespace"`
+	Namespace []domain.NStype `json:"namespace"`
 
 	// Request message to be sent.
-	ReqMsg *nsenterMessage `json:"request"`
+	ReqMsg *domain.NSenterMessage `json:"request"`
 
 	// Request message to be received.
-	ResMsg *nsenterMessage `json:"response"`
+	ResMsg *domain.NSenterMessage `json:"response"`
+}
+
+type nsenterService struct {
+}
+
+func NewNSenterService() domain.NSenterService {
+	return &nsenterService{}
+}
+
+func (s *nsenterService) NewEvent(
+	path string,
+	pid uint32,
+	ns []domain.NStype,
+	req *domain.NSenterMessage,
+	res *domain.NSenterMessage) domain.NSenterEventIface {
+
+	return &nsenterEvent{
+		Resource:  path,
+		Pid:       pid,
+		Namespace: ns,
+		ReqMsg:    req,
+		ResMsg:    res,
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -118,7 +104,7 @@ type nsenterEvent struct {
 func (e *nsenterEvent) processResponse(pipe io.Reader) error {
 
 	var payload json.RawMessage
-	nsenterMsg := nsenterMessage{
+	nsenterMsg := domain.NSenterMessage{
 		Payload: &payload,
 	}
 
@@ -140,7 +126,7 @@ func (e *nsenterEvent) processResponse(pipe io.Reader) error {
 
 	switch nsenterMsg.Type {
 
-	case lookupResponse:
+	case domain.LookupResponse:
 		log.Println("Received nsenterEvent lookupResponse message")
 
 		var p domain.FileInfo
@@ -148,13 +134,13 @@ func (e *nsenterEvent) processResponse(pipe io.Reader) error {
 			log.Fatal(err)
 		}
 
-		e.ResMsg = &nsenterMessage{
+		e.ResMsg = &domain.NSenterMessage{
 			Type:    nsenterMsg.Type,
 			Payload: p,
 		}
 		break
 
-	case readFileResponse:
+	case domain.ReadFileResponse:
 		log.Println("Received nsenterEvent readResponse message")
 
 		var p string
@@ -162,17 +148,17 @@ func (e *nsenterEvent) processResponse(pipe io.Reader) error {
 			log.Fatal(err)
 		}
 
-		e.ResMsg = &nsenterMessage{
+		e.ResMsg = &domain.NSenterMessage{
 			Type:    nsenterMsg.Type,
 			Payload: p,
 		}
 		break
 
-	case writeFileResponse:
+	case domain.WriteFileResponse:
 		log.Println("Received nsenterEvent writeResponse message")
 		break
 
-	case readDirResponse:
+	case domain.ReadDirResponse:
 		log.Println("Received nsenterEvent readDirAllResponse message")
 
 		var p []domain.FileInfo
@@ -180,14 +166,14 @@ func (e *nsenterEvent) processResponse(pipe io.Reader) error {
 			log.Fatal(err)
 		}
 
-		e.ResMsg = &nsenterMessage{
+		e.ResMsg = &domain.NSenterMessage{
 			Type:    nsenterMsg.Type,
 			Payload: p,
 		}
 
 		break
 
-	case errorResponse:
+	case domain.ErrorResponse:
 		log.Println("Received nsenterEvent errorResponse message")
 		break
 
@@ -227,7 +213,7 @@ func (e *nsenterEvent) namespacePaths() []string {
 // nsexec logic, which will serve to enter the container namespaces that host
 // these resources.
 //
-func (e *nsenterEvent) launch() error {
+func (e *nsenterEvent) Launch() error {
 
 	log.Println("Executing nsenterEvent's launch() method")
 
@@ -331,6 +317,11 @@ func (e *nsenterEvent) launch() error {
 	return nil
 }
 
+func (e *nsenterEvent) Response() *domain.NSenterMessage {
+
+	return e.ResMsg
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // nsenterEvent methods below execute within the context of container
@@ -348,8 +339,8 @@ func (e *nsenterEvent) processLookupRequest() error {
 	info, err := os.Stat(path)
 	if err != nil {
 		log.Println("No directory", path, "found in FS")
-		e.ResMsg = &nsenterMessage{
-			Type:    errorResponse,
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
 			Payload: err.Error(),
 		}
 
@@ -367,8 +358,8 @@ func (e *nsenterEvent) processLookupRequest() error {
 	}
 
 	// Create a response message.
-	e.ResMsg = &nsenterMessage{
-		Type:    lookupResponse,
+	e.ResMsg = &domain.NSenterMessage{
+		Type:    domain.LookupResponse,
 		Payload: fileInfo,
 	}
 
@@ -381,8 +372,8 @@ func (e *nsenterEvent) processFileReadRequest() error {
 	fileContent, err := ioutil.ReadFile(e.Resource)
 	if err != nil {
 		log.Printf("Error reading from %s resource", e.Resource)
-		e.ResMsg = &nsenterMessage{
-			Type:    errorResponse,
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
 			Payload: err.Error(),
 		}
 
@@ -390,8 +381,8 @@ func (e *nsenterEvent) processFileReadRequest() error {
 	}
 
 	// Create a response message.
-	e.ResMsg = &nsenterMessage{
-		Type:    readFileResponse,
+	e.ResMsg = &domain.NSenterMessage{
+		Type:    domain.ReadFileResponse,
 		Payload: strings.TrimSpace(string(fileContent)),
 	}
 
@@ -406,8 +397,8 @@ func (e *nsenterEvent) processFileWriteRequest() error {
 	err := ioutil.WriteFile(e.Resource, payload, 0644)
 	if err != nil {
 		log.Printf("Error writing to %s resource", e.Resource)
-		e.ResMsg = &nsenterMessage{
-			Type:    errorResponse,
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
 			Payload: err.Error(),
 		}
 
@@ -415,8 +406,8 @@ func (e *nsenterEvent) processFileWriteRequest() error {
 	}
 
 	// Create a response message.
-	e.ResMsg = &nsenterMessage{
-		Type:    writeFileResponse,
+	e.ResMsg = &domain.NSenterMessage{
+		Type:    domain.WriteFileResponse,
 		Payload: nil,
 	}
 
@@ -429,8 +420,8 @@ func (e *nsenterEvent) processDirReadRequest() error {
 	dirContent, err := ioutil.ReadDir(e.Resource)
 	if err != nil {
 		log.Printf("Error reading from %s resource", e.Resource)
-		e.ResMsg = &nsenterMessage{
-			Type:    errorResponse,
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
 			Payload: err.Error(),
 		}
 
@@ -453,8 +444,8 @@ func (e *nsenterEvent) processDirReadRequest() error {
 	}
 
 	// Create a response message.
-	e.ResMsg = &nsenterMessage{
-		Type:    readDirResponse,
+	e.ResMsg = &domain.NSenterMessage{
+		Type:    domain.ReadDirResponse,
 		Payload: dirContentList,
 	}
 
@@ -472,21 +463,21 @@ func (e *nsenterEvent) processRequest(pipe io.Reader) error {
 
 	switch e.ReqMsg.Type {
 
-	case lookupRequest:
+	case domain.LookupRequest:
 		return e.processLookupRequest()
 
-	case readFileRequest:
+	case domain.ReadFileRequest:
 		return e.processFileReadRequest()
 
-	case writeFileRequest:
+	case domain.WriteFileRequest:
 		return e.processFileWriteRequest()
 
-	case readDirRequest:
+	case domain.ReadDirRequest:
 		return e.processDirReadRequest()
 
 	default:
-		e.ResMsg = &nsenterMessage{
-			Type:    errorResponse,
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
 			Payload: "Unsupported request",
 		}
 	}
@@ -498,7 +489,7 @@ func (e *nsenterEvent) processRequest(pipe io.Reader) error {
 // Sysvisor-fs' post-nsexec initialization function. To be executed within the
 // context of one (or more) container namespaces.
 //
-func Nsenter() (err error) {
+func Init() (err error) {
 
 	var (
 		pipefd      int

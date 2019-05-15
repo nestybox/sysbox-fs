@@ -12,8 +12,8 @@ import (
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 	"github.com/nestybox/sysvisor/sysvisor-fs/fuse"
 	"github.com/nestybox/sysvisor/sysvisor-fs/handler"
-	"github.com/nestybox/sysvisor/sysvisor-fs/handler/implementations"
 	"github.com/nestybox/sysvisor/sysvisor-fs/ipc"
+	"github.com/nestybox/sysvisor/sysvisor-fs/nsenter"
 	"github.com/nestybox/sysvisor/sysvisor-fs/state"
 	"github.com/nestybox/sysvisor/sysvisor-fs/sysio"
 )
@@ -80,7 +80,7 @@ func main() {
 
 	// TODO: Enhance cli/parsing logic.
 	if flag.Arg(0) == "nsenter" {
-		implementations.Nsenter()
+		nsenter.Init()
 		return
 	}
 
@@ -93,11 +93,14 @@ func main() {
 
 	var containerStateService = state.NewContainerStateService()
 
+	var nsenterService = nsenter.NewNSenterService()
+
 	var ioService = sysio.NewIOService(sysio.IOFileService)
 
 	var handlerService = handler.NewHandlerService(
 		handler.DefaultHandlers,
 		containerStateService,
+		nsenterService,
 		ioService)
 
 	var ipcService = ipc.NewIpcService(containerStateService, ioService)

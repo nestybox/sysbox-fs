@@ -125,6 +125,9 @@ type handlerService struct {
 	// Pointer to the service providing container-state storage functionality.
 	css domain.ContainerStateService
 
+	// Pointer to the service providing nsenter (rexec) capabilities.
+	nss domain.NSenterService
+
 	// Pointer to the service providing file-system I/O capabilities.
 	ios domain.IOService
 }
@@ -133,12 +136,14 @@ type handlerService struct {
 func NewHandlerService(
 	hs []domain.HandlerIface,
 	css domain.ContainerStateService,
+	nss domain.NSenterService,
 	ios domain.IOService) domain.HandlerService {
 
 	newhs := &handlerService{
 		handlerDB:     make(map[string]domain.HandlerIface),
 		dirHandlerMap: make(map[string][]string),
 		css:           css,
+		nss:           nss,
 		ios:           ios,
 	}
 
@@ -311,6 +316,10 @@ func (hs *handlerService) DirHandlerEntries(s string) []string {
 
 func (hs *handlerService) StateService() domain.ContainerStateService {
 	return hs.css
+}
+
+func (hs *handlerService) NSenterService() domain.NSenterService {
+	return hs.nss
 }
 
 func (hs *handlerService) IOService() domain.IOService {

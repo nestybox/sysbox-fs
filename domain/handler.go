@@ -41,5 +41,6 @@ type HandlerService interface {
 	DisableHandler(h HandlerIface) error
 	DirHandlerEntries(s string) []string
 	StateService() ContainerStateService
+	NSenterService() NSenterService
 	IOService() IOService
 }

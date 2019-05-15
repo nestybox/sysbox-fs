@@ -1,7 +1,6 @@
 package sysio
 
 import (
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -767,7 +766,6 @@ func TestIOnodeFile_ReadAt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fmt.Printf("rodny received %v", string(tt.args.p))
 			gotN, err := tt.i.ReadAt(tt.args.p, tt.args.off)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("IOnodeFile.ReadAt() error = %v, wantErr %v", err, tt.wantErr)

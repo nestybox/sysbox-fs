@@ -45,24 +45,23 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	}
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
-	event := &nsenterEvent{
-		Resource:  n.Path(),
-		Pid:       cntr.InitPid(),
-		Namespace: []nsType{string(nsTypeNet)},
-		ReqMsg: &nsenterMessage{
-			Type:    lookupRequest,
-			Payload: n.Path(),
-		},
-	}
+	nss := h.Service.NSenterService()
+	event := nss.NewEvent(
+		n.Path(),
+		cntr.InitPid(),
+		[]domain.NStype{string(domain.NStypeNet)},
+		&domain.NSenterMessage{Type: domain.LookupRequest, Payload: n.Path()},
+		nil)
 
 	// Launch nsenter-event.
-	err = event.launch()
+	err = event.Launch()
 	if err != nil {
 		return nil, err
 	}
 
-	// Dereference received FileInfo payload.
-	info := event.ResMsg.Payload.(domain.FileInfo)
+	// Obtain received FileInfo payload.
+	responseMsg := event.Response()
+	info := responseMsg.Payload.(domain.FileInfo)
 
 	return info, nil
 }
@@ -267,18 +266,16 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	}
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
-	event := &nsenterEvent{
-		Resource:  n.Path(),
-		Pid:       cntr.InitPid(),
-		Namespace: []nsType{string(nsTypeNet)},
-		ReqMsg: &nsenterMessage{
-			Type:    readDirRequest,
-			Payload: n.Path(),
-		},
-	}
+	nss := h.Service.NSenterService()
+	event := nss.NewEvent(
+		n.Path(),
+		cntr.InitPid(),
+		[]domain.NStype{string(domain.NStypeNet)},
+		&domain.NSenterMessage{Type: domain.ReadDirRequest, Payload: n.Path()},
+		nil)
 
 	// Launch nsenter-event.
-	err = event.launch()
+	err = event.Launch()
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +283,8 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	// Transform event-response payload into a FileInfo slice. Notice that to
 	// convert []T1 struct to a []T2 one, we must iterate through each element
 	// and do the conversion one element at a time.
-	dirEntries := event.ResMsg.Payload.([]domain.FileInfo)
+	responseMsg := event.Response()
+	dirEntries := responseMsg.Payload.([]domain.FileInfo)
 	osFileEntries := make([]os.FileInfo, len(dirEntries))
 	for i, v := range dirEntries {
 		osFileEntries[i] = v
@@ -343,40 +341,44 @@ func (h *CommonHandler) emulatedFilesInfo(n domain.IOnode, pid uint32) []os.File
 // Auxiliar method to fetch the content of any given file within a container.
 func (h *CommonHandler) fetchFile(n domain.IOnode, c domain.ContainerIface) (string, error) {
 
-	event := &nsenterEvent{
-		Resource:  n.Path(),
-		Pid:       c.InitPid(),
-		Namespace: []nsType{string(nsTypeNet)},
-		ReqMsg: &nsenterMessage{
-			Type:    readFileRequest,
-			Payload: n.Path(),
-		},
-	}
+	// Create nsenterEvent to initiate interaction with container namespaces.
+	nss := h.Service.NSenterService()
+	event := nss.NewEvent(
+		n.Path(),
+		c.InitPid(),
+		[]domain.NStype{string(domain.NStypeNet)},
+		&domain.NSenterMessage{Type: domain.ReadFileRequest, Payload: n.Path()},
+		nil)
 
 	// Launch nsenter-event to obtain file state within container
 	// namespaces.
-	err := event.launch()
+	err := event.Launch()
 	if err != nil {
 		return "", err
 	}
 
-	return event.ResMsg.Payload.(string), nil
+	// Obtain received FileInfo payload.
+	responseMsg := event.Response()
+	info := responseMsg.Payload.(string)
+
+	return info, nil
 }
 
 // Auxiliar method to inject content into any given file within a container.
 func (h *CommonHandler) push(n domain.IOnode, c domain.ContainerIface, s string) error {
 
-	event := &nsenterEvent{
-		Resource:  n.Path(),
-		Pid:       c.InitPid(),
-		Namespace: []nsType{string(nsTypeNet)},
-		ReqMsg: &nsenterMessage{
-			Type:    writeFileRequest,
-			Payload: s,
-		},
-	}
+	// Create nsenterEvent to initiate interaction with container namespaces.
+	nss := h.Service.NSenterService()
+	event := nss.NewEvent(
+		n.Path(),
+		c.InitPid(),
+		[]domain.NStype{string(domain.NStypeNet)},
+		&domain.NSenterMessage{Type: domain.WriteFileRequest, Payload: s},
+		nil)
 
-	err := event.launch()
+	// Launch nsenter-event to write file state within container
+	// namespaces.
+	err := event.Launch()
 	if err != nil {
 		return err
 	}
