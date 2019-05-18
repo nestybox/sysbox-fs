@@ -196,6 +196,21 @@ func (i *IOnodeFile) PidNsInode() (domain.Inode, error) {
 		return 0, err
 	}
 
+	// In unit-testing scenarios we will extract the pidInode value from the
+	// file content itself. This is a direct consequence of afero-fs lacking
+	// Sys() api support.
+	_, ok := AppFs.(*afero.MemMapFs)
+	if ok {
+		content, err := afero.ReadFile(AppFs, pidnsPath)
+		if err != nil {
+			return 0, err
+		}
+		pidInode, err := strconv.ParseUint(string(content), 10, 64)
+
+		return pidInode, nil
+	}
+
+	// In the regular case obtain the real inode value exposed by Sys() api.
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
 		log.Println("Not a syscall.Stat_t")

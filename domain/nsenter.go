@@ -41,6 +41,9 @@ type NSenterService interface {
 		ns []NStype,
 		req *NSenterMessage,
 		res *NSenterMessage) NSenterEventIface
+
+	LaunchEvent(e NSenterEventIface) error
+	ResponseEvent(e NSenterEventIface) *NSenterMessage
 }
 
 //
@@ -61,7 +64,7 @@ type NSenterEventIface interface {
 }
 
 // NSenterMessage struct defines the layout of the messages being exchanged
-// between
+// between sysvisor-fs 'main' and 'forked' ones.
 type NSenterMessage struct {
 	// Message type being exchanged.
 	Type NSenterMsgType `json:"message"`

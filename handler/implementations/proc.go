@@ -23,7 +23,7 @@ func (h *ProcHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
-	return os.Stat(n.Path())
+	return n.Stat()
 }
 
 func (h *ProcHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {

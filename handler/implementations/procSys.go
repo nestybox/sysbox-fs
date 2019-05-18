@@ -86,52 +86,6 @@ func (h *ProcSysHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo,
 	return commonHandler.ReadDirAll(n, pid)
 }
 
-// 	// Identify the pidNsInode corresponding to this pid.
-// 	ios := h.Service.IOService()
-// 	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
-// 	pidInode, err := ios.PidNsInode(tmpNode)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	// Find the container-state corresponding to the container hosting this
-// 	// Pid.
-// 	css := h.Service.StateService()
-// 	cntr := css.ContainerLookupByPid(pidInode)
-// 	if cntr == nil {
-// 		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
-// 		return nil, errors.New("Container not found")
-// 	}
-
-// 	// Create nsenterEvent to initiate interaction with container namespaces.
-// 	event := &nsenterEvent{
-// 		Resource:  n.Path(),
-// 		Pid:       cntr.InitPid(),
-// 		Namespace: []nsType{string(nsTypeNet)},
-// 		ReqMsg: &nsenterMessage{
-// 			Type:    readDirRequest,
-// 			Payload: n.Path(),
-// 		},
-// 	}
-
-// 	// Launch nsenter-event.
-// 	err = event.launch()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	// Transform event-response payload into a FileInfo slice. Notice that to
-// 	// convert []T1 struct to a []T2 one we must iterate through each element
-// 	// and do the conversion one element at a time.
-// 	dirEntries := event.ResMsg.Payload.([]domain.FileInfo)
-// 	osFileEntries := make([]os.FileInfo, len(dirEntries))
-// 	for i, v := range dirEntries {
-// 		osFileEntries[i] = v
-// 	}
-
-// 	return osFileEntries, nil
-// }
-
 func (h *ProcSysHandler) GetName() string {
 	return h.Name
 }

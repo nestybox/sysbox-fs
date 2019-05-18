@@ -25,7 +25,7 @@ func (h *ProcSwapsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, err
 
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
-	return os.Stat(n.Path())
+	return n.Stat()
 }
 
 func (h *ProcSwapsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {

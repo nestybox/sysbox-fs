@@ -1015,22 +1015,16 @@ func TestIOnodeFile_SeekReset(t *testing.T) {
 	}
 }
 
-// Inode-extraction operation is not supported by afero-fs. Will leave this
-// unit-testcase here for completeness' sake, as we should activate it once
-// this functionality is implemented.
 func TestIOnodeFile_PidNsInode(t *testing.T) {
-
-	// Skipping this one for now.
-	t.Skip("Skipping IOnodeFile.PidNsInode() for now")
 
 	// Initialize memory-based mock FS.
 	AppFs = afero.NewMemMapFs()
 
 	// Create proc entries in mem-based FS.
-	afero.WriteFile(AppFs, "/proc/123456/ns/pid", []byte("testing"), 0644)
+	afero.WriteFile(AppFs, "/proc/1001/ns/pid", []byte("123456"), 0644)
 
 	var ios = NewIOService(IOFileService)
-	var i1 = ios.NewIOnode("", "123456", 0644)
+	var i1 = ios.NewIOnode("", "1001", 0644)
 
 	// Test definition.
 	tests := []struct {
@@ -1039,7 +1033,7 @@ func TestIOnodeFile_PidNsInode(t *testing.T) {
 		want    domain.Inode
 		wantErr bool
 	}{
-		{"1", i1, 12345658, false},
+		{"1", i1, 123456, false},
 	}
 
 	for _, tt := range tests {

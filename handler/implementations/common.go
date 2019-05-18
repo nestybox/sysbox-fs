@@ -2,6 +2,7 @@ package implementations
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -54,13 +55,16 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 		nil)
 
 	// Launch nsenter-event.
-	err = event.Launch()
+	err = nss.LaunchEvent(event)
 	if err != nil {
 		return nil, err
 	}
 
 	// Obtain received FileInfo payload.
-	responseMsg := event.Response()
+	responseMsg := nss.ResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return nil, fmt.Errorf("Received nsenter error message during lookup-access: %v", n.Path())
+	}
 	info := responseMsg.Payload.(domain.FileInfo)
 
 	return info, nil
@@ -75,7 +79,7 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
 	pidInode, err := ios.PidNsInode(tmpNode)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	// Find the container-state corresponding to the container hosting this
@@ -89,7 +93,7 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 			Uid: 0,
 			Gid: 0,
 		}
-		return stat, nil
+		return stat, nil // adjust-this: errors.New("Could not find associated container")
 	}
 
 	stat := &syscall.Stat_t{
@@ -152,7 +156,7 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 		// the container struct.
 		result, ok := cntr.Data(path, name)
 		if !ok {
-			data, err := h.fetchFile(n, cntr)
+			data, err := h.FetchFile(n, cntr)
 			if err != nil {
 				return 0, err
 			}
@@ -171,7 +175,7 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 		}
 
 	} else {
-		result, err = h.fetchFile(n, cntr)
+		result, err = h.FetchFile(n, cntr)
 		if err != nil {
 			return 0, err
 		}
@@ -216,7 +220,7 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 		// push it to the host FS and store it within the container struct.
 		curContent, ok := cntr.Data(path, name)
 		if !ok {
-			if err := h.push(n, cntr, newContent); err != nil {
+			if err := h.PushFile(n, cntr, newContent); err != nil {
 				return 0, err
 			}
 
@@ -236,7 +240,7 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 
 	} else {
 		// Push new value to host FS.
-		if err := h.push(n, cntr, newContent); err != nil {
+		if err := h.PushFile(n, cntr, newContent); err != nil {
 			return 0, err
 		}
 	}
@@ -271,11 +275,11 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 		n.Path(),
 		cntr.InitPid(),
 		[]domain.NStype{string(domain.NStypeNet)},
-		&domain.NSenterMessage{Type: domain.ReadDirRequest, Payload: n.Path()},
+		&domain.NSenterMessage{Type: domain.ReadDirRequest, Payload: ""},
 		nil)
 
 	// Launch nsenter-event.
-	err = event.Launch()
+	err = nss.LaunchEvent(event)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +287,10 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	// Transform event-response payload into a FileInfo slice. Notice that to
 	// convert []T1 struct to a []T2 one, we must iterate through each element
 	// and do the conversion one element at a time.
-	responseMsg := event.Response()
+	responseMsg := nss.ResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return nil, fmt.Errorf("Received nsenter error message during lookup-access: %v", n.Path())
+	}
 	dirEntries := responseMsg.Payload.([]domain.FileInfo)
 	osFileEntries := make([]os.FileInfo, len(dirEntries))
 	for i, v := range dirEntries {
@@ -292,7 +299,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 
 	// Obtain FileEntries corresponding to emulated resources that could
 	// potentially live in this folder.
-	osEmulatedFileEntries := h.emulatedFilesInfo(n, pid)
+	osEmulatedFileEntries := h.EmulatedFilesInfo(n, pid)
 
 	osFileEntries = append(osFileEntries, osEmulatedFileEntries...)
 
@@ -300,7 +307,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 }
 
 // Auxiliar routine to aid during ReadDirAll() execution.
-func (h *CommonHandler) emulatedFilesInfo(n domain.IOnode, pid uint32) []os.FileInfo {
+func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, pid uint32) []os.FileInfo {
 
 	var emulatedResources []string
 	var emulatedFilesInfo []os.FileInfo
@@ -339,7 +346,7 @@ func (h *CommonHandler) emulatedFilesInfo(n domain.IOnode, pid uint32) []os.File
 }
 
 // Auxiliar method to fetch the content of any given file within a container.
-func (h *CommonHandler) fetchFile(n domain.IOnode, c domain.ContainerIface) (string, error) {
+func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (string, error) {
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
@@ -347,25 +354,28 @@ func (h *CommonHandler) fetchFile(n domain.IOnode, c domain.ContainerIface) (str
 		n.Path(),
 		c.InitPid(),
 		[]domain.NStype{string(domain.NStypeNet)},
-		&domain.NSenterMessage{Type: domain.ReadFileRequest, Payload: n.Path()},
+		&domain.NSenterMessage{Type: domain.ReadFileRequest, Payload: ""},
 		nil)
 
 	// Launch nsenter-event to obtain file state within container
 	// namespaces.
-	err := event.Launch()
+	err := nss.LaunchEvent(event)
 	if err != nil {
 		return "", err
 	}
 
 	// Obtain received FileInfo payload.
-	responseMsg := event.Response()
+	responseMsg := nss.ResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return "", fmt.Errorf("Received nsenter error message during read-access: %v", n.Path())
+	}
 	info := responseMsg.Payload.(string)
 
 	return info, nil
 }
 
 // Auxiliar method to inject content into any given file within a container.
-func (h *CommonHandler) push(n domain.IOnode, c domain.ContainerIface, s string) error {
+func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s string) error {
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
@@ -378,12 +388,16 @@ func (h *CommonHandler) push(n domain.IOnode, c domain.ContainerIface, s string)
 
 	// Launch nsenter-event to write file state within container
 	// namespaces.
-	err := event.Launch()
+	err := nss.LaunchEvent(event)
 	if err != nil {
 		return err
 	}
 
-	// TODO: Verify that the response itself is a non-error one.
+	// Obtain received FileInfo payload.
+	responseMsg := nss.ResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return fmt.Errorf("Received nsenter error message during write-access: %v", n.Path())
+	}
 
 	return nil
 }

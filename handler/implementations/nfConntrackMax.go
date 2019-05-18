@@ -108,7 +108,7 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 	// the container struct.
 	data, ok := cntr.Data(path, name)
 	if !ok {
-		data, err := h.fetch(n, cntr)
+		data, err := h.FetchFile(n, cntr)
 		if err != nil {
 			return 0, err
 		}
@@ -170,7 +170,7 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,
 	// push it to the host FS and store it within the container struct.
 	curMax, ok := cntr.Data(path, name)
 	if !ok {
-		if err := h.push(n, cntr, newMaxInt); err != nil {
+		if err := h.PushFile(n, cntr, newMaxInt); err != nil {
 			return 0, err
 		}
 
@@ -196,7 +196,7 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,
 	}
 
 	// Push new value to host FS.
-	if err := h.push(n, cntr, newMaxInt); err != nil {
+	if err := h.PushFile(n, cntr, newMaxInt); err != nil {
 		return 0, io.EOF
 	}
 
@@ -211,7 +211,7 @@ func (h *NfConntrackMaxHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.Fi
 	return nil, nil
 }
 
-func (h *NfConntrackMaxHandler) fetch(n domain.IOnode, c domain.ContainerIface) (string, error) {
+func (h *NfConntrackMaxHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (string, error) {
 
 	// Read from host FS to extract the existing nf_conntrack_max value.
 	curHostMax := n.ReadLine()
@@ -230,7 +230,7 @@ func (h *NfConntrackMaxHandler) fetch(n domain.IOnode, c domain.ContainerIface) 
 	return curHostMax, nil
 }
 
-func (h *NfConntrackMaxHandler) push(n domain.IOnode, c domain.ContainerIface,
+func (h *NfConntrackMaxHandler) PushFile(n domain.IOnode, c domain.ContainerIface,
 	newMaxInt int) error {
 
 	curHostMax := n.ReadLine()
