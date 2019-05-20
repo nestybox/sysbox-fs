@@ -164,6 +164,11 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 
 	case domain.WriteFileResponse:
 		log.Println("Received nsenterEvent writeResponse message")
+
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: "",
+		}
 		break
 
 	case domain.ReadDirResponse:
