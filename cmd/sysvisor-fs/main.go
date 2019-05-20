@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -16,16 +15,18 @@ import (
 	"github.com/nestybox/sysvisor/sysvisor-fs/nsenter"
 	"github.com/nestybox/sysvisor/sysvisor-fs/state"
 	"github.com/nestybox/sysvisor/sysvisor-fs/sysio"
+
+	"github.com/urfave/cli"
 )
 
-// TODO: Beautify me please.
-func usage() {
-	fmt.Fprintf(os.Stderr, "Usafe of %s\n", os.Args[0])
-	fmt.Fprintf(os.Stderr, " %s <file-system mount-point>\n", os.Args[0])
-	fmt.Fprintf(os.Stderr, "\n Example: sysvisorfs /var/lib/sysvisorfs\n\n")
-	fmt.Fprintf(os.Stderr, "OtherFUSE options:\n")
-	flag.PrintDefaults()
-}
+// TODO: Improve one-liner description.
+const (
+	usage = `sysvisor file-system
+
+sysvisor-fs is a daemon that provides enhanced file-system capabilities to
+sysvisor-runc component.
+`
+)
 
 //
 // Sysvisorfs signal handler goroutine.
@@ -70,62 +71,111 @@ func signalHandler(signalChan chan os.Signal, fs domain.FuseService) {
 //
 func main() {
 
-	flag.Usage = usage
-	flag.Parse()
+	app := cli.NewApp()
+	app.Name = "sysvisor-fs"
+	app.Usage = usage
 
-	if flag.NArg() != 1 {
-		usage()
-		os.Exit(-1)
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "mountpoint",
+			Value: "/var/lib/sysvisorfs",
+			Usage: "mount-point location",
+		},
+		cli.BoolFlag{
+			Name:  "debug, d",
+			Usage: "enable debug output in logs",
+		},
+		cli.StringFlag{
+			Name:  "log",
+			Value: "/dev/null",
+			Usage: "log file path",
+		},
 	}
 
-	// TODO: Enhance cli/parsing logic.
-	if flag.Arg(0) == "nsenter" {
-		nsenter.Init()
-		return
+	// Nsenter command to allow 'rexec' functionality.
+	app.Commands = []cli.Command{
+		{
+			Name:  "nsenter",
+			Usage: "Execute action within container namespaces",
+			Action: func(c *cli.Context) error {
+				nsenter.Init()
+				return nil
+			},
+		},
 	}
 
-	// Sysvisor-fs mountpoint.
-	mountPoint := flag.Arg(0)
+	// Define 'debug' and 'log' settings.
+	app.Before = func(ctx *cli.Context) error {
 
-	//
-	// Initiate sysvisor-fs' services.
-	//
+		// For troubleshooting purposes, if 'debug' option is enabled, we want
+		// to dump all sysvisor-fs logs, as well as Bazil fuse-lib ones, into
+		// the same log file. With that goal in mind is that we are artificially
+		// setting this flag, which is eventually consumed by Bazil code.
+		if ctx.GlobalBool("debug") {
+			flag.Set("fuse.debug", "true")
+		}
 
-	var containerStateService = state.NewContainerStateService()
+		// Create/set the log-file destination.
+		if path := ctx.GlobalString("log"); path != "" {
+			f, err := os.OpenFile(
+				path,
+				os.O_CREATE|os.O_WRONLY|os.O_APPEND|os.O_SYNC,
+				0666,
+			)
+			if err != nil {
+				log.Fatalf("Error opening log file %v: %v", path, err)
+				return err
+			}
 
-	var nsenterService = nsenter.NewNSenterService()
+			log.SetOutput(f)
+		}
+		return nil
+	}
 
-	var ioService = sysio.NewIOService(sysio.IOFileService)
+	// Sysvisor-fs main-loop execution.
+	app.Action = func(ctx *cli.Context) error {
 
-	var handlerService = handler.NewHandlerService(
-		handler.DefaultHandlers,
-		containerStateService,
-		nsenterService,
-		ioService)
+		// Initialize sysvisor-fs' services.
+		var containerStateService = state.NewContainerStateService()
+		var nsenterService = nsenter.NewNSenterService()
+		var ioService = sysio.NewIOService(sysio.IOFileService)
 
-	var ipcService = ipc.NewIpcService(containerStateService, ioService)
-	ipcService.Init()
+		var handlerService = handler.NewHandlerService(
+			handler.DefaultHandlers,
+			containerStateService,
+			nsenterService,
+			ioService)
 
-	var fuseService = fuse.NewFuseService(
-		"/",
-		mountPoint,
-		ioService,
-		handlerService)
+		var ipcService = ipc.NewIpcService(containerStateService, ioService)
+		ipcService.Init()
 
-	// Launch signal-handler to ensure mountpoint is properly unmounted
-	// during shutdown.
-	var signalChan = make(chan os.Signal)
-	signal.Notify(
-		signalChan,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGSEGV,
-		syscall.SIGQUIT)
-	go signalHandler(signalChan, fuseService)
+		var fuseService = fuse.NewFuseService(
+			"/",
+			ctx.GlobalString("mountpoint"),
+			ioService,
+			handlerService)
 
-	// Initiate sysvisor-fs' FUSE service.
-	if err := fuseService.Run(); err != nil {
+		// Launch signal-handler to ensure mountpoint is properly unmounted
+		// during shutdown.
+		var signalChan = make(chan os.Signal)
+		signal.Notify(
+			signalChan,
+			syscall.SIGHUP,
+			syscall.SIGINT,
+			syscall.SIGTERM,
+			syscall.SIGSEGV,
+			syscall.SIGQUIT)
+		go signalHandler(signalChan, fuseService)
+
+		// Initiate sysvisor-fs' FUSE service.
+		if err := fuseService.Run(); err != nil {
+			log.Fatal(err)
+		}
+
+		return nil
+	}
+
+	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
 }

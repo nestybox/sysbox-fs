@@ -11,7 +11,6 @@ import (
 	"bazil.org/fuse/fs"
 	_ "bazil.org/fuse/fs/fstestutil"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 	"github.com/spf13/afero"
 
@@ -63,7 +62,6 @@ func NewFuseService(
 	}
 
 	attr.Mode = os.ModeDir | os.FileMode(int(0777))
-	spew.Dump(attr)
 
 	newfs := &fuseService{
 		path:       path,
