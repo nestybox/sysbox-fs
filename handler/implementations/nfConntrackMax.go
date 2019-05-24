@@ -28,6 +28,12 @@ func (h *NfConntrackMaxHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo
 
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
+	// Identify the pidNsInode corresponding to this pid.
+	pidInode := h.Service.FindPidNsInode(pid)
+	if pidInode == 0 {
+		return nil, errors.New("Could not identify pidNsInode")
+	}
+
 	return n.Stat()
 }
 

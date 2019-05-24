@@ -43,4 +43,8 @@ type HandlerService interface {
 	StateService() ContainerStateService
 	NSenterService() NSenterService
 	IOService() IOService
+
+	// Auxiliar methods.
+	HostPidNsInode() Inode
+	FindPidNsInode(pid uint32) Inode
 }

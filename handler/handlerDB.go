@@ -3,7 +3,9 @@ package handler
 import (
 	"errors"
 	"log"
+	"os"
 	"path"
+	"strconv"
 	"sync"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
@@ -15,6 +17,15 @@ import (
 // ordered within each functional bucket.
 //
 var DefaultHandlers = []domain.HandlerIface{
+	//
+	// / handler
+	//
+	&implementations.RootHandler{
+		Name:      "root",
+		Path:      "/",
+		Enabled:   true,
+		Cacheable: true,
+	},
 	//
 	// /proc handlers
 	//
@@ -130,6 +141,9 @@ type handlerService struct {
 
 	// Pointer to the service providing file-system I/O capabilities.
 	ios domain.IOService
+
+	// Represents the pid-namespace inode of the host's true-root.
+	hostPidInode domain.Inode
 }
 
 // HandlerService constructor.
@@ -157,6 +171,8 @@ func NewHandlerService(
 	// Create a directory-handler map to keep track of the associattion between
 	// emulated resource paths, and the parent directory hosting them.
 	newhs.createDirHandlerMap()
+
+	newhs.hostPidInode = newhs.FindPidNsInode(uint32(os.Getpid()))
 
 	return newhs
 }
@@ -324,4 +340,23 @@ func (hs *handlerService) NSenterService() domain.NSenterService {
 
 func (hs *handlerService) IOService() domain.IOService {
 	return hs.ios
+}
+
+//
+// Auxiliar methods
+//
+func (hs *handlerService) HostPidNsInode() domain.Inode {
+	return hs.hostPidInode
+}
+
+func (hs *handlerService) FindPidNsInode(pid uint32) domain.Inode {
+
+	//tmpNode := hs.ios.NewIOnode("", strconv.Itoa(pid), 0)
+	tmpNode := hs.ios.NewIOnode("", strconv.FormatUint(uint64(pid), 10), 0)
+	pidInode, err := hs.ios.PidNsInode(tmpNode)
+	if err != nil {
+		return 0
+	}
+
+	return pidInode
 }

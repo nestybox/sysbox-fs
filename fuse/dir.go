@@ -70,7 +70,7 @@ func (d *Dir) Lookup(
 	info, err := handler.Lookup(newIOnode, req.Pid)
 	if err != nil {
 		log.Println("Error while running Lookup(): ", err)
-		return nil, err
+		return nil, fuse.ENOENT
 	}
 
 	// Extract received file attributes and create a new element within
@@ -121,7 +121,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 	files, err := handler.ReadDirAll(d.ionode, req.Pid)
 	if err != nil {
 		log.Println("Error while running ReadDirAll(): ", err)
-		return nil, err
+		return nil, fuse.ENOENT
 	}
 
 	for _, node := range files {

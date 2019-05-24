@@ -128,7 +128,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 	// by the remote-end. This second step is executed as part of a subsequent
 	// unmarshal instruction (see further below).
 	if err = json.Unmarshal(data, &nsenterMsg); err != nil {
-		log.Println("Error decoding received nsenterMsg reponse")
+		log.Println("Error decoding received nsenterMsg response")
 		return errors.New("Error decoding received event response")
 	}
 
@@ -188,6 +188,16 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 
 	case domain.ErrorResponse:
 		log.Println("Received nsenterEvent errorResponse message")
+
+		var p string
+		if err := json.Unmarshal(payload, &p); err != nil {
+			log.Fatal(err)
+		}
+
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
 		break
 
 	default:
@@ -357,7 +367,11 @@ func (e *NSenterEvent) processLookupRequest() error {
 			Payload: err.Error(),
 		}
 
-		return err
+		// Notice that we don't want to return an error if the file/dir hasn't
+		// been found, as we want to carry this information to the main
+		// sysvisor-fs instance. This one, upon processing of the received
+		// ErrorResponse message, will generate a ENOENT error back to the user.
+		return nil
 	}
 
 	// Allocate new FileInfo struct to return to sysvisor-fs' main instance.

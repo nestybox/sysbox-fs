@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -29,11 +28,9 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	ios := h.Service.IOService()
-	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
-	pidInode, err := ios.PidNsInode(tmpNode)
-	if err != nil {
-		return nil, err
+	pidInode := h.Service.FindPidNsInode(pid)
+	if pidInode == 0 {
+		return nil, errors.New("Could not identify pidNsInode")
 	}
 
 	// Find the container-state corresponding to the container hosting this
@@ -42,7 +39,7 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
 		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
-		return nil, errors.New("Container not found")
+		return nil, errors.New("Could not find associated container")
 	}
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
@@ -52,10 +49,11 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 		cntr.InitPid(),
 		[]domain.NStype{string(domain.NStypeNet)},
 		&domain.NSenterMessage{Type: domain.LookupRequest, Payload: n.Path()},
-		nil)
+		nil,
+	)
 
 	// Launch nsenter-event.
-	err = nss.LaunchEvent(event)
+	err := nss.LaunchEvent(event)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +61,9 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	// Obtain received FileInfo payload.
 	responseMsg := nss.ResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
-		return nil, fmt.Errorf("Received nsenter error message during lookup-access: %v", n.Path())
+		// An ErrorResponse during lookup() will be interpreted as an ENOENT (no
+		// file/dir found).
+		return nil, syscall.ENOENT
 	}
 	info := responseMsg.Payload.(domain.FileInfo)
 
@@ -75,11 +75,9 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 	log.Printf("Executing Getattr() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	ios := h.GetService().IOService()
-	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
-	pidInode, err := ios.PidNsInode(tmpNode)
-	if err != nil {
-		return nil, err
+	pidInode := h.Service.FindPidNsInode(pid)
+	if pidInode == 0 {
+		return nil, errors.New("Could not identify pidNsInode")
 	}
 
 	// Find the container-state corresponding to the container hosting this
@@ -89,11 +87,11 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 	if cntr == nil {
 		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
 
-		stat := &syscall.Stat_t{
-			Uid: 0,
-			Gid: 0,
-		}
-		return stat, nil // adjust-this: errors.New("Could not find associated container")
+		// stat := &syscall.Stat_t{
+		// 	Uid: 0,
+		// 	Gid: 0,
+		// }
+		return nil /*stat*/, errors.New("Could not find associated container")
 	}
 
 	stat := &syscall.Stat_t{
@@ -134,11 +132,9 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 	)
 
 	// Identify the pidNsInode corresponding to this pid.
-	ios := h.Service.IOService()
-	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
-	pidInode, err := ios.PidNsInode(tmpNode)
-	if err != nil {
-		return 0, err
+	pidInode := h.Service.FindPidNsInode(pid)
+	if pidInode == 0 {
+		return 0, errors.New("Could not identify pidNsInode")
 	}
 
 	// Find the container-state corresponding to the container hosting this
@@ -199,11 +195,9 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 	newContent := strings.TrimSpace(string(buf))
 
 	// Identify the pidNsInode corresponding to this pid.
-	ios := h.Service.IOService()
-	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
-	pidInode, err := ios.PidNsInode(tmpNode)
-	if err != nil {
-		return 0, err
+	pidInode := h.Service.FindPidNsInode(pid)
+	if pidInode == 0 {
+		return 0, errors.New("Could not identify pidNsInode")
 	}
 
 	// Find the container-state corresponding to the container hosting this
@@ -253,11 +247,9 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	log.Printf("Executing ReadDirAll() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	ios := h.Service.IOService()
-	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
-	pidInode, err := ios.PidNsInode(tmpNode)
-	if err != nil {
-		return nil, err
+	pidInode := h.Service.FindPidNsInode(pid)
+	if pidInode == 0 {
+		return nil, errors.New("Could not identify pidNsInode")
 	}
 
 	// Find the container-state corresponding to the container hosting this
@@ -276,10 +268,11 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 		cntr.InitPid(),
 		[]domain.NStype{string(domain.NStypeNet)},
 		&domain.NSenterMessage{Type: domain.ReadDirRequest, Payload: ""},
-		nil)
+		nil,
+	)
 
 	// Launch nsenter-event.
-	err = nss.LaunchEvent(event)
+	err := nss.LaunchEvent(event)
 	if err != nil {
 		return nil, err
 	}

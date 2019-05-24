@@ -1,6 +1,7 @@
 package implementations
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -25,6 +26,12 @@ func (h *ProcStatHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, erro
 
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
+	// Identify the pidNsInode corresponding to this pid.
+	pidInode := h.Service.FindPidNsInode(pid)
+	if pidInode == 0 {
+		return nil, errors.New("Could not identify pidNsInode")
+	}
+
 	return n.Stat()
 }
 
@@ -32,7 +39,25 @@ func (h *ProcStatHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t,
 
 	log.Printf("Executing Getattr() method on %v handler", h.Name)
 
-	// Let's refer to the commonHandler for this task.
+	// Identify the pidNsInode corresponding to this pid.
+	pidInode := h.Service.FindPidNsInode(pid)
+	if pidInode == 0 {
+		return nil, errors.New("Could not identify pidNsInode")
+	}
+
+	// If pidNsInode matches the one of system's true-root, then return here
+	// with UID/GID = 0. This step is required during container initialization
+	// phase.
+	if pidInode == h.Service.HostPidNsInode() {
+		stat := &syscall.Stat_t{
+			Uid: 0,
+			Gid: 0,
+		}
+
+		return stat, nil
+	}
+
+	// Let's refer to the common handler for the rest.
 	commonHandler, ok := h.Service.FindHandler("commonHandler")
 	if !ok {
 		return nil, fmt.Errorf("No commonHandler found")

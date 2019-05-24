@@ -1,12 +1,19 @@
 package implementations
 
 import (
+	"errors"
 	"log"
 	"os"
 	"syscall"
 
 	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
 )
+
+//
+// Due to the fact that sysvisor-fs' procfs is sourced at /proc/sys, there's no
+// much this handler needs to do. This handler's purpose is to be able to manage
+// operations associated to /proc bind-mounts such as cpuinfo, meminfo, etc).
+//
 
 //
 // /proc Handler
@@ -22,6 +29,12 @@ type ProcHandler struct {
 func (h *ProcHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
+
+	// Identify the pidNsInode corresponding to this pid.
+	pidInode := h.Service.FindPidNsInode(pid)
+	if pidInode == 0 {
+		return nil, errors.New("Could not identify pidNsInode")
+	}
 
 	return n.Stat()
 }

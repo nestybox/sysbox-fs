@@ -89,8 +89,10 @@ func (f *File) Getattr(
 	// lookup() execution, with the exception of the UID/GID, which must be
 	// updated based on the obtained response.
 	resp.Attr = *f.attr
-	resp.Attr.Uid = stat.Uid
-	resp.Attr.Gid = stat.Gid
+	if stat != nil {
+		resp.Attr.Uid = stat.Uid
+		resp.Attr.Gid = stat.Gid
+	}
 
 	return nil
 }
