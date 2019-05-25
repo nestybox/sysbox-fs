@@ -311,18 +311,25 @@ func Test_ioFileService_ReadLineNode(t *testing.T) {
 		i domain.IOnode
 	}
 	tests := []struct {
-		name string
-		s    domain.IOService
-		args args
-		want string
+		name    string
+		s       domain.IOService
+		args    args
+		want    string
+		wantErr bool
 	}{
-		{"1", ios, args{i1}, "123"},
+		{"1", ios, args{i1}, "123", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.s.ReadLineNode(tt.args.i); got != tt.want {
-				t.Errorf("ioFileService.ReadLineNode() = %v, want %v", got, tt.want)
+			got, err := tt.s.ReadLineNode(tt.args.i)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ioFileService.ReadLineNode() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			// Verify that received string meets our expectations.
+			if got != tt.want {
+				t.Errorf("got= %v, want = %v", got, tt.want)
 			}
 		})
 	}
@@ -854,28 +861,35 @@ func TestIOnodeFile_ReadLine(t *testing.T) {
 
 	// Test definition.
 	tests := []struct {
-		name string
-		i    domain.IOnode
-		want string
+		name    string
+		i       domain.IOnode
+		want    string
+		wantErr bool
 	}{
 		// Readline from a regular file.
-		{"1", i1, "123"},
+		{"1", i1, "123", false},
 
 		// Readline very first line from multi-line file.
-		{"2", i2, "123"},
+		{"2", i2, "123", false},
 
 		// Readline from file with empty-line. Empty string should be returned.
-		{"3", i3, ""},
+		{"3", i3, "", false},
 
 		// Readline from a non-existing file -- no matching entry in afero-fs.
 		// Empty string is expected.
-		{"4", i4, ""},
+		{"4", i4, "", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.i.ReadLine(); got != tt.want {
-				t.Errorf("IOnodeFile.ReadLine() = %v, want %v", got, tt.want)
+			got, err := tt.i.ReadLine()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("IOnodeFile.ReadLine() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			// Verify that received string meets our expectations.
+			if got != tt.want {
+				t.Errorf("got= %v, want = %v", got, tt.want)
 			}
 		})
 	}

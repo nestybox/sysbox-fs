@@ -12,9 +12,9 @@ import (
 )
 
 //
-// /proc/devices Handler
+// /proc/cgroups Handler
 //
-type ProcDevicesHandler struct {
+type ProcDiskstatsHandler struct {
 	Name      string
 	Path      string
 	Enabled   bool
@@ -22,7 +22,7 @@ type ProcDevicesHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *ProcDevicesHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *ProcDiskstatsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
 	log.Printf("Executing Lookup() method on %v handler", h.Name)
 
@@ -31,10 +31,11 @@ func (h *ProcDevicesHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, e
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
+
 	return n.Stat()
 }
 
-func (h *ProcDevicesHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *ProcDiskstatsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
 
 	log.Printf("Executing Getattr() method on %v handler", h.Name)
 
@@ -65,7 +66,7 @@ func (h *ProcDevicesHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat
 	return commonHandler.Getattr(n, pid)
 }
 
-func (h *ProcDevicesHandler) Open(n domain.IOnode) error {
+func (h *ProcDiskstatsHandler) Open(n domain.IOnode) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 
@@ -82,14 +83,14 @@ func (h *ProcDevicesHandler) Open(n domain.IOnode) error {
 	return nil
 }
 
-func (h *ProcDevicesHandler) Close(n domain.IOnode) error {
+func (h *ProcDiskstatsHandler) Close(n domain.IOnode) error {
 
 	log.Printf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *ProcDevicesHandler) Read(n domain.IOnode, pid uint32,
+func (h *ProcDiskstatsHandler) Read(n domain.IOnode, pid uint32,
 	buf []byte, off int64) (int, error) {
 
 	log.Printf("Executing %v read() method", h.Name)
@@ -106,38 +107,38 @@ func (h *ProcDevicesHandler) Read(n domain.IOnode, pid uint32,
 	return len, nil
 }
 
-func (h *ProcDevicesHandler) Write(n domain.IOnode, pid uint32,
+func (h *ProcDiskstatsHandler) Write(n domain.IOnode, pid uint32,
 	buf []byte) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcDevicesHandler) ReadDirAll(n domain.IOnode,
+func (h *ProcDiskstatsHandler) ReadDirAll(n domain.IOnode,
 	pid uint32) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
-func (h *ProcDevicesHandler) GetName() string {
+func (h *ProcDiskstatsHandler) GetName() string {
 	return h.Name
 }
 
-func (h *ProcDevicesHandler) GetPath() string {
+func (h *ProcDiskstatsHandler) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcDevicesHandler) GetEnabled() bool {
+func (h *ProcDiskstatsHandler) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *ProcDevicesHandler) GetService() domain.HandlerService {
+func (h *ProcDiskstatsHandler) GetService() domain.HandlerService {
 	return h.Service
 }
 
-func (h *ProcDevicesHandler) SetEnabled(val bool) {
+func (h *ProcDiskstatsHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcDevicesHandler) SetService(hs domain.HandlerService) {
+func (h *ProcDiskstatsHandler) SetService(hs domain.HandlerService) {
 	h.Service = hs
 }

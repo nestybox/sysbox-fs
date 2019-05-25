@@ -38,7 +38,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.ProcCgroupsHandler{
 		Name:      "procCgroups",
 		Path:      "/proc/cgroups",
-		Enabled:   false,
+		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcCpuinfoHandler{
@@ -50,43 +50,49 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.ProcDevicesHandler{
 		Name:      "procDevices",
 		Path:      "/proc/devices",
-		Enabled:   false,
+		Enabled:   true,
+		Cacheable: false,
+	},
+	&implementations.ProcDiskstatsHandler{
+		Name:      "procDiskstats",
+		Path:      "/proc/diskstats",
+		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcLoadavgHandler{
 		Name:      "procLoadavg",
-		Path:      "/proc/laodavg",
-		Enabled:   false,
+		Path:      "/proc/loadavg",
+		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcMeminfoHandler{
 		Name:      "procMeminfo",
 		Path:      "/proc/meminfo",
-		Enabled:   false,
+		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcPagetypeinfoHandler{
 		Name:      "procPagetypeinfo",
 		Path:      "/proc/pagetypeinfo",
-		Enabled:   false,
+		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcPartitionsHandler{
 		Name:      "procPartitions",
 		Path:      "/proc/partitions",
-		Enabled:   false,
+		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcStatHandler{
 		Name:      "procStat",
 		Path:      "/proc/stat",
-		Enabled:   false,
+		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcSwapsHandler{
 		Name:      "procSwaps",
 		Path:      "/proc/swaps",
-		Enabled:   false,
+		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcSysHandler{

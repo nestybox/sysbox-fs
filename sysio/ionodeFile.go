@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -60,7 +61,11 @@ func (s *ioFileService) ReadDirAllNode(i domain.IOnode) ([]os.FileInfo, error) {
 	return i.ReadDirAll()
 }
 
-func (s *ioFileService) ReadLineNode(i domain.IOnode) string {
+func (s *ioFileService) ReadFileNode(i domain.IOnode) ([]byte, error) {
+	return i.ReadFile()
+}
+
+func (s *ioFileService) ReadLineNode(i domain.IOnode) (string, error) {
 	return i.ReadLine()
 }
 
@@ -144,14 +149,37 @@ func (i *IOnodeFile) ReadDirAll() ([]os.FileInfo, error) {
 	return afero.ReadDir(AppFs, i.path)
 }
 
-func (i *IOnodeFile) ReadLine() string {
+func (i *IOnodeFile) ReadFile() ([]byte, error) {
+
+	var (
+		content []byte
+		err     error
+	)
+
+	_, ok := AppFs.(*afero.MemMapFs)
+	if ok {
+		content, err = afero.ReadFile(AppFs, i.path)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		content, err = ioutil.ReadFile(i.path)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return content, nil
+}
+
+func (i *IOnodeFile) ReadLine() (string, error) {
 
 	var res string
 
 	// Open file and return empty string if an error is received.
 	inFile, err := AppFs.Open(i.path)
 	if err != nil {
-		return res
+		return res, err
 	}
 	defer inFile.Close()
 
@@ -161,7 +189,7 @@ func (i *IOnodeFile) ReadLine() string {
 	scanner.Scan()
 	res = scanner.Text()
 
-	return res
+	return res, nil
 }
 
 func (i *IOnodeFile) Stat() (os.FileInfo, error) {

@@ -97,6 +97,8 @@ func (h *ProcUptimeHandler) Read(n domain.IOnode, pid uint32,
 
 	log.Printf("Executing %v read() method", h.Name)
 
+	// We are dealing with a single integer element being read, so we can save
+	// some cycles by returning right away if offset is any higher than zero.
 	if off > 0 {
 		return 0, io.EOF
 	}

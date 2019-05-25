@@ -85,6 +85,8 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 
 	log.Printf("Executing %v read() method\n", h.Name)
 
+	// We are dealing with a single integer element being read, so we can save
+	// some cycles by returning right away if offset is any higher than zero.
 	if off > 0 {
 		return 0, io.EOF
 	}
@@ -115,7 +117,7 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 	data, ok := cntr.Data(path, name)
 	if !ok {
 		data, err := h.FetchFile(n, cntr)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return 0, err
 		}
 
@@ -220,14 +222,14 @@ func (h *NfConntrackMaxHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.Fi
 func (h *NfConntrackMaxHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (string, error) {
 
 	// Read from host FS to extract the existing nf_conntrack_max value.
-	curHostMax := n.ReadLine()
-	if curHostMax == "" {
+	curHostMax, err := n.ReadLine()
+	if err != nil && err != io.EOF {
 		log.Printf("Could not read from file %v\n", h.Path)
-		return "", errors.New("Could not read from file")
+		return "", err
 	}
 
 	// High-level verification to ensure that format is the expected one.
-	_, err := strconv.Atoi(curHostMax)
+	_, err = strconv.Atoi(curHostMax)
 	if err != nil {
 		log.Printf("Unexpected content read from file %v, error %v", h.Path, err)
 		return "", err
@@ -239,7 +241,10 @@ func (h *NfConntrackMaxHandler) FetchFile(n domain.IOnode, c domain.ContainerIfa
 func (h *NfConntrackMaxHandler) PushFile(n domain.IOnode, c domain.ContainerIface,
 	newMaxInt int) error {
 
-	curHostMax := n.ReadLine()
+	curHostMax, err := n.ReadLine()
+	if err != nil && err != io.EOF {
+		return err
+	}
 	curHostMaxInt, err := strconv.Atoi(curHostMax)
 	if err != nil {
 		log.Println("Unexpected error:", err)

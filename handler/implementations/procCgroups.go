@@ -66,14 +66,24 @@ func (h *ProcCgroupsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat
 	return commonHandler.Getattr(n, pid)
 }
 
-func (h *ProcCgroupsHandler) Open(node domain.IOnode) error {
+func (h *ProcCgroupsHandler) Open(n domain.IOnode) error {
 
 	log.Printf("Executing %v open() method", h.Name)
+
+	flags := n.OpenFlags()
+	if flags != syscall.O_RDONLY {
+		return fmt.Errorf("%v: Permission denied", h.Path)
+	}
+
+	if err := n.Open(); err != nil {
+		log.Printf("Error opening file %v\n", h.Path)
+		return fmt.Errorf("Error opening file %v", h.Path)
+	}
 
 	return nil
 }
 
-func (h *ProcCgroupsHandler) Close(node domain.IOnode) error {
+func (h *ProcCgroupsHandler) Close(n domain.IOnode) error {
 
 	log.Printf("Executing Close() method on %v handler", h.Name)
 
@@ -85,11 +95,16 @@ func (h *ProcCgroupsHandler) Read(n domain.IOnode, pid uint32,
 
 	log.Printf("Executing %v read() method", h.Name)
 
-	if off > 0 {
-		return 0, io.EOF
+	// Bypass emulation logic for now by going straight to host fs.
+	ios := h.Service.IOService()
+	len, err := ios.ReadNode(n, buf)
+	if err != nil && err != io.EOF {
+		return 0, err
 	}
 
-	return 0, nil
+	buf = buf[:len]
+
+	return len, nil
 }
 
 func (h *ProcCgroupsHandler) Write(n domain.IOnode, pid uint32,
