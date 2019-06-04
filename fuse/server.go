@@ -11,10 +11,10 @@ import (
 	"bazil.org/fuse/fs"
 	_ "bazil.org/fuse/fs/fstestutil"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/spf13/afero"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/sysio"
+	"github.com/nestybox/sysvisor-fs/sysio"
 )
 
 type fuseService struct {

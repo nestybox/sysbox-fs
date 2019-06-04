@@ -8,13 +8,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor/sysvisor-fs/fuse"
-	"github.com/nestybox/sysvisor/sysvisor-fs/handler"
-	"github.com/nestybox/sysvisor/sysvisor-fs/ipc"
-	"github.com/nestybox/sysvisor/sysvisor-fs/nsenter"
-	"github.com/nestybox/sysvisor/sysvisor-fs/state"
-	"github.com/nestybox/sysvisor/sysvisor-fs/sysio"
+	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/fuse"
+	"github.com/nestybox/sysvisor-fs/handler"
+	"github.com/nestybox/sysvisor-fs/ipc"
+	"github.com/nestybox/sysvisor-fs/nsenter"
+	"github.com/nestybox/sysvisor-fs/state"
+	"github.com/nestybox/sysvisor-fs/sysio"
 
 	"github.com/urfave/cli"
 )

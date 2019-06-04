@@ -11,7 +11,7 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/domain"
 )
 
 type File struct {

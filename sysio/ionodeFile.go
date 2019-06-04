@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/spf13/afero"
 )
 

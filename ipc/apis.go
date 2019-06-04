@@ -5,8 +5,8 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor/sysvisor-ipc/sysvisorFsGrpc"
+	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-ipc/sysvisorFsGrpc"
 )
 
 type ipcService struct {

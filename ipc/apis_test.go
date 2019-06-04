@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor/sysvisor-fs/ipc"
-	"github.com/nestybox/sysvisor/sysvisor-fs/state"
-	"github.com/nestybox/sysvisor/sysvisor-fs/sysio"
-	"github.com/nestybox/sysvisor/sysvisor-ipc/sysvisorFsGrpc"
+	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/ipc"
+	"github.com/nestybox/sysvisor-fs/state"
+	"github.com/nestybox/sysvisor-fs/sysio"
+	"github.com/nestybox/sysvisor-ipc/sysvisorFsGrpc"
 	"github.com/spf13/afero"
 )
 

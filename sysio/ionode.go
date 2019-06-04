@@ -3,7 +3,7 @@ package sysio
 import (
 	"log"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/domain"
 )
 
 type IOServiceType = int

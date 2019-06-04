@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/domain"
 )
 
 //

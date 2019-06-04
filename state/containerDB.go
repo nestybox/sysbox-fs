@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/domain"
 )
 
 type containerStateService struct {

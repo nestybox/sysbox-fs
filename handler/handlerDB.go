@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor/sysvisor-fs/handler/implementations"
+	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/handler/implementations"
 )
 
 //

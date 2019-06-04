@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/domain"
 )
 
 func TestMain(m *testing.M) {

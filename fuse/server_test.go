@@ -8,11 +8,11 @@ import (
 
 	"bazil.org/fuse/fs"
 	_ "bazil.org/fuse/fs/fstestutil"
-	"github.com/nestybox/sysvisor/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor/sysvisor-fs/handler"
-	"github.com/nestybox/sysvisor/sysvisor-fs/nsenter"
-	"github.com/nestybox/sysvisor/sysvisor-fs/state"
-	"github.com/nestybox/sysvisor/sysvisor-fs/sysio"
+	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/handler"
+	"github.com/nestybox/sysvisor-fs/nsenter"
+	"github.com/nestybox/sysvisor-fs/state"
+	"github.com/nestybox/sysvisor-fs/sysio"
 	"github.com/spf13/afero"
 )
 
