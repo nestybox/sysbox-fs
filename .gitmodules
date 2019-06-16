@@ -1,0 +1,3 @@
+[submodule "bazil"]
+	path = bazil
+	url = git@github.com:nestybox/fuse
