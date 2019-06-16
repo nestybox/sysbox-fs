@@ -17,11 +17,8 @@ import (
 	"syscall"
 
 	"github.com/nestybox/sysvisor-fs/domain"
-//	"github.com/opencontainers/runc/libcontainer"
 	"github.com/nestybox/sysvisor-runc/libcontainer"
-//	_ "github.com/opencontainers/runc/libcontainer/nsenter"
 	_ "github.com/nestybox/sysvisor-runc/libcontainer/nsenter"
-//	"github.com/opencontainers/runc/libcontainer/utils"
 	"github.com/nestybox/sysvisor-runc/libcontainer/utils"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
@@ -141,8 +138,11 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		log.Println("Received nsenterEvent lookupResponse message")
 
 		var p domain.FileInfo
-		if err := json.Unmarshal(payload, &p); err != nil {
-			log.Fatal(err)
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
 		e.ResMsg = &domain.NSenterMessage{
@@ -155,8 +155,11 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		log.Println("Received nsenterEvent readResponse message")
 
 		var p string
-		if err := json.Unmarshal(payload, &p); err != nil {
-			log.Fatal(err)
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
 		e.ResMsg = &domain.NSenterMessage{
@@ -178,8 +181,11 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		log.Println("Received nsenterEvent readDirAllResponse message")
 
 		var p []domain.FileInfo
-		if err := json.Unmarshal(payload, &p); err != nil {
-			log.Fatal(err)
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
 		e.ResMsg = &domain.NSenterMessage{
@@ -193,8 +199,11 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		log.Println("Received nsenterEvent errorResponse message")
 
 		var p string
-		if err := json.Unmarshal(payload, &p); err != nil {
-			log.Fatal(err)
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
 		e.ResMsg = &domain.NSenterMessage{
@@ -373,7 +382,7 @@ func (e *NSenterEvent) processLookupRequest() error {
 		// Notice that we don't want to return an error if the file/dir hasn't
 		// been found, as we want to carry this information to the main
 		// sysvisor-fs instance. This one, upon processing of the received
-		// ErrorResponse message, will generate a ENOENT error back to the user.
+		// ErrorResponse message, will generate an ENOENT error back to the user.
 		return nil
 	}
 
