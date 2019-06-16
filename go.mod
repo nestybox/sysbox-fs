@@ -10,7 +10,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/urfave/cli v1.20.0
 	github.com/vishvananda/netlink v1.0.0
-	golang.org/x/sys v0.0.0-20190602015325-4c4f7f33c9ed
+	golang.org/x/sys v0.0.0-20190614160838-b47fdc937951
 )
 
 replace github.com/nestybox/sysvisor-ipc => ../sysvisor-ipc
@@ -18,3 +18,5 @@ replace github.com/nestybox/sysvisor-ipc => ../sysvisor-ipc
 replace github.com/nestybox/sysvisor-runc => ../sysvisor-runc
 
 replace github.com/opencontainers/runc => ./../sysvisor-runc
+
+replace bazil.org/fuse => ./bazil
