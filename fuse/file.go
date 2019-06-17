@@ -118,24 +118,8 @@ func (f *File) Open(
 
 	// Handler execution.
 	err := handler.Open(f.ionode)
-	//
-	// TODO: If no open-rights are granted, the error-msg being returned
-	// back to the user must match the one reported for non-emulated
-	// resources. At this moment, we are observing slightly different
-	// error messages:
-	//
-	// * Within a syscontainer:
-	//
-	// root@691a4b387c60:/# cat > /proc/uptime
-	// bash: /proc/uptime: Input/output error
-	//
-	// * Within the regular host FS:
-	//
-	// $ sudo cat > /proc/uptime
-	// bash: /proc/uptime: Permission denied
-	//
 	if err != nil && err != io.EOF {
-		return nil, err
+	       return nil, fuse.Errno(err.(syscall.Errno))
 	}
 
 	// procfs and sysfs hold non-seekable files.

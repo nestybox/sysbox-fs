@@ -72,12 +72,12 @@ func (h *ProcCpuinfoHandler) Open(n domain.IOnode) error {
 
 	flags := n.OpenFlags()
 	if flags != syscall.O_RDONLY {
-		return fmt.Errorf("%v: Permission denied", h.Path)
+		 return syscall.EACCES
 	}
 
 	if err := n.Open(); err != nil {
 		log.Printf("Error opening file %v\n", h.Path)
-		return fmt.Errorf("Error opening file %v", h.Path)
+		return syscall.EIO
 	}
 
 	return nil

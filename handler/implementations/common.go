@@ -86,12 +86,7 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
 		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
-
-		// stat := &syscall.Stat_t{
-		// 	Uid: 0,
-		// 	Gid: 0,
-		// }
-		return nil /*stat*/, errors.New("Could not find associated container")
+		return nil, errors.New("Could not find associated container")
 	}
 
 	stat := &syscall.Stat_t{
