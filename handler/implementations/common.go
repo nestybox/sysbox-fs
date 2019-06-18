@@ -49,6 +49,7 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 		cntr.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
+			string(domain.NStypePid),
 			string(domain.NStypeNet),
 			string(domain.NStypeIpc),
 			string(domain.NStypeCgroup),
@@ -269,6 +270,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 		cntr.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
+			string(domain.NStypePid),
 			string(domain.NStypeNet),
 			string(domain.NStypeIpc),
 			string(domain.NStypeCgroup),
@@ -355,6 +357,7 @@ func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (str
 		c.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
+			string(domain.NStypePid),
 			string(domain.NStypeNet),
 			string(domain.NStypeIpc),
 			string(domain.NStypeCgroup),
@@ -390,6 +393,7 @@ func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s str
 		c.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
+			string(domain.NStypePid),
 			string(domain.NStypeNet),
 			string(domain.NStypeIpc),
 			string(domain.NStypeCgroup),
