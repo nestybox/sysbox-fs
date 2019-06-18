@@ -11,6 +11,7 @@ const (
 	NStypeNet    NStype = "net"
 	NStypePid    NStype = "pid"
 	NStypeUts    NStype = "uts"
+	NStypeUser   NStype = "user"
 )
 
 //

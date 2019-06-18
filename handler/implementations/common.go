@@ -47,10 +47,13 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	event := nss.NewEvent(
 		n.Path(),
 		cntr.InitPid(),
-		[]domain.NStype{string(domain.NStypeNet),
+		[]domain.NStype{
+			string(domain.NStypeUser),
+			string(domain.NStypeNet),
 			string(domain.NStypeIpc),
 			string(domain.NStypeCgroup),
-			string(domain.NStypeUts)},
+			string(domain.NStypeUts),
+		},
 		&domain.NSenterMessage{Type: domain.LookupRequest, Payload: n.Path()},
 		nil,
 	)
@@ -264,10 +267,13 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	event := nss.NewEvent(
 		n.Path(),
 		cntr.InitPid(),
-		[]domain.NStype{string(domain.NStypeNet),
+		[]domain.NStype{
+			string(domain.NStypeUser),
+			string(domain.NStypeNet),
 			string(domain.NStypeIpc),
 			string(domain.NStypeCgroup),
-			string(domain.NStypeUts)},
+			string(domain.NStypeUts),
+		},
 		&domain.NSenterMessage{Type: domain.ReadDirRequest, Payload: ""},
 		nil,
 	)
@@ -347,10 +353,13 @@ func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (str
 	event := nss.NewEvent(
 		n.Path(),
 		c.InitPid(),
-		[]domain.NStype{string(domain.NStypeNet),
+		[]domain.NStype{
+			string(domain.NStypeUser),
+			string(domain.NStypeNet),
 			string(domain.NStypeIpc),
 			string(domain.NStypeCgroup),
-			string(domain.NStypeUts)},
+			string(domain.NStypeUts),
+		},
 		&domain.NSenterMessage{Type: domain.ReadFileRequest, Payload: ""},
 		nil)
 
@@ -379,10 +388,13 @@ func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s str
 	event := nss.NewEvent(
 		n.Path(),
 		c.InitPid(),
-		[]domain.NStype{string(domain.NStypeNet),
+		[]domain.NStype{
+			string(domain.NStypeUser),
+			string(domain.NStypeNet),
 			string(domain.NStypeIpc),
 			string(domain.NStypeCgroup),
-			string(domain.NStypeUts)},
+			string(domain.NStypeUts),
+		},
 		&domain.NSenterMessage{Type: domain.WriteFileRequest, Payload: s},
 		nil)
 
