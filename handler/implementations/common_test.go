@@ -88,7 +88,14 @@ func TestCommonHandler_Lookup(t *testing.T) {
 				expectedResponse := &nsenter.NSenterEvent{
 					Resource:  "/proc/sys/net",
 					Pid:       1001,
-					Namespace: []domain.NStype{string(domain.NStypeNet)},
+					Namespace: []domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					ReqMsg: &domain.NSenterMessage{
 						Type:    domain.LookupRequest,
 						Payload: "/proc/sys/net",
@@ -101,7 +108,14 @@ func TestCommonHandler_Lookup(t *testing.T) {
 				}
 
 				nss.On("NewEvent", "/proc/sys/net", uint32(1001),
-					[]domain.NStype{string(domain.NStypeNet)},
+					[]domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					expectedResponse.ReqMsg,
 					(*domain.NSenterMessage)(nil)).Return(expectedResponse)
 
@@ -382,7 +396,14 @@ func TestCommonHandler_Read(t *testing.T) {
 				expectedResponse := &nsenter.NSenterEvent{
 					Resource:  "/proc/sys/net",
 					Pid:       1001,
-					Namespace: []domain.NStype{string(domain.NStypeNet)},
+					Namespace: []domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					ReqMsg: &domain.NSenterMessage{
 						Type:    domain.ReadFileRequest,
 						Payload: "",
@@ -394,7 +415,14 @@ func TestCommonHandler_Read(t *testing.T) {
 				}
 
 				nss.On("NewEvent", "/proc/sys/net", uint32(1001),
-					[]domain.NStype{string(domain.NStypeNet)},
+					[]domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					expectedResponse.ReqMsg,
 					(*domain.NSenterMessage)(nil)).Return(expectedResponse)
 
@@ -538,7 +566,14 @@ func TestCommonHandler_Write(t *testing.T) {
 				expectedResponse := &nsenter.NSenterEvent{
 					Resource:  "/proc/sys/net",
 					Pid:       1001,
-					Namespace: []domain.NStype{string(domain.NStypeNet)},
+					Namespace: []domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					ReqMsg: &domain.NSenterMessage{
 						Type:    domain.WriteFileRequest,
 						Payload: "123456"},
@@ -549,7 +584,14 @@ func TestCommonHandler_Write(t *testing.T) {
 				}
 
 				nss.On("NewEvent", "/proc/sys/net", uint32(1001),
-					[]domain.NStype{string(domain.NStypeNet)},
+					[]domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					expectedResponse.ReqMsg,
 					(*domain.NSenterMessage)(nil)).Return(expectedResponse)
 
@@ -708,7 +750,14 @@ func TestCommonHandler_ReadDirAll(t *testing.T) {
 				expectedResponse := &nsenter.NSenterEvent{
 					Resource:  "/proc/sys/net",
 					Pid:       1001,
-					Namespace: []domain.NStype{string(domain.NStypeNet)},
+					Namespace: []domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					ReqMsg: &domain.NSenterMessage{
 						Type:    domain.ReadDirRequest,
 						Payload: "",
@@ -736,7 +785,14 @@ func TestCommonHandler_ReadDirAll(t *testing.T) {
 				}
 
 				nss.On("NewEvent", "/proc/sys/net", uint32(1001),
-					[]domain.NStype{string(domain.NStypeNet)},
+					[]domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					expectedResponse.ReqMsg,
 					(*domain.NSenterMessage)(nil)).Return(expectedResponse)
 
@@ -965,7 +1021,14 @@ func TestCommonHandler_FetchFile(t *testing.T) {
 				expectedResponse := &nsenter.NSenterEvent{
 					Resource:  "/proc/sys/net",
 					Pid:       1001,
-					Namespace: []domain.NStype{string(domain.NStypeNet)},
+					Namespace: []domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					ReqMsg: &domain.NSenterMessage{
 						Type:    domain.ReadFileRequest,
 						Payload: "",
@@ -977,7 +1040,14 @@ func TestCommonHandler_FetchFile(t *testing.T) {
 				}
 
 				nss.On("NewEvent", "/proc/sys/net", uint32(1001),
-					[]domain.NStype{string(domain.NStypeNet)},
+					[]domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					expectedResponse.ReqMsg,
 					(*domain.NSenterMessage)(nil)).Return(expectedResponse)
 
@@ -1082,7 +1152,14 @@ func TestCommonHandler_PushFile(t *testing.T) {
 				expectedResponse := &nsenter.NSenterEvent{
 					Resource:  "/proc/sys/net",
 					Pid:       1001,
-					Namespace: []domain.NStype{string(domain.NStypeNet)},
+					Namespace: []domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					ReqMsg: &domain.NSenterMessage{
 						Type:    domain.WriteFileRequest,
 						Payload: "123456"},
@@ -1093,7 +1170,14 @@ func TestCommonHandler_PushFile(t *testing.T) {
 				}
 
 				nss.On("NewEvent", "/proc/sys/net", uint32(1001),
-					[]domain.NStype{string(domain.NStypeNet)},
+					[]domain.NStype{
+						string(domain.NStypeUser),
+						string(domain.NStypePid),
+						string(domain.NStypeNet),
+						string(domain.NStypeIpc),
+						string(domain.NStypeCgroup),
+						string(domain.NStypeUts),
+					},
 					expectedResponse.ReqMsg,
 					(*domain.NSenterMessage)(nil)).Return(expectedResponse)
 
