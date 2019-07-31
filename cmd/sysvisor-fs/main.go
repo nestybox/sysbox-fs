@@ -90,6 +90,12 @@ func main() {
 			Value: "/dev/null",
 			Usage: "log file path",
 		},
+		cli.IntFlag{
+			Name:  "dentry-cache-timeout, t",
+			Value: fuse.DentryCacheTimeout,
+			Usage: "dentry-cache-timeout timer in minutes",
+			Destination: &fuse.DentryCacheTimeout,
+		},
 	}
 
 	// Nsenter command to allow 'rexec' functionality.

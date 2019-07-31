@@ -5,12 +5,18 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 	"path/filepath"
 	"syscall"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 )
+
+// Default dentry-cache-timeout interval (in minutes). This is the maximum
+// amount of time that VFS will hold on to dentry elements before starting
+// to forward lookup() operations to FUSE server.
+var DentryCacheTimeout = 5
 
 //
 // Dir struct serves as a FUSE-friendly abstraction to represent directories
@@ -76,6 +82,9 @@ func (d *Dir) Lookup(
 	// Extract received file attributes and create a new element within
 	// sysvisor file-system.
 	attr := statToAttr(info.Sys().(*syscall.Stat_t))
+
+	// Adjust response to carry the proper dentry-cache-timeout value.
+	resp.EntryValid = time.Duration(DentryCacheTimeout) * time.Minute
 
 	if info.IsDir() {
 		attr.Mode = os.ModeDir | attr.Mode
