@@ -236,6 +236,26 @@ func (f *File) Write(
 }
 
 //
+// Setattr FS operation.
+//
+func (f *File) Setattr(
+	ctx context.Context,
+	req *fuse.SetattrRequest,
+	resp *fuse.SetattrResponse) error {
+
+	log.Println("Requested Setattr() operation for entry", f.path)
+
+	// No file attr changes are allowed in a procfs, with the exception of
+	// 'size' modifications which are needed to allow write()/truncate() ops.
+	// All other 'fuse.SetattrValid' operations will be rejected.
+	if req.Valid.Size() {
+		return nil
+	}
+
+	return fuse.EPERM
+}
+
+//
 // Size method returns the 'size' of a File element.
 //
 func (f *File) Size() uint64 {
