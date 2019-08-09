@@ -49,7 +49,7 @@ func (h *NfConntrackMaxHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.S
 	return commonHandler.Getattr(n, pid)
 }
 
-func (h *NfConntrackMaxHandler) Open(n domain.IOnode) error {
+func (h *NfConntrackMaxHandler) Open(n domain.IOnode, pid uint32) error {
 
 	log.Printf("Executing %v open() method\n", h.Name)
 

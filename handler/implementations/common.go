@@ -2,11 +2,11 @@ package implementations
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os"
 	"strings"
+	"strconv"
 	"syscall"
 
 	"github.com/nestybox/sysvisor-fs/domain"
@@ -65,13 +65,12 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 		return nil, err
 	}
 
-	// Obtain received FileInfo payload.
+	// Obtain nsenter-event response.
 	responseMsg := nss.ResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
-		// An ErrorResponse during lookup() will be interpreted as an ENOENT (no
-		// file/dir found).
-		return nil, syscall.ENOENT
+		return nil, responseMsg.Payload.(error)
 	}
+
 	info := responseMsg.Payload.(domain.FileInfo)
 
 	return info, nil
@@ -103,9 +102,56 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 	return stat, nil
 }
 
-func (h *CommonHandler) Open(node domain.IOnode) error {
+func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 
 	log.Printf("Executing Open() method on %v handler", h.Name)
+
+	// Identify the pidNsInode corresponding to this pid.
+	pidInode := h.Service.FindPidNsInode(pid)
+	if pidInode == 0 {
+		return errors.New("Could not identify pidNsInode")
+	}
+
+	// Find the container-state corresponding to the container hosting this
+	// Pid.
+	css := h.Service.StateService()
+	cntr := css.ContainerLookupByPid(pidInode)
+	if cntr == nil {
+		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		return errors.New("Container not found")
+	}
+
+	// Create nsenterEvent to initiate interaction with container namespaces.
+	nss := h.Service.NSenterService()
+	event := nss.NewEvent(
+		n.Path(),
+		cntr.InitPid(),
+		[]domain.NStype{
+			string(domain.NStypeUser),
+			string(domain.NStypePid),
+			string(domain.NStypeNet),
+			string(domain.NStypeIpc),
+			string(domain.NStypeCgroup),
+			string(domain.NStypeUts),
+		},
+		&domain.NSenterMessage{
+			Type: domain.OpenFileRequest,
+			Payload: strconv.Itoa(n.OpenFlags()),
+		},
+		nil,
+	)
+
+	// Launch nsenter-event.
+	err := nss.LaunchEvent(event)
+	if err != nil {
+		return err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := nss.ResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return responseMsg.Payload.(error)
+	}
 
 	return nil
 }
@@ -286,13 +332,15 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 		return nil, err
 	}
 
+	// Obtain nsenter-event response.
+	responseMsg := nss.ResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return nil, responseMsg.Payload.(error)
+	}
+
 	// Transform event-response payload into a FileInfo slice. Notice that to
 	// convert []T1 struct to a []T2 one, we must iterate through each element
 	// and do the conversion one element at a time.
-	responseMsg := nss.ResponseEvent(event)
-	if responseMsg.Type == domain.ErrorResponse {
-		return nil, fmt.Errorf("Received nsenter error message during lookup-access: %v", n.Path())
-	}
 	dirEntries := responseMsg.Payload.([]domain.FileInfo)
 	osFileEntries := make([]os.FileInfo, len(dirEntries))
 	for i, v := range dirEntries {
@@ -373,11 +421,12 @@ func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (str
 		return "", err
 	}
 
-	// Obtain received FileInfo payload.
+	// Obtain nsenter-event response.
 	responseMsg := nss.ResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
-		return "", fmt.Errorf("Received nsenter error message during read-access: %v", n.Path())
+		return "", responseMsg.Payload.(error)
 	}
+
 	info := responseMsg.Payload.(string)
 
 	return info, nil
@@ -409,10 +458,10 @@ func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s str
 		return err
 	}
 
-	// Obtain received FileInfo payload.
+	// Obtain nsenter-event response.
 	responseMsg := nss.ResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
-		return fmt.Errorf("Received nsenter error message during write-access: %v", n.Path())
+		return responseMsg.Payload.(error)
 	}
 
 	return nil

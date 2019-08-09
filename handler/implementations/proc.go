@@ -46,14 +46,14 @@ func (h *ProcHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, err
 	return nil, nil
 }
 
-func (h *ProcHandler) Open(node domain.IOnode) error {
+func (h *ProcHandler) Open(n domain.IOnode, pid uint32) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 
 	return nil
 }
 
-func (h *ProcHandler) Close(node domain.IOnode) error {
+func (h *ProcHandler) Close(n domain.IOnode) error {
 
 	log.Printf("Executing Close() method on %v handler", h.Name)
 

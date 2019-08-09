@@ -48,7 +48,7 @@ func (h *RootHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, err
 	return nil, nil
 }
 
-func (h *RootHandler) Open(node domain.IOnode) error {
+func (h *RootHandler) Open(n domain.IOnode, pid uint32) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 

@@ -66,7 +66,7 @@ func (h *ProcPartitionsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.S
 	return commonHandler.Getattr(n, pid)
 }
 
-func (h *ProcPartitionsHandler) Open(n domain.IOnode) error {
+func (h *ProcPartitionsHandler) Open(n domain.IOnode, pid uint32) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 

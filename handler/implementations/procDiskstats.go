@@ -66,7 +66,7 @@ func (h *ProcDiskstatsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.St
 	return commonHandler.Getattr(n, pid)
 }
 
-func (h *ProcDiskstatsHandler) Open(n domain.IOnode) error {
+func (h *ProcDiskstatsHandler) Open(n domain.IOnode, pid uint32) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 

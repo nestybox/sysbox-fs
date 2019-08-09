@@ -117,9 +117,9 @@ func (f *File) Open(
 	}
 
 	// Handler execution.
-	err := handler.Open(f.ionode)
+	err := handler.Open(f.ionode, req.Pid)
 	if err != nil && err != io.EOF {
-	       return nil, fuse.Errno(err.(syscall.Errno))
+		return nil, err
 	}
 
 	// procfs and sysfs hold non-seekable files.
@@ -192,7 +192,6 @@ func (f *File) Read(
 	// Handler execution.
 	n, err := handler.Read(f.ionode, req.Pid, resp.Data, req.Offset)
 	if err != nil && err != io.EOF {
-		log.Println("Read ERR: ", err)
 		return err
 	}
 
@@ -226,7 +225,6 @@ func (f *File) Write(
 	// Handler execution.
 	n, err := handler.Write(f.ionode, req.Pid, req.Data)
 	if err != nil && err != io.EOF {
-		log.Println("Write ERR: ", err)
 		return err
 	}
 

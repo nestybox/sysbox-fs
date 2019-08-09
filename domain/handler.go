@@ -15,7 +15,7 @@ type Handler struct {
 
 type HandlerIface interface {
 	// FS operations.
-	Open(node IOnode) error
+	Open(node IOnode, pid uint32) error
 	Close(node IOnode) error
 	Lookup(n IOnode, pid uint32) (os.FileInfo, error)
 	Getattr(n IOnode, pid uint32) (*syscall.Stat_t, error)

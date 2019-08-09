@@ -66,7 +66,7 @@ func (h *ProcSwapsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t
 	return commonHandler.Getattr(n, pid)
 }
 
-func (h *ProcSwapsHandler) Open(n domain.IOnode) error {
+func (h *ProcSwapsHandler) Open(n domain.IOnode, pid uint32) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 

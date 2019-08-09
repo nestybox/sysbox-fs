@@ -66,7 +66,7 @@ func (h *ProcPagetypeinfoHandler) Getattr(n domain.IOnode, pid uint32) (*syscall
 	return commonHandler.Getattr(n, pid)
 }
 
-func (h *ProcPagetypeinfoHandler) Open(n domain.IOnode) error {
+func (h *ProcPagetypeinfoHandler) Open(n domain.IOnode, pid uint32) error {
 
 	log.Printf("Executing %v open() method", h.Name)
 

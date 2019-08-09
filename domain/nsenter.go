@@ -12,6 +12,7 @@ const (
 	NStypePid    NStype = "pid"
 	NStypeUts    NStype = "uts"
 	NStypeUser   NStype = "user"
+	NStypeMount  NStype = "mount"
 )
 
 //
@@ -21,6 +22,8 @@ const (
 const (
 	LookupRequest     NSenterMsgType = "lookupRequest"
 	LookupResponse    NSenterMsgType = "lookupResponse"
+	OpenFileRequest   NSenterMsgType = "OpenFileRequest"
+	OpenFileResponse  NSenterMsgType = "OpenFileResponse"
 	ReadFileRequest   NSenterMsgType = "readFileRequest"
 	ReadFileResponse  NSenterMsgType = "readFileResponse"
 	WriteFileRequest  NSenterMsgType = "writeFileRequest"
@@ -50,7 +53,7 @@ type NSenterService interface {
 //
 // NSenterEvent interface serves as a transport abstraction to represent all
 // the potential messages that can be exchanged between sysvisor-fs 'master'
-// instance and secondary (forked/child) ones. These sysvisor-fs' auxiliar
+// instance and secondary (forked/child) ones. These sysvisor-fs' auxiliary
 // instances are utilized to carry out actions over namespaced resources, and
 // as such, cannot be performed by sysvisor-fs' main instance.
 //
