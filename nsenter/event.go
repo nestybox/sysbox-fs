@@ -105,14 +105,14 @@ func (s *nsenterService) ResponseEvent(e domain.NSenterEventIface) *domain.NSent
 // generated during nsenterEvent's processing. As part of the encoding process,
 // an 'error' struct specialization must be provided to the (un)marshalling
 // routines to allow a proper serialization of the generic 'error' interface.
-// Notice that precisely for that reason if that the 'RcvError' member below
+// Notice that precisely for that reason is that the 'RcvError' member below
 // is not being exposed to JSON marshalling logic.
 //
 type NSenterError struct {
 	RcvError error `json:"-"`
-	Type string `json:"type"`
-	Code syscall.Errno `json:"code"`
-    Message string `json:"message"`
+	Type     string `json:"type"`
+	Code     syscall.Errno `json:"code"`
+	Message  string `json:"message"`
 }
 
 func (e NSenterError) Error() string {
@@ -273,7 +273,6 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 			Type:    nsenterMsg.Type,
 			Payload: p,
 		}
-
 		break
 
 	case domain.ErrorResponse:
@@ -292,7 +291,6 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 			Type:    nsenterMsg.Type,
 			Payload: p,
 		}
-
 		break
 
 	default:
