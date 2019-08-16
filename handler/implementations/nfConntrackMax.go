@@ -55,7 +55,7 @@ func (h *NfConntrackMaxHandler) Open(n domain.IOnode, pid uint32) error {
 
 	flags := n.OpenFlags()
 	if flags != syscall.O_RDONLY && flags != syscall.O_WRONLY {
-		return fmt.Errorf("%v: Permission denied", h.Path)
+		return fuse.IOerror{Code: syscall.EACCES}
 	}
 
 	// During 'writeOnly' accesses, we must grant read-write rights temporarily
@@ -67,7 +67,7 @@ func (h *NfConntrackMaxHandler) Open(n domain.IOnode, pid uint32) error {
 
 	if err := n.Open(); err != nil {
 		log.Printf("Error opening file %v\n", h.Path)
-		return errors.New("Error opening file")
+		return fuse.IOerror{Code: syscall.EIO}
 	}
 
 	return nil

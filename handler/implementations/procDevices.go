@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/fuse"
 )
 
 //
@@ -71,12 +72,12 @@ func (h *ProcDevicesHandler) Open(n domain.IOnode, pid uint32) error {
 
 	flags := n.OpenFlags()
 	if flags != syscall.O_RDONLY {
-		return syscall.EACCES
+		return fuse.IOerror{Code: syscall.EACCES}
 	}
 
 	if err := n.Open(); err != nil {
 		log.Printf("Error opening file %v\n", h.Path)
-		return syscall.EIO
+		return fuse.IOerror{Code: syscall.EIO}
 	}
 
 	return nil

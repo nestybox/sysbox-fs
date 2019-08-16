@@ -15,15 +15,14 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"reflect"
 
 	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/fuse"
 	"github.com/nestybox/sysvisor-runc/libcontainer"
 	_ "github.com/nestybox/sysvisor-runc/libcontainer/nsenter"
 	"github.com/nestybox/sysvisor-runc/libcontainer/utils"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
-	"bazil.org/fuse"
 )
 
 func init() {
@@ -98,67 +97,6 @@ func (s *nsenterService) LaunchEvent(e domain.NSenterEventIface) error {
 
 func (s *nsenterService) ResponseEvent(e domain.NSenterEventIface) *domain.NSenterMessage {
 	return e.Response()
-}
-
-//
-// NSenterError's purpose is to serve as a vehicle to encapsulate errors
-// generated during nsenterEvent's processing. As part of the encoding process,
-// an 'error' struct specialization must be provided to the (un)marshalling
-// routines to allow a proper serialization of the generic 'error' interface.
-// Notice that precisely for that reason is that the 'RcvError' member below
-// is not being exposed to JSON marshalling logic.
-//
-type NSenterError struct {
-	RcvError error `json:"-"`
-	Type     string `json:"type"`
-	Code     syscall.Errno `json:"code"`
-	Message  string `json:"message"`
-}
-
-func (e NSenterError) Error() string {
-	return e.Message
-}
-
-// Method requested by fuse.ErrorNumber interface. By implementing this
-// interface, we are allowed to return NSenterErrors back to our FUSE-lib
-// modules without making any modifications to Bazil-FUSE code.
-func (e NSenterError) Errno() fuse.Errno {
-	return fuse.Errno(e.Code)
-}
-
-// MarshallJSON's interface specialization to allow a customized encoding
-// of NSenterError struct.
-func (e *NSenterError) MarshalJSON() ([]byte, error) {
-
-	err := e.RcvError
-	if err == nil {
-		return nil, nil
-	}
-
-	var errcode syscall.Errno
-
-	// Type assertion is needed here to extract the error code corresponding
-	// to the different error flavors that may be generated during I/O ops.
-	switch v := err.(type) {
-	case *os.PathError:
-		errcode = v.Err.(syscall.Errno)
-
-	case *os.SyscallError:
-		errcode = v.Err.(syscall.Errno)
-
-	case syscall.Errno:
-		errcode = v
-
-	default:
-		errcode = syscall.EIO
-	}
-
-	// Finally, let's populate the fields of NSenterError struct.
-	e.Type = reflect.TypeOf(err).String()
-	e.Code = errcode
-	e.Message = err.Error()
-
-	return json.Marshal(*e)
 }
 
 
@@ -278,7 +216,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 	case domain.ErrorResponse:
 		log.Println("Received nsenterEvent errorResponse message")
 
-		var p NSenterError
+		var p fuse.IOerror
 
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
@@ -457,7 +395,7 @@ func (e *NSenterEvent) processLookupRequest() error {
 		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
-			Payload: &NSenterError{RcvError: err},
+			Payload: &fuse.IOerror{RcvError: err},
 		}
 
 		return nil
@@ -499,7 +437,7 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
-			Payload: &NSenterError{RcvError: err},
+			Payload: &fuse.IOerror{RcvError: err},
 		}
 
 		return nil
@@ -521,7 +459,7 @@ func (e *NSenterEvent) processFileReadRequest() error {
 		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
-			Payload: &NSenterError{RcvError: err},
+			Payload: &fuse.IOerror{RcvError: err},
 		}
 
 		return err
@@ -546,7 +484,7 @@ func (e *NSenterEvent) processFileWriteRequest() error {
 		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
-			Payload: &NSenterError{RcvError: err},
+			Payload: &fuse.IOerror{RcvError: err},
 		}
 
 		return nil
