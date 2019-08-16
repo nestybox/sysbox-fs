@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/fuse"
 )
 
 //
