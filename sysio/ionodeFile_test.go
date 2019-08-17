@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/spf13/afero"
 )
@@ -15,7 +17,7 @@ import (
 func TestMain(m *testing.M) {
 
 	// Disable log generation during UT.
-	log.SetOutput(ioutil.Discard)
+	logrus.SetOutput(ioutil.Discard)
 
 	m.Run()
 }

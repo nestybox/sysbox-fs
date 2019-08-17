@@ -2,23 +2,24 @@ package ipc_test
 
 import (
 	"io/ioutil"
-	"log"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/nestybox/sysvisor-fs/ipc"
 	"github.com/nestybox/sysvisor-fs/state"
 	"github.com/nestybox/sysvisor-fs/sysio"
 	"github.com/nestybox/sysvisor-ipc/sysvisorFsGrpc"
-	"github.com/spf13/afero"
 )
 
 func TestMain(m *testing.M) {
 
 	// Disable log generation during UT.
-	log.SetOutput(ioutil.Discard)
+	logrus.SetOutput(ioutil.Discard)
 
 	m.Run()
 }

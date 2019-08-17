@@ -256,6 +256,7 @@ func TestProcUptimeHandler_Open(t *testing.T) {
 	//
 	type args struct {
 		n domain.IOnode
+		pid uint32
 	}
 	tests := []struct {
 		name    string
@@ -270,7 +271,7 @@ func TestProcUptimeHandler_Open(t *testing.T) {
 			//
 			name:    "1",
 			h:       h,
-			args:    args{r},
+			args:    args{r, 1001},
 			wantErr: false,
 			prepare: func() {
 
@@ -284,7 +285,7 @@ func TestProcUptimeHandler_Open(t *testing.T) {
 			//
 			name:    "2",
 			h:       h,
-			args:    args{r},
+			args:    args{r, 1001},
 			wantErr: true,
 			prepare: func() {
 
@@ -299,7 +300,7 @@ func TestProcUptimeHandler_Open(t *testing.T) {
 			//
 			name:    "3",
 			h:       h,
-			args:    args{r},
+			args:    args{r, 1001},
 			wantErr: true,
 			prepare: func() {
 
@@ -326,7 +327,7 @@ func TestProcUptimeHandler_Open(t *testing.T) {
 				tt.prepare()
 			}
 
-			if err := tt.h.Open(tt.args.n); (err != nil) != tt.wantErr {
+			if err := tt.h.Open(tt.args.n, tt.args.pid); (err != nil) != tt.wantErr {
 				t.Errorf("ProcUptimeHandler.Open() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

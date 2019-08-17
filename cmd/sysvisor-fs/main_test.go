@@ -2,9 +2,10 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 )
@@ -12,7 +13,7 @@ import (
 func TestMain(m *testing.M) {
 
 	// Disable log generation during UT.
-	log.SetOutput(ioutil.Discard)
+	logrus.SetOutput(ioutil.Discard)
 
 	m.Run()
 }

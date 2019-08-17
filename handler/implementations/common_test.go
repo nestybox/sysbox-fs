@@ -2,12 +2,15 @@ package implementations_test
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"reflect"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/nestybox/sysvisor-fs/handler"
@@ -16,14 +19,12 @@ import (
 	"github.com/nestybox/sysvisor-fs/nsenter"
 	"github.com/nestybox/sysvisor-fs/state"
 	"github.com/nestybox/sysvisor-fs/sysio"
-	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
 
 	// Disable log generation during UT.
-	log.SetOutput(ioutil.Discard)
+	logrus.SetOutput(ioutil.Discard)
 
 	m.Run()
 }

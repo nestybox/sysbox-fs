@@ -8,18 +8,20 @@ import (
 
 	"bazil.org/fuse/fs"
 	_ "bazil.org/fuse/fs/fstestutil"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
+
 	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/nestybox/sysvisor-fs/handler"
 	"github.com/nestybox/sysvisor-fs/nsenter"
 	"github.com/nestybox/sysvisor-fs/state"
 	"github.com/nestybox/sysvisor-fs/sysio"
-	"github.com/spf13/afero"
 )
 
 func TestMain(m *testing.M) {
 
 	// Disable log generation during UT.
-	log.SetOutput(ioutil.Discard)
+	logrus.SetOutput(ioutil.Discard)
 
 	m.Run()
 }

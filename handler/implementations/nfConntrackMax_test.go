@@ -36,7 +36,7 @@ func TestNfConntrackMaxHandler_Lookup(t *testing.T) {
 	}
 
 	// Resource to Lookup().
-	var r = ios.NewIOnode("net", "/proc/sys/net/netfilter/nf_conntrack_max", 0)
+	var r = ios.NewIOnode("nf_conntrack_max", "/proc/sys/net/netfilter/nf_conntrack_max", 0)
 
 	// Create new container and add it to the containerDB.
 	cntr := css.ContainerCreate("cntr-1", 1001, "syscntr1", 123456, time.Time{}, 0, 0, 0, 0)
@@ -130,7 +130,7 @@ func TestNfConntrackMaxHandler_Getattr(t *testing.T) {
 	}
 
 	// Resource to Lookup().
-	var r = ios.NewIOnode("net", "/proc/sys/net/netfilter/nf_conntrack_max", 0)
+	var r = ios.NewIOnode("nf_conntrack_max", "/proc/sys/net/netfilter/nf_conntrack_max", 0)
 
 	// Create new container and add it to the containerDB.
 	cntr := css.ContainerCreate(
@@ -250,13 +250,14 @@ func TestNfConntrackMaxHandler_Open(t *testing.T) {
 	}
 
 	// Resource to Open().
-	var r = ios.NewIOnode("net", "/proc/sys/net/netfilter/nf_conntrack_max", 0)
+	var r = ios.NewIOnode("nf_conntrack_max", "/proc/sys/net/netfilter/nf_conntrack_max", 0)
 
 	//
 	// Test-case definitions.
 	//
 	type args struct {
 		n domain.IOnode
+		pid uint32
 	}
 	tests := []struct {
 		name    string
@@ -271,7 +272,7 @@ func TestNfConntrackMaxHandler_Open(t *testing.T) {
 			//
 			name:    "1",
 			h:       h,
-			args:    args{r},
+			args:    args{r, 123},
 			wantErr: false,
 			prepare: func() {
 
@@ -290,7 +291,7 @@ func TestNfConntrackMaxHandler_Open(t *testing.T) {
 			//
 			name:    "2",
 			h:       h,
-			args:    args{r},
+			args:    args{r, 123},
 			wantErr: true,
 			prepare: func() {
 
@@ -305,7 +306,7 @@ func TestNfConntrackMaxHandler_Open(t *testing.T) {
 			//
 			name:    "3",
 			h:       h,
-			args:    args{r},
+			args:    args{r, 123},
 			wantErr: true,
 			prepare: func() {
 
@@ -337,7 +338,7 @@ func TestNfConntrackMaxHandler_Open(t *testing.T) {
 				tt.prepare()
 			}
 
-			if err := tt.h.Open(tt.args.n); (err != nil) != tt.wantErr {
+			if err := tt.h.Open(tt.args.n, tt.args.pid); (err != nil) != tt.wantErr {
 				t.Errorf("NfConntrackMaxHandler.Open() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -384,7 +385,7 @@ func TestNfConntrackMaxHandler_Read(t *testing.T) {
 	}
 
 	// Resource to Lookup().
-	var r = ios.NewIOnode("net", "/proc/sys/net/netfilter/nf_conntrack_max", 0)
+	var r = ios.NewIOnode("nf_conntrack_max", "/proc/sys/net/netfilter/nf_conntrack_max", 0)
 
 	// Create new container and add it to the containerDB.
 	cntr := css.ContainerCreate("cntr-1", 1001, "syscntr1", 123456, time.Time{}, 0, 0, 0, 0)
@@ -552,7 +553,7 @@ func TestNfConntrackMaxHandler_Write(t *testing.T) {
 	}
 
 	// Resource to Lookup().
-	var r = ios.NewIOnode("net", "/proc/sys/net/netfilter/nf_conntrack_max", 0)
+	var r = ios.NewIOnode("nf_conntrack_max", "/proc/sys/net/netfilter/nf_conntrack_max", 0)
 
 	// Create new container and add it to the containerDB.
 	cntr := css.ContainerCreate("cntr-1", 1001, "syscntr1", 123456, time.Time{}, 0, 0, 0, 0)
@@ -603,7 +604,7 @@ func TestNfConntrackMaxHandler_Write(t *testing.T) {
 				// Open nf_conntrack_max's associated sysio construct. See that
 				// this routine must be invoked to ensure that resource is opened
 				// with RDWR permissions.
-				_ = h.Open(r)
+				_ = h.Open(r, 1001)
 			},
 		},
 		{

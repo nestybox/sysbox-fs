@@ -386,7 +386,7 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, pid uint32) []os.File
 		// Handler execution.
 		info, err := handler.Lookup(newIOnode, pid)
 		if err != nil {
-			logrus.Errorf("Error while running Lookup(): ", err)
+			logrus.Error("Lookup() error: ", err)
 			return nil
 		}
 

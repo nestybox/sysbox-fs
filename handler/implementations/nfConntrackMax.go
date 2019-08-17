@@ -147,7 +147,7 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,
 	buf []byte) (int, error) {
 
-	logrus.Debug("Executing %v Write() method", h.Name)
+	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	name := n.Name()
 	path := n.Path()
