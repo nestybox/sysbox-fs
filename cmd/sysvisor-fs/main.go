@@ -86,14 +86,15 @@ func main() {
 			Value: "/var/lib/sysvisorfs",
 			Usage: "mount-point location",
 		},
-		cli.BoolFlag{
-			Name:  "debug, d",
-			Usage: "enable debug output in logs",
-		},
 		cli.StringFlag{
 			Name:  "log",
 			Value: "/dev/stdout",
 			Usage: "log file path",
+		},
+		cli.StringFlag{
+			Name:  "log-level",
+			Value: "info",
+			Usage: "log categories to include (debug, info, warning, error, fatal)",
 		},
 		cli.IntFlag{
 			Name:  "dentry-cache-timeout, t",
@@ -118,15 +119,6 @@ func main() {
 	// Define 'debug' and 'log' settings.
 	app.Before = func(ctx *cli.Context) error {
 
-		// For troubleshooting purposes, if 'debug' option is enabled, we want
-		// to dump all sysvisor-fs logs, as well as Bazil fuse-lib ones, into
-		// the same log file. With that goal in mind is that we are artificially
-		// setting this flag, which is eventually consumed by Bazil code.
-		if ctx.GlobalBool("debug") {
-			flag.Set("fuse.debug", "true")
-			logrus.SetLevel(logrus.DebugLevel)
-		}
-
 		// Create/set the log-file destination.
 		if path := ctx.GlobalString("log"); path != "" {
 			f, err := os.OpenFile(
@@ -148,6 +140,31 @@ func main() {
 			logrus.SetOutput(f)
 			log.SetOutput(f)
 		}
+
+		// Set desired log-level.
+		if logLevel := ctx.GlobalString("log-level"); logLevel != "" {
+			switch logLevel {
+			case "debug":
+				// Following instruction is to have Bazil's fuze-lib logs being
+				// included into sysvisor-fs' log stream.
+				flag.Set("fuse.debug", "true")
+				logrus.SetLevel(logrus.DebugLevel)
+			case "info":
+				logrus.SetLevel(logrus.InfoLevel)
+			case "warning":
+				logrus.SetLevel(logrus.WarnLevel)
+			case "error":
+				logrus.SetLevel(logrus.ErrorLevel)
+			case "fatal":
+				logrus.SetLevel(logrus.FatalLevel)
+			default:
+				logrus.Fatalf("'%v' log-level option not recognized", logLevel)
+			}
+		} else {
+			// Set 'info' as our default log-level.
+			logrus.SetLevel(logrus.InfoLevel)
+		}
+
 		return nil
 	}
 
