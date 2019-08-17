@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/spf13/afero"
@@ -220,7 +221,7 @@ func (i *IOnodeFile) PidNsInode() (domain.Inode, error) {
 	// Extract pid-ns info from FS.
 	info, err := AppFs.Stat(pidnsPath)
 	if err != nil {
-		log.Println("No process file found for pid:", pid)
+		logrus.Error("No process file found for pid:", pid)
 		return 0, err
 	}
 
@@ -241,7 +242,7 @@ func (i *IOnodeFile) PidNsInode() (domain.Inode, error) {
 	// In the regular case obtain the real inode value exposed by Sys() api.
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
-		log.Println("Not a syscall.Stat_t")
+		logrus.Error("Not a syscall.Stat_t")
 		return 0, nil
 	}
 

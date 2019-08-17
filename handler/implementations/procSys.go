@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"syscall"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 )
@@ -24,7 +25,7 @@ type ProcSysHandler struct {
 
 func (h *ProcSysHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
-	log.Printf("Executing Lookup() method on %v handler", h.Name)
+	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -37,7 +38,7 @@ func (h *ProcSysHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error
 
 func (h *ProcSysHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
 
-	log.Printf("Executing Getattr() method on %v handler", h.Name)
+	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -68,14 +69,14 @@ func (h *ProcSysHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, 
 
 func (h *ProcSysHandler) Open(n domain.IOnode, pid uint32) error {
 
-	log.Printf("Executing %v open() method", h.Name)
+	logrus.Debugf("Executing %v Open() method", h.Name)
 
 	return nil
 }
 
 func (h *ProcSysHandler) Close(node domain.IOnode) error {
 
-	log.Printf("Executing Close() method on %v handler", h.Name)
+	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
@@ -83,7 +84,7 @@ func (h *ProcSysHandler) Close(node domain.IOnode) error {
 func (h *ProcSysHandler) Read(n domain.IOnode, pid uint32,
 	buf []byte, off int64) (int, error) {
 
-	log.Printf("Executing %v read() method", h.Name)
+	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	if off > 0 {
 		return 0, io.EOF
@@ -100,7 +101,7 @@ func (h *ProcSysHandler) Write(n domain.IOnode, pid uint32,
 
 func (h *ProcSysHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
 
-	log.Printf("Executing ReadDirAll() method on %v handler", h.Name)
+	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
 
 	commonHandler, ok := h.Service.FindHandler("commonHandler")
 	if !ok {

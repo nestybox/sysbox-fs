@@ -2,8 +2,9 @@ package ipc
 
 import (
 	"errors"
-	"log"
 	"strconv"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/nestybox/sysvisor-ipc/sysvisorFsGrpc"
@@ -44,7 +45,7 @@ func ContainerRegister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) erro
 		return errors.New("Invalid input parameters")
 	}
 
-	log.Println("Container Registration: received Pid:", data.InitPid)
+	logrus.Info("Container registration message received for initPid: ", data.InitPid)
 
 	ipcService := ctx.(*ipcService)
 
@@ -73,7 +74,7 @@ func ContainerRegister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) erro
 		return err
 	}
 
-	log.Println("Container registration successfully completed.")
+	logrus.Info("Container registration successfully completed")
 
 	return nil
 }
@@ -83,6 +84,8 @@ func ContainerUnregister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) er
 	if data == nil {
 		return errors.New("Invalid input parameters")
 	}
+
+	logrus.Info("Container unregistration message received...")
 
 	ipcService := ctx.(*ipcService)
 
@@ -105,7 +108,7 @@ func ContainerUnregister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) er
 		return err
 	}
 
-	log.Println("Container unregistration successfully completed.")
+	logrus.Info("Container unregistration successfully completed")
 
 	return nil
 }
@@ -115,6 +118,8 @@ func ContainerUpdate(ctx interface{}, data *sysvisorFsGrpc.ContainerData) error 
 	if data == nil {
 		return errors.New("Invalid input parameters")
 	}
+
+	logrus.Info("Container update message received...")
 
 	ipcService := ctx.(*ipcService)
 
@@ -137,7 +142,7 @@ func ContainerUpdate(ctx interface{}, data *sysvisorFsGrpc.ContainerData) error 
 		return err
 	}
 
-	log.Println("Container update successfully completed.")
+	logrus.Info("Container update successfully completed.")
 
 	return nil
 }

@@ -3,11 +3,12 @@ package implementations
 import (
 	"errors"
 	"io"
-	"log"
 	"os"
 	"strings"
 	"strconv"
 	"syscall"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 )
@@ -25,7 +26,7 @@ type CommonHandler struct {
 
 func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
-	log.Printf("Executing Lookup() method on %v handler", h.Name)
+	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -38,7 +39,7 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
 		return nil, errors.New("Could not find associated container")
 	}
 
@@ -78,7 +79,7 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 
 func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
 
-	log.Printf("Executing Getattr() method on %v handler", h.Name)
+	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -91,7 +92,7 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 	css := h.GetService().StateService()
 	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
 		return nil, errors.New("Could not find associated container")
 	}
 
@@ -104,7 +105,7 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 
 func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 
-	log.Printf("Executing Open() method on %v handler", h.Name)
+	logrus.Debugf("Executing Open() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -117,7 +118,7 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
 		return errors.New("Container not found")
 	}
 
@@ -158,14 +159,14 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 
 func (h *CommonHandler) Close(node domain.IOnode) error {
 
-	log.Printf("Executing Close() method on %v handler", h.Name)
+	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
 func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64) (int, error) {
 
-	log.Printf("Executing Read() method on %v handler", h.Name)
+	logrus.Debugf("Executing Read() method on %v handler", h.Name)
 
 	if off > 0 {
 		return 0, io.EOF
@@ -190,7 +191,7 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
 		return 0, errors.New("Container not found")
 	}
 
@@ -213,7 +214,7 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 		if result == "" {
 			result, ok = cntr.Data(path, name)
 			if !ok {
-				log.Println("Unexpected error")
+				logrus.Errorf("Unexpected error")
 				return 0, io.EOF
 			}
 		}
@@ -235,7 +236,7 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 
 func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, error) {
 
-	log.Printf("Executing Write() method on %v handler", h.Name)
+	logrus.Debugf("Executing Write() method on %v handler", h.Name)
 
 	name := n.Name()
 	path := n.Path()
@@ -253,7 +254,7 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
 		return 0, errors.New("Container not found")
 	}
 
@@ -292,7 +293,7 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 
 func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
 
-	log.Printf("Executing ReadDirAll() method on %v handler", h.Name)
+	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -305,7 +306,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
 		return nil, errors.New("Container not found")
 	}
 
@@ -374,7 +375,7 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, pid uint32) []os.File
 		// Lookup the associated handler within handler-DB.
 		handler, ok := h.Service.FindHandler(handlerPath)
 		if !ok {
-			log.Printf("No supported handler for %v resource", handlerPath)
+			logrus.Errorf("No supported handler for %v resource", handlerPath)
 			return nil
 		}
 
@@ -385,7 +386,7 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, pid uint32) []os.File
 		// Handler execution.
 		info, err := handler.Lookup(newIOnode, pid)
 		if err != nil {
-			log.Println("Error while running Lookup(): ", err)
+			logrus.Errorf("Error while running Lookup(): ", err)
 			return nil
 		}
 

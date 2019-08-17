@@ -16,6 +16,7 @@ import (
 	"github.com/nestybox/sysvisor-fs/state"
 	"github.com/nestybox/sysvisor-fs/sysio"
 
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
@@ -39,25 +40,29 @@ func signalHandler(signalChan chan os.Signal, fs domain.FuseService) {
 
 	// TODO: Handle SIGHUP differently -- e.g. re-read sysvisorfs conf file
 	case syscall.SIGHUP:
-		log.Println("Sysvisorfs caught signal: SIGHUP")
+		logrus.Warn("sysvisor-fs caught signal: SIGHUP")
 
 	case syscall.SIGSEGV:
-		log.Println("Sysvisorfs caught signal: SIGSEGV")
+		logrus.Warn("sysvisor-fs caught signal: SIGSEGV")
 
 	case syscall.SIGINT:
-		log.Println("Sysvisorfs caught signal: SIGTINT")
+		logrus.Warn("sysvisor-fs caught signal: SIGTINT")
 
 	case syscall.SIGTERM:
-		log.Println("Sysvisorfs caught signal: SIGTERM")
+		logrus.Warn("sysvisor-fs caught signal: SIGTERM")
 
 	case syscall.SIGQUIT:
-		log.Println("Sysvisorfs caught signal: SIGQUIT")
+		logrus.Warn("sysvisor-fs caught signal: SIGQUIT")
 
 	default:
-		log.Println("Sysvisorfs caught unknown signal")
+		logrus.Warn("sysvisor-fs caught unknown signal")
 	}
 
-	log.Println("Unmounting sysvisorfs from mountpoint", fs.MountPoint(), "Exitting...")
+	logrus.Warn(
+		"Unmounting sysvisor-fs from mountpoint ",
+		fs.MountPoint(),
+		". Exitting...",
+	)
 	fs.Unmount()
 
 	// Deferring exit() to allow FUSE to dump unnmount() logs
@@ -87,7 +92,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "log",
-			Value: "/dev/null",
+			Value: "/dev/stdout",
 			Usage: "log file path",
 		},
 		cli.IntFlag{
@@ -119,6 +124,7 @@ func main() {
 		// setting this flag, which is eventually consumed by Bazil code.
 		if ctx.GlobalBool("debug") {
 			flag.Set("fuse.debug", "true")
+			logrus.SetLevel(logrus.DebugLevel)
 		}
 
 		// Create/set the log-file destination.
@@ -129,10 +135,17 @@ func main() {
 				0666,
 			)
 			if err != nil {
-				log.Fatalf("Error opening log file %v: %v", path, err)
+				logrus.Fatalf("Error opening log file %v: %v", path, err)
 				return err
 			}
 
+			// Set a proper logging formatter.
+			logrus.SetFormatter(&logrus.TextFormatter{
+				ForceColors: true,
+				TimestampFormat : "2006-01-02 15:04:05",
+				FullTimestamp: true,
+			})
+			logrus.SetOutput(f)
 			log.SetOutput(f)
 		}
 		return nil
@@ -175,13 +188,13 @@ func main() {
 
 		// Initiate sysvisor-fs' FUSE service.
 		if err := fuseService.Run(); err != nil {
-			log.Fatal(err)
+			logrus.Fatal(err)
 		}
 
 		return nil
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 }

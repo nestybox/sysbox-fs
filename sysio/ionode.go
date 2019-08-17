@@ -1,7 +1,7 @@
 package sysio
 
 import (
-	"log"
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 )
@@ -25,7 +25,7 @@ func NewIOService(t IOServiceType) domain.IOService {
 	//	return &ioBufferService{}
 
 	default:
-		log.Panicf("Unsupported ioService required: %v", t)
+		logrus.Panic("Unsupported ioService required: ", t)
 	}
 
 	return nil

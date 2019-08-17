@@ -6,6 +6,7 @@ require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	github.com/nestybox/sysvisor-ipc v0.0.0-20190603003818-483605a8fbcf
 	github.com/nestybox/sysvisor-runc v0.1.2
+	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/afero v1.2.2
 	github.com/stretchr/testify v1.3.0
 	github.com/urfave/cli v1.20.0

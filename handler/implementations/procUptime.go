@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/nestybox/sysvisor-fs/fuse"
@@ -27,7 +28,7 @@ type ProcUptimeHandler struct {
 
 func (h *ProcUptimeHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
-	log.Printf("Executing Lookup() method on %v handler", h.Name)
+	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -40,7 +41,7 @@ func (h *ProcUptimeHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, er
 
 func (h *ProcUptimeHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
 
-	log.Printf("Executing Getattr() method on %v handler", h.Name)
+	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -71,7 +72,7 @@ func (h *ProcUptimeHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_
 
 func (h *ProcUptimeHandler) Open(n domain.IOnode, pid uint32) error {
 
-	log.Printf("Executing %v open() method", h.Name)
+	logrus.Debugf("Executing %v Open() method", h.Name)
 
 	flags := n.OpenFlags()
 	if flags != syscall.O_RDONLY {
@@ -79,7 +80,7 @@ func (h *ProcUptimeHandler) Open(n domain.IOnode, pid uint32) error {
 	}
 
 	if err := n.Open(); err != nil {
-		log.Printf("Error opening file %v\n", h.Path)
+		logrus.Debug("Error opening file ", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 
@@ -88,7 +89,7 @@ func (h *ProcUptimeHandler) Open(n domain.IOnode, pid uint32) error {
 
 func (h *ProcUptimeHandler) Close(n domain.IOnode) error {
 
-	log.Printf("Executing Close() method on %v handler", h.Name)
+	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
@@ -96,7 +97,7 @@ func (h *ProcUptimeHandler) Close(n domain.IOnode) error {
 func (h *ProcUptimeHandler) Read(n domain.IOnode, pid uint32,
 	buf []byte, off int64) (int, error) {
 
-	log.Printf("Executing %v read() method", h.Name)
+	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	// We are dealing with a single integer element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -117,7 +118,7 @@ func (h *ProcUptimeHandler) Read(n domain.IOnode, pid uint32,
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByPid(pidInode)
 	if cntr == nil {
-		log.Printf("Could not find the container originating this request (pidNsInode %v)\n", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
 		return 0, errors.New("Container not found")
 	}
 

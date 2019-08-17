@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,13 +15,15 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/nestybox/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor-fs/fuse"
-	"github.com/nestybox/sysvisor-runc/libcontainer"
+	"github.com/sirupsen/logrus"
 	_ "github.com/nestybox/sysvisor-runc/libcontainer/nsenter"
 	"github.com/nestybox/sysvisor-runc/libcontainer/utils"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
+
+	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysvisor-fs/fuse"
+	"github.com/nestybox/sysvisor-runc/libcontainer"
 )
 
 func init() {
@@ -130,20 +131,21 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 	// remote-end. This second step is executed as part of a subsequent
 	// unmarshal instruction (see further below).
 	if err = json.Unmarshal(data, &nsenterMsg); err != nil {
-		log.Printf("Error decoding received nsenterMsg response: %v", err)
+		logrus.Errorf("Error decoding received nsenterMsg response: %v", err)
 		return errors.New("Error decoding received event response")
 	}
 
 	switch nsenterMsg.Type {
 
 	case domain.LookupResponse:
-		log.Println("Received nsenterEvent lookupResponse message")
+		logrus.Debug("Received nsenterEvent lookupResponse message")
 
 		var p domain.FileInfo
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
-				log.Fatal(err)
+				logrus.Error(err)
+				return err
 			}
 		}
 
@@ -154,13 +156,14 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		break
 
 	case domain.OpenFileResponse:
-		log.Println("Received nsenterEvent OpenResponse message")
+		logrus.Debug("Received nsenterEvent OpenResponse message")
 
 		var p int
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
-				log.Fatal(err)
+				logrus.Error(err)
+				return err
 			}
 		}
 
@@ -171,13 +174,14 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		break
 
 	case domain.ReadFileResponse:
-		log.Println("Received nsenterEvent readResponse message")
+		logrus.Debug("Received nsenterEvent readResponse message")
 
 		var p string
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
-				log.Fatal(err)
+				logrus.Error(err)
+				return err
 			}
 		}
 
@@ -188,7 +192,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		break
 
 	case domain.WriteFileResponse:
-		log.Println("Received nsenterEvent writeResponse message")
+		logrus.Debug("Received nsenterEvent writeResponse message")
 
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    nsenterMsg.Type,
@@ -197,13 +201,14 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		break
 
 	case domain.ReadDirResponse:
-		log.Println("Received nsenterEvent readDirAllResponse message")
+		logrus.Debug("Received nsenterEvent readDirAllResponse message")
 
 		var p []domain.FileInfo
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
-				log.Fatal(err)
+				logrus.Error(err)
+				return err
 			}
 		}
 
@@ -214,14 +219,15 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		break
 
 	case domain.ErrorResponse:
-		log.Println("Received nsenterEvent errorResponse message")
+		logrus.Debug("Received nsenterEvent errorResponse message")
 
 		var p fuse.IOerror
 
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
-				log.Fatal(err)
+				logrus.Error(err)
+				return err
 			}
 		}
 
@@ -269,7 +275,7 @@ func (e *NSenterEvent) namespacePaths() []string {
 //
 func (e *NSenterEvent) Launch() error {
 
-	log.Println("Executing nsenterEvent's launch() method")
+	logrus.Debug("Executing nsenterEvent's launch() method")
 
 	// Create a socket pair.
 	parentPipe, childPipe, err := utils.NewSockPair("nsenterPipe")
@@ -504,7 +510,7 @@ func (e *NSenterEvent) processDirReadRequest() error {
 	// Perform readDir operation and return error msg should this one fail.
 	dirContent, err := ioutil.ReadDir(e.Resource)
 	if err != nil {
-		log.Printf("Error reading from %s resource", e.Resource)
+		logrus.Errorf("Error reading from %s resource", e.Resource)
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: err.Error(),

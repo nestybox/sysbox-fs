@@ -2,9 +2,10 @@ package state
 
 import (
 	"errors"
-	"log"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 )
@@ -60,14 +61,14 @@ func (css *containerStateService) ContainerAdd(c domain.ContainerIface) error {
 	// Ensure that new container's id is not already present.
 	if _, ok := css.idTable[cntr.id]; ok {
 		css.Unlock()
-		log.Printf("Container addition error: container ID %v already present\n", cntr.id)
+		logrus.Errorf("Container addition error: container ID %v already present", cntr.id)
 		return errors.New("Container ID already present")
 	}
 
 	// Ensure that new container's pidNsInode is not already registered.
 	if _, ok := css.pidTable[cntr.pidInode]; ok {
 		css.Unlock()
-		log.Printf("Container addition error: container with PID-inode %v already present\n", cntr.pidInode)
+		logrus.Errorf("Container addition error: container with PID-inode %v already present", cntr.pidInode)
 		return errors.New("Container with PID-inode already present")
 	}
 
@@ -75,7 +76,7 @@ func (css *containerStateService) ContainerAdd(c domain.ContainerIface) error {
 	css.pidTable[cntr.pidInode] = cntr
 	css.Unlock()
 
-	log.Printf("#### Added container #### %v \n", cntr.String())
+	logrus.Info(cntr.String())
 
 	return nil
 }
@@ -92,7 +93,7 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	inode, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
-		log.Printf("Container update failure: container ID %v not found\n", cntr.id)
+		logrus.Errorf("Container update failure: container ID %v not found", cntr.id)
 		return errors.New("Container ID not found")
 	}
 
@@ -100,7 +101,7 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	currCntr, ok := css.pidTable[inode]
 	if !ok {
 		css.Unlock()
-		log.Println("Container update failure: could not find container with pid-ns-inode", inode)
+		logrus.Error("Container update failure: could not find container with pid-ns-inode ", inode)
 		return errors.New("Could not find container to update")
 	}
 
@@ -111,7 +112,7 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	currCntr.SetCtime(cntr.ctime)
 	css.Unlock()
 
-	log.Printf("#### Updated container #### %v \n", currCntr.String())
+	logrus.Info(currCntr.String())
 
 	return nil
 }
@@ -128,14 +129,14 @@ func (css *containerStateService) ContainerDelete(c domain.ContainerIface) error
 	inode, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
-		log.Printf("Container deletion failure: container ID %v not found\n", cntr.id)
+		logrus.Errorf("Container deletion failure: container ID %v not found ", cntr.id)
 		return errors.New("Container ID not found")
 	}
 
 	currCntr, ok := css.pidTable[inode]
 	if !ok {
 		css.Unlock()
-		log.Println("Container deletion error: could not find container with PID-inode", inode)
+		logrus.Error("Container deletion error: could not find container with PID-inode ", inode)
 		return errors.New("Container with PID-inode already present")
 	}
 
@@ -143,7 +144,7 @@ func (css *containerStateService) ContainerDelete(c domain.ContainerIface) error
 	delete(css.pidTable, inode)
 	css.Unlock()
 
-	log.Printf("#### Deleted container #### %v \n", currCntr.String())
+	logrus.Info(currCntr.String())
 
 	return nil
 }

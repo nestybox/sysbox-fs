@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"syscall"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/nestybox/sysvisor-fs/fuse"
@@ -25,7 +26,7 @@ type ProcDevicesHandler struct {
 
 func (h *ProcDevicesHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
-	log.Printf("Executing Lookup() method on %v handler", h.Name)
+	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -37,7 +38,7 @@ func (h *ProcDevicesHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, e
 
 func (h *ProcDevicesHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
 
-	log.Printf("Executing Getattr() method on %v handler", h.Name)
+	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -68,7 +69,7 @@ func (h *ProcDevicesHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat
 
 func (h *ProcDevicesHandler) Open(n domain.IOnode, pid uint32) error {
 
-	log.Printf("Executing %v open() method", h.Name)
+	logrus.Debugf("Executing %v Open() method", h.Name)
 
 	flags := n.OpenFlags()
 	if flags != syscall.O_RDONLY {
@@ -76,7 +77,7 @@ func (h *ProcDevicesHandler) Open(n domain.IOnode, pid uint32) error {
 	}
 
 	if err := n.Open(); err != nil {
-		log.Printf("Error opening file %v\n", h.Path)
+		logrus.Debug("Error opening file ", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 
@@ -85,7 +86,7 @@ func (h *ProcDevicesHandler) Open(n domain.IOnode, pid uint32) error {
 
 func (h *ProcDevicesHandler) Close(n domain.IOnode) error {
 
-	log.Printf("Executing Close() method on %v handler", h.Name)
+	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
@@ -93,7 +94,7 @@ func (h *ProcDevicesHandler) Close(n domain.IOnode) error {
 func (h *ProcDevicesHandler) Read(n domain.IOnode, pid uint32,
 	buf []byte, off int64) (int, error) {
 
-	log.Printf("Executing %v read() method", h.Name)
+	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	// Bypass emulation logic for now by going straight to host fs.
 	ios := h.Service.IOService()
@@ -109,6 +110,8 @@ func (h *ProcDevicesHandler) Read(n domain.IOnode, pid uint32,
 
 func (h *ProcDevicesHandler) Write(n domain.IOnode, pid uint32,
 	buf []byte) (int, error) {
+
+	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	return 0, nil
 }

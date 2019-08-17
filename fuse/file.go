@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"syscall"
 	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"github.com/sirupsen/logrus"
+
 	"github.com/nestybox/sysvisor-fs/domain"
 )
 
@@ -52,7 +53,7 @@ func NewFile(name string, path string, attr *fuse.Attr, srv *fuseService) *File 
 //
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 
-	log.Println("Requested Attr() operation for entry", f.path)
+	logrus.Debug("Requested Attr() operation for entry ", f.path)
 
 	// Simply return the attributes that were previously collected during the
 	// lookup() execution.
@@ -69,19 +70,19 @@ func (f *File) Getattr(
 	req *fuse.GetattrRequest,
 	resp *fuse.GetattrResponse) error {
 
-	log.Println("Requested GetAttr() operation for entry", f.path)
+	logrus.Debug("Requested GetAttr() operation for entry ", f.path)
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
 	if !ok {
-		log.Printf("No supported handler for %v resource", f.path)
+		logrus.Errorf("No supported handler for %v resource", f.path)
 		return fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
 	// Handler execution.
 	stat, err := handler.Getattr(f.ionode, req.Pid)
 	if err != nil {
-		log.Println("Error while running Getattr(): ", err)
+		logrus.Debug("Getattr() error: ", err)
 		return err
 	}
 
@@ -105,20 +106,21 @@ func (f *File) Open(
 	req *fuse.OpenRequest,
 	resp *fuse.OpenResponse) (fs.Handle, error) {
 
-	log.Println("Requested Open() operation for entry", f.path)
+	logrus.Debug("Requested Open() operation for entry ", f.path)
 
 	f.ionode.SetOpenFlags(int(req.Flags))
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
 	if !ok {
-		log.Printf("No supported handler for %v resource", f.path)
+		logrus.Errorf("No supported handler for %v resource", f.path)
 		return nil, fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
 	// Handler execution.
 	err := handler.Open(f.ionode, req.Pid)
 	if err != nil && err != io.EOF {
+		logrus.Debug("Open() error: ", err)
 		return nil, err
 	}
 
@@ -149,12 +151,12 @@ func (f *File) Open(
 //
 func (f *File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 
-	log.Println("Requested Release() operation for entry", f.path)
+	logrus.Debug("Requested Release() operation for entry ", f.path)
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
 	if !ok {
-		log.Printf("No supported handler for %v resource", f.path)
+		logrus.Errorf("No supported handler for %v resource", f.path)
 		return fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
@@ -172,10 +174,10 @@ func (f *File) Read(
 	req *fuse.ReadRequest,
 	resp *fuse.ReadResponse) error {
 
-	log.Println("Requested Read() operation for entry", f.path)
+	logrus.Debug("Requested Read() operation for entry ", f.path)
 
 	if f.ionode == nil {
-		log.Println("Read: File should be open by now -- aborting request")
+		logrus.Error("Read() error: File should be properly defined by now")
 		return fuse.ENOTSUP
 	}
 
@@ -185,13 +187,14 @@ func (f *File) Read(
 	// Identify the associated handler and execute it accordingly.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
 	if !ok {
-		log.Printf("No supported handler for %v resource", f.path)
+		logrus.Errorf("Read() error: No supported handler for %v resource", f.path)
 		return fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
 	// Handler execution.
 	n, err := handler.Read(f.ionode, req.Pid, resp.Data, req.Offset)
 	if err != nil && err != io.EOF {
+		logrus.Debug("Read() error: ", err)
 		return err
 	}
 
@@ -208,23 +211,24 @@ func (f *File) Write(
 	req *fuse.WriteRequest,
 	resp *fuse.WriteResponse) error {
 
-	log.Println("Requested Write() operation for entry", f.path)
+	logrus.Debug("Requested Write() operation for entry ", f.path)
 
 	if f.ionode == nil {
-		log.Println("Write: File should be opened by now -- aborting request")
+		logrus.Error("Write() error: File should be properly defined by now")
 		return fuse.ENOTSUP
 	}
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
 	if !ok {
-		log.Printf("No supported handler for %v resource", f.path)
+		logrus.Errorf("Write() error: No supported handler for %v resource", f.path)
 		return fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
 	// Handler execution.
 	n, err := handler.Write(f.ionode, req.Pid, req.Data)
 	if err != nil && err != io.EOF {
+		logrus.Debug("Write() error: ", err)
 		return err
 	}
 
@@ -241,7 +245,7 @@ func (f *File) Setattr(
 	req *fuse.SetattrRequest,
 	resp *fuse.SetattrResponse) error {
 
-	log.Println("Requested Setattr() operation for entry", f.path)
+	logrus.Debug("Requested Setattr() operation for entry ", f.path)
 
 	// No file attr changes are allowed in a procfs, with the exception of
 	// 'size' modifications which are needed to allow write()/truncate() ops.

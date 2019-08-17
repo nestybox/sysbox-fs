@@ -2,9 +2,10 @@ package implementations
 
 import (
 	"errors"
-	"log"
 	"os"
 	"syscall"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 )
@@ -28,7 +29,7 @@ type ProcHandler struct {
 
 func (h *ProcHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
-	log.Printf("Executing Lookup() method on %v handler", h.Name)
+	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
@@ -41,21 +42,21 @@ func (h *ProcHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
 func (h *ProcHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
 
-	log.Printf("Executing Getattr() method on %v handler", h.Name)
+	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	return nil, nil
 }
 
 func (h *ProcHandler) Open(n domain.IOnode, pid uint32) error {
 
-	log.Printf("Executing %v open() method", h.Name)
+	logrus.Debugf("Executing %v Open() method", h.Name)
 
 	return nil
 }
 
 func (h *ProcHandler) Close(n domain.IOnode) error {
 
-	log.Printf("Executing Close() method on %v handler", h.Name)
+	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
@@ -63,13 +64,15 @@ func (h *ProcHandler) Close(n domain.IOnode) error {
 func (h *ProcHandler) Read(n domain.IOnode, pid uint32,
 	buf []byte, off int64) (int, error) {
 
-	log.Printf("Executing %v read() method", h.Name)
+	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	return 0, nil
 }
 
 func (h *ProcHandler) Write(n domain.IOnode, pid uint32,
 	buf []byte) (int, error) {
+
+	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	return 0, nil
 }

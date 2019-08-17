@@ -3,11 +3,12 @@ package fuse
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 	"path/filepath"
 	"syscall"
+
+	"github.com/sirupsen/logrus"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -57,7 +58,7 @@ func (d *Dir) Lookup(
 	req *fuse.LookupRequest,
 	resp *fuse.LookupResponse) (fs.Node, error) {
 
-	log.Println("Requested Lookup for", req.Name)
+	logrus.Debug("Requested Lookup() operation for entry ", req.Name)
 
 	path := filepath.Join(d.path, "/", req.Name)
 
@@ -68,14 +69,14 @@ func (d *Dir) Lookup(
 	// Lookup the associated handler within handler-DB.
 	handler, ok := d.service.hds.LookupHandler(newIOnode)
 	if !ok {
-		log.Printf("No supported handler for %v resource", d.path)
+		logrus.Errorf("No supported handler for %v resource", d.path)
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
 	}
 
 	// Handler execution.
 	info, err := handler.Lookup(newIOnode, req.Pid)
 	if err != nil {
-		log.Println("Error while running Lookup(): ", err)
+		logrus.Error("Lookup() error: ", err)
 		return nil, fuse.ENOENT
 	}
 
@@ -117,19 +118,19 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 
 	var children []fuse.Dirent
 
-	log.Println("Requested ReadDirAll on directory", d.path)
+	logrus.Debug("Requested ReadDirAll() on directory ", d.path)
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := d.service.hds.LookupHandler(d.ionode)
 	if !ok {
-		log.Printf("No supported handler for %v resource", d.path)
+		logrus.Errorf("No supported handler for %v resource", d.path)
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
 	}
 
 	// Handler execution.
 	files, err := handler.ReadDirAll(d.ionode, req.Pid)
 	if err != nil {
-		log.Println("Error while running ReadDirAll(): ", err)
+		logrus.Error("ReadDirAll() error: ", err)
 		return nil, fuse.ENOENT
 	}
 
@@ -163,7 +164,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 //
 func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
 
-	log.Println("Requested Mkdir() for directory", req.Name)
+	logrus.Debug("Requested Mkdir() on directory ", req.Name)
 
 	path := filepath.Join(d.path, req.Name)
 	newDir := NewDir(req.Name, path, &fuse.Attr{}, d.File.service)

@@ -2,18 +2,16 @@ package fuse
 
 import (
 	"errors"
-	"fmt"
-	"log"
 	"os"
 	"syscall"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	_ "bazil.org/fuse/fs/fstestutil"
+	"github.com/spf13/afero"
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
-	"github.com/spf13/afero"
-
 	"github.com/nestybox/sysvisor-fs/sysio"
 )
 
@@ -39,7 +37,7 @@ func NewFuseService(
 	pathIOnode := ios.NewIOnode(path, path, os.ModeDir)
 	pathInfo, err := pathIOnode.Stat()
 	if err != nil {
-		log.Println("File-System path not found:", path)
+		logrus.Fatal("File-System path not found: ", path)
 		return nil
 	}
 
@@ -47,7 +45,7 @@ func NewFuseService(
 	mountPointIOnode := ios.NewIOnode(mountPoint, mountPoint, os.ModeDir)
 	_, err = mountPointIOnode.Stat()
 	if err != nil {
-		log.Println("File-System mountpoint not found:", mountPoint)
+		logrus.Fatal("File-System mountpoint not found: ", mountPoint)
 		return nil
 	}
 
@@ -89,30 +87,33 @@ func (s *fuseService) Run() error {
 		fuse.FSName("sysvisorfs"),
 		fuse.AllowOther())
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 		return err
 	}
 	defer c.Close()
 	if p := c.Protocol(); !p.HasInvalidate() {
-		log.Panicf("Kernel FUSE support is too old to have invalidations: version %v", p)
+		logrus.Fatal("Kernel FUSE support is too old to have invalidations: version %v", p)
+		return err
 	}
 
 	// Creating a FUSE server to drive kernel interactions.
 	s.server = fs.New(c, nil)
 	if s.server == nil {
-		fmt.Println("FUSE file-system could not be created")
+		logrus.Fatal("FUSE file-system could not be created")
 		return errors.New("FUSE file-system could not be created")
 	}
 
-	log.Println("Starting to serve sysvisorfs...")
+	logrus.Info("Starting to serve sysvisor-fs...")
 	if err := s.server.Serve(s); err != nil {
-		log.Panicln(err)
+		logrus.Fatal(err)
+		return err
 	}
 
 	// Return if any error is reported by mount logic.
 	<-c.Ready
 	if err := c.MountError; err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
+		return err
 	}
 
 	return nil

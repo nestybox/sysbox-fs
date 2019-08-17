@@ -2,11 +2,12 @@ package handler
 
 import (
 	"errors"
-	"log"
 	"os"
 	"path"
 	"strconv"
 	"sync"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysvisor-fs/domain"
 	"github.com/nestybox/sysvisor-fs/handler/implementations"
@@ -233,7 +234,7 @@ func (hs *handlerService) RegisterHandler(h domain.HandlerIface) error {
 
 	if _, ok := hs.handlerDB[path]; ok {
 		hs.Unlock()
-		log.Printf("Handler %v already registered\n", name)
+		logrus.Errorf("Handler %v already registered", name)
 		return errors.New("Handler already registered")
 	}
 
@@ -252,7 +253,7 @@ func (hs *handlerService) UnregisterHandler(h domain.HandlerIface) error {
 
 	if _, ok := hs.handlerDB[path]; !ok {
 		hs.Unlock()
-		log.Printf("Handler %v not previously registered\n", name)
+		logrus.Errorf("Handler %v not previously registered", name)
 		return errors.New("Handler not previously registered")
 	}
 
@@ -301,7 +302,7 @@ func (hs *handlerService) EnableHandler(h domain.HandlerIface) error {
 
 	if _, ok := hs.handlerDB[path]; !ok {
 		hs.Unlock()
-		log.Printf("Handler %v not found\n", name)
+		logrus.Errorf("Handler %v not found", name)
 		return errors.New("Handler not found")
 	}
 
@@ -319,7 +320,7 @@ func (hs *handlerService) DisableHandler(h domain.HandlerIface) error {
 
 	if _, ok := hs.handlerDB[path]; !ok {
 		hs.Unlock()
-		log.Printf("Handler %v not found\n", name)
+		logrus.Errorf("Handler %v not found", name)
 		return errors.New("Handler not found")
 	}
 
