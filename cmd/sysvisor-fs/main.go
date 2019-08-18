@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -27,6 +28,14 @@ const (
 sysvisor-fs is a daemon that provides enhanced file-system capabilities to
 sysvisor-runc component.
 `
+)
+
+// Globals to be populated at build time during Makefile processing.
+var (
+	version   string // extracted from VERSION file
+	commitId  string // latest git commit-id of sysvisor superproject
+	builtAt   string // build time
+	builtBy   string // build owner
 )
 
 //
@@ -79,6 +88,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "sysvisor-fs"
 	app.Usage = usage
+	app.Version = version
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -102,6 +112,16 @@ func main() {
 			Usage: "dentry-cache-timeout timer in minutes",
 			Destination: &fuse.DentryCacheTimeout,
 		},
+	}
+
+	// show-version specialization.
+	cli.VersionPrinter = func(c *cli.Context) {
+		fmt.Printf("sysvisor-fs\n" +
+			"\tversion: \t%s\n" +
+			"\tcommit: \t%s\n" +
+			"\tbuilt at: \t%s\n" +
+			"\tbuilt by: \t%s\n",
+			c.App.Version, commitId, builtAt, builtBy)
 	}
 
 	// Nsenter command to allow 'rexec' functionality.
