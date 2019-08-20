@@ -15,7 +15,7 @@ import (
 // being able to list the file contents present in sysvisor-fs mountpoint. With
 // the exception of lookup(), all operations in this handler will return nil.
 // Notice that only users in the host FS can invoke this handler as sysvisor-fs
-// is mounted in /proc and /proc/sys within system containers.
+// is mounted in /proc and /proc/sys within the sysvisor containers.
 //
 
 //
