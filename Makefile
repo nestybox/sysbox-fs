@@ -15,7 +15,7 @@ SYSFS_GRPC_DIR := ../sysvisor-ipc/sysvisorFsGrpc
 SYSFS_GRPC_SRC := $(shell find $(SYSFS_GRPC_DIR) 2>&1 | grep -E '.*\.(c|h|go|proto)$$')
 
 LDFLAGS := '-X main.version=${VERSION} -X main.commitId=${COMMIT_ID} \
-			-X "main.builtAt=${BUILD_AT}" -X main.builtBy=${BUILD_BY}'
+			-X "main.builtAt=${BUILT_AT}" -X main.builtBy=${BUILT_BY}'
 
 sysvisor-fs: $(SYSFS_SRC) $(SYSFS_GRPC_SRC)
 	$(GO) build -ldflags ${LDFLAGS}	-o sysvisor-fs ./cmd/sysvisor-fs
