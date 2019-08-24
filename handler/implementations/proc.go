@@ -7,11 +7,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysbox-fs/domain"
 )
 
 //
-// Due to the fact that sysvisor-fs' procfs is sourced at /proc/sys, there's no
+// Due to the fact that sysbox-fs' procfs is sourced at /proc/sys, there's no
 // much this handler needs to do. This handler's purpose is to be able to manage
 // operations associated to /proc bind-mounts such as cpuinfo, meminfo, etc).
 //

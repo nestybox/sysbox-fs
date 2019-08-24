@@ -2,7 +2,7 @@
 
 package mocks
 
-import domain "github.com/nestybox/sysvisor-fs/domain"
+import domain "github.com/nestybox/sysbox-fs/domain"
 import mock "github.com/stretchr/testify/mock"
 import os "os"
 

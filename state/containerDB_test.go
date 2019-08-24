@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysbox-fs/domain"
 )
 
 func TestNewContainerStateService(t *testing.T) {

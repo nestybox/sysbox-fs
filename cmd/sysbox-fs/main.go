@@ -9,13 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nestybox/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor-fs/fuse"
-	"github.com/nestybox/sysvisor-fs/handler"
-	"github.com/nestybox/sysvisor-fs/ipc"
-	"github.com/nestybox/sysvisor-fs/nsenter"
-	"github.com/nestybox/sysvisor-fs/state"
-	"github.com/nestybox/sysvisor-fs/sysio"
+	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
+	"github.com/nestybox/sysbox-fs/handler"
+	"github.com/nestybox/sysbox-fs/ipc"
+	"github.com/nestybox/sysbox-fs/nsenter"
+	"github.com/nestybox/sysbox-fs/state"
+	"github.com/nestybox/sysbox-fs/sysio"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -23,23 +23,23 @@ import (
 
 // TODO: Improve one-liner description.
 const (
-	usage = `sysvisor file-system
+	usage = `sysbox-fs file-system
 
-sysvisor-fs is a daemon that provides enhanced file-system capabilities to
-sysvisor-runc component.
+sysbox-fs is a daemon that provides enhanced file-system capabilities to
+sysbox-runc component.
 `
 )
 
 // Globals to be populated at build time during Makefile processing.
 var (
 	version   string // extracted from VERSION file
-	commitId  string // latest git commit-id of sysvisor superproject
+	commitId  string // latest git commit-id of sysboxd superproject
 	builtAt   string // build time
 	builtBy   string // build owner
 )
 
 //
-// Sysvisorfs signal handler goroutine.
+// sysbox-fs signal handler goroutine.
 //
 func signalHandler(signalChan chan os.Signal, fs domain.FuseService) {
 
@@ -47,28 +47,28 @@ func signalHandler(signalChan chan os.Signal, fs domain.FuseService) {
 
 	switch s {
 
-	// TODO: Handle SIGHUP differently -- e.g. re-read sysvisorfs conf file
+	// TODO: Handle SIGHUP differently -- e.g. re-read sysbox-fs conf file
 	case syscall.SIGHUP:
-		logrus.Warn("sysvisor-fs caught signal: SIGHUP")
+		logrus.Warn("sysbox-fs caught signal: SIGHUP")
 
 	case syscall.SIGSEGV:
-		logrus.Warn("sysvisor-fs caught signal: SIGSEGV")
+		logrus.Warn("sysbox-fs caught signal: SIGSEGV")
 
 	case syscall.SIGINT:
-		logrus.Warn("sysvisor-fs caught signal: SIGTINT")
+		logrus.Warn("sysbox-fs caught signal: SIGTINT")
 
 	case syscall.SIGTERM:
-		logrus.Warn("sysvisor-fs caught signal: SIGTERM")
+		logrus.Warn("sysbox-fs caught signal: SIGTERM")
 
 	case syscall.SIGQUIT:
-		logrus.Warn("sysvisor-fs caught signal: SIGQUIT")
+		logrus.Warn("sysbox-fs caught signal: SIGQUIT")
 
 	default:
-		logrus.Warn("sysvisor-fs caught unknown signal")
+		logrus.Warn("sysbox-fs caught unknown signal")
 	}
 
 	logrus.Warn(
-		"Unmounting sysvisor-fs from mountpoint ",
+		"Unmounting sysbox-fs from mountpoint ",
 		fs.MountPoint(),
 		". Exitting...",
 	)
@@ -81,19 +81,19 @@ func signalHandler(signalChan chan os.Signal, fs domain.FuseService) {
 }
 
 //
-// Sysvisor-fs main function
+// sysbox-fs main function
 //
 func main() {
 
 	app := cli.NewApp()
-	app.Name = "sysvisor-fs"
+	app.Name = "sysbox-fs"
 	app.Usage = usage
 	app.Version = version
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "mountpoint",
-			Value: "/var/lib/sysvisorfs",
+			Value: "/var/lib/sysboxfs",
 			Usage: "mount-point location",
 		},
 		cli.StringFlag{
@@ -116,7 +116,7 @@ func main() {
 
 	// show-version specialization.
 	cli.VersionPrinter = func(c *cli.Context) {
-		fmt.Printf("sysvisor-fs\n" +
+		fmt.Printf("sysbox-fs\n" +
 			"\tversion: \t%s\n" +
 			"\tcommit: \t%s\n" +
 			"\tbuilt at: \t%s\n" +
@@ -166,7 +166,7 @@ func main() {
 			switch logLevel {
 			case "debug":
 				// Following instruction is to have Bazil's fuze-lib logs being
-				// included into sysvisor-fs' log stream.
+				// included into sysbox-fs' log stream.
 				flag.Set("fuse.debug", "true")
 				logrus.SetLevel(logrus.DebugLevel)
 			case "info":
@@ -188,10 +188,10 @@ func main() {
 		return nil
 	}
 
-	// Sysvisor-fs main-loop execution.
+	// sysbox-fs main-loop execution.
 	app.Action = func(ctx *cli.Context) error {
 
-		// Initialize sysvisor-fs' services.
+		// Initialize sysbox-fs' services.
 		var containerStateService = state.NewContainerStateService()
 		var nsenterService = nsenter.NewNSenterService()
 		var ioService = sysio.NewIOService(sysio.IOFileService)
@@ -223,7 +223,7 @@ func main() {
 			syscall.SIGQUIT)
 		go signalHandler(signalChan, fuseService)
 
-		// Initiate sysvisor-fs' FUSE service.
+		// Initiate sysbox-fs' FUSE service.
 		if err := fuseService.Run(); err != nil {
 			logrus.Fatal(err)
 		}

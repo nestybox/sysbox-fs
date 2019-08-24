@@ -6,9 +6,9 @@ import (
 	"time"
 )
 
-// FileInfo is sysvisor-fs' implementation of os.FileInfo interface. A concrete
+// FileInfo is sysbox-fs' implementation of os.FileInfo interface. A concrete
 // type is required during serialization operations when exchanging state between
-// sysvisor-fs' main and its re-exec instances.
+// sysbox-fs' main and its re-exec instances.
 type FileInfo struct {
 	Fname    string
 	Fsize    int64

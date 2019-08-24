@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/afero"
 	"github.com/sirupsen/logrus"
 
-	"github.com/nestybox/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor-fs/sysio"
+	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/sysio"
 )
 
 type fuseService struct {
@@ -25,7 +25,7 @@ type fuseService struct {
 }
 
 //
-// NewFuseService serves as sysvisor-fs' fuse-server constructor.
+// NewFuseService serves as sysbox-fs' fuse-server constructor.
 //
 func NewFuseService(
 	path string,
@@ -50,7 +50,7 @@ func NewFuseService(
 	}
 
 	// Creating a first node corresponding to the root element in
-	// sysvisorfs.
+	// sysbox-fs.
 	var attr fuse.Attr
 	_, ok := sysio.AppFs.(*afero.OsFs)
 	if ok {
@@ -70,7 +70,7 @@ func NewFuseService(
 		root:       nil,
 	}
 
-	// Build sysvisor-fs top-most directory (root).
+	// Build sysbox-fs top-most directory (root).
 	newfs.root = NewDir(path, path, &attr, newfs)
 
 	return newfs
@@ -84,7 +84,7 @@ func (s *fuseService) Run() error {
 	//
 	c, err := fuse.Mount(
 		s.mountPoint,
-		fuse.FSName("sysvisorfs"),
+		fuse.FSName("sysboxfs"),
 		fuse.AllowOther())
 	if err != nil {
 		logrus.Fatal(err)
@@ -103,7 +103,7 @@ func (s *fuseService) Run() error {
 		return errors.New("FUSE file-system could not be created")
 	}
 
-	logrus.Info("Starting to serve sysvisor-fs...")
+	logrus.Info("Starting to serve sysbox-fs...")
 	if err := s.server.Serve(s); err != nil {
 		logrus.Fatal(err)
 		return err
@@ -121,7 +121,7 @@ func (s *fuseService) Run() error {
 
 //
 // Root method. This is a Bazil-FUSE-lib requirement. Function returns
-// sysvisor-fs' root-node.
+// sysbox-fs' root-node.
 //
 func (s *fuseService) Root() (fs.Node, error) {
 

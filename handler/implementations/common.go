@@ -10,7 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysbox-fs/domain"
 )
 
 //

@@ -5,11 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysbox-fs/domain"
 )
 
 //
-// Container type to represent all the container-state relevant to sysvisorfs.
+// Container type to represent all the container-state relevant to sysbox-fs.
 //
 type container struct {
 	sync.RWMutex

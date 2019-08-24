@@ -16,14 +16,14 @@ import (
 	"syscall"
 
 	"github.com/sirupsen/logrus"
-	_ "github.com/nestybox/sysvisor-runc/libcontainer/nsenter"
-	"github.com/nestybox/sysvisor-runc/libcontainer/utils"
+	_ "github.com/nestybox/sysbox-runc/libcontainer/nsenter"
+	"github.com/nestybox/sysbox-runc/libcontainer/utils"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 
-	"github.com/nestybox/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor-fs/fuse"
-	"github.com/nestybox/sysvisor-runc/libcontainer"
+	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
+	"github.com/nestybox/sysbox-runc/libcontainer"
 )
 
 func init() {
@@ -33,7 +33,7 @@ func init() {
 	}
 }
 
-// Pid struct. Utilized by sysvisor-runc's nsexec code.
+// Pid struct. Utilized by sysbox-runc's nsexec code.
 type pid struct {
 	Pid           int `json:"pid"`
 	PidFirstChild int `json:"pid_first"`
@@ -41,10 +41,10 @@ type pid struct {
 
 //
 // NSenterEvent struct serves as a transport abstraction to represent all the
-// potential messages that can be exchanged between sysvisor-fs master instance
-// and secondary (forked) ones. These sysvisor-fs' auxiliar instances are
+// potential messages that can be exchanged between sysbox-fs master instance
+// and secondary (forked) ones. These sysbox-fs' auxiliar instances are
 // utilized to carry out actions over namespaced resources, and as such, cannot
-// be performed by sysvisor-fs' main instance.
+// be performed by sysbox-fs' main instance.
 //
 // Every bidirectional transaction is represented by an event structure
 // (nsenterEvent), which holds both 'request' and 'response' messages, as well
@@ -103,14 +103,14 @@ func (s *nsenterService) ResponseEvent(e domain.NSenterEventIface) *domain.NSent
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-// nsenterEvent methods below execute within the context of sysvisor-fs' main
-// instance, upon invocation of sysvisor-fs' handler logic.
+// nsenterEvent methods below execute within the context of sysbox-fs' main
+// instance, upon invocation of sysbox-fs' handler logic.
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 //
-// Called by sysvisor-fs handler routines to parse the response generated
-// by sysvisor-fs' grand-child processes.
+// Called by sysbox-fs handler routines to parse the response generated
+// by sysbox-fs' grand-child processes.
 //
 func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 
@@ -246,7 +246,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 
 //
 // Auxiliar function to obtain the FS path associated to any given namespace.
-// Theese FS paths are utilized by sysvisor-runc's nsexec logic to enter the
+// Theese FS paths are utilized by sysbox-runc's nsexec logic to enter the
 // desired namespaces.
 //
 // Expected format example: "mnt:/proc/<pid>/ns/mnt"
@@ -268,8 +268,8 @@ func (e *NSenterEvent) namespacePaths() []string {
 }
 
 //
-// Sysvisor-fs' requests are generated through this method. Handlers seeking to
-// access namespaced resources will call this method to invoke sysvisor-runc's
+// Sysbox-fs' requests are generated through this method. Handlers seeking to
+// access namespaced resources will call this method to invoke sysbox-runc's
 // nsexec logic, which will serve to enter the container namespaces that host
 // these resources.
 //
@@ -280,7 +280,7 @@ func (e *NSenterEvent) Launch() error {
 	// Create a socket pair.
 	parentPipe, childPipe, err := utils.NewSockPair("nsenterPipe")
 	if err != nil {
-		return errors.New("Error creating sysvisor-fs nsenter pipe")
+		return errors.New("Error creating sysbox-fs nsenter pipe")
 	}
 	defer parentPipe.Close()
 
@@ -294,7 +294,7 @@ func (e *NSenterEvent) Launch() error {
 		Value: []byte(strings.Join(namespaces, ",")),
 	})
 
-	// Prepare exec.cmd in charged of running: "sysvisor-fs nsenter".
+	// Prepare exec.cmd in charged of running: "sysbox-fs nsenter".
 	cmd := &exec.Cmd{
 		Path:       "/proc/self/exe",
 		Args:       []string{os.Args[0], "nsenter"},
@@ -305,11 +305,11 @@ func (e *NSenterEvent) Launch() error {
 		Stderr:     nil,
 	}
 
-	// Launch sysvisor-fs' first child process.
+	// Launch sysbox-fs' first child process.
 	err = cmd.Start()
 	childPipe.Close()
 	if err != nil {
-		return errors.New("Error launching sysvisor-fs first child process")
+		return errors.New("Error launching sysbox-fs first child process")
 	}
 
 	// Send the config to child process.
@@ -317,7 +317,7 @@ func (e *NSenterEvent) Launch() error {
 		return errors.New("Error copying payload to pipe")
 	}
 
-	// Wait for sysvisor-fs' first child process to finish.
+	// Wait for sysbox-fs' first child process to finish.
 	status, err := cmd.Process.Wait()
 	if err != nil {
 		cmd.Wait()
@@ -325,10 +325,10 @@ func (e *NSenterEvent) Launch() error {
 	}
 	if !status.Success() {
 		cmd.Wait()
-		return errors.New("Error waiting for sysvisor-fs first child process")
+		return errors.New("Error waiting for sysbox-fs first child process")
 	}
 
-	// Receive sysvisor-fs' first-child pid.
+	// Receive sysbox-fs' first-child pid.
 	var pid pid
 	decoder := json.NewDecoder(parentPipe)
 	if err := decoder.Decode(&pid); err != nil {
@@ -341,11 +341,11 @@ func (e *NSenterEvent) Launch() error {
 		return err
 	}
 
-	// Wait for sysvisor-fs' second child process to finish. Ignore the error in
+	// Wait for sysbox-fs' second child process to finish. Ignore the error in
 	// case the child has already been reaped for any reason.
 	_, _ = firstChildProcess.Wait()
 
-	// Sysvisor-fs' third child (grand-child) process remains and will enter the
+	// Sysbox-fs' third child (grand-child) process remains and will enter the
 	// go runtime.
 	process, err := os.FindProcess(pid.Pid)
 	if err != nil {
@@ -358,12 +358,12 @@ func (e *NSenterEvent) Launch() error {
 		return errors.New("Error writing nsenterEvent through pipe")
 	}
 
-	// Wait for sysvisor-fs' grand-child response and process it accordingly.
+	// Wait for sysbox-fs' grand-child response and process it accordingly.
 	ierr := e.processResponse(parentPipe)
 
 	// Destroy the socket pair.
 	if err := unix.Shutdown(int(parentPipe.Fd()), unix.SHUT_WR); err != nil {
-		return errors.New("Shutting down sysvisor-fs nsenter pipe")
+		return errors.New("Shutting down sysbox-fs nsenter pipe")
 	}
 
 	if ierr != nil {
@@ -385,7 +385,7 @@ func (e *NSenterEvent) Response() *domain.NSenterMessage {
 ///////////////////////////////////////////////////////////////////////////////
 //
 // nsenterEvent methods below execute within the context of container
-// namespaces. In other words, they are invoked as part of "sysvisor-fs nsenter"
+// namespaces. In other words, they are invoked as part of "sysbox-fs nsenter"
 // execution.
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -407,7 +407,7 @@ func (e *NSenterEvent) processLookupRequest() error {
 		return nil
 	}
 
-	// Allocate new FileInfo struct to return to sysvisor-fs' main instance.
+	// Allocate new FileInfo struct to return to sysbpx-fs' main instance.
 	fileInfo := domain.FileInfo{
 		Fname:    info.Name(),
 		Fsize:    info.Size(),
@@ -519,7 +519,7 @@ func (e *NSenterEvent) processDirReadRequest() error {
 		return err
 	}
 
-	// Create a FileInfo slice to return to sysvisor-fs' main instance.
+	// Create a FileInfo slice to return to sysbox-fs' main instance.
 	var dirContentList []domain.FileInfo
 
 	for _, entry := range dirContent {
@@ -543,7 +543,7 @@ func (e *NSenterEvent) processDirReadRequest() error {
 	return nil
 }
 
-// Method in charge of processing all requests generated by sysvisor-fs' master
+// Method in charge of processing all requests generated by sysbox-fs' master
 // instance.
 func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 
@@ -580,7 +580,7 @@ func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 }
 
 //
-// Sysvisor-fs' post-nsexec initialization function. To be executed within the
+// Sysbox-fs' post-nsexec initialization function. To be executed within the
 // context of one (or more) container namespaces.
 //
 func Init() (err error) {	
@@ -610,7 +610,7 @@ func Init() (err error) {
 		return err
 	}
 
-	// Encode / push response back to sysvisor-main.
+	// Encode / push response back to sysbox-main.
 	data, err := json.Marshal(*(event.ResMsg))
 	if err != nil {
 		return err

@@ -11,11 +11,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 
-	"github.com/nestybox/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor-fs/handler"
-	"github.com/nestybox/sysvisor-fs/nsenter"
-	"github.com/nestybox/sysvisor-fs/state"
-	"github.com/nestybox/sysvisor-fs/sysio"
+	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/handler"
+	"github.com/nestybox/sysbox-fs/nsenter"
+	"github.com/nestybox/sysbox-fs/state"
+	"github.com/nestybox/sysbox-fs/sysio"
 )
 
 func TestMain(m *testing.M) {
@@ -48,7 +48,7 @@ func TestNewFuseService(t *testing.T) {
 		{"1", args{"/", "/var/lib/non-existing", ios, hds}, nil},
 
 		// Invalid FS path.
-		{"2", args{"/non-existing", "/var/lib/sysvisorfs", ios, hds}, nil},
+		{"2", args{"/non-existing", "/var/lib/sysboxfs", ios, hds}, nil},
 	}
 
 	for _, tt := range tests {
@@ -64,7 +64,7 @@ func TestNewFuseService(t *testing.T) {
 
 // Skipping this test for now as we need to fix the lack of permission
 // issue that prevents non-root users from being able to fuse-mount
-// into /var/lib/sysvisorfs folder.
+// into /var/lib/sysboxfs folder.
 func Test_fuseService_Run(t *testing.T) {
 
 	// Skipping this one for now.
@@ -80,10 +80,10 @@ func Test_fuseService_Run(t *testing.T) {
 
 	// Create proc entries in mem-based FS.
 	sysio.AppFs.MkdirAll("/", 0777)
-	sysio.AppFs.MkdirAll("/var/lib/sysvisorfs", 0777)
+	sysio.AppFs.MkdirAll("/var/lib/sysboxfs", 0777)
 
 	// Create a new FuseService.
-	var fuseSvc = NewFuseService("/", "/var/lib/sysvisorfs", ios, hds)
+	var fuseSvc = NewFuseService("/", "/var/lib/sysboxfs", ios, hds)
 
 	// Test definition.
 	tests := []struct {

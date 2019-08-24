@@ -9,12 +9,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/nestybox/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor-fs/handler/implementations"
+	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/handler/implementations"
 )
 
 //
-// Slice of sysvisor-fs' default handlers. Please keep me alphabetically
+// Slice of sysbox-fs' default handlers. Please keep me alphabetically
 // ordered within each functional bucket.
 //
 var DefaultHandlers = []domain.HandlerIface{

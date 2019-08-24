@@ -33,10 +33,10 @@ github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5a
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/mrunalp/fileutils v0.0.0-20171103030105-7d4729fb3618 h1:7InQ7/zrOh6SlFjaXFubv0xX0HsuC9qJsdqm7bNQpYM=
 github.com/mrunalp/fileutils v0.0.0-20171103030105-7d4729fb3618/go.mod h1:x8F1gnqOkIEiO4rqoeEEEqQbo7HjGMTvyoq3gej4iT0=
-github.com/nestybox/sysvisor-ipc v0.0.0-20190603003818-483605a8fbcf h1:rmrhWzpTudzow6mR4SdsBBcAy7HTtdO7Kgkeac0uWgk=
-github.com/nestybox/sysvisor-ipc v0.0.0-20190603003818-483605a8fbcf/go.mod h1:4NhxDlXOsJ06cHACpwRQ8TWD2RQB/fSqZon+v+a4AOY=
-github.com/nestybox/sysvisor-runc v0.1.2 h1:14Dj2l2K/xu3dXiNNEvi1jH6y/6We7y/hUzKzMSoagk=
-github.com/nestybox/sysvisor-runc v0.1.2/go.mod h1:SQZqOUqUdM8D5whWIasTEhIZ/Woc+OhTP92wyCIyDVc=
+github.com/nestybox/sysbox-ipc v0.0.0-20190603003818-483605a8fbcf h1:rmrhWzpTudzow6mR4SdsBBcAy7HTtdO7Kgkeac0uWgk=
+github.com/nestybox/sysbox-ipc v0.0.0-20190603003818-483605a8fbcf/go.mod h1:4NhxDlXOsJ06cHACpwRQ8TWD2RQB/fSqZon+v+a4AOY=
+github.com/nestybox/sysbox-runc v0.1.2 h1:14Dj2l2K/xu3dXiNNEvi1jH6y/6We7y/hUzKzMSoagk=
+github.com/nestybox/sysbox-runc v0.1.2/go.mod h1:SQZqOUqUdM8D5whWIasTEhIZ/Woc+OhTP92wyCIyDVc=
 github.com/opencontainers/runtime-spec v0.1.2-0.20190207185410-29686dbc5559 h1:EaIFktfRhw4G3vOL8r0kTy9TM+FeFBC0k8IC0d3Hhus=
 github.com/opencontainers/runtime-spec v0.1.2-0.20190207185410-29686dbc5559/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
 github.com/opencontainers/selinux v1.2.2 h1:Kx9J6eDG5/24A6DtUquGSpJQ+m2MUTahn4FtGEe8bFg=
@@ -56,6 +56,7 @@ github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
+github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=
 github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2 h1:b6uOv7YOFK0TYG7HtkIgExQo+2RdLuwRft63jn2HWj8=
 github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2/go.mod h1:hkRG7XYTFWNJGYcbNJQlaLq0fg1yr4J4t/NcTQtrfww=
 github.com/urfave/cli v1.20.0 h1:fDqGv3UG/4jbVl/QkFwEdddtEDjh/5Ov6X+0B/3bPaw=

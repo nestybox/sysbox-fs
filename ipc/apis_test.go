@@ -9,11 +9,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 
-	"github.com/nestybox/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor-fs/ipc"
-	"github.com/nestybox/sysvisor-fs/state"
-	"github.com/nestybox/sysvisor-fs/sysio"
-	"github.com/nestybox/sysvisor-ipc/sysvisorFsGrpc"
+	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/ipc"
+	"github.com/nestybox/sysbox-fs/state"
+	"github.com/nestybox/sysbox-fs/sysio"
+	"github.com/nestybox/sysbox-ipc/sysboxFsGrpc"
 )
 
 func TestMain(m *testing.M) {
@@ -73,12 +73,12 @@ func TestContainerRegister(t *testing.T) {
 	var ipcs = ipc.NewIpcService(css, ios)
 
 	// ContainerData objects received from external (ipc/grpc) module.
-	cdata1 := &sysvisorFsGrpc.ContainerData{
+	cdata1 := &sysboxFsGrpc.ContainerData{
 		Id:      "cntr-1",
 		InitPid: 1001,
 	}
 
-	cdata2 := &sysvisorFsGrpc.ContainerData{
+	cdata2 := &sysboxFsGrpc.ContainerData{
 		Id:      "cntr-2",
 		InitPid: 1002,
 	}
@@ -88,7 +88,7 @@ func TestContainerRegister(t *testing.T) {
 	//
 	type args struct {
 		ctx  interface{}
-		data *sysvisorFsGrpc.ContainerData
+		data *sysboxFsGrpc.ContainerData
 	}
 	tests := []struct {
 		name    string
@@ -179,11 +179,11 @@ func TestContainerUnregister(t *testing.T) {
 	var ipcs = ipc.NewIpcService(css, ios)
 
 	// ContainerData objects being added to state-DB prior to test execution.
-	cdata1 := &sysvisorFsGrpc.ContainerData{
+	cdata1 := &sysboxFsGrpc.ContainerData{
 		Id:      "cntr-1",
 		InitPid: 1001,
 	}
-	cdata2 := &sysvisorFsGrpc.ContainerData{
+	cdata2 := &sysboxFsGrpc.ContainerData{
 		Id:      "cntr-2",
 		InitPid: 1002,
 	}
@@ -194,7 +194,7 @@ func TestContainerUnregister(t *testing.T) {
 	//
 	type args struct {
 		ctx  interface{}
-		data *sysvisorFsGrpc.ContainerData
+		data *sysboxFsGrpc.ContainerData
 	}
 	tests := []struct {
 		name    string
@@ -283,19 +283,19 @@ func TestContainerUpdate(t *testing.T) {
 	var ipcs = ipc.NewIpcService(css, ios)
 
 	// ContainerData object being added to state-DB prior to test execution.
-	cdata1 := &sysvisorFsGrpc.ContainerData{
+	cdata1 := &sysboxFsGrpc.ContainerData{
 		Id:      "cntr-1",
 		InitPid: 1001,
 	}
 	ipc.ContainerRegister(ipcs, cdata1)
 
 	// ContainerData objects to be utilized to generate updates.
-	cdata1Update := &sysvisorFsGrpc.ContainerData{
+	cdata1Update := &sysboxFsGrpc.ContainerData{
 		Id:      "cntr-1",
 		InitPid: 1001,
 		Ctime:   time.Date(2019, 05, 11, 00, 00, 00, 651387237, time.UTC),
 	}
-	cdata2Update := &sysvisorFsGrpc.ContainerData{
+	cdata2Update := &sysboxFsGrpc.ContainerData{
 		Id:      "cntr-2",
 		InitPid: 1002,
 	}
@@ -305,7 +305,7 @@ func TestContainerUpdate(t *testing.T) {
 	//
 	type args struct {
 		ctx  interface{}
-		data *sysvisorFsGrpc.ContainerData
+		data *sysboxFsGrpc.ContainerData
 	}
 	tests := []struct {
 		name    string

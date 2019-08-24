@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nestybox/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor-fs/handler"
-	"github.com/nestybox/sysvisor-fs/handler/implementations"
-	"github.com/nestybox/sysvisor-fs/mocks"
-	"github.com/nestybox/sysvisor-fs/state"
-	"github.com/nestybox/sysvisor-fs/sysio"
+	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/handler"
+	"github.com/nestybox/sysbox-fs/handler/implementations"
+	"github.com/nestybox/sysbox-fs/mocks"
+	"github.com/nestybox/sysbox-fs/state"
+	"github.com/nestybox/sysbox-fs/sysio"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 )

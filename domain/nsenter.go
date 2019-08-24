@@ -35,7 +35,7 @@ const (
 
 //
 // NSenterService interface serves as a wrapper construct to provide a
-// communication channel between sysvisor-fs 'master' and sysvisor-fs 'child'
+// communication channel between sysbox-fs 'master' and sysbox-fs 'child'
 // entities. See more details further below.
 //
 type NSenterService interface {
@@ -52,10 +52,10 @@ type NSenterService interface {
 
 //
 // NSenterEvent interface serves as a transport abstraction to represent all
-// the potential messages that can be exchanged between sysvisor-fs 'master'
-// instance and secondary (forked/child) ones. These sysvisor-fs' auxiliary
+// the potential messages that can be exchanged between sysbox-fs 'master'
+// instance and secondary (forked/child) ones. These sysbox-fs' auxiliary
 // instances are utilized to carry out actions over namespaced resources, and
-// as such, cannot be performed by sysvisor-fs' main instance.
+// as such, cannot be performed by sysbox-fs' main instance.
 //
 // Every bidirectional transaction is represented by an event structure
 // (nsenterEvent), which holds both 'request' and 'response' messages, as well
@@ -68,7 +68,7 @@ type NSenterEventIface interface {
 }
 
 // NSenterMessage struct defines the layout of the messages being exchanged
-// between sysvisor-fs 'main' and 'forked' ones.
+// between sysbox-fs 'main' and 'forked' ones.
 type NSenterMessage struct {
 	// Message type being exchanged.
 	Type NSenterMsgType `json:"message"`

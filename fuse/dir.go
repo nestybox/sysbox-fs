@@ -81,7 +81,7 @@ func (d *Dir) Lookup(
 	}
 
 	// Extract received file attributes and create a new element within
-	// sysvisor file-system.
+	// sysboxd file-system.
 	attr := statToAttr(info.Sys().(*syscall.Stat_t))
 
 	// Adjust response to carry the proper dentry-cache-timeout value.
@@ -137,7 +137,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 	for _, node := range files {
 		//
 		// For system's root dir ("/"), we will only take into account
-		// the specific paths emulated by Sysvisorfs.
+		// the specific paths emulated by sysbox-fs.
 		//
 		if d.path == "/" {
 			if node.Name() != "sys" && node.Name() != "proc" {

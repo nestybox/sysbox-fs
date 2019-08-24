@@ -32,8 +32,8 @@ type StateDataMap = map[string]map[string]string
 type StateData = map[string]string
 
 //
-// ContainerStateService interface defines the APIs that sysvisor-fs components
-// must utilize to interact with the sysvisor-fs state-storage backend.
+// ContainerStateService interface defines the APIs that sysbox-fs components
+// must utilize to interact with the sysbox-fs state-storage backend.
 //
 type ContainerStateService interface {
 	ContainerCreate(

@@ -6,12 +6,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/nestybox/sysvisor-fs/domain"
-	"github.com/nestybox/sysvisor-ipc/sysvisorFsGrpc"
+	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-ipc/sysboxFsGrpc"
 )
 
 type ipcService struct {
-	grpcServer *sysvisorFsGrpc.Server
+	grpcServer *sysboxFsGrpc.Server
 	css        domain.ContainerStateService
 	ios        domain.IOService
 }
@@ -24,12 +24,12 @@ func NewIpcService(
 	newService := new(ipcService)
 	newService.css = css
 	newService.ios = ios
-	newService.grpcServer = sysvisorFsGrpc.NewServer(
+	newService.grpcServer = sysboxFsGrpc.NewServer(
 		newService,
-		&sysvisorFsGrpc.CallbacksMap{
-			sysvisorFsGrpc.ContainerRegisterMessage:   ContainerRegister,
-			sysvisorFsGrpc.ContainerUnregisterMessage: ContainerUnregister,
-			sysvisorFsGrpc.ContainerUpdateMessage:     ContainerUpdate,
+		&sysboxFsGrpc.CallbacksMap{
+			sysboxFsGrpc.ContainerRegisterMessage:   ContainerRegister,
+			sysboxFsGrpc.ContainerUnregisterMessage: ContainerUnregister,
+			sysboxFsGrpc.ContainerUpdateMessage:     ContainerUpdate,
 		})
 
 	return newService
@@ -39,7 +39,7 @@ func (s *ipcService) Init() {
 	go s.grpcServer.Init()
 }
 
-func ContainerRegister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) error {
+func ContainerRegister(ctx interface{}, data *sysboxFsGrpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
@@ -79,7 +79,7 @@ func ContainerRegister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) erro
 	return nil
 }
 
-func ContainerUnregister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) error {
+func ContainerUnregister(ctx interface{}, data *sysboxFsGrpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
@@ -113,7 +113,7 @@ func ContainerUnregister(ctx interface{}, data *sysvisorFsGrpc.ContainerData) er
 	return nil
 }
 
-func ContainerUpdate(ctx interface{}, data *sysvisorFsGrpc.ContainerData) error {
+func ContainerUpdate(ctx interface{}, data *sysboxFsGrpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")

@@ -6,7 +6,7 @@ type Inode = uint64
 
 //
 // ioNode interface serves as an abstract-class to represent all I/O resources
-// with whom sysvisor-fs operates. All I/O transactions will be carried out
+// with whom sysbox-fs operates. All I/O transactions will be carried out
 // through the methods exposed by this interface and its derived sub-classes.
 // There are two specializations of this interface at the moment:
 //

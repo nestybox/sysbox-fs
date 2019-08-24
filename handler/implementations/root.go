@@ -7,15 +7,15 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/nestybox/sysvisor-fs/domain"
+	"github.com/nestybox/sysbox-fs/domain"
 )
 
 //
 // This handler's sole purpose is to prevent users in the host file-system from
-// being able to list the file contents present in sysvisor-fs mountpoint. With
+// being able to list the file contents present in sysbox-fs mountpoint. With
 // the exception of lookup(), all operations in this handler will return nil.
-// Notice that only users in the host FS can invoke this handler as sysvisor-fs
-// is mounted in /proc and /proc/sys within the sysvisor containers.
+// Notice that only users in the host FS can invoke this handler as sysbox-fs
+// is mounted in /proc and /proc/sys within the sysbox containers.
 //
 
 //
