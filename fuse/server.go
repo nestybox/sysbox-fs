@@ -15,7 +15,7 @@ import (
 	"github.com/nestybox/sysbox-fs/sysio"
 )
 
-type fuseService struct {
+type FuseService struct {
 	path       string
 	mountPoint string
 	server     *fs.Server
@@ -37,7 +37,7 @@ func NewFuseService(
 	pathIOnode := ios.NewIOnode(path, path, os.ModeDir)
 	pathInfo, err := pathIOnode.Stat()
 	if err != nil {
-		logrus.Fatal("File-System path not found: ", path)
+		logrus.Error("File-System path not found: ", path)
 		return nil
 	}
 
@@ -45,7 +45,7 @@ func NewFuseService(
 	mountPointIOnode := ios.NewIOnode(mountPoint, mountPoint, os.ModeDir)
 	_, err = mountPointIOnode.Stat()
 	if err != nil {
-		logrus.Fatal("File-System mountpoint not found: ", mountPoint)
+		logrus.Error("File-System mountpoint not found: ", mountPoint)
 		return nil
 	}
 
@@ -61,7 +61,7 @@ func NewFuseService(
 
 	attr.Mode = os.ModeDir | os.FileMode(int(0777))
 
-	newfs := &fuseService{
+	newfs := &FuseService{
 		path:       path,
 		mountPoint: mountPoint,
 		server:     nil,
@@ -76,7 +76,7 @@ func NewFuseService(
 	return newfs
 }
 
-func (s *fuseService) Run() error {
+func (s *FuseService) Run() error {
 	//
 	// Creating a FUSE mount at the requested mountpoint. Notice that we are
 	// making use of "allowOther" flag to allow unpriviliged users to access
@@ -92,7 +92,7 @@ func (s *fuseService) Run() error {
 	}
 	defer c.Close()
 	if p := c.Protocol(); !p.HasInvalidate() {
-		logrus.Fatal("Kernel FUSE support is too old to have invalidations: version %v", p)
+		logrus.Fatal("Kernel FUSE support is too old to have invalidations: version ", p)
 		return err
 	}
 
@@ -123,17 +123,17 @@ func (s *fuseService) Run() error {
 // Root method. This is a Bazil-FUSE-lib requirement. Function returns
 // sysbox-fs' root-node.
 //
-func (s *fuseService) Root() (fs.Node, error) {
+func (s *FuseService) Root() (fs.Node, error) {
 
 	return s.root, nil
 }
 
-func (s *fuseService) MountPoint() string {
+func (s *FuseService) MountPoint() string {
 
 	return s.mountPoint
 }
 
-func (s *fuseService) Unmount() {
+func (s *FuseService) Unmount() {
 
 	fuse.Unmount(s.mountPoint)
 }

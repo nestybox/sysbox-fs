@@ -41,7 +41,7 @@ type Dir struct {
 //
 // NewDir method serves as Dir constructor.
 //
-func NewDir(name string, path string, attr *fuse.Attr, srv *fuseService) *Dir {
+func NewDir(name string, path string, attr *fuse.Attr, srv *FuseService) *Dir {
 
 	newDir := &Dir{
 		File: *NewFile(name, path, attr, srv),

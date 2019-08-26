@@ -29,13 +29,13 @@ type File struct {
 	ionode domain.IOnode
 
 	// Pointer to parent fuseService hosting this file/dir.
-	service *fuseService
+	service *FuseService
 }
 
 //
 // NewFile method serves as File constructor.
 //
-func NewFile(name string, path string, attr *fuse.Attr, srv *fuseService) *File {
+func NewFile(name string, path string, attr *fuse.Attr, srv *FuseService) *File {
 
 	newFile := &File{
 		name:    name,

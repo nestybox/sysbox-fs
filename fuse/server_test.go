@@ -1,8 +1,7 @@
-package fuse
+package fuse_test
 
 import (
 	"io/ioutil"
-	"log"
 	"reflect"
 	"testing"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 	"github.com/nestybox/sysbox-fs/handler"
 	"github.com/nestybox/sysbox-fs/nsenter"
 	"github.com/nestybox/sysbox-fs/state"
@@ -53,7 +53,7 @@ func TestNewFuseService(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewFuseService(tt.args.path, tt.args.mountPoint, tt.args.ios, tt.args.hds)
+			got := fuse.NewFuseService(tt.args.path, tt.args.mountPoint, tt.args.ios, tt.args.hds)
 
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewFuseService() = %v, want %v", got, tt.want)
@@ -67,8 +67,8 @@ func TestNewFuseService(t *testing.T) {
 // into /var/lib/sysboxfs folder.
 func Test_fuseService_Run(t *testing.T) {
 
-	// Skipping this one for now.
-	t.Skip("Skipping fuseService.Runc() for now")
+    // Skipping this one for now.
+    t.Skip("Skipping fuseService.Runc() for now")
 
 	var css = state.NewContainerStateService()
 	var ios = sysio.NewIOService(sysio.IOFileService)
@@ -83,15 +83,15 @@ func Test_fuseService_Run(t *testing.T) {
 	sysio.AppFs.MkdirAll("/var/lib/sysboxfs", 0777)
 
 	// Create a new FuseService.
-	var fuseSvc = NewFuseService("/", "/var/lib/sysboxfs", ios, hds)
+	var fuseSvc = fuse.NewFuseService("/", "/var/lib/sysboxfs", ios, hds)
 
 	// Test definition.
 	tests := []struct {
 		name    string
-		s       *fuseService
+		s       *fuse.FuseService
 		wantErr bool
 	}{
-		{"1", fuseSvc.(*fuseService), true},
+		{"1", fuseSvc.(*fuse.FuseService), true},
 	}
 
 	for _, tt := range tests {
@@ -106,7 +106,7 @@ func Test_fuseService_Run(t *testing.T) {
 func Test_fuseService_Root(t *testing.T) {
 	tests := []struct {
 		name    string
-		s       *fuseService
+		s       *fuse.FuseService
 		want    fs.Node
 		wantErr bool
 	}{
@@ -129,7 +129,7 @@ func Test_fuseService_Root(t *testing.T) {
 func Test_fuseService_MountPoint(t *testing.T) {
 	tests := []struct {
 		name string
-		s    *fuseService
+		s    *fuse.FuseService
 		want string
 	}{
 		// TODO: Add test cases.
@@ -146,7 +146,7 @@ func Test_fuseService_MountPoint(t *testing.T) {
 func Test_fuseService_Unmount(t *testing.T) {
 	tests := []struct {
 		name string
-		s    *fuseService
+		s    *fuse.FuseService
 	}{
 		// TODO: Add test cases.
 	}

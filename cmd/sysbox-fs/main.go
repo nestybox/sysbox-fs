@@ -210,6 +210,9 @@ func main() {
 			ctx.GlobalString("mountpoint"),
 			ioService,
 			handlerService)
+		if fuseService == nil {
+			log.Fatal("FuseService initialization error")
+		}
 
 		// Launch signal-handler to ensure mountpoint is properly unmounted
 		// during shutdown.

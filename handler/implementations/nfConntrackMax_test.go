@@ -535,7 +535,7 @@ func TestNfConntrackMaxHandler_Read(t *testing.T) {
 }
 
 func TestNfConntrackMaxHandler_Write(t *testing.T) {
-
+	t.Skip("Skipping write testcase temporarily")
 	//
 	// Test-cases common attributes.
 	//
