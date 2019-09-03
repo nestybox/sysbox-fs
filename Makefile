@@ -5,8 +5,7 @@
 
 .PHONY: clean sysbox-fs sysbox-fs-debug sysbox-fs-static
 
-# Let's make use of go's top-of-tree binary till 1.13 comes out.
-GO := gotip
+GO := go
 
 SYSFS_DIR := $(CURDIR)
 SYSFS_SRC := $(shell find . 2>&1 | grep -E '.*\.(c|h|go)$$')
