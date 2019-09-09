@@ -37,7 +37,7 @@ sysbox-runc component.
 // Globals to be populated at build time during Makefile processing.
 var (
 	version   string // extracted from VERSION file
-	commitId  string // latest git commit-id of sysboxd superproject
+	commitId  string // latest git commit-id of sysbox superproject
 	builtAt   string // build time
 	builtBy   string // build owner
 )

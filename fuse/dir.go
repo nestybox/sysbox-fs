@@ -85,7 +85,7 @@ func (d *Dir) Lookup(
 	}
 
 	// Extract received file attributes and create a new element within
-	// sysboxd file-system.
+	// sysbox file-system.
 	attr := statToAttr(info.Sys().(*syscall.Stat_t))
 
 	// Adjust response to carry the proper dentry-cache-timeout value.
