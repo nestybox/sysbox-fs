@@ -41,16 +41,26 @@ func NewFuseService(
 	pathIOnode := ios.NewIOnode(path, path, os.ModeDir)
 	pathInfo, err := pathIOnode.Stat()
 	if err != nil {
-		logrus.Error("File-System path not found: ", path)
-		return nil
+		if os.IsNotExist(err) {
+			logrus.Error("File-System path not found: ", path)
+			return nil
+		} else {
+			logrus.Error("File-System path not accessible: ", path)
+			return nil
+		}
 	}
 
 	// Verify the existence of the requested mountpoint in the host FS.
 	mountPointIOnode := ios.NewIOnode(mountPoint, mountPoint, os.ModeDir)
 	_, err = mountPointIOnode.Stat()
 	if err != nil {
-		logrus.Error("File-System mountpoint not found: ", mountPoint)
-		return nil
+		if os.IsNotExist(err) {
+			logrus.Error("File-System mountpoint not found: ", mountPoint)
+			return nil
+		} else {
+			logrus.Error("File-System mountpoint not accessible: ", mountPoint)
+			return nil
+		}
 	}
 
 	// Creating a first node corresponding to the root element in
@@ -94,29 +104,36 @@ func (s *FuseService) Run() error {
 		logrus.Fatal(err)
 		return err
 	}
-	defer c.Close()
+
+	// Deferred routine to enforce a clean exit should an unrecoverable error is
+	// ever returned from fuse-lib.
+	defer func() {
+		s.Unmount()
+		c.Close()
+	} ()
+
 	if p := c.Protocol(); !p.HasInvalidate() {
-		logrus.Fatal("Kernel FUSE support is too old to have invalidations: version ", p)
+		logrus.Panic("Kernel FUSE support is too old to have invalidations: version ", p)
 		return err
 	}
 
 	// Creating a FUSE server to drive kernel interactions.
 	s.server = fs.New(c, nil)
 	if s.server == nil {
-		logrus.Fatal("FUSE file-system could not be created")
+		logrus.Panic("FUSE file-system could not be created")
 		return errors.New("FUSE file-system could not be created")
 	}
 
-	logrus.Info("Starting to serve sysbox-fs...")
+	logrus.Info("Initiating sysbox-fs main-loop...")
 	if err := s.server.Serve(s); err != nil {
-		logrus.Fatal(err)
+		logrus.Panic(err)
 		return err
 	}
 
 	// Return if any error is reported by mount logic.
 	<-c.Ready
 	if err := c.MountError; err != nil {
-		logrus.Fatal(err)
+		logrus.Panic(err)
 		return err
 	}
 

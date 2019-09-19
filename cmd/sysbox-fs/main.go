@@ -76,6 +76,7 @@ func signalHandler(signalChan chan os.Signal, fs domain.FuseService) {
 		fs.MountPoint(),
 		". Exitting...",
 	)
+
 	fs.Unmount()
 
 	// Deferring exit() to allow FUSE to dump unnmount() logs
@@ -182,7 +183,7 @@ func main() {
 			case "fatal":
 				logrus.SetLevel(logrus.FatalLevel)
 			default:
-				logrus.Fatalf("'%v' log-level option not recognized", logLevel)
+				logrus.Panicf("'%v' log-level option not recognized", logLevel)
 			}
 		} else {
 			// Set 'info' as our default log-level.
@@ -215,11 +216,14 @@ func main() {
 			ioService,
 			handlerService)
 		if fuseService == nil {
-			log.Fatal("FuseService initialization error")
+			log.Panic("FuseService initialization error")
 		}
 
+		// TODO: Consider adding sync.Workgroups to ensure that all goroutines
+		// are done with their in-fly tasks before exit()ing.
+
 		// Launch signal-handler to ensure mountpoint is properly unmounted
-		// during shutdown.
+		// if an actionable signal is ever received.
 		var signalChan = make(chan os.Signal)
 		signal.Notify(
 			signalChan,
@@ -232,13 +236,13 @@ func main() {
 
 		// Initiate sysbox-fs' FUSE service.
 		if err := fuseService.Run(); err != nil {
-			logrus.Fatal(err)
+			logrus.Panic(err)
 		}
 
 		return nil
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		logrus.Fatal(err)
+		logrus.Panic(err)
 	}
 }
