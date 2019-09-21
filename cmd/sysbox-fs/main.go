@@ -71,10 +71,9 @@ func signalHandler(signalChan chan os.Signal, fs domain.FuseService) {
 		logrus.Warn("sysbox-fs caught unknown signal")
 	}
 
-	logrus.Warn(
-		"Unmounting sysbox-fs from mountpoint ",
+	logrus.Warnf(
+		"Unmounting sysbox-fs from mountpoint %v. Exiting ...",
 		fs.MountPoint(),
-		". Exitting...",
 	)
 
 	fs.Unmount()
@@ -152,7 +151,10 @@ func main() {
 				0666,
 			)
 			if err != nil {
-				logrus.Fatalf("Error opening log file %v: %v", path, err)
+				logrus.Fatalf(
+					"Error opening log file %v: %v. Exiting ...",
+					path, err,
+				)
 				return err
 			}
 
@@ -183,7 +185,10 @@ func main() {
 			case "fatal":
 				logrus.SetLevel(logrus.FatalLevel)
 			default:
-				logrus.Panicf("'%v' log-level option not recognized", logLevel)
+				logrus.Fatalf(
+					"log-level option '%v' not recognized. Exiting ...",
+					logLevel,
+				)
 			}
 		} else {
 			// Set 'info' as our default log-level.
@@ -216,7 +221,7 @@ func main() {
 			ioService,
 			handlerService)
 		if fuseService == nil {
-			log.Panic("FuseService initialization error")
+			logrus.Fatal("FuseService initialization error. Exiting ...")
 		}
 
 		// TODO: Consider adding sync.Workgroups to ensure that all goroutines
