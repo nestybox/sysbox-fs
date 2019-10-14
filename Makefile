@@ -3,7 +3,7 @@
 #
 # Note: targets must execute from the $SYSFS_DIR
 
-.PHONY: clean sysbox-fs sysbox-fs-debug sysbox-fs-static
+.PHONY: clean sysbox-fs-debug sysbox-fs-static
 
 GO := go
 
