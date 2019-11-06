@@ -25,6 +25,7 @@ import (
 type NfConntrackMaxHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -292,6 +293,10 @@ func (h *NfConntrackMaxHandler) GetPath() string {
 
 func (h *NfConntrackMaxHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *NfConntrackMaxHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *NfConntrackMaxHandler) GetService() domain.HandlerService {

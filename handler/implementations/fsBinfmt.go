@@ -14,13 +14,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
-// /proc/devices Handler
+// /proc/sys Handler
 //
-type ProcDevicesHandler struct {
+type FsBinfmtHandler struct {
 	Name      string
 	Path      string
 	Type      domain.HandlerType
@@ -29,7 +28,7 @@ type ProcDevicesHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *ProcDevicesHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *FsBinfmtHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
@@ -38,10 +37,11 @@ func (h *ProcDevicesHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, e
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
+
 	return n.Stat()
 }
 
-func (h *ProcDevicesHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *FsBinfmtHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
@@ -72,85 +72,71 @@ func (h *ProcDevicesHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat
 	return commonHandler.Getattr(n, pid)
 }
 
-func (h *ProcDevicesHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *FsBinfmtHandler) Open(n domain.IOnode, pid uint32) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
-
-	flags := n.OpenFlags()
-	if flags != syscall.O_RDONLY {
-		return fuse.IOerror{Code: syscall.EACCES}
-	}
-
-	if err := n.Open(); err != nil {
-		logrus.Debug("Error opening file ", h.Path)
-		return fuse.IOerror{Code: syscall.EIO}
-	}
 
 	return nil
 }
 
-func (h *ProcDevicesHandler) Close(n domain.IOnode) error {
+func (h *FsBinfmtHandler) Close(node domain.IOnode) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *ProcDevicesHandler) Read(n domain.IOnode, pid uint32,
+func (h *FsBinfmtHandler) Read(n domain.IOnode, pid uint32,
 	buf []byte, off int64) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
-	// Bypass emulation logic for now by going straight to host fs.
-	ios := h.Service.IOService()
-	len, err := ios.ReadNode(n, buf)
-	if err != nil && err != io.EOF {
-		return 0, err
+	if off > 0 {
+		return 0, io.EOF
 	}
-
-	buf = buf[:len]
-
-	return len, nil
-}
-
-func (h *ProcDevicesHandler) Write(n domain.IOnode, pid uint32,
-	buf []byte) (int, error) {
-
-	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	return 0, nil
 }
 
-func (h *ProcDevicesHandler) ReadDirAll(n domain.IOnode,
-	pid uint32) ([]os.FileInfo, error) {
+func (h *FsBinfmtHandler) Write(n domain.IOnode, pid uint32,
+	buf []byte) (int, error) {
+
+	logrus.Debugf("Executing Write() method on %v handler", h.Name)
+
+	return 0, nil
+}
+
+func (h *FsBinfmtHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
+
+	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
 
 	return nil, nil
 }
 
-func (h *ProcDevicesHandler) GetName() string {
+func (h *FsBinfmtHandler) GetName() string {
 	return h.Name
 }
 
-func (h *ProcDevicesHandler) GetPath() string {
+func (h *FsBinfmtHandler) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcDevicesHandler) GetEnabled() bool {
+func (h *FsBinfmtHandler) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *ProcDevicesHandler) GetType() domain.HandlerType {
+func (h *FsBinfmtHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcDevicesHandler) GetService() domain.HandlerService {
+func (h *FsBinfmtHandler) GetService() domain.HandlerService {
 	return h.Service
 }
 
-func (h *ProcDevicesHandler) SetEnabled(val bool) {
+func (h *FsBinfmtHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcDevicesHandler) SetService(hs domain.HandlerService) {
+func (h *FsBinfmtHandler) SetService(hs domain.HandlerService) {
 	h.Service = hs
 }

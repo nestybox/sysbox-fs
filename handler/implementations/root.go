@@ -28,6 +28,7 @@ import (
 type RootHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -100,6 +101,10 @@ func (h *RootHandler) GetPath() string {
 
 func (h *RootHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *RootHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *RootHandler) GetService() domain.HandlerService {

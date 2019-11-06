@@ -23,6 +23,7 @@ import (
 type ProcCpuinfoHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -136,6 +137,10 @@ func (h *ProcCpuinfoHandler) GetPath() string {
 
 func (h *ProcCpuinfoHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *ProcCpuinfoHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *ProcCpuinfoHandler) GetService() domain.HandlerService {

@@ -23,6 +23,7 @@ import (
 type CommonHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -361,7 +362,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	return osFileEntries, nil
 }
 
-// Auxiliar routine to aid during ReadDirAll() execution.
+// Auxiliary routine to aid during ReadDirAll() execution.
 func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, pid uint32) []os.FileInfo {
 
 	var emulatedResources []string
@@ -381,6 +382,21 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, pid uint32) []os.File
 		if !ok {
 			logrus.Errorf("No supported handler for %v resource", handlerPath)
 			return nil
+		}
+
+		// Skip emulated resources that are mere 'substitutions' of an already
+		// existing entry returned by the backend (container). A typical example
+		// where this is seen: "/proc/sys/fs/binfmt_misc" folder. Notice that
+		// this folder requires a handler to list nil file contents during
+		// ReadDirAll() execution. As a consequence, this folder would be
+		// displayed twice when executing ReadDirAll() for "/proc/sys/fs" folder:
+		// 1) as a response of ReadDirAll() from container backend, and 2) as
+		// execution of this function. Hence, to avoid double output, we are
+		// only considering NODE_ADITION resources (i.e. resources not returned
+		// by container) for further processing in this routine (e.g.
+		// "/proc/sys/net/netfilter/nf_conntrack_max").
+		if handler.GetType() != domain.NODE_ADITION {
+			continue
 		}
 
 		// Create temporary ionode to represent handler-path.
@@ -482,6 +498,10 @@ func (h *CommonHandler) GetPath() string {
 
 func (h *CommonHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *CommonHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *CommonHandler) GetService() domain.HandlerService {

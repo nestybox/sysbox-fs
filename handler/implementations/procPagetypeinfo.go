@@ -23,6 +23,7 @@ import (
 type ProcPagetypeinfoHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -135,6 +136,10 @@ func (h *ProcPagetypeinfoHandler) GetPath() string {
 
 func (h *ProcPagetypeinfoHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *ProcPagetypeinfoHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *ProcPagetypeinfoHandler) GetService() domain.HandlerService {

@@ -23,6 +23,7 @@ import (
 type ProcPartitionsHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -135,6 +136,10 @@ func (h *ProcPartitionsHandler) GetPath() string {
 
 func (h *ProcPartitionsHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *ProcPartitionsHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *ProcPartitionsHandler) GetService() domain.HandlerService {

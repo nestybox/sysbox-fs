@@ -113,10 +113,32 @@ var DefaultHandlers = []domain.HandlerIface{
 		Cacheable: false,
 	},
 	//
+	// /proc/sys/fs handlers
+	//
+	&implementations.FsBinfmtHandler{
+		Name:      "fsBinfmt",
+		Path:      "/proc/sys/fs/binfmt_misc",
+		Enabled:   true,
+		Cacheable: false,
+	},
+	&implementations.FsBinfmtStatusHandler{
+		Name:      "fsBinfmtStatus",
+		Path:      "/proc/sys/fs/binfmt_misc/status",
+		Enabled:   true,
+		Cacheable: false,
+	},
+	&implementations.FsBinfmtRegisterHandler{
+		Name:      "fsBinfmtRegister",
+		Path:      "/proc/sys/fs/binfmt_misc/register",
+		Enabled:   true,
+		Cacheable: false,
+	},
+	//
 	// /proc/sys/net/netfilter handlers
 	&implementations.NfConntrackMaxHandler{
 		Name:      "nfConntrackMax",
 		Path:      "/proc/sys/net/netfilter/nf_conntrack_max",
+		Type:      domain.NODE_ADITION,
 		Enabled:   true,
 		Cacheable: true,
 	},

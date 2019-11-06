@@ -23,6 +23,7 @@ import (
 type ProcLoadavgHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -137,6 +138,10 @@ func (h *ProcLoadavgHandler) GetPath() string {
 
 func (h *ProcLoadavgHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *ProcLoadavgHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *ProcLoadavgHandler) GetService() domain.HandlerService {

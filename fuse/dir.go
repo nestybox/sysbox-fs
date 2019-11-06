@@ -80,7 +80,6 @@ func (d *Dir) Lookup(
 	// Handler execution.
 	info, err := handler.Lookup(newIOnode, req.Pid)
 	if err != nil {
-		logrus.Error("Lookup() error: ", err)
 		return nil, fuse.ENOENT
 	}
 

@@ -23,6 +23,7 @@ import (
 type ProcMeminfoHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -135,6 +136,10 @@ func (h *ProcMeminfoHandler) GetPath() string {
 
 func (h *ProcMeminfoHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *ProcMeminfoHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *ProcMeminfoHandler) GetService() domain.HandlerService {

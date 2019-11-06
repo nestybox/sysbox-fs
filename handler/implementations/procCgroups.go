@@ -23,6 +23,7 @@ import (
 type ProcCgroupsHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -137,6 +138,10 @@ func (h *ProcCgroupsHandler) GetPath() string {
 
 func (h *ProcCgroupsHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *ProcCgroupsHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *ProcCgroupsHandler) GetService() domain.HandlerService {

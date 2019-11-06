@@ -25,6 +25,7 @@ import (
 type ProcUptimeHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -176,6 +177,10 @@ func (h *ProcUptimeHandler) GetPath() string {
 func (h *ProcUptimeHandler) GetEnabled() bool {
 
 	return h.Enabled
+}
+
+func (h *ProcUptimeHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *ProcUptimeHandler) GetService() domain.HandlerService {

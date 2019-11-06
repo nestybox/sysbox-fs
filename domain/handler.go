@@ -9,9 +9,17 @@ import (
 	"syscall"
 )
 
+type HandlerType int
+
+const (
+	NODE_SUBSTITUTION HandlerType = iota // resources that need to be replaced
+	NODE_ADITION                         // resources that need to be created / added
+)
+
 type Handler struct {
 	Name    string
 	Path    string
+	Type    HandlerType
 	Enabled bool
 	Service HandlerService
 	HandlerIface
@@ -30,6 +38,7 @@ type HandlerIface interface {
 	// getters/setters.
 	GetName() string
 	GetPath() string
+	GetType() HandlerType
 	GetEnabled() bool
 	SetEnabled(val bool)
 	GetService() HandlerService

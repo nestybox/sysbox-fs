@@ -23,6 +23,7 @@ import (
 type ProcSwapsHandler struct {
 	Name      string
 	Path      string
+	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
 	Service   domain.HandlerService
@@ -135,6 +136,10 @@ func (h *ProcSwapsHandler) GetPath() string {
 
 func (h *ProcSwapsHandler) GetEnabled() bool {
 	return h.Enabled
+}
+
+func (h *ProcSwapsHandler) GetType() domain.HandlerType {
+	return h.Type
 }
 
 func (h *ProcSwapsHandler) GetService() domain.HandlerService {
