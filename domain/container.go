@@ -29,7 +29,7 @@ type ContainerIface interface {
 }
 
 //
-// Auxiliar types to deal with the per-container-state associated to all the
+// Auxiliary types to deal with the per-container-state associated to all the
 // emulated resources.
 //
 type StateDataMap = map[string]map[string]string

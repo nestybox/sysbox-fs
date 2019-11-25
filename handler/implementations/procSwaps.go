@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -28,6 +29,10 @@ type ProcSwapsHandler struct {
 	Cacheable bool
 	Service   domain.HandlerService
 }
+
+// /proc/swaps static header
+var swapsHeader = "Filename                                Type            Size    Used    Priority"
+
 
 func (h *ProcSwapsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
@@ -102,8 +107,47 @@ func (h *ProcSwapsHandler) Read(n domain.IOnode, pid uint32,
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
-	// Bypass emulation logic for now by going straight to host fs.
+	if off > 0 {
+		return 0, io.EOF
+	}
+
+	// Identify the pidNsInode corresponding to this pid.
 	ios := h.Service.IOService()
+	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
+	pidInode, err := ios.PidNsInode(tmpNode)
+	if err != nil {
+		return 0, err
+	}
+
+	name := n.Name()
+	path := n.Path()
+
+	// Find the container-state corresponding to the container hosting this
+	// Pid.
+	css := h.Service.StateService()
+	cntr := css.ContainerLookupByPid(pidInode)
+	if cntr == nil {
+		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
+		return 0, errors.New("Container not found")
+	}
+
+	// If no modification has been ever made to this container's swapping mode,
+	// then let's assume that swapping in ON by default. Otherwise, proceed only
+	// if swapping mode is disabled ("swapoff").
+	data, ok := cntr.Data(path, name)
+	if !ok || data == "swapoff" {
+		copy(buf, swapsHeader + "\n")
+		len := len(swapsHeader) + 1
+		buf = buf[:len]
+
+		return len, nil
+	}
+
+	// If swapping is enabled ("swapon" value is set), extract the information
+	// directly from the host fs. Note that this action displays stats of the
+	// overall system, and not of the container itself, but it's a 'valid'
+	// approximation for now given that kernel doesn't expose anything close to
+	// this.
 	len, err := ios.ReadNode(n, buf)
 	if err != nil && err != io.EOF {
 		return 0, err
