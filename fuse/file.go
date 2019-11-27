@@ -128,9 +128,6 @@ func (f *File) Open(
 		return nil, err
 	}
 
-	// procfs and sysfs hold non-seekable files.
-	resp.Flags |= fuse.OpenNonSeekable
-
 	//
 	// Due to the nature of procfs and sysfs, files lack explicit sizes (other
 	// than zero) as regular files have. In consequence, read operations (also
