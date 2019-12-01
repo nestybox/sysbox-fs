@@ -142,6 +142,12 @@ var DefaultHandlers = []domain.HandlerIface{
 		Enabled:   true,
 		Cacheable: true,
 	},
+	&implementations.KernelPanicOopsHandler{
+		Name:      "kernelPanicOops",
+		Path:      "/proc/sys/kernel/panic_on_oops",
+		Enabled:   true,
+		Cacheable: true,
+	},
 	//
 	// /proc/sys/net/netfilter handlers
 	//
