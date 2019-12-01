@@ -134,6 +134,15 @@ var DefaultHandlers = []domain.HandlerIface{
 		Cacheable: false,
 	},
 	//
+	// /proc/sys/kernel handlers
+	//
+	&implementations.KernelPanicHandler{
+		Name:      "kernelPanic",
+		Path:      "/proc/sys/kernel/panic",
+		Enabled:   true,
+		Cacheable: true,
+	},
+	//
 	// /proc/sys/net/netfilter handlers
 	//
 	&implementations.NfConntrackMaxHandler{
