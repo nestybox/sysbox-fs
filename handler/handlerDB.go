@@ -135,10 +135,20 @@ var DefaultHandlers = []domain.HandlerIface{
 	},
 	//
 	// /proc/sys/net/netfilter handlers
+	//
 	&implementations.NfConntrackMaxHandler{
 		Name:      "nfConntrackMax",
 		Path:      "/proc/sys/net/netfilter/nf_conntrack_max",
 		Type:      domain.NODE_ADITION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	//
+	// /proc/sys/vm handlers
+	//
+	&implementations.VmOvercommitMemHandler{
+		Name:      "vmOvercommitMem",
+		Path:      "/proc/sys/vm/overcommit_memory",
 		Enabled:   true,
 		Cacheable: true,
 	},
