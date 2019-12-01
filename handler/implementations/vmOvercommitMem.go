@@ -195,7 +195,6 @@ func (h *VmOvercommitMemHandler) Write(n domain.IOnode, pid uint32,
 }
 
 func (h *VmOvercommitMemHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
-
 	return nil, nil
 }
 
