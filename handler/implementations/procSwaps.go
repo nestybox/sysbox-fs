@@ -132,30 +132,26 @@ func (h *ProcSwapsHandler) Read(n domain.IOnode, pid uint32,
 	}
 
 	// If no modification has been ever made to this container's swapping mode,
-	// then let's assume that swapping in ON by default. Otherwise, proceed only
-	// if swapping mode is disabled ("swapoff").
+	// then let's assume that swapping in OFF by default.
 	data, ok := cntr.Data(path, name)
 	if !ok || data == "swapoff" {
-		copy(buf, swapsHeader + "\n")
-		len := len(swapsHeader) + 1
-		buf = buf[:len]
-
-		return len, nil
+		result := []byte(swapsHeader + "\n")
+		return copyResultBuffer(buf, result)
 	}
 
-	// If swapping is enabled ("swapon" value is set), extract the information
-	// directly from the host fs. Note that this action displays stats of the
-	// overall system, and not of the container itself, but it's a 'valid'
-	// approximation for now given that kernel doesn't expose anything close to
-	// this.
-	len, err := ios.ReadNode(n, buf)
+	var result []byte
+
+	// If swapping is enabled ("swapon" value was explicitly set), extract the
+	// information directly from the host fs. Note that this action displays
+	// stats of the overall system, and not of the container itself, but it's
+	// a valid approximation for now given that kernel doesn't expose anything
+	// close to this.
+	_, err = ios.ReadNode(n, result)
 	if err != nil && err != io.EOF {
 		return 0, err
 	}
 
-	buf = buf[:len]
-
-	return len, nil
+	return copyResultBuffer(buf, result)
 }
 
 func (h *ProcSwapsHandler) Write(n domain.IOnode, pid uint32,

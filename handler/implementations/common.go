@@ -180,11 +180,6 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 	name := n.Name()
 	path := n.Path()
 
-	var (
-		result string
-		err    error
-	)
-
 	// Identify the pidNsInode corresponding to this pid.
 	pidInode := h.Service.FindPidNsInode(pid)
 	if pidInode == 0 {
@@ -200,43 +195,35 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 		return 0, errors.New("Container not found")
 	}
 
+	var (
+		data string
+		ok bool
+		err error
+	)
+
 	if h.Cacheable {
 		// Check if this resource has been initialized for this container. Otherwise,
 		// fetch the information from the host FS and store it accordingly within
 		// the container struct.
-		result, ok := cntr.Data(path, name)
+		data, ok = cntr.Data(path, name)
 		if !ok {
-			data, err := h.FetchFile(n, cntr)
+			data, err = h.FetchFile(n, cntr)
 			if err != nil {
 				return 0, err
 			}
 
 			cntr.SetData(path, name, data)
 		}
-
-		// At this point, there must be some container-state data available to
-		// serve this request.
-		if result == "" {
-			result, ok = cntr.Data(path, name)
-			if !ok {
-				logrus.Errorf("Unexpected error")
-				return 0, io.EOF
-			}
-		}
-
 	} else {
-		result, err = h.FetchFile(n, cntr)
+		data, err = h.FetchFile(n, cntr)
 		if err != nil {
 			return 0, err
 		}
 	}
 
-	result += "\n"
-	copy(buf, result)
-	length := len(result)
-	buf = buf[:length]
+	data += "\n"
 
-	return length, nil
+	return copyResultBuffer(buf, []byte(data))
 }
 
 func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, error) {

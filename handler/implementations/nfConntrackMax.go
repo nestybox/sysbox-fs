@@ -123,7 +123,7 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 	// the container struct.
 	data, ok := cntr.Data(path, name)
 	if !ok {
-		data, err := h.FetchFile(n, cntr)
+		data, err = h.FetchFile(n, cntr)
 		if err != nil && err != io.EOF {
 			return 0, err
 		}
@@ -131,22 +131,9 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 		cntr.SetData(path, name, data)
 	}
 
-	// At this point, some container-state data must be available to serve this
-	// request.
-	if data == "" {
-		data, ok = cntr.Data(path, name)
-		if !ok {
-			logrus.Error("Unexpected error")
-			return 0, io.EOF
-		}
-	}
-
 	data += "\n"
-	copy(buf, data)
-	length := len(data)
-	buf = buf[:length]
 
-	return length, nil
+	return copyResultBuffer(buf, []byte(data))
 }
 
 func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,

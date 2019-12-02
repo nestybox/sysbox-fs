@@ -135,11 +135,8 @@ func (h *VmOvercommitMemHandler) Read(n domain.IOnode, pid uint32,
 	}
 
 	data += "\n"
-	copy(buf, data)
-	length := len(data)
-	buf = buf[:length]
 
-	return length, nil
+	return copyResultBuffer(buf, []byte(data))
 }
 
 func (h *VmOvercommitMemHandler) Write(n domain.IOnode, pid uint32,

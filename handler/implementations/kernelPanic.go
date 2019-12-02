@@ -146,11 +146,8 @@ func (h *KernelPanicHandler) Read(n domain.IOnode, pid uint32,
 	}
 
 	data += "\n"
-	copy(buf, data)
-	length := len(data)
-	buf = buf[:length]
 
-	return length, nil
+	return copyResultBuffer(buf, []byte(data))
 }
 
 func (h *KernelPanicHandler) Write(n domain.IOnode, pid uint32,

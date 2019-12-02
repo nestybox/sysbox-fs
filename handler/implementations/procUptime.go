@@ -137,21 +137,19 @@ func (h *ProcUptimeHandler) Read(n domain.IOnode, pid uint32,
 	// Calculate container's uptime, convert it to float to obtain required
 	// precission (as per host FS), and finally format it into string for
 	// storage purposes.
-	uptimeDur := time.Now().Sub(data) / time.Nanosecond
-	var uptime float64 = uptimeDur.Seconds()
-	uptimeStr := fmt.Sprintf("%.2f", uptime)
-
 	//
 	// TODO: Notice that we are dumping the same values into the two columns
 	// expected in /proc/uptime. The value utilized for the first column is
 	// an accurate one (uptime seconds), however, the second one is just
 	// an approximation.
 	//
-	res := uptimeStr + " " + uptimeStr + "\n"
-	copy(buf, res)
-	buf = buf[:len(res)]
+	uptimeDur := time.Now().Sub(data) / time.Nanosecond
+	var uptime float64 = uptimeDur.Seconds()
+	uptimeStr := fmt.Sprintf("%.2f", uptime)
 
-	return len(buf), nil
+	result := []byte(uptimeStr + " " + uptimeStr + "\n")
+
+	return copyResultBuffer(buf, result)
 }
 
 func (h *ProcUptimeHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, error) {
