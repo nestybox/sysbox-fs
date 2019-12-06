@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -20,22 +19,13 @@ import (
 )
 
 //
-// /proc/sys/kernel/panic_on_oops handler
+// /proc/sys/kernel/cap_last_cap handler
 //
-// Documentation: The value in this file defines the kernel behavior
-// when an 'oops' is encountered. The following values are supported:
+// Documentation: The value in this file exposes the numerical value of the
+// highest capability supported by the running kernel ('37' as of today's
+// latest / 5.X kernels ).
 //
-// 0: try to continue operation (default option)
-//
-// 1: panic immediately.  If the 'panic' procfs node is also non-zero then the
-// machine will be rebooted.
-//
-// Taking into account that kernel can either operate in one mode or the other,
-// we cannot let the values defined within a sys container to be pushed down to
-// the host FS, as that could potentially affect the overall system stability.
-// IOW, the host value will be the one honored upon 'oops' arrival.
-//
-type KernelPanicOopsHandler struct {
+type KernelLastCapHandler struct {
 	Name      string
 	Path      string
 	Type      domain.HandlerType
@@ -44,7 +34,7 @@ type KernelPanicOopsHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *KernelPanicOopsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *KernelLastCapHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
@@ -57,7 +47,7 @@ func (h *KernelPanicOopsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInf
 	return n.Stat()
 }
 
-func (h *KernelPanicOopsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *KernelLastCapHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
@@ -69,12 +59,12 @@ func (h *KernelPanicOopsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.
 	return commonHandler.Getattr(n, pid)
 }
 
-func (h *KernelPanicOopsHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *KernelLastCapHandler) Open(n domain.IOnode, pid uint32) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
 
 	flags := n.OpenFlags()
-	if flags != syscall.O_RDONLY && flags != syscall.O_WRONLY {
+	if flags != syscall.O_RDONLY {
 		return fuse.IOerror{Code: syscall.EACCES}
 	}
 
@@ -86,14 +76,14 @@ func (h *KernelPanicOopsHandler) Open(n domain.IOnode, pid uint32) error {
 	return nil
 }
 
-func (h *KernelPanicOopsHandler) Close(n domain.IOnode) error {
+func (h *KernelLastCapHandler) Close(n domain.IOnode) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *KernelPanicOopsHandler) Read(n domain.IOnode, pid uint32,
+func (h *KernelLastCapHandler) Read(n domain.IOnode, pid uint32,
 	buf []byte, off int64) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -145,72 +135,42 @@ func (h *KernelPanicOopsHandler) Read(n domain.IOnode, pid uint32,
 	return copyResultBuffer(buf, []byte(data))
 }
 
-func (h *KernelPanicOopsHandler) Write(n domain.IOnode, pid uint32,
+func (h *KernelLastCapHandler) Write(n domain.IOnode, pid uint32,
 	buf []byte) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
 
-	name := n.Name()
-	path := n.Path()
-
-	newVal := strings.TrimSpace(string(buf))
-	newValInt, err := strconv.Atoi(newVal)
-	if err != nil {
-		logrus.Error("Unsupported kernel_panic_oops value: ", newVal)
-		return 0, fuse.IOerror{Code: syscall.EINVAL}
-	}
-
-	// Ensure that only proper values are allowed as per this resource's
-	// supported values.
-	if newValInt < 0 || newValInt > 1 {
-		logrus.Error("Unsupported kernel_panic_oops value: ", newVal)
-		return 0, fuse.IOerror{Code: syscall.EINVAL}
-	}
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pid)
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
-		return 0, errors.New("Container not found")
-	}
-
-	// Store the new value within the container struct.
-	cntr.SetData(path, name, newVal)
-
-	return len(buf), nil
+	return 0, nil
 }
 
-func (h *KernelPanicOopsHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
+func (h *KernelLastCapHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
 	return nil, nil
 }
 
-func (h *KernelPanicOopsHandler) GetName() string {
+func (h *KernelLastCapHandler) GetName() string {
 	return h.Name
 }
 
-func (h *KernelPanicOopsHandler) GetPath() string {
+func (h *KernelLastCapHandler) GetPath() string {
 	return h.Path
 }
 
-func (h *KernelPanicOopsHandler) GetEnabled() bool {
+func (h *KernelLastCapHandler) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *KernelPanicOopsHandler) GetType() domain.HandlerType {
+func (h *KernelLastCapHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *KernelPanicOopsHandler) GetService() domain.HandlerService {
+func (h *KernelLastCapHandler) GetService() domain.HandlerService {
 	return h.Service
 }
 
-func (h *KernelPanicOopsHandler) SetEnabled(val bool) {
+func (h *KernelLastCapHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *KernelPanicOopsHandler) SetService(hs domain.HandlerService) {
+func (h *KernelLastCapHandler) SetService(hs domain.HandlerService) {
 	h.Service = hs
 }

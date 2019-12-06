@@ -33,6 +33,7 @@ type IOnode interface {
 	Stat() (os.FileInfo, error)
 	SeekReset() (int64, error)
 	PidNsInode() (Inode, error)
+	PidNsInodeParent() (Inode, error)
 	//
 	// Required getters/setters.
 	//
@@ -55,5 +56,6 @@ type IOService interface {
 	StatNode(i IOnode) (os.FileInfo, error)
 	SeekResetNode(i IOnode) (int64, error)
 	PidNsInode(i IOnode) (Inode, error)
+	PidNsInodeParent(i IOnode) (Inode, error)
 	PathNode(i IOnode) string
 }

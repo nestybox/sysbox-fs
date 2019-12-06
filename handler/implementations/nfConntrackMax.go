@@ -101,22 +101,17 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 	name := n.Name()
 	path := n.Path()
 
-	// Identify the pidNsInode corresponding to this pid.
-	ios := h.Service.IOService()
-	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
-	pidInode, err := ios.PidNsInode(tmpNode)
-	if err != nil {
-		return 0, err
-	}
-
-	// Find the container-state corresponding to the container hosting this
-	// Pid.
+	// Identify the container holding the process represented by this pid. This
+	// action can only succeed if the associated container has been previously
+	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pidInode)
+	cntr := css.ContainerLookupByPid(pid)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return 0, errors.New("Container not found")
 	}
+
+	var err error
 
 	// Check if this resource has been initialized for this container. Otherwise,
 	// fetch the information from the host FS and store it accordingly within
@@ -151,20 +146,13 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,
 		return 0, err
 	}
 
-	// Identify the pidNsInode corresponding to this pid.
-	ios := h.Service.IOService()
-	tmpNode := ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
-	pidInode, err := ios.PidNsInode(tmpNode)
-	if err != nil {
-		return 0, err
-	}
-
-	// Find the container-state corresponding to the container hosting this
-	// Pid.
+	// Identify the container holding the process represented by this pid. This
+	// action can only succeed if the associated container has been previously
+	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pidInode)
+	cntr := css.ContainerLookupByPid(pid)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return 0, errors.New("Container not found")
 	}
 

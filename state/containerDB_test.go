@@ -336,7 +336,7 @@ func Test_containerStateService_ContainerLookupById(t *testing.T) {
 	}
 }
 
-func Test_containerStateService_ContainerLookupByPid(t *testing.T) {
+func Test_containerStateService_ContainerLookupByInode(t *testing.T) {
 	type args struct {
 		pidInode domain.Inode
 	}
@@ -381,8 +381,8 @@ func Test_containerStateService_ContainerLookupByPid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.css.ContainerLookupByPid(tt.args.pidInode); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("containerStateService.ContainerLookupByPid() = %v, want %v",
+			if got := tt.css.ContainerLookupByInode(tt.args.pidInode); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("containerStateService.ContainerLookupByInode() = %v, want %v",
 					got, tt.want)
 			}
 		})

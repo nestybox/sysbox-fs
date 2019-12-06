@@ -75,8 +75,8 @@ func (_m *ContainerStateService) ContainerLookupById(id string) domain.Container
 	return r0
 }
 
-// ContainerLookupByPid provides a mock function with given fields: pidInode
-func (_m *ContainerStateService) ContainerLookupByPid(pidInode uint64) domain.ContainerIface {
+// ContainerLookupByInode provides a mock function with given fields: pidInode
+func (_m *ContainerStateService) ContainerLookupByInode(pidInode uint64) domain.ContainerIface {
 	ret := _m.Called(pidInode)
 
 	var r0 domain.ContainerIface

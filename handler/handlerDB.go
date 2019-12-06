@@ -136,6 +136,12 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /proc/sys/kernel handlers
 	//
+	&implementations.KernelLastCapHandler{
+		Name:      "kernelLastCap",
+		Path:      "/proc/sys/kernel/cap_last_cap",
+		Enabled:   true,
+		Cacheable: true,
+	},
 	&implementations.KernelPanicHandler{
 		Name:      "kernelPanic",
 		Path:      "/proc/sys/kernel/panic",

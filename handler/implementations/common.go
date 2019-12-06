@@ -33,19 +33,14 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
-	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
-	if pidInode == 0 {
-		return nil, errors.New("Could not identify pidNsInode")
-	}
-
-	// Find the container-state corresponding to the container hosting this
-	// Pid.
+	// Identify the container holding the process represented by this pid. This
+	// action can only succeed if the associated container has been previously
+	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pidInode)
+	cntr := css.ContainerLookupByPid(pid)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
-		return nil, errors.New("Could not find associated container")
+		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		return nil, errors.New("Container not found")
 	}
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
@@ -86,19 +81,14 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
-	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
-	if pidInode == 0 {
-		return nil, errors.New("Could not identify pidNsInode")
-	}
-
-	// Find the container-state corresponding to the container hosting this
-	// Pid.
-	css := h.GetService().StateService()
-	cntr := css.ContainerLookupByPid(pidInode)
+	// Identify the container holding the process represented by this pid. This
+	// action can only succeed if the associated container has been previously
+	// registered in sysbox-fs.
+	css := h.Service.StateService()
+	cntr := css.ContainerLookupByPid(pid)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
-		return nil, errors.New("Could not find associated container")
+		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		return nil, errors.New("Container not found")
 	}
 
 	stat := &syscall.Stat_t{
@@ -112,18 +102,13 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 
 	logrus.Debugf("Executing Open() method on %v handler", h.Name)
 
-	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
-	if pidInode == 0 {
-		return errors.New("Could not identify pidNsInode")
-	}
-
-	// Find the container-state corresponding to the container hosting this
-	// Pid.
+	// Identify the container holding the process represented by this pid. This
+	// action can only succeed if the associated container has been previously
+	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pidInode)
+	cntr := css.ContainerLookupByPid(pid)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return errors.New("Container not found")
 	}
 
@@ -180,18 +165,13 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 	name := n.Name()
 	path := n.Path()
 
-	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
-	if pidInode == 0 {
-		return 0, errors.New("Could not identify pidNsInode")
-	}
-
-	// Find the container-state corresponding to the container hosting this
-	// Pid.
+	// Identify the container holding the process represented by this pid. This
+	// action can only succeed if the associated container has been previously
+	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pidInode)
+	cntr := css.ContainerLookupByPid(pid)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return 0, errors.New("Container not found")
 	}
 
@@ -235,18 +215,13 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 
 	newContent := strings.TrimSpace(string(buf))
 
-	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
-	if pidInode == 0 {
-		return 0, errors.New("Could not identify pidNsInode")
-	}
-
-	// Find the container-state corresponding to the container hosting this
-	// Pid.
+	// Identify the container holding the process represented by this pid. This
+	// action can only succeed if the associated container has been previously
+	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pidInode)
+	cntr := css.ContainerLookupByPid(pid)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return 0, errors.New("Container not found")
 	}
 
@@ -287,18 +262,13 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 
 	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
 
-	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
-	if pidInode == 0 {
-		return nil, errors.New("Could not identify pidNsInode")
-	}
-
-	// Find the container-state corresponding to the container hosting this
-	// Pid.
+	// Identify the container holding the process represented by this pid. This
+	// action can only succeed if the associated container has been previously
+	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pidInode)
+	cntr := css.ContainerLookupByPid(pid)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pidNsInode %v)", pidInode)
+		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return nil, errors.New("Container not found")
 	}
 

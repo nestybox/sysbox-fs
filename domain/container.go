@@ -55,5 +55,6 @@ type ContainerStateService interface {
 	ContainerUpdate(c ContainerIface) error
 	ContainerDelete(c ContainerIface) error
 	ContainerLookupById(id string) ContainerIface
-	ContainerLookupByPid(pidInode Inode) ContainerIface
+	ContainerLookupByInode(pidInode Inode) ContainerIface
+	ContainerLookupByPid(pid uint32) ContainerIface
 }

@@ -202,9 +202,12 @@ func main() {
 	app.Action = func(ctx *cli.Context) error {
 
 		// Initialize sysbox-fs' services.
-		var containerStateService = state.NewContainerStateService()
+
 		var nsenterService = nsenter.NewNSenterService()
+
 		var ioService = sysio.NewIOService(sysio.IOFileService)
+
+		var containerStateService = state.NewContainerStateService(ioService)
 
 		var handlerService = handler.NewHandlerService(
 			handler.DefaultHandlers,
