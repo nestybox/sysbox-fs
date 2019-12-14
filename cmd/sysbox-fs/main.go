@@ -216,6 +216,9 @@ func main() {
 			ioService)
 
 		var ipcService = ipc.NewIpcService(containerStateService, ioService)
+		if ipcService == nil {
+			logrus.Fatal("IpcService initialization error. Exiting ...")
+		}
 		ipcService.Init()
 
 		var fuseService = fuse.NewFuseService(

@@ -11,11 +11,11 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-ipc/sysboxFsGrpc"
+	grpc "github.com/nestybox/sysbox-ipc/sysboxFsGrpc"
 )
 
 type ipcService struct {
-	grpcServer *sysboxFsGrpc.Server
+	grpcServer *grpc.Server
 	css        domain.ContainerStateService
 	ios        domain.IOService
 }
@@ -28,13 +28,17 @@ func NewIpcService(
 	newService := new(ipcService)
 	newService.css = css
 	newService.ios = ios
-	newService.grpcServer = sysboxFsGrpc.NewServer(
+	newService.grpcServer = grpc.NewServer(
 		newService,
-		&sysboxFsGrpc.CallbacksMap{
-			sysboxFsGrpc.ContainerRegisterMessage:   ContainerRegister,
-			sysboxFsGrpc.ContainerUnregisterMessage: ContainerUnregister,
-			sysboxFsGrpc.ContainerUpdateMessage:     ContainerUpdate,
-		})
+		&grpc.CallbacksMap{
+			grpc.ContainerRegisterMessage:   ContainerRegister,
+			grpc.ContainerUnregisterMessage: ContainerUnregister,
+			grpc.ContainerUpdateMessage:     ContainerUpdate,
+		},
+	)
+	if newService == nil {
+		return nil
+	}
 
 	return newService
 }
@@ -43,7 +47,7 @@ func (s *ipcService) Init() {
 	go s.grpcServer.Init()
 }
 
-func ContainerRegister(ctx interface{}, data *sysboxFsGrpc.ContainerData) error {
+func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
@@ -83,7 +87,7 @@ func ContainerRegister(ctx interface{}, data *sysboxFsGrpc.ContainerData) error 
 	return nil
 }
 
-func ContainerUnregister(ctx interface{}, data *sysboxFsGrpc.ContainerData) error {
+func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
@@ -117,7 +121,7 @@ func ContainerUnregister(ctx interface{}, data *sysboxFsGrpc.ContainerData) erro
 	return nil
 }
 
-func ContainerUpdate(ctx interface{}, data *sysboxFsGrpc.ContainerData) error {
+func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 
 	if data == nil {
 		return errors.New("Invalid input parameters")
