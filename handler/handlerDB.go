@@ -407,7 +407,7 @@ func (hs *handlerService) IOService() domain.IOService {
 }
 
 //
-// Auxiliar methods
+// Auxiliary methods
 //
 func (hs *handlerService) HostPidNsInode() domain.Inode {
 	return hs.hostPidInode

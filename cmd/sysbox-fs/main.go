@@ -18,6 +18,7 @@ import (
 	"github.com/nestybox/sysbox-fs/handler"
 	"github.com/nestybox/sysbox-fs/ipc"
 	"github.com/nestybox/sysbox-fs/nsenter"
+	"github.com/nestybox/sysbox-fs/seccomp"
 	"github.com/nestybox/sysbox-fs/state"
 	"github.com/nestybox/sysbox-fs/sysio"
 
@@ -208,6 +209,11 @@ func main() {
 		var ioService = sysio.NewIOService(sysio.IOFileService)
 
 		var containerStateService = state.NewContainerStateService(ioService)
+
+		var seccompTracerService = seccomp.NewTracerService(containerStateService)
+		if err := seccompTracerService.Init(); err != nil {
+			logrus.Fatal("seccompTracerService initialization error. Exiting ....")
+		}
 
 		var handlerService = handler.NewHandlerService(
 			handler.DefaultHandlers,
