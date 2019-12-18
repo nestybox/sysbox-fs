@@ -39,6 +39,9 @@ github.com/nestybox/sysbox-runc v0.1.2 h1:14Dj2l2K/xu3dXiNNEvi1jH6y/6We7y/hUzKzM
 github.com/nestybox/sysbox-runc v0.1.2/go.mod h1:SQZqOUqUdM8D5whWIasTEhIZ/Woc+OhTP92wyCIyDVc=
 github.com/opencontainers/runtime-spec v0.1.2-0.20190207185410-29686dbc5559 h1:EaIFktfRhw4G3vOL8r0kTy9TM+FeFBC0k8IC0d3Hhus=
 github.com/opencontainers/runtime-spec v0.1.2-0.20190207185410-29686dbc5559/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
+github.com/opencontainers/runtime-spec v1.0.1/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
+github.com/opencontainers/runtime-spec v1.0.2-0.20191218002532-bab266ed033b h1:aQQzqXxvWWdhgu/yCWKNDN4QbLlNubUZHyiDdlShLPY=
+github.com/opencontainers/runtime-spec v1.0.2-0.20191218002532-bab266ed033b/go.mod h1:jwyrGlmzljRJv/Fgzds9SsS/C5hL+LL3ko9hs6T5lQ0=
 github.com/opencontainers/selinux v1.2.2 h1:Kx9J6eDG5/24A6DtUquGSpJQ+m2MUTahn4FtGEe8bFg=
 github.com/opencontainers/selinux v1.2.2/go.mod h1:+BLncwf63G4dgOzykXAxcmnFlUaOlkDdmw/CqsW6pjs=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
