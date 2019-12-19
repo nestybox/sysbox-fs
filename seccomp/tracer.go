@@ -14,23 +14,26 @@ const seccompTracerSockAddr = "/run/sysbox/sysfs-seccomp.sock"
 
 type TracerService struct {
 	css domain.ContainerStateService
+	srv unix.Server
 }
 
 func NewTracerService(css domain.ContainerStateService) *TracerService {
 
 	return &TracerService{
 		css: css,
+		srv: unix.Server{},
 	}
 }
 
 func (t *TracerService) Init() error {
 
 	// Initialize Tracer Server.
-	srv := &unix.Server{}
-	if err := srv.Init(seccompTracerSockAddr, t.connHandler); err != nil {
-		logrus.Errorf("Unable to initialize seccomp-tracer server")
-		return nil
-	}
+	// srv := &unix.Server{}
+	// if err := go srv.Init(seccompTracerSockAddr, t.connHandler); err != nil {
+	// 	logrus.Errorf("Unable to initialize seccomp-tracer server")
+	// 	return nil
+	// }
+	go t.srv.Init(seccompTracerSockAddr, t.connHandler)
 
 	return nil
 }
