@@ -14,26 +14,26 @@ const seccompTracerSockAddr = "/run/sysbox/sysfs-seccomp.sock"
 
 type TracerService struct {
 	css domain.ContainerStateService
-	srv unix.Server
+	srv *unix.Server
 }
 
 func NewTracerService(css domain.ContainerStateService) *TracerService {
 
 	return &TracerService{
 		css: css,
-		srv: unix.Server{},
 	}
 }
 
+// Initialize Tracer Server.
 func (t *TracerService) Init() error {
 
-	// Initialize Tracer Server.
-	// srv := &unix.Server{}
-	// if err := go srv.Init(seccompTracerSockAddr, t.connHandler); err != nil {
-	// 	logrus.Errorf("Unable to initialize seccomp-tracer server")
-	// 	return nil
-	// }
-	go t.srv.Init(seccompTracerSockAddr, t.connHandler)
+	srv, err := unix.NewServer(seccompTracerSockAddr, t.connHandler)
+	if err != nil {
+		logrus.Errorf("Unable to initialize seccomp-tracer server")
+		return err
+	}
+
+	t.srv = srv
 
 	return nil
 }
@@ -71,8 +71,6 @@ func (t *TracerService) connHandler(c *net.UnixConn) error {
 	return nil
 }
 
-
-
 func (t *TracerService) process(
 	req *scmplib.ScmpNotifReq) (*scmplib.ScmpNotifResp, error) {
 
@@ -92,45 +90,10 @@ func (t *TracerService) RecvMsg(c *net.UnixConn) (*seccompMsg, error) {
 		return nil, err
 	}
 
+	logrus.Errorf("Tracer received message; fd %v, cntr %v", fd, cntrId)
+
 	return &seccompMsg{
 		fd: fd,
 		cntrId: cntrId,
 	}, nil
 }
-
-
-
-
-
-
-
-	// // Remove seccomp-tracer socket.
-	// if err := os.RemoveAll(seccompTracerSockAddr); err != nil {
-	// 	logrus.Errorf("Unable to remove() seccompTracer socket.")
-	// 	return err
-    // }
-
-	// unixAddr, err := net.ResolveUnixAddr("unix", seccompTracerSockAddr)
-	// if err != nil {
-	// 	logrus.Errorf("Unable to resolve address for seccompTracer socket.")
-	// 	return err
-	// }
-
-	// // Initialize seccomp-tracer socket.
-	// listener, err := net.ListenUnix("unix", unixAddr)
-	// if err != nil {
-	// 	logrus.Errorf("Unable to listen() through seccompTracer socket.")		
-	// 	return err
-	// }
-	// defer listener.Close()
-	
-	// for {
-	// 	//
-	// 	conn, err := listener.AcceptUnix()
-	// 	if err != nil {
-	// 		logrus.Errorf("Unable to accept() seccompTracer connection.")
-	// 		return err
-	// 	}
-
-	// 	go t.connectionHandler(conn)
-	// }
