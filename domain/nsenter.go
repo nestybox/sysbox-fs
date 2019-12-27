@@ -16,7 +16,7 @@ const (
 	NStypePid    NStype = "pid"
 	NStypeUts    NStype = "uts"
 	NStypeUser   NStype = "user"
-	NStypeMount  NStype = "mount"
+	NStypeMount  NStype = "mnt"
 )
 
 //
@@ -24,17 +24,19 @@ const (
 // by nsenterEvent class.
 //
 const (
-	LookupRequest     NSenterMsgType = "lookupRequest"
-	LookupResponse    NSenterMsgType = "lookupResponse"
-	OpenFileRequest   NSenterMsgType = "OpenFileRequest"
-	OpenFileResponse  NSenterMsgType = "OpenFileResponse"
-	ReadFileRequest   NSenterMsgType = "readFileRequest"
-	ReadFileResponse  NSenterMsgType = "readFileResponse"
-	WriteFileRequest  NSenterMsgType = "writeFileRequest"
-	WriteFileResponse NSenterMsgType = "writeFileResponse"
-	ReadDirRequest    NSenterMsgType = "readDirRequest"
-	ReadDirResponse   NSenterMsgType = "readDirResponse"
-	ErrorResponse     NSenterMsgType = "errorResponse"
+	LookupRequest        NSenterMsgType = "lookupRequest"
+	LookupResponse       NSenterMsgType = "lookupResponse"
+	OpenFileRequest      NSenterMsgType = "OpenFileRequest"
+	OpenFileResponse     NSenterMsgType = "OpenFileResponse"
+	ReadFileRequest      NSenterMsgType = "readFileRequest"
+	ReadFileResponse     NSenterMsgType = "readFileResponse"
+	WriteFileRequest     NSenterMsgType = "writeFileRequest"
+	WriteFileResponse    NSenterMsgType = "writeFileResponse"
+	ReadDirRequest       NSenterMsgType = "readDirRequest"
+	ReadDirResponse      NSenterMsgType = "readDirResponse"
+	MountSyscallRequest  NSenterMsgType = "mountSyscallRequest"
+	MountSyscallResponse NSenterMsgType = "mountSyscallResponse"
+	ErrorResponse        NSenterMsgType = "errorResponse"
 )
 
 //
@@ -44,7 +46,6 @@ const (
 //
 type NSenterService interface {
 	NewEvent(
-		path string,
 		pid uint32,
 		ns []NStype,
 		req *NSenterMessage,
@@ -79,4 +80,27 @@ type NSenterMessage struct {
 
 	// Message payload.
 	Payload interface{} `json:"payload"`
+}
+
+type OpenFilePayload struct {
+	File string `json:"file"`
+	Flags string `json:"flags"`
+}
+
+type ReadFilePayload struct {
+	File    string `json:"file"`
+	Content string `json:"content"`
+}
+
+type WriteFilePayload struct {
+	File    string `json:"file"`
+	Content string `json:"content"`
+}
+
+type MountSyscallPayload struct {
+	Source     string `json:"source"`
+	Target     string `json:"target"`
+	FsType     string `json:"fstype"`
+	Flags      uint64 `json:"flags"`
+	Data       string `json:"data"`
 }

@@ -46,7 +46,6 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		n.Path(),
 		cntr.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
@@ -115,7 +114,6 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		n.Path(),
 		cntr.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
@@ -127,7 +125,10 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 		},
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
-			Payload: strconv.Itoa(n.OpenFlags()),
+			Payload: &domain.OpenFilePayload{
+				File: n.Path(),
+				Flags: strconv.Itoa(n.OpenFlags()),
+			},
 		},
 		nil,
 	)
@@ -275,7 +276,6 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		n.Path(),
 		cntr.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
@@ -285,7 +285,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 			string(domain.NStypeCgroup),
 			string(domain.NStypeUts),
 		},
-		&domain.NSenterMessage{Type: domain.ReadDirRequest, Payload: ""},
+		&domain.NSenterMessage{Type: domain.ReadDirRequest, Payload: n.Path()},
 		nil,
 	)
 
@@ -379,7 +379,6 @@ func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (str
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		n.Path(),
 		c.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
@@ -389,8 +388,14 @@ func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (str
 			string(domain.NStypeCgroup),
 			string(domain.NStypeUts),
 		},
-		&domain.NSenterMessage{Type: domain.ReadFileRequest, Payload: ""},
-		nil)
+		&domain.NSenterMessage{
+			Type: domain.ReadFileRequest,
+			Payload: &domain.ReadFilePayload{
+				File: n.Path(),
+			},
+		},
+		nil,
+	)
 
 	// Launch nsenter-event to obtain file state within container
 	// namespaces.
@@ -416,7 +421,6 @@ func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s str
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		n.Path(),
 		c.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
@@ -426,8 +430,15 @@ func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s str
 			string(domain.NStypeCgroup),
 			string(domain.NStypeUts),
 		},
-		&domain.NSenterMessage{Type: domain.WriteFileRequest, Payload: s},
-		nil)
+		&domain.NSenterMessage{
+			Type: domain.WriteFileRequest,
+			Payload: &domain.WriteFilePayload{
+				File: n.Path(),
+				Content: s,
+			},
+		},
+		nil,
+	)
 
 	// Launch nsenter-event to write file state within container
 	// namespaces.
