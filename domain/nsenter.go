@@ -51,7 +51,7 @@ type NSenterService interface {
 		req *NSenterMessage,
 		res *NSenterMessage) NSenterEventIface
 
-	LaunchEvent(e NSenterEventIface) error
+	RequestEvent(e NSenterEventIface) error
 	ResponseEvent(e NSenterEventIface) *NSenterMessage
 }
 
@@ -68,7 +68,7 @@ type NSenterService interface {
 // message exchanges.
 //
 type NSenterEventIface interface {
-	Launch() error
+	Request() error
 	Response() *NSenterMessage
 }
 

@@ -91,8 +91,8 @@ func (s *nsenterService) NewEvent(
 	}
 }
 
-func (s *nsenterService) LaunchEvent(e domain.NSenterEventIface) error {
-	return e.Launch()
+func (s *nsenterService) RequestEvent(e domain.NSenterEventIface) error {
+	return e.Request()
 }
 
 func (s *nsenterService) ResponseEvent(e domain.NSenterEventIface) *domain.NSenterMessage {
@@ -127,14 +127,14 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 	// remote-end. This second step is executed as part of a subsequent
 	// unmarshal instruction (see further below).
 	if err := json.NewDecoder(pipe).Decode(&nsenterMsg); err != nil {
-		logrus.Errorf("Error decoding received nsenterMsg request: %v", err)
-		return errors.New("Error decoding received event request")
+		logrus.Errorf("Error decoding received nsenterMsg response (%v).", err)
+		return errors.New("Error decoding received event response")
 	}
 
 	switch nsenterMsg.Type {
 
 	case domain.LookupResponse:
-		logrus.Debug("Received nsenterEvent lookupResponse message")
+		logrus.Debug("Received nsenterEvent lookupResponse message.")
 
 		var p domain.FileInfo
 		if payload != nil {
@@ -152,7 +152,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		break
 
 	case domain.OpenFileResponse:
-		logrus.Debug("Received nsenterEvent OpenResponse message")
+		logrus.Debug("Received nsenterEvent OpenResponse message.")
 
 		var p int
 		if payload != nil {
@@ -170,7 +170,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		break
 
 	case domain.ReadFileResponse:
-		logrus.Debug("Received nsenterEvent readResponse message")
+		logrus.Debug("Received nsenterEvent readResponse message.")
 
 		var p string
 		if payload != nil {
@@ -188,7 +188,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		break
 
 	case domain.WriteFileResponse:
-		logrus.Debug("Received nsenterEvent writeResponse message")
+		logrus.Debug("Received nsenterEvent writeResponse message.")
 
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    nsenterMsg.Type,
@@ -197,7 +197,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		break
 
 	case domain.ReadDirResponse:
-		logrus.Debug("Received nsenterEvent readDirAllResponse message")
+		logrus.Debug("Received nsenterEvent readDirAllResponse message.")
 
 		var p []domain.FileInfo
 		if payload != nil {
@@ -214,8 +214,17 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		}
 		break
 
+	case domain.MountSyscallResponse:
+		logrus.Debug("Received nsenterEvent mountSyscallResponse message.")
+
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: "",
+		}
+		break
+
 	case domain.ErrorResponse:
-		logrus.Debug("Received nsenterEvent errorResponse message")
+		logrus.Debug("Received nsenterEvent errorResponse message.")
 
 		var p fuse.IOerror
 
@@ -234,7 +243,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		break
 
 	default:
-		return errors.New("Received unsupported nsenterEvent message")
+		return errors.New("Received unsupported nsenterEvent message.")
 	}
 
 	return nil
@@ -269,9 +278,9 @@ func (e *NSenterEvent) namespacePaths() []string {
 // nsexec logic, which will serve to enter the container namespaces that host
 // these resources.
 //
-func (e *NSenterEvent) Launch() error {
+func (e *NSenterEvent) Request() error {
 
-	logrus.Debug("Executing nsenterEvent's launch() method")
+	logrus.Debug("Executing nsenterEvent's request() method")
 
 	// Create a socket pair.
 	parentPipe, childPipe, err := utils.NewSockPair("nsenterPipe")
@@ -566,13 +575,17 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 		logrus.Errorf("Error executing mount() syscall.")
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
-			Payload: err.Error(),
+			Payload: &fuse.IOerror{RcvError: err},
 		}
 
-		return err
+		return nil
 	}
 
-	// TODO: Build a proper response (ack) msg.
+	// Create a response message.
+	e.ResMsg = &domain.NSenterMessage{
+		Type:    domain.MountSyscallResponse,
+		Payload: "",
+	}
 
 	return nil
 }
@@ -595,8 +608,8 @@ func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 	// remote-end. This second step is executed as part of a subsequent
 	// unmarshal instruction (see further below).
 	if err := json.NewDecoder(pipe).Decode(&nsenterMsg); err != nil {
-		logrus.Errorf("Error decoding received nsenterMsg request: %v", err)
-		return errors.New("Error decoding received event request")
+		logrus.Errorf("Error decoding received nsenterMsg request (%v).", err)
+		return errors.New("Error decoding received event request.")
 	}
 
 	switch nsenterMsg.Type {

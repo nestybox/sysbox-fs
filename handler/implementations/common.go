@@ -60,7 +60,7 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	)
 
 	// Launch nsenter-event.
-	err := nss.LaunchEvent(event)
+	err := nss.RequestEvent(event)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 	)
 
 	// Launch nsenter-event.
-	err := nss.LaunchEvent(event)
+	err := nss.RequestEvent(event)
 	if err != nil {
 		return err
 	}
@@ -290,7 +290,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	)
 
 	// Launch nsenter-event.
-	err := nss.LaunchEvent(event)
+	err := nss.RequestEvent(event)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +399,7 @@ func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (str
 
 	// Launch nsenter-event to obtain file state within container
 	// namespaces.
-	err := nss.LaunchEvent(event)
+	err := nss.RequestEvent(event)
 	if err != nil {
 		return "", err
 	}
@@ -442,7 +442,7 @@ func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s str
 
 	// Launch nsenter-event to write file state within container
 	// namespaces.
-	err := nss.LaunchEvent(event)
+	err := nss.RequestEvent(event)
 	if err != nil {
 		return err
 	}
