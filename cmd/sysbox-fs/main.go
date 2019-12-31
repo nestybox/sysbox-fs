@@ -210,16 +210,18 @@ func main() {
 
 		var containerStateService = state.NewContainerStateService(ioService)
 
-		var seccompTracerService = seccomp.NewTracerService(containerStateService)
-		if err := seccompTracerService.Init(); err != nil {
-			logrus.Fatal("seccompTracerService initialization error. Exiting ....")
+		var syscallMonitorService =
+			seccomp.NewSyscallMonitorService(containerStateService, nsenterService)
+		if syscallMonitorService == nil {
+			logrus.Fatal("syscallMonitorService initialization error. Exiting ...")
 		}
 
 		var handlerService = handler.NewHandlerService(
 			handler.DefaultHandlers,
 			containerStateService,
 			nsenterService,
-			ioService)
+			ioService,
+		)
 
 		var ipcService = ipc.NewIpcService(containerStateService, ioService)
 		if ipcService == nil {
@@ -231,7 +233,8 @@ func main() {
 			"/",
 			ctx.GlobalString("mountpoint"),
 			ioService,
-			handlerService)
+			handlerService,
+		)
 		if fuseService == nil {
 			logrus.Fatal("FuseService initialization error. Exiting ...")
 		}
