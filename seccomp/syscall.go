@@ -115,3 +115,44 @@ func (s *mountSyscallInfo) processProcMount() error {
 
 	return nil
 }
+
+// Method handles '/proc/sys' (re)mount syscall requests.
+func (s *mountSyscallInfo) processProcSysMount() error {
+
+    // Adjust mount-flags to match sysboxfs default flags.
+    s.Flags |= sysboxfsDefaultMountFlags
+
+    // Create nsenterEvent to initiate interaction with container namespaces.
+    nss := s.tracer.sms.nss
+    event := nss.NewEvent(
+        s.syscallInfo.pid,
+        []domain.NStype{
+            string(domain.NStypeUser),
+            string(domain.NStypePid),
+            string(domain.NStypeNet),
+            string(domain.NStypeMount),
+            string(domain.NStypeIpc),
+            string(domain.NStypeCgroup),
+            string(domain.NStypeUts),
+        },
+        &domain.NSenterMessage{
+            Type: domain.MountSyscallRequest,
+            Payload: s.MountSyscallPayload,
+        },
+        nil,
+    )
+
+    // Launch nsenter-event.
+    err := nss.RequestEvent(event)
+    if err != nil {
+        return err
+    }
+
+    // Obtain nsenter-event response.
+    responseMsg := nss.ResponseEvent(event)
+    if responseMsg.Type == domain.ErrorResponse {
+        return responseMsg.Payload.(error)
+    }
+
+    return nil
+}

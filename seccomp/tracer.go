@@ -278,20 +278,47 @@ func (t *syscallTracer) processMount(
 		mount.Source, mount.Target, mount.FsType, mount.Flags)
 
 	// Return here if we are not dealing with a '/proc' nor a '/proc/sys' mount.
-	if mount.FsType != "proc" || mount.Source != "proc" {
+	//
+	// TODO: Add missing checkpoints and document them properly.
+	//
+	//
+	if !(mount.FsType == "proc" && mount.Source == "proc") &&
+		!(mount.Source == "/proc/sys" && mount.Target == "/proc/sys") {
 		syscallContinueResponse.Id = req.Id
 		return syscallContinueResponse, nil
 	}
 
+	// Mount "/proc" into the passed mount target, and bind-mount "/proc/sys"
+	// into the corresponding target folder.
 	if mount.Source == "proc" {
-		if err := mount.processProcMount(); err != nil {
+        if err := mount.processProcMount(); err != nil {
+            syscallErrorResponse.Id = req.Id
+            return syscallErrorResponse, nil
+        }
+
+	//
+	} else if mount.Source == "/proc/sys" {
+		logrus.Debugf("source 11: %s, target: %s, type: %s, flags: %v\n",
+			mount.Source, mount.Target, mount.FsType, mount.Flags)
+
+		// Disregard "/proc/sys" bind operations as we are already taking care
+		// of this task as part of "/proc" new mount requests.
+		if mount.Flags &^ sysboxfsDefaultMountFlags == 0 {
+			syscallSuccessResponse.Id = req.Id
+			return syscallSuccessResponse, nil
+		}
+
+		logrus.Debugf("source 12: %s, target: %s, type: %s, flags: %v\n",
+			mount.Source, mount.Target, mount.FsType, mount.Flags)
+
+		if err := mount.processProcSysMount(); err != nil {
 			syscallErrorResponse.Id = req.Id
 			return syscallErrorResponse, nil
 		}
-	}
+    }
 
-	syscallSuccessResponse.Id = req.Id
-	return syscallSuccessResponse, nil
+    syscallSuccessResponse.Id = req.Id
+    return syscallSuccessResponse, nil
 }
 
 func (t *syscallTracer) processReboot(
