@@ -6,19 +6,6 @@ import (
 	_"github.com/sirupsen/logrus"
 )
 
-// Default set of mount-flags utilized to mount /var/lib/sysboxfs into sysbox's
-// system containers. This default set must be taken into account at the time
-// procfs nodes are bind-mounted into L2 app-containers, as the flags to utilize
-// for each node must match the ones utilized within L1 sys containers.
-//
-// TODO: Note that these flags are not chosen by sysbox-fs nor Bazil's FUSE
-// library implementations, so they are subject to change in subsequent kernel
-// upgrades. Therefore, our implementation should ideally extract these flags
-// from each system (e.g. by parsing /proc/mounts) to avoid hard-coding their
-// values as we are doing below.
-const sysboxfsDefaultMountFlags =
-	unix.MS_BIND | unix.MS_REC | unix.MS_NODEV | unix.MS_NOSUID | unix.MS_RELATIME
-
 // Syscall generic information.
 type syscallInfo struct {
 	syscallNum int32           // Value/id representing the syscall

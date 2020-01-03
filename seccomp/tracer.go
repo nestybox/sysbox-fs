@@ -9,12 +9,34 @@ import (
 	"syscall"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
 	libseccomp "github.com/seccomp/libseccomp-golang"
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
 const seccompTracerSockAddr = "/run/sysbox/sysfs-seccomp.sock"
+
+// Default set of mount-flags utilized to mount /var/lib/sysboxfs into sysbox's
+// system containers. This default set must be taken into account at the time
+// procfs nodes are bind-mounted into L2 app-containers, as the flags to utilize
+// for each node must match the ones utilized within L1 sys containers.
+//
+// TODO: Note that these flags are not chosen by sysbox-fs nor Bazil's FUSE
+// library implementations, so they are subject to change in subsequent kernel
+// upgrades. Therefore, our implementation should ideally extract these flags
+// from each system (e.g. by parsing /proc/mounts) to avoid hard-coding their
+// values as we are doing below.
+const sysboxfsDefaultMountFlags =
+	unix.MS_BIND | unix.MS_REC | unix.MS_NODEV | unix.MS_NOSUID | unix.MS_RELATIME
+
+// Set of mount-flags to skip during mount syscall processing. Notice that with
+// the exception of MS_BIND and MS_REMOUNT, all these flags are associated to
+// operations that modify existing mount-points, which corresponds to actions
+// that the kernel (and not sysboxfs) should execute.
+const sysboxSkipMountFlags =
+	unix.MS_SHARED | unix.MS_PRIVATE | unix.MS_SLAVE | unix.MS_UNBINDABLE | unix.MS_MOVE
+
 
 // Slice of supported syscalls to monitor.
 var monitoredSyscalls = []string{
@@ -277,13 +299,17 @@ func (t *syscallTracer) processMount(
 	logrus.Debugf("source: %s, target: %s, type: %s, flags: %v\n",
 		mount.Source, mount.Target, mount.FsType, mount.Flags)
 
-	// Return here if we are not dealing with a '/proc' nor a '/proc/sys' mount.
+	// We are interested in processing a very reduced set of mount syscalls.
+	// Return here if the received syscall doesn't match the following
+	// requirements:
 	//
-	// TODO: Add missing checkpoints and document them properly.
-	//
-	//
-	if !(mount.FsType == "proc" && mount.Source == "proc") &&
-		!(mount.Source == "/proc/sys" && mount.Target == "/proc/sys") {
+	// * 'proc' fsType and associated '/proc' source OR ...
+	// * '/proc/sys' source and target.
+	// * AND in both cases (above), mount-flags should be associated to new-mount
+	// operations.
+	if !(((mount.FsType == "proc" && mount.Source == "proc") ||
+		(mount.Source == "/proc/sys" && mount.Target == "/proc/sys")) &&
+		(mount.Flags &^ sysboxSkipMountFlags == mount.Flags)) {
 		syscallContinueResponse.Id = req.Id
 		return syscallContinueResponse, nil
 	}
@@ -296,13 +322,14 @@ func (t *syscallTracer) processMount(
             return syscallErrorResponse, nil
         }
 
-	//
+	// Process incoming "/proc/sys" bind-mount instructions.
 	} else if mount.Source == "/proc/sys" {
 		logrus.Debugf("source 11: %s, target: %s, type: %s, flags: %v\n",
 			mount.Source, mount.Target, mount.FsType, mount.Flags)
 
-		// Disregard "/proc/sys" bind operations as we are already taking care
-		// of this task as part of "/proc" new mount requests.
+		// Disregard "/proc/sys" pure bind operations (no new flag settings) as
+		// we are already taking care of this task as part of "/proc" new mount
+		// requests.
 		if mount.Flags &^ sysboxfsDefaultMountFlags == 0 {
 			syscallSuccessResponse.Id = req.Id
 			return syscallSuccessResponse, nil
