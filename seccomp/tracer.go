@@ -339,11 +339,8 @@ func (t *syscallTracer) processMount(
             return syscallErrorResponse, nil
         }
 
-	// Process incoming "/proc/sys" bind-mount instructions.
+	// Process incoming "/proc/sys" remount instructions.
 	} else if mount.Source == "/proc/sys" {
-		logrus.Debugf("source 11: %s, target: %s, type: %s, flags: %v\n",
-			mount.Source, mount.Target, mount.FsType, mount.Flags)
-
 		// Disregard "/proc/sys" pure bind operations (no new flag settings) as
 		// we are already taking care of this task as part of "/proc" new mount
 		// requests.
@@ -351,9 +348,6 @@ func (t *syscallTracer) processMount(
 			syscallSuccessResponse.Id = req.Id
 			return syscallSuccessResponse, nil
 		}
-
-		logrus.Debugf("source 12: %s, target: %s, type: %s, flags: %v\n",
-			mount.Source, mount.Target, mount.FsType, mount.Flags)
 
 		if err := mount.processProcSysMount(); err != nil {
 			syscallErrorResponse.Id = req.Id
