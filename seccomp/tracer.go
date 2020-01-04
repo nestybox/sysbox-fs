@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
+	"github.com/syndtr/gocapability/capability"
 	libseccomp "github.com/seccomp/libseccomp-golang"
 	"github.com/nestybox/sysbox-fs/domain"
 )
@@ -299,12 +300,28 @@ func (t *syscallTracer) processMount(
 	logrus.Debugf("source: %s, target: %s, type: %s, flags: %v\n",
 		mount.Source, mount.Target, mount.FsType, mount.Flags)
 
+
+	// As per man's capabilities(7), cap_sys_admin capability is required for
+	// mount operations. Otherwise, return here and let kernel handle the mount
+	// instruction.
+	c, err := capability.NewPid2(int(req.Pid))
+	if err != nil {
+		return nil, err
+	}
+	if err = c.Load(); err != nil {
+		return nil, err
+	}
+	if !(c.Get(capability.EFFECTIVE, capability.CAP_SYS_ADMIN)) {
+		syscallContinueResponse.Id = req.Id
+		return syscallContinueResponse, nil
+	}
+
 	// We are interested in processing a very reduced set of mount syscalls.
 	// Return here if the received syscall doesn't match the following
-	// requirements:
+	// criteria:
 	//
 	// * 'proc' fsType and associated '/proc' source OR ...
-	// * '/proc/sys' source and target.
+	// * '/proc/sys' source and '/proc/sys' target
 	// * AND in both cases (above), mount-flags should be associated to new-mount
 	// operations.
 	if !(((mount.FsType == "proc" && mount.Source == "proc") ||
