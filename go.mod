@@ -5,7 +5,6 @@ go 1.13
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	github.com/davecgh/go-spew v1.1.1
-	github.com/ftrvxmtrx/fd v0.0.0-20150925145434-c6d800382fff // indirect
 	github.com/nestybox/sysbox-ipc v0.1.3
 	github.com/nestybox/sysbox-runc v0.1.2
 	github.com/seccomp/libseccomp-golang v0.9.1
