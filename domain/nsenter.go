@@ -51,8 +51,8 @@ type NSenterService interface {
 		req *NSenterMessage,
 		res *NSenterMessage) NSenterEventIface
 
-	RequestEvent(e NSenterEventIface) error
-	ResponseEvent(e NSenterEventIface) *NSenterMessage
+	SendRequestEvent(e NSenterEventIface) error
+	ReceiveResponseEvent(e NSenterEventIface) *NSenterMessage
 }
 
 //
@@ -68,8 +68,12 @@ type NSenterService interface {
 // message exchanges.
 //
 type NSenterEventIface interface {
-	Request() error
-	Response() *NSenterMessage
+	SendRequest() error
+	ReceiveResponse() *NSenterMessage
+	SetRequestMsg(m *NSenterMessage)
+	GetRequestMsg() *NSenterMessage
+	SetResponseMsg(m *NSenterMessage)
+	GetResponseMsg() *NSenterMessage
 }
 
 // NSenterMessage struct defines the layout of the messages being exchanged

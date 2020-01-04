@@ -48,13 +48,13 @@ func (s *mountSyscallInfo) processProcMount() error {
 	)
 
 	// Launch nsenter-event.
-	err := nss.RequestEvent(event)
+	err := nss.SendRequestEvent(event)
 	if err != nil {
 		return err
 	}
 
 	// Obtain nsenter-event response.
-	responseMsg := nss.ResponseEvent(event)
+	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
 		return responseMsg.Payload.(error)
 	}
@@ -70,32 +70,22 @@ func (s *mountSyscallInfo) processProcMount() error {
 		},
 	}
 
-	event = nss.NewEvent(
-		s.syscallInfo.pid,
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeMount),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+	// Reusing previous event envelope to send new mount operation.
+	event.SetRequestMsg(
 		&domain.NSenterMessage{
 			Type: domain.MountSyscallRequest,
-			Payload: procsysMount.MountSyscallPayload,
+			Payload: procsysMount,
 		},
-		nil,
 	)
 
 	// Launch nsenter-event.
-	err = nss.RequestEvent(event)
+	err = nss.SendRequestEvent(event)
 	if err != nil {
 		return err
 	}
 
 	// Obtain nsenter-event response.
-	responseMsg = nss.ResponseEvent(event)
+	responseMsg = nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
 		return responseMsg.Payload.(error)
 	}
@@ -130,13 +120,13 @@ func (s *mountSyscallInfo) processProcSysMount() error {
     )
 
     // Launch nsenter-event.
-    err := nss.RequestEvent(event)
+    err := nss.SendRequestEvent(event)
     if err != nil {
         return err
     }
 
     // Obtain nsenter-event response.
-    responseMsg := nss.ResponseEvent(event)
+    responseMsg := nss.ReceiveResponseEvent(event)
     if responseMsg.Type == domain.ErrorResponse {
         return responseMsg.Payload.(error)
     }

@@ -60,13 +60,13 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	)
 
 	// Launch nsenter-event.
-	err := nss.RequestEvent(event)
+	err := nss.SendRequestEvent(event)
 	if err != nil {
 		return nil, err
 	}
 
 	// Obtain nsenter-event response.
-	responseMsg := nss.ResponseEvent(event)
+	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
 		return nil, responseMsg.Payload.(error)
 	}
@@ -134,13 +134,13 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 	)
 
 	// Launch nsenter-event.
-	err := nss.RequestEvent(event)
+	err := nss.SendRequestEvent(event)
 	if err != nil {
 		return err
 	}
 
 	// Obtain nsenter-event response.
-	responseMsg := nss.ResponseEvent(event)
+	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
 		return responseMsg.Payload.(error)
 	}
@@ -290,13 +290,13 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	)
 
 	// Launch nsenter-event.
-	err := nss.RequestEvent(event)
+	err := nss.SendRequestEvent(event)
 	if err != nil {
 		return nil, err
 	}
 
 	// Obtain nsenter-event response.
-	responseMsg := nss.ResponseEvent(event)
+	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
 		return nil, responseMsg.Payload.(error)
 	}
@@ -399,13 +399,13 @@ func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (str
 
 	// Launch nsenter-event to obtain file state within container
 	// namespaces.
-	err := nss.RequestEvent(event)
+	err := nss.SendRequestEvent(event)
 	if err != nil {
 		return "", err
 	}
 
 	// Obtain nsenter-event response.
-	responseMsg := nss.ResponseEvent(event)
+	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
 		return "", responseMsg.Payload.(error)
 	}
@@ -442,13 +442,13 @@ func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s str
 
 	// Launch nsenter-event to write file state within container
 	// namespaces.
-	err := nss.RequestEvent(event)
+	err := nss.SendRequestEvent(event)
 	if err != nil {
 		return err
 	}
 
 	// Obtain nsenter-event response.
-	responseMsg := nss.ResponseEvent(event)
+	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
 		return responseMsg.Payload.(error)
 	}

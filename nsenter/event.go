@@ -70,35 +70,25 @@ type NSenterEvent struct {
 	ResMsg *domain.NSenterMessage `json:"response"`
 }
 
-type nsenterService struct {
+//
+// Generic getter / setter methods.
+//
+
+func (e *NSenterEvent) SetRequestMsg(m *domain.NSenterMessage) {
+	e.ReqMsg = m
 }
 
-func NewNSenterService() domain.NSenterService {
-	return &nsenterService{}
+func (e *NSenterEvent) GetRequestMsg() *domain.NSenterMessage {
+	return e.ReqMsg
 }
 
-func (s *nsenterService) NewEvent(
-	pid uint32,
-	ns []domain.NStype,
-	req *domain.NSenterMessage,
-	res *domain.NSenterMessage) domain.NSenterEventIface {
-
-	return &NSenterEvent{
-		Pid:       pid,
-		Namespace: ns,
-		ReqMsg:    req,
-		ResMsg:    res,
-	}
+func (e *NSenterEvent) SetResponseMsg(m *domain.NSenterMessage) {
+	e.ResMsg = m
 }
 
-func (s *nsenterService) RequestEvent(e domain.NSenterEventIface) error {
-	return e.Request()
+func (e *NSenterEvent) GetResponseMsg() *domain.NSenterMessage {
+	return e.ResMsg
 }
-
-func (s *nsenterService) ResponseEvent(e domain.NSenterEventIface) *domain.NSenterMessage {
-	return e.Response()
-}
-
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -278,7 +268,7 @@ func (e *NSenterEvent) namespacePaths() []string {
 // nsexec logic, which will serve to enter the container namespaces that host
 // these resources.
 //
-func (e *NSenterEvent) Request() error {
+func (e *NSenterEvent) SendRequest() error {
 
 	logrus.Debug("Executing nsenterEvent's request() method")
 
@@ -390,7 +380,7 @@ func (e *NSenterEvent) Request() error {
 	return nil
 }
 
-func (e *NSenterEvent) Response() *domain.NSenterMessage {
+func (e *NSenterEvent) ReceiveResponse() *domain.NSenterMessage {
 
 	return e.ResMsg
 }
