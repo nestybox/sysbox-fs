@@ -24,24 +24,37 @@ func (s *mountSyscallInfo) process() error {
 	return nil
 }
 
-// Method handles '/proc' mount syscall requests.
+// Method handles "/proc" mount syscall requests. As part of this function, we
+// also bind-mount all the sysbox-fs' emulated resources into the mount target
+// requested by the user. Our goal here is to extend sysbox-fs' virtualization
+// capabilities to L2 app containers and/or L1 chroot'ed environments.
 func (s *mountSyscallInfo) processProcMount() error {
 
-	// Construct nsenter payload to carry both the new "/proc" mount and the
-	// "/proc/sys" bind-mount instructions.
-	var payload [2]*domain.MountSyscallPayload
+	var payload = []*domain.MountSyscallPayload{
 
-	payload[0] = s.MountSyscallPayload
+		// Mount operation: "/proc" -> "target/proc"
+		s.MountSyscallPayload,
 
-	payload[1] = &domain.MountSyscallPayload{
-		Source: "/proc/sys",
-		Target: s.Target + "/sys",
-		FsType: "",
-		Flags: unix.MS_BIND | unix.MS_REC,
-		Data:   "",
+		// Bind-mount operation: "/proc/sys" -> "target/proc/sys"
+		&domain.MountSyscallPayload{
+			Source: "/proc/sys",
+			Target: s.Target + "/sys",
+			FsType: "",
+			Flags: unix.MS_BIND | unix.MS_REC,
+			Data:   "",
+		},
+
+		// Bind-mount operation: "/proc/uptime" -> "target/proc/uptime"
+		&domain.MountSyscallPayload{
+			Source: "/proc/uptime",
+			Target: s.Target + "/uptime",
+			FsType: "",
+			Flags: unix.MS_BIND | unix.MS_REC,
+			Data:   "",
+		},
 	}
 
-	// Create nsenterEvent to initiate interaction with container namespaces.
+	// Create nsenter-event envelope.
 	nss := s.tracer.sms.nss
 	event := nss.NewEvent(
 		s.syscallInfo.pid,
@@ -82,7 +95,7 @@ func (s *mountSyscallInfo) processProcSysMount() error {
     // Adjust mount-flags to match sysboxfs default flags.
     s.Flags |= sysboxfsDefaultMountFlags
 
-    // Create nsenterEvent to initiate interaction with container namespaces.
+    // Create nsenter-event envelope.
     nss := s.tracer.sms.nss
     event := nss.NewEvent(
         s.syscallInfo.pid,
