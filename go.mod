@@ -7,6 +7,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/nestybox/sysbox-ipc v0.1.3
 	github.com/nestybox/sysbox-runc v0.1.2
+	github.com/nestybox/sysbox/lib/pathres v0.0.0-00010101000000-000000000000
 	github.com/seccomp/libseccomp-golang v0.9.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/afero v1.2.2
@@ -14,7 +15,7 @@ require (
 	github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
 	github.com/urfave/cli v1.20.0
 	github.com/vishvananda/netlink v1.0.0
-	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
+	golang.org/x/sys v0.0.0-20191224085550-c709ea063b76
 )
 
 replace github.com/nestybox/sysbox-ipc => ../sysbox-ipc
@@ -26,3 +27,5 @@ replace github.com/opencontainers/runc => ./../sysbox-runc
 replace bazil.org/fuse => ./bazil
 
 replace github.com/seccomp/libseccomp-golang => ../lib/seccomp-golang
+
+replace github.com/nestybox/sysbox/lib/pathres => ../lib/pathres

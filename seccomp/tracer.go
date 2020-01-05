@@ -14,6 +14,7 @@ import (
 	"github.com/syndtr/gocapability/capability"
 	libseccomp "github.com/seccomp/libseccomp-golang"
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox/lib/pathres"
 )
 
 const seccompTracerSockAddr = "/run/sysbox/sysfs-seccomp.sock"
@@ -331,6 +332,15 @@ func (t *syscallTracer) processMount(
 		return syscallContinueResponse, nil
 	}
 
+	// Resolve mount target and verify that process has the proper rights to
+	// access each of the components of the path.
+	err = pathres.PathAccess(int(req.Pid), mount.Target, 0)
+	if err != nil {
+		logrus.Errorf("pathres error %v for src %v tgt %v", err, mount.Source, mount.Target)
+		syscallContinueResponse.Id = req.Id
+		return syscallContinueResponse, nil
+	}
+
 	// Mount "/proc" into the passed mount target, and bind-mount "/proc/sys"
 	// into the corresponding target folder.
 	if mount.Source == "proc" {
@@ -339,11 +349,10 @@ func (t *syscallTracer) processMount(
             return syscallErrorResponse, nil
         }
 
-	// Process incoming "/proc/sys" remount instructions.
+	// Process incoming "/proc/sys" remount instructions. Disregard "/proc/sys"
+	// pure bind operations (no new flag settings) as we are already taking
+	// care of that as part of "/proc" new mount requests.
 	} else if mount.Source == "/proc/sys" {
-		// Disregard "/proc/sys" pure bind operations (no new flag settings) as
-		// we are already taking care of this task as part of "/proc" new mount
-		// requests.
 		if mount.Flags &^ sysboxfsDefaultMountFlags == 0 {
 			syscallSuccessResponse.Id = req.Id
 			return syscallSuccessResponse, nil
