@@ -27,6 +27,20 @@ func (s *mountSyscallInfo) process() error {
 // Method handles '/proc' mount syscall requests.
 func (s *mountSyscallInfo) processProcMount() error {
 
+	// Construct nsenter payload to carry both the new "/proc" mount and the
+	// "/proc/sys" bind-mount instructions.
+	var payload [2]*domain.MountSyscallPayload
+
+	payload[0] = s.MountSyscallPayload
+
+	payload[1] = &domain.MountSyscallPayload{
+		Source: "/proc/sys",
+		Target: s.Target + "/sys",
+		FsType: "",
+		Flags: unix.MS_BIND | unix.MS_REC,
+		Data:   "",
+	}
+
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := s.tracer.sms.nss
 	event := nss.NewEvent(
@@ -42,7 +56,7 @@ func (s *mountSyscallInfo) processProcMount() error {
 		},
 		&domain.NSenterMessage{
 			Type: domain.MountSyscallRequest,
-			Payload: s.MountSyscallPayload,
+			Payload: payload,
 		},
 		nil,
 	)
@@ -55,37 +69,6 @@ func (s *mountSyscallInfo) processProcMount() error {
 
 	// Obtain nsenter-event response.
 	responseMsg := nss.ReceiveResponseEvent(event)
-	if responseMsg.Type == domain.ErrorResponse {
-		return responseMsg.Payload.(error)
-	}
-
-	// Prepare "/proc/sys" bind-mount operation.
-	procsysMount := &mountSyscallInfo{
-		MountSyscallPayload: &domain.MountSyscallPayload{
-			Source: "/proc/sys",
-			Target: s.Target + "/sys",
-			FsType: "",
-			Flags: unix.MS_BIND | unix.MS_REC,
-			Data:   "",
-		},
-	}
-
-	// Reusing previous event envelope to send new mount operation.
-	event.SetRequestMsg(
-		&domain.NSenterMessage{
-			Type: domain.MountSyscallRequest,
-			Payload: procsysMount,
-		},
-	)
-
-	// Launch nsenter-event.
-	err = nss.SendRequestEvent(event)
-	if err != nil {
-		return err
-	}
-
-	// Obtain nsenter-event response.
-	responseMsg = nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
 		return responseMsg.Payload.(error)
 	}
@@ -114,7 +97,7 @@ func (s *mountSyscallInfo) processProcSysMount() error {
         },
         &domain.NSenterMessage{
             Type: domain.MountSyscallRequest,
-            Payload: s.MountSyscallPayload,
+            Payload: []*domain.MountSyscallPayload{s.MountSyscallPayload},
         },
         nil,
     )

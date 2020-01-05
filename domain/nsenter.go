@@ -56,11 +56,11 @@ type NSenterService interface {
 }
 
 //
-// NSenterEvent interface serves as a transport abstraction to represent all
-// the potential messages that can be exchanged between sysbox-fs 'master'
-// instance and secondary (forked/child) ones. These sysbox-fs' auxiliary
-// instances are utilized to carry out actions over namespaced resources, and
-// as such, cannot be performed by sysbox-fs' main instance.
+// NSenterEvent struct serves as a transport abstraction (envelope) to carry
+// all the potential messages that can be exchanged between sysbox-fs master
+// instance and secondary (forked) ones. These sysbox-fs' auxiliary instances
+// are utilized to perform actions over namespaced resources, and as such,
+// cannot be executed by sysbox-fs' main instance.
 //
 // Every bidirectional transaction is represented by an event structure
 // (nsenterEvent), which holds both 'request' and 'response' messages, as well

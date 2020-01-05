@@ -44,11 +44,11 @@ type pid struct {
 }
 
 //
-// NSenterEvent struct serves as a transport abstraction to represent all the
-// potential messages that can be exchanged between sysbox-fs master instance
-// and secondary (forked) ones. These sysbox-fs' auxiliary instances are
-// utilized to carry out actions over namespaced resources, and as such, cannot
-// be performed by sysbox-fs' main instance.
+// NSenterEvent struct serves as a transport abstraction (envelope) to carry
+// all the potential messages that can be exchanged between sysbox-fs master
+// instance and secondary (forked) ones. These sysbox-fs' auxiliary instances
+// are utilized to perform actions over namespaced resources, and as such,
+// cannot be executed by sysbox-fs' main instance.
 //
 // Every bidirectional transaction is represented by an event structure
 // (nsenterEvent), which holds both 'request' and 'response' messages, as well
@@ -551,24 +551,27 @@ func (e *NSenterEvent) processDirReadRequest() error {
 
 func (e *NSenterEvent) processMountSyscallRequest() error {
 
-	mountInfo := e.ReqMsg.Payload.(domain.MountSyscallPayload)
+	mountInfoArray := e.ReqMsg.Payload.([]domain.MountSyscallPayload)
 
-	// Perform mount instruction and return error msg should this one fail.
-	err := unix.Mount(
-		mountInfo.Source,
-		mountInfo.Target,
-		mountInfo.FsType,
-		uintptr(mountInfo.Flags),
-		mountInfo.Data,
-	)
-	if err != nil {
-		logrus.Errorf("Error executing mount() syscall.")
-		e.ResMsg = &domain.NSenterMessage{
-			Type:    domain.ErrorResponse,
-			Payload: &fuse.IOerror{RcvError: err},
+	for _, m := range mountInfoArray {
+		// Perform mount instruction and return error msg to remote-end should
+		// this one fail.
+		err := unix.Mount(
+			m.Source,
+			m.Target,
+			m.FsType,
+			uintptr(m.Flags),
+			m.Data,
+		)
+		if err != nil {
+			logrus.Errorf("Error executing mount() syscall.")
+			e.ResMsg = &domain.NSenterMessage{
+				Type:    domain.ErrorResponse,
+				Payload: &fuse.IOerror{RcvError: err},
+			}
+
+			return nil
 		}
-
-		return nil
 	}
 
 	// Create a response message.
@@ -685,7 +688,7 @@ func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 		return e.processDirReadRequest()
 
 	case domain.MountSyscallRequest:
-		var p domain.MountSyscallPayload
+		var p []domain.MountSyscallPayload
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {

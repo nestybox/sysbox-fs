@@ -336,7 +336,6 @@ func (t *syscallTracer) processMount(
 	// access each of the components of the path.
 	err = pathres.PathAccess(int(req.Pid), mount.Target, 0)
 	if err != nil {
-		logrus.Errorf("pathres error %v for src %v tgt %v", err, mount.Source, mount.Target)
 		syscallContinueResponse.Id = req.Id
 		return syscallContinueResponse, nil
 	}
