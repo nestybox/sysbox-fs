@@ -68,7 +68,6 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 	cntr := ipcService.css.ContainerCreate(
 		data.Id,
 		uint32(data.InitPid),
-		data.Hostname,
 		pidInode,
 		data.Ctime,
 		uint32(data.UidFirst),
@@ -102,7 +101,6 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 	cntr := ipcService.css.ContainerCreate(
 		data.Id,
 		uint32(data.InitPid),
-		data.Hostname,
 		0,
 		data.Ctime,
 		uint32(data.UidFirst),
@@ -136,7 +134,6 @@ func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 	cntr := ipcService.css.ContainerCreate(
 		data.Id,
 		uint32(data.InitPid),
-		data.Hostname,
 		0,
 		data.Ctime,
 		uint32(data.UidFirst),

@@ -44,7 +44,6 @@ func NewContainerStateService(ios domain.IOService) domain.ContainerStateService
 func (css *containerStateService) ContainerCreate(
 	id string,
 	initpid uint32,
-	hostname string,
 	inode domain.Inode,
 	ctime time.Time,
 	uidFirst uint32,
@@ -56,7 +55,6 @@ func (css *containerStateService) ContainerCreate(
 	newcntr := &container{
 		id:       id,
 		initPid:  initpid,
-		hostname: hostname,
 		pidInode: inode,
 		ctime:    ctime,
 		uidFirst: uidFirst,

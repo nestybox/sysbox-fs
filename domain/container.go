@@ -15,7 +15,6 @@ type ContainerIface interface {
 	//
 	ID() string
 	InitPid() uint32
-	Hostname() string
 	Ctime() time.Time
 	PidInode() Inode
 	Data(path string, name string) (string, bool)
@@ -43,7 +42,6 @@ type ContainerStateService interface {
 	ContainerCreate(
 		id string,
 		pid uint32,
-		hostname string,
 		pidNsInode Inode,
 		ctime time.Time,
 		uidFirst uint32,
