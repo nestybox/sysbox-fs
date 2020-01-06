@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path"
+	"strings"
 	"strconv"
 	"sync"
 
@@ -174,11 +175,35 @@ var DefaultHandlers = []domain.HandlerIface{
 		Cacheable: true,
 	},
 	//
+	// /sys handlers
+	//
+	// &implementations.SysHandler{
+	// 	Name:      "sys",
+	// 	Path:      "/sys",
+	// 	Enabled:   true,
+	// 	Cacheable: true,
+	// },
+	&implementations.NfConntrackHashSizeHandler{
+		Name:      "nfConntrackHashSize",
+		Path:      "/sys/module/nf_conntrack/parameters/hashsize",
+		Enabled:   true,
+		Cacheable: true,
+	},
+	//
 	// Common handler -- to be utilized for all namespaced resources.
 	//
 	&implementations.CommonHandler{
 		Name:      "common",
 		Path:      "commonHandler",
+		Enabled:   true,
+		Cacheable: false,
+	},
+	//
+	// SysCommon handler -- to be utilized for all namespaced resources.
+	//
+	&implementations.SysCommonHandler{
+		Name:      "sysCommon",
+		Path:      "sysCommonHandler",
 		Enabled:   true,
 		Cacheable: false,
 	},
@@ -327,9 +352,16 @@ func (hs *handlerService) LookupHandler(i domain.IOnode) (domain.HandlerIface, b
 
 	h, ok := hs.handlerDB[i.Path()]
 	if !ok {
-		h, ok := hs.handlerDB["commonHandler"]
-		if !ok {
-			return nil, false
+		if strings.HasPrefix(i.Path(), "/sys") {
+			h, ok = hs.handlerDB["sysCommonHandler"]
+			if !ok {
+				return nil, false
+			}
+		} else {
+			h, ok = hs.handlerDB["commonHandler"]
+			if !ok {
+				return nil, false
+			}
 		}
 
 		return h, true

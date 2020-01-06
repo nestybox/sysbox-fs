@@ -129,3 +129,55 @@ func (s *mountSyscallInfo) processProcSysMount() error {
 
     return nil
 }
+
+func (s *mountSyscallInfo) processSysMount() error {
+
+	var payload = []*domain.MountSyscallPayload{
+
+		// Mount operation: "/sys" -> "target/sys"
+		s.MountSyscallPayload,
+
+		// Bind-mount operation: "*/parameters/hashsize" -> "target/*/parameter/hashsize"
+		&domain.MountSyscallPayload{
+			Source: "/sys/module/nf_conntrack/parameters/hashsize",
+			Target: s.Target + "/module/nf_conntrack/parameters/hashsize",
+			FsType: "",
+			Flags: unix.MS_BIND | unix.MS_REC,
+			Data:   "",
+		},
+	}
+
+	// Create nsenter-event envelope.
+	nss := s.tracer.sms.nss
+	event := nss.NewEvent(
+		s.syscallInfo.pid,
+		[]domain.NStype{
+			string(domain.NStypeUser),
+			string(domain.NStypePid),
+			string(domain.NStypeNet),
+			string(domain.NStypeMount),
+			string(domain.NStypeIpc),
+			string(domain.NStypeCgroup),
+			string(domain.NStypeUts),
+		},
+		&domain.NSenterMessage{
+			Type: domain.MountSyscallRequest,
+			Payload: payload,
+		},
+		nil,
+	)
+
+	// Launch nsenter-event.
+	err := nss.SendRequestEvent(event)
+	if err != nil {
+		return err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return responseMsg.Payload.(error)
+	}
+
+	return nil
+}

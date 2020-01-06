@@ -93,7 +93,7 @@ func NewFuseService(
 func (s *FuseService) Run() error {
 	//
 	// Creating a FUSE mount at the requested mountpoint. Notice that we are
-	// making use of "allowOther" flag to allow unpriviliged users to access
+	// making use of "allowOther" flag to allow unprivileged users to access
 	// this mount.
 	//
 	c, err := fuse.Mount(

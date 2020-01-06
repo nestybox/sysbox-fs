@@ -326,7 +326,8 @@ func (t *syscallTracer) processMount(
 	// * AND in both cases (above), mount-flags should be associated to new-mount
 	// operations.
 	if !(((mount.FsType == "proc" && mount.Source == "proc") ||
-		(mount.Source == "/proc/sys" && mount.Target == "/proc/sys")) &&
+		(mount.Source == "/proc/sys" && mount.Target == "/proc/sys") ||
+		(mount.FsType == "sysfs" && mount.Source == "sysfs")) &&
 		(mount.Flags &^ sysboxSkipMountFlags == mount.Flags)) {
 		syscallContinueResponse.Id = req.Id
 		return syscallContinueResponse, nil
@@ -344,6 +345,12 @@ func (t *syscallTracer) processMount(
 	// into the corresponding target folder.
 	if mount.Source == "proc" {
         if err := mount.processProcMount(); err != nil {
+            syscallErrorResponse.Id = req.Id
+            return syscallErrorResponse, nil
+        }
+
+	} else if mount.Source == "sysfs" {
+        if err := mount.processSysMount(); err != nil {
             syscallErrorResponse.Id = req.Id
             return syscallErrorResponse, nil
         }
