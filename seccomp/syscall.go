@@ -97,6 +97,15 @@ func (s *mountSyscallInfo) processProcMount() error {
 			Flags: unix.MS_BIND | unix.MS_REC,
 			Data:   "",
 		},
+
+		// Bind-mount operation: "/proc/swaps" -> "target/proc/swaps"
+		&domain.MountSyscallPayload{
+			Source: "/proc/swaps",
+			Target: s.Target + "/swaps",
+			FsType: "",
+			Flags: unix.MS_BIND | unix.MS_REC,
+			Data:   "",
+		},
 	}
 
 	// Create nsenter-event envelope.
