@@ -73,7 +73,7 @@ func NewFuseService(
 		attr = fuse.Attr{}
 	}
 
-	attr.Mode = os.ModeDir | os.FileMode(int(0700))
+	attr.Mode = os.ModeDir | os.FileMode(int(0600))
 
 	newfs := &FuseService{
 		path:       path,
