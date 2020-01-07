@@ -305,7 +305,7 @@ func (t *syscallTracer) processMount(
 		if err != nil {
 			return nil, err
 		}
-		mount.Target = filepath.Join(cwd, "/", mount.Target)
+		mount.Target = filepath.Join(cwd, mount.Target)
 	}
 
 	logrus.Debugf(mount.string())

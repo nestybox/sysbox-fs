@@ -64,7 +64,7 @@ func (d *Dir) Lookup(
 
 	logrus.Debug("Requested Lookup() operation for entry ", req.Name)
 
-	path := filepath.Join(d.path, "/", req.Name)
+	path := filepath.Join(d.path, req.Name)
 
 	// Upon arrival of lookup() request we must construct a temporary ionode
 	// that reflects the path of the element that needs to be looked up.
