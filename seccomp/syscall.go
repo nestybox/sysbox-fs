@@ -1,9 +1,22 @@
 package seccomp
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/nestybox/sysbox-fs/domain"
 	"golang.org/x/sys/unix"
-	_"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
+)
+
+// Syscall returned actions
+type syscallResponse uint
+
+const (
+	SYSCALL_INVALID syscallResponse = iota
+	SYSCALL_SUCCESS
+	SYSCALL_CONTINUE
+	SYSCALL_ERROR
 )
 
 // Syscall generic information.
@@ -19,9 +32,41 @@ type mountSyscallInfo struct {
 	*domain.MountSyscallPayload // mount-syscall specific details
 }
 
-// MountSyscall processing wrapper instruction. Not utilized at this time.
-func (s *mountSyscallInfo) process() error {
-	return nil
+// MountSyscall processing wrapper instruction.
+func (s *mountSyscallInfo) process() (syscallResponse, error) {
+
+	switch s.Source {
+
+	case "proc":
+        if err := s.processProcMount(); err != nil {
+            return SYSCALL_ERROR, nil
+		}
+
+	case "sysfs":
+        if err := s.processSysMount(); err != nil {
+            return SYSCALL_ERROR, nil
+        }
+
+	case "/proc/sys":
+		// Process incoming "/proc/sys" remount instructions. Disregard
+		// "/proc/sys" pure bind operations (no new flag settings) as we
+		// are already taking care of that as part of "/proc" new mount
+		// requests.
+		if s.Flags &^ sysboxfsDefaultMountFlags == 0 {
+			break
+		}
+
+		if err := s.processProcSysMount(); err != nil {
+			return SYSCALL_ERROR, nil
+		}
+
+	default:
+		logrus.Errorf("Unsupported mount syscall received for mount %v.",
+			s.string())
+		return SYSCALL_INVALID, fmt.Errorf("Unsupported mount syscall request.")
+    }
+
+	return SYSCALL_SUCCESS, nil
 }
 
 // Method handles "/proc" mount syscall requests. As part of this function, we
@@ -130,6 +175,9 @@ func (s *mountSyscallInfo) processProcSysMount() error {
     return nil
 }
 
+// Method handles "/sys" mount syscall requests. As part of this function, we
+// also bind-mount all the sysbox-fs' emulated resources into the mount target
+// requested by the user.
 func (s *mountSyscallInfo) processSysMount() error {
 
 	var payload = []*domain.MountSyscallPayload{
@@ -180,4 +228,13 @@ func (s *mountSyscallInfo) processSysMount() error {
 	}
 
 	return nil
+}
+
+func (s *mountSyscallInfo) string() string {
+
+	result := "source: " + s.Source + " target: " + s.Target +
+			  " fstype: " + s.FsType + " flags: " +
+			  strconv.FormatUint(s.Flags, 10)
+
+	return result
 }

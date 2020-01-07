@@ -298,9 +298,7 @@ func (t *syscallTracer) processMount(
 		},
 	}
 
-	logrus.Debugf("source: %s, target: %s, type: %s, flags: %v\n",
-		mount.Source, mount.Target, mount.FsType, mount.Flags)
-
+	logrus.Debugf(mount.string())
 
 	// As per man's capabilities(7), cap_sys_admin capability is required for
 	// mount operations. Otherwise, return here and let kernel handle the mount
@@ -341,37 +339,27 @@ func (t *syscallTracer) processMount(
 		return syscallContinueResponse, nil
 	}
 
-	// Mount "/proc" into the passed mount target, and bind-mount "/proc/sys"
-	// into the corresponding target folder.
-	if mount.Source == "proc" {
-        if err := mount.processProcMount(); err != nil {
-            syscallErrorResponse.Id = req.Id
-            return syscallErrorResponse, nil
-        }
+	// Process mount syscall.
+	resp, err := mount.process()
+	if err != nil {
+		return nil, err
+	}
 
-	} else if mount.Source == "sysfs" {
-        if err := mount.processSysMount(); err != nil {
-            syscallErrorResponse.Id = req.Id
-            return syscallErrorResponse, nil
-        }
+	switch resp {
+	case SYSCALL_SUCCESS:
+		syscallSuccessResponse.Id = req.Id
+		return syscallSuccessResponse, nil
 
-	// Process incoming "/proc/sys" remount instructions. Disregard "/proc/sys"
-	// pure bind operations (no new flag settings) as we are already taking
-	// care of that as part of "/proc" new mount requests.
-	} else if mount.Source == "/proc/sys" {
-		if mount.Flags &^ sysboxfsDefaultMountFlags == 0 {
-			syscallSuccessResponse.Id = req.Id
-			return syscallSuccessResponse, nil
-		}
+	case SYSCALL_CONTINUE:
+		syscallContinueResponse.Id = req.Id
+		return syscallContinueResponse, nil
 
-		if err := mount.processProcSysMount(); err != nil {
-			syscallErrorResponse.Id = req.Id
-			return syscallErrorResponse, nil
-		}
+	case SYSCALL_ERROR:
+		syscallErrorResponse.Id = req.Id
+		return syscallErrorResponse, nil
     }
 
-    syscallSuccessResponse.Id = req.Id
-    return syscallSuccessResponse, nil
+    return nil, fmt.Errorf("Unexpected syscall processing response: %v", resp)
 }
 
 func (t *syscallTracer) processReboot(
