@@ -447,7 +447,6 @@ func (hs *handlerService) HostPidNsInode() domain.Inode {
 
 func (hs *handlerService) FindPidNsInode(pid uint32) domain.Inode {
 
-	//tmpNode := hs.ios.NewIOnode("", strconv.Itoa(pid), 0)
 	tmpNode := hs.ios.NewIOnode("", strconv.FormatUint(uint64(pid), 10), 0)
 	pidInode, err := hs.ios.PidNsInode(tmpNode)
 	if err != nil {

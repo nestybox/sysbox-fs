@@ -263,7 +263,7 @@ func (e *NSenterEvent) namespacePaths() []string {
 }
 
 //
-// Sysbox-fs' requests are generated through this method. Handlers seeking to
+// Sysbox-fs requests are generated through this method. Handlers seeking to
 // access namespaced resources will call this method to invoke sysbox-runc's
 // nsexec logic, which will serve to enter the container namespaces that host
 // these resources.

@@ -2,9 +2,10 @@ package seccomp
 
 import (
 	"bufio"
+	"fmt"
 	"net"
 	"os"
-	"fmt"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -296,6 +297,15 @@ func (t *syscallTracer) processMount(
 			Data:   args[3],
 			Flags:  req.Data.Args[3],
 		},
+	}
+
+	// Convert to absolute path if dealing with a relative path request.
+	if !filepath.IsAbs(mount.Target) {
+		cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", req.Pid))
+		if err != nil {
+			return nil, err
+		}
+		mount.Target = filepath.Join(cwd, "/", mount.Target)
 	}
 
 	logrus.Debugf(mount.string())
