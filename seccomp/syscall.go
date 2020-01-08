@@ -3,27 +3,19 @@ package seccomp
 import (
 	"fmt"
 	"strconv"
+	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"golang.org/x/sys/unix"
 	"github.com/sirupsen/logrus"
-)
-
-// Syscall returned actions
-type syscallResponse uint
-
-const (
-	SYSCALL_INVALID syscallResponse = iota
-	SYSCALL_SUCCESS
-	SYSCALL_CONTINUE
-	SYSCALL_ERROR
+	"golang.org/x/sys/unix"
 )
 
 // Syscall generic information.
 type syscallInfo struct {
-	syscallNum int32           // Value/id representing the syscall
-	pid        uint32          // Pid of the process generating the syscall
-	tracer     *syscallTracer  // Backpointer to the seccomp-tracer owning the syscall
+	syscallNum int32          // Value representing the syscall
+	reqId      uint64         // Id associated to the syscall request
+	pid        uint32         // Pid of the process generating the syscall
+	tracer     *syscallTracer // Backpointer to the seccomp-tracer owning the syscall
 }
 
 // MountSyscall information structure.
@@ -33,47 +25,38 @@ type mountSyscallInfo struct {
 }
 
 // MountSyscall processing wrapper instruction.
-func (s *mountSyscallInfo) process() (syscallResponse, error) {
+func (s *mountSyscallInfo) process() (*sysResponse, error) {
 
 	switch s.Source {
 
 	case "proc":
-        if err := s.processProcMount(); err != nil {
-            return SYSCALL_ERROR, nil
-		}
+		return s.processProcMount()
 
 	case "sysfs":
-        if err := s.processSysMount(); err != nil {
-            return SYSCALL_ERROR, nil
-        }
+		return s.processSysMount()
 
 	case "/proc/sys":
 		// Process incoming "/proc/sys" remount instructions. Disregard
 		// "/proc/sys" pure bind operations (no new flag settings) as we
 		// are already taking care of that as part of "/proc" new mount
 		// requests.
-		if s.Flags &^ sysboxfsDefaultMountFlags == 0 {
-			break
+		if s.Flags&^sysboxfsDefaultMountFlags == 0 {
+			return s.tracer.createSuccessResponse(s.reqId), nil
 		}
-
-		if err := s.processProcSysMount(); err != nil {
-			return SYSCALL_ERROR, nil
-		}
+		return s.processProcSysMount()
 
 	default:
-		logrus.Errorf("Unsupported mount syscall received for mount %v.",
-			s.string())
-		return SYSCALL_INVALID, fmt.Errorf("Unsupported mount syscall request.")
-    }
+		logrus.Errorf("Unsupported mount request received: %v", s.string())
+	}
 
-	return SYSCALL_SUCCESS, nil
+	return nil, fmt.Errorf("Unsupported mount syscall request")
 }
 
 // Method handles "/proc" mount syscall requests. As part of this function, we
 // also bind-mount all the sysbox-fs' emulated resources into the mount target
 // requested by the user. Our goal here is to extend sysbox-fs' virtualization
 // capabilities to L2 app containers and/or L1 chroot'ed environments.
-func (s *mountSyscallInfo) processProcMount() error {
+func (s *mountSyscallInfo) processProcMount() (*sysResponse, error) {
 
 	var payload = []*domain.MountSyscallPayload{
 
@@ -85,7 +68,7 @@ func (s *mountSyscallInfo) processProcMount() error {
 			Source: "/proc/sys",
 			Target: s.Target + "/sys",
 			FsType: "",
-			Flags: unix.MS_BIND | unix.MS_REC,
+			Flags:  unix.MS_BIND | unix.MS_REC,
 			Data:   "",
 		},
 
@@ -94,7 +77,7 @@ func (s *mountSyscallInfo) processProcMount() error {
 			Source: "/proc/uptime",
 			Target: s.Target + "/uptime",
 			FsType: "",
-			Flags: unix.MS_BIND | unix.MS_REC,
+			Flags:  unix.MS_BIND | unix.MS_REC,
 			Data:   "",
 		},
 
@@ -103,7 +86,7 @@ func (s *mountSyscallInfo) processProcMount() error {
 			Source: "/proc/swaps",
 			Target: s.Target + "/swaps",
 			FsType: "",
-			Flags: unix.MS_BIND | unix.MS_REC,
+			Flags:  unix.MS_BIND | unix.MS_REC,
 			Data:   "",
 		},
 	}
@@ -122,7 +105,7 @@ func (s *mountSyscallInfo) processProcMount() error {
 			string(domain.NStypeUts),
 		},
 		&domain.NSenterMessage{
-			Type: domain.MountSyscallRequest,
+			Type:    domain.MountSyscallRequest,
 			Payload: payload,
 		},
 		nil,
@@ -131,63 +114,71 @@ func (s *mountSyscallInfo) processProcMount() error {
 	// Launch nsenter-event.
 	err := nss.SendRequestEvent(event)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Obtain nsenter-event response.
 	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
-		return responseMsg.Payload.(error)
+		resp := s.tracer.createErrorResponse(
+			s.reqId,
+			responseMsg.Payload.(error).(syscall.Errno))
+
+		return resp, nil
 	}
 
-	return nil
+	return s.tracer.createSuccessResponse(s.reqId), nil
 }
 
 // Method handles '/proc/sys' (re)mount syscall requests.
-func (s *mountSyscallInfo) processProcSysMount() error {
+func (s *mountSyscallInfo) processProcSysMount() (*sysResponse, error) {
 
-    // Adjust mount-flags to match sysboxfs default flags.
-    s.Flags |= sysboxfsDefaultMountFlags
+	// Adjust mount-flags to match sysboxfs default flags.
+	s.Flags |= sysboxfsDefaultMountFlags
 
-    // Create nsenter-event envelope.
-    nss := s.tracer.sms.nss
-    event := nss.NewEvent(
-        s.syscallInfo.pid,
-        []domain.NStype{
-            string(domain.NStypeUser),
-            string(domain.NStypePid),
-            string(domain.NStypeNet),
-            string(domain.NStypeMount),
-            string(domain.NStypeIpc),
-            string(domain.NStypeCgroup),
-            string(domain.NStypeUts),
-        },
-        &domain.NSenterMessage{
-            Type: domain.MountSyscallRequest,
-            Payload: []*domain.MountSyscallPayload{s.MountSyscallPayload},
-        },
-        nil,
-    )
+	// Create nsenter-event envelope.
+	nss := s.tracer.sms.nss
+	event := nss.NewEvent(
+		s.syscallInfo.pid,
+		[]domain.NStype{
+			string(domain.NStypeUser),
+			string(domain.NStypePid),
+			string(domain.NStypeNet),
+			string(domain.NStypeMount),
+			string(domain.NStypeIpc),
+			string(domain.NStypeCgroup),
+			string(domain.NStypeUts),
+		},
+		&domain.NSenterMessage{
+			Type:    domain.MountSyscallRequest,
+			Payload: []*domain.MountSyscallPayload{s.MountSyscallPayload},
+		},
+		nil,
+	)
 
-    // Launch nsenter-event.
-    err := nss.SendRequestEvent(event)
-    if err != nil {
-        return err
-    }
+	// Launch nsenter-event.
+	err := nss.SendRequestEvent(event)
+	if err != nil {
+		return nil, err
+	}
 
-    // Obtain nsenter-event response.
-    responseMsg := nss.ReceiveResponseEvent(event)
-    if responseMsg.Type == domain.ErrorResponse {
-        return responseMsg.Payload.(error)
-    }
+	// Obtain nsenter-event response.
+	responseMsg := nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		resp := s.tracer.createErrorResponse(
+			s.reqId,
+			responseMsg.Payload.(error).(syscall.Errno))
 
-    return nil
+		return resp, nil
+	}
+
+	return s.tracer.createSuccessResponse(s.reqId), nil
 }
 
 // Method handles "/sys" mount syscall requests. As part of this function, we
 // also bind-mount all the sysbox-fs' emulated resources into the mount target
 // requested by the user.
-func (s *mountSyscallInfo) processSysMount() error {
+func (s *mountSyscallInfo) processSysMount() (*sysResponse, error) {
 
 	var payload = []*domain.MountSyscallPayload{
 
@@ -199,7 +190,7 @@ func (s *mountSyscallInfo) processSysMount() error {
 			Source: "/sys/module/nf_conntrack/parameters/hashsize",
 			Target: s.Target + "/module/nf_conntrack/parameters/hashsize",
 			FsType: "",
-			Flags: unix.MS_BIND | unix.MS_REC,
+			Flags:  unix.MS_BIND | unix.MS_REC,
 			Data:   "",
 		},
 	}
@@ -218,7 +209,7 @@ func (s *mountSyscallInfo) processSysMount() error {
 			string(domain.NStypeUts),
 		},
 		&domain.NSenterMessage{
-			Type: domain.MountSyscallRequest,
+			Type:    domain.MountSyscallRequest,
 			Payload: payload,
 		},
 		nil,
@@ -227,23 +218,27 @@ func (s *mountSyscallInfo) processSysMount() error {
 	// Launch nsenter-event.
 	err := nss.SendRequestEvent(event)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Obtain nsenter-event response.
 	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
-		return responseMsg.Payload.(error)
+		resp := s.tracer.createErrorResponse(
+			s.reqId,
+			responseMsg.Payload.(error).(syscall.Errno))
+
+		return resp, nil
 	}
 
-	return nil
+	return s.tracer.createSuccessResponse(s.reqId), nil
 }
 
 func (s *mountSyscallInfo) string() string {
 
 	result := "source: " + s.Source + " target: " + s.Target +
-			  " fstype: " + s.FsType + " flags: " +
-			  strconv.FormatUint(s.Flags, 10)
+		" fstype: " + s.FsType + " flags: " +
+		strconv.FormatUint(s.Flags, 10)
 
 	return result
 }
