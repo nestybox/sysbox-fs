@@ -8,8 +8,8 @@ import (
 	"errors"
 	"io"
 	"os"
-	"strings"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -126,7 +126,7 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
 			Payload: &domain.OpenFilePayload{
-				File: n.Path(),
+				File:  n.Path(),
 				Flags: strconv.Itoa(n.OpenFlags()),
 			},
 		},
@@ -178,8 +178,8 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 
 	var (
 		data string
-		ok bool
-		err error
+		ok   bool
+		err  error
 	)
 
 	if h.Cacheable {
@@ -352,7 +352,7 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, pid uint32) []os.File
 		// only considering NODE_ADITION resources (i.e. resources not returned
 		// by container) for further processing in this routine (e.g.
 		// "/proc/sys/net/netfilter/nf_conntrack_max").
-		if handler.GetType() != domain.NODE_ADITION {
+		if handler.GetType()&domain.NODE_ADITION != domain.NODE_ADITION {
 			continue
 		}
 
@@ -433,7 +433,7 @@ func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s str
 		&domain.NSenterMessage{
 			Type: domain.WriteFileRequest,
 			Payload: &domain.WriteFilePayload{
-				File: n.Path(),
+				File:    n.Path(),
 				Content: s,
 			},
 		},

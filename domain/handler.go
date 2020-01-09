@@ -12,8 +12,24 @@ import (
 type HandlerType int
 
 const (
-	NODE_SUBSTITUTION HandlerType = iota // resources that need to be replaced
-	NODE_ADITION                         // resources that need to be created / added
+	// Node entries that need to be replaced for proper emulation.
+	// Example: "/proc/sys/kernel/panic"
+	NODE_SUBSTITUTION = 0x1
+
+	// Node entries that need to be added to enhance virtual-host experience.
+	// Example: "/proc/sys/net/netfilter/nf_conntrack_max"
+	NODE_ADITION = 0x2
+
+	// Node entries that need to be bind-mounted for proper emulation. Notice
+	// that these ones carry slightly different semantics than SUBSTITUTION
+	// ones above.
+	// Example: "/proc/meminfo"
+	NODE_BINDMOUNT = 0x4
+
+	// Node entries that need to be propagated to L2 containers or L1 chrooted
+	// environments. These are typically a subset of BINDMOUNT ones.
+	// Example: "/proc/uptime"
+	NODE_PROPAGATE = 0x8
 )
 
 type Handler struct {
@@ -41,6 +57,7 @@ type HandlerIface interface {
 	GetType() HandlerType
 	GetEnabled() bool
 	SetEnabled(val bool)
+	GetBindMount() bool
 	GetService() HandlerService
 	SetService(hs HandlerService)
 }
@@ -53,6 +70,9 @@ type HandlerService interface {
 	EnableHandler(h HandlerIface) error
 	DisableHandler(h HandlerIface) error
 	DirHandlerEntries(s string) []string
+
+	// getters/setter
+	HandlerDB() map[string]HandlerIface
 	StateService() ContainerStateService
 	NSenterService() NSenterService
 	IOService() IOService

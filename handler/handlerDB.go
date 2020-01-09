@@ -8,8 +8,8 @@ import (
 	"errors"
 	"os"
 	"path"
-	"strings"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -38,78 +38,91 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.ProcHandler{
 		Name:      "proc",
 		Path:      "/proc",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
 		Enabled:   true,
 		Cacheable: true,
 	},
 	&implementations.ProcCgroupsHandler{
 		Name:      "procCgroups",
 		Path:      "/proc/cgroups",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcCpuinfoHandler{
 		Name:      "procCpuinfo",
 		Path:      "/proc/cpuinfo",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: true,
 	},
 	&implementations.ProcDevicesHandler{
 		Name:      "procDevices",
 		Path:      "/proc/devices",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcDiskstatsHandler{
 		Name:      "procDiskstats",
 		Path:      "/proc/diskstats",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcLoadavgHandler{
 		Name:      "procLoadavg",
 		Path:      "/proc/loadavg",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcMeminfoHandler{
 		Name:      "procMeminfo",
 		Path:      "/proc/meminfo",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcPagetypeinfoHandler{
 		Name:      "procPagetypeinfo",
 		Path:      "/proc/pagetypeinfo",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcPartitionsHandler{
 		Name:      "procPartitions",
 		Path:      "/proc/partitions",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcStatHandler{
 		Name:      "procStat",
 		Path:      "/proc/stat",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcSwapsHandler{
 		Name:      "procSwaps",
 		Path:      "/proc/swaps",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcSysHandler{
 		Name:      "procSys",
 		Path:      "/proc/sys",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.ProcUptimeHandler{
 		Name:      "procUptime",
 		Path:      "/proc/uptime",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
 		Enabled:   true,
 		Cacheable: false,
 	},
@@ -119,18 +132,21 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.FsBinfmtHandler{
 		Name:      "fsBinfmt",
 		Path:      "/proc/sys/fs/binfmt_misc",
+		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.FsBinfmtStatusHandler{
 		Name:      "fsBinfmtStatus",
 		Path:      "/proc/sys/fs/binfmt_misc/status",
+		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: false,
 	},
 	&implementations.FsBinfmtRegisterHandler{
 		Name:      "fsBinfmtRegister",
 		Path:      "/proc/sys/fs/binfmt_misc/register",
+		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: false,
 	},
@@ -140,18 +156,21 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.KernelLastCapHandler{
 		Name:      "kernelLastCap",
 		Path:      "/proc/sys/kernel/cap_last_cap",
+		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
 	&implementations.KernelPanicHandler{
 		Name:      "kernelPanic",
 		Path:      "/proc/sys/kernel/panic",
+		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
 	&implementations.KernelPanicOopsHandler{
 		Name:      "kernelPanicOops",
 		Path:      "/proc/sys/kernel/panic_on_oops",
+		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -171,6 +190,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.VmOvercommitMemHandler{
 		Name:      "vmOvercommitMem",
 		Path:      "/proc/sys/vm/overcommit_memory",
+		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -186,6 +206,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.NfConntrackHashSizeHandler{
 		Name:      "nfConntrackHashSize",
 		Path:      "/sys/module/nf_conntrack/parameters/hashsize",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -424,6 +445,10 @@ func (hs *handlerService) DirHandlerEntries(s string) []string {
 	defer hs.RUnlock()
 
 	return hs.dirHandlerMap[s]
+}
+
+func (hs *handlerService) HandlerDB() map[string]domain.HandlerIface {
+	return hs.HandlerDB()
 }
 
 func (hs *handlerService) StateService() domain.ContainerStateService {
