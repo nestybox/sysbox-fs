@@ -19,9 +19,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
 	_ "github.com/nestybox/sysbox-runc/libcontainer/nsenter"
 	"github.com/nestybox/sysbox-runc/libcontainer/utils"
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 
@@ -551,30 +551,46 @@ func (e *NSenterEvent) processDirReadRequest() error {
 
 func (e *NSenterEvent) processMountSyscallRequest() error {
 
+	var (
+		i   int
+		err error
+	)
+
 	mountInfoArray := e.ReqMsg.Payload.([]domain.MountSyscallPayload)
 
-	for _, m := range mountInfoArray {
-		// Perform mount instruction and return error msg to remote-end should
-		// this one fail.
+	// Perform mount instructions.
+	for i = 0; i < len(mountInfoArray); i++ {
 		err := unix.Mount(
-			m.Source,
-			m.Target,
-			m.FsType,
-			uintptr(m.Flags),
-			m.Data,
+			mountInfoArray[i].Source,
+			mountInfoArray[i].Target,
+			mountInfoArray[i].FsType,
+			uintptr(mountInfoArray[i].Flags),
+			mountInfoArray[i].Data,
 		)
 		if err != nil {
-			logrus.Errorf("Error executing mount() syscall.")
-			e.ResMsg = &domain.NSenterMessage{
-				Type:    domain.ErrorResponse,
-				Payload: &fuse.IOerror{RcvError: err},
-			}
-
-			return nil
+			break
 		}
 	}
 
-	// Create a response message.
+	if err != nil {
+		// Revert previously executed mount instructions.
+		for j := i; j >= 0; j-- {
+			_ = unix.Unmount(
+				mountInfoArray[j].Target,
+				int(mountInfoArray[j].Flags),
+			)
+		}
+
+		// Create error response msg.
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+
+		return nil
+	}
+
+	// Create success response message.
 	e.ResMsg = &domain.NSenterMessage{
 		Type:    domain.MountSyscallResponse,
 		Payload: "",
@@ -718,7 +734,7 @@ func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 // Sysbox-fs' post-nsexec initialization function. To be executed within the
 // context of one (or more) container namespaces.
 //
-func Init() (err error) {	
+func Init() (err error) {
 
 	var (
 		pipefd      int
