@@ -21,6 +21,8 @@ type ContainerIface interface {
 	String() string
 	UID() uint32
 	GID() uint32
+	ProcRoPaths() []string
+	ProcMaskPaths() []string
 	//
 	// Setters
 	//
@@ -47,7 +49,9 @@ type ContainerStateService interface {
 		uidFirst uint32,
 		uidSize uint32,
 		gidFirst uint32,
-		gidSize uint32) ContainerIface
+		gidSize uint32,
+		procRoPaths []string,
+		procMaskPaths []string) ContainerIface
 
 	ContainerAdd(c ContainerIface) error
 	ContainerUpdate(c ContainerIface) error

@@ -74,6 +74,8 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 		uint32(data.UidSize),
 		uint32(data.GidFirst),
 		uint32(data.GidSize),
+		data.ProcRoPaths,
+		data.ProcMaskPaths,
 	)
 
 	err = ipcService.css.ContainerAdd(cntr)
@@ -107,6 +109,8 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 		uint32(data.UidSize),
 		uint32(data.GidFirst),
 		uint32(data.GidSize),
+		nil,
+		nil,
 	)
 
 	err := ipcService.css.ContainerDelete(cntr)
@@ -140,6 +144,8 @@ func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 		uint32(data.UidSize),
 		uint32(data.GidFirst),
 		uint32(data.GidSize),
+		nil,
+		nil,
 	)
 
 	err := ipcService.css.ContainerUpdate(cntr)

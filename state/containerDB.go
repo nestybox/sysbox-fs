@@ -6,9 +6,9 @@ package state
 
 import (
 	"errors"
+	"strconv"
 	"sync"
 	"time"
-	"strconv"
 
 	"github.com/sirupsen/logrus"
 
@@ -20,7 +20,7 @@ type containerStateService struct {
 
 	// Map to store the association between container ids (string) and the inode
 	// corresponding to the container's pid-namespace.
-	idTable  map[string]domain.Inode
+	idTable map[string]domain.Inode
 
 	// Map to keep track of the association between container's pid-namespaces
 	// (inode) and the internal structure to hold all the container state.
@@ -35,7 +35,7 @@ func NewContainerStateService(ios domain.IOService) domain.ContainerStateService
 	newCSS := &containerStateService{
 		idTable:  make(map[string]domain.Inode),
 		pidTable: make(map[domain.Inode]*container),
-		ios: ios,
+		ios:      ios,
 	}
 
 	return newCSS
@@ -50,17 +50,28 @@ func (css *containerStateService) ContainerCreate(
 	uidSize uint32,
 	gidFirst uint32,
 	gidSize uint32,
+	procRoPaths []string,
+	procMaskPaths []string,
 ) domain.ContainerIface {
 
 	newcntr := &container{
-		id:       id,
-		initPid:  initpid,
-		pidInode: inode,
-		ctime:    ctime,
-		uidFirst: uidFirst,
-		uidSize:  uidSize,
-		gidFirst: gidFirst,
-		gidSize:  gidSize,
+		id:            id,
+		initPid:       initpid,
+		pidInode:      inode,
+		ctime:         ctime,
+		uidFirst:      uidFirst,
+		uidSize:       uidSize,
+		gidFirst:      gidFirst,
+		gidSize:       gidSize,
+		procRoPaths:   procRoPaths,
+		procMaskPaths: procMaskPaths,
+	}
+
+	for _, v := range newcntr.procRoPaths {
+		logrus.Errorf("ropath: %v", v)
+	}
+	for _, v := range newcntr.procMaskPaths {
+		logrus.Errorf("maskpath: %v", v)
 	}
 
 	return newcntr
