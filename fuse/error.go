@@ -26,10 +26,10 @@ import (
 // marshalling logic.
 //
 type IOerror struct {
-	RcvError error `json:"-"`
-	Type     string `json:"type"`
+	RcvError error         `json:"-"`
+	Type     string        `json:"type"`
 	Code     syscall.Errno `json:"code"`
-	Message  string `json:"message"`
+	Message  string        `json:"message"`
 }
 
 func (e IOerror) Error() string {

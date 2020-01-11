@@ -9,9 +9,8 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/sirupsen/logrus"
 )
 
 //

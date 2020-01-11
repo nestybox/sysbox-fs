@@ -37,10 +37,10 @@ sysbox-runc component.
 
 // Globals to be populated at build time during Makefile processing.
 var (
-	version   string // extracted from VERSION file
-	commitId  string // latest git commit-id of sysbox superproject
-	builtAt   string // build time
-	builtBy   string // build owner
+	version  string // extracted from VERSION file
+	commitId string // latest git commit-id of sysbox superproject
+	builtAt  string // build time
+	builtBy  string // build owner
 )
 
 //
@@ -112,19 +112,19 @@ func main() {
 			Usage: "log categories to include (debug, info, warning, error, fatal)",
 		},
 		cli.IntFlag{
-			Name:  "dentry-cache-timeout, t",
-			Value: fuse.DentryCacheTimeout,
-			Usage: "dentry-cache-timeout timer in minutes",
+			Name:        "dentry-cache-timeout, t",
+			Value:       fuse.DentryCacheTimeout,
+			Usage:       "dentry-cache-timeout timer in minutes",
 			Destination: &fuse.DentryCacheTimeout,
 		},
 	}
 
 	// show-version specialization.
 	cli.VersionPrinter = func(c *cli.Context) {
-		fmt.Printf("sysbox-fs\n" +
-			"\tversion: \t%s\n" +
-			"\tcommit: \t%s\n" +
-			"\tbuilt at: \t%s\n" +
+		fmt.Printf("sysbox-fs\n"+
+			"\tversion: \t%s\n"+
+			"\tcommit: \t%s\n"+
+			"\tbuilt at: \t%s\n"+
 			"\tbuilt by: \t%s\n",
 			c.App.Version, commitId, builtAt, builtBy)
 	}
@@ -161,9 +161,9 @@ func main() {
 
 			// Set a proper logging formatter.
 			logrus.SetFormatter(&logrus.TextFormatter{
-				ForceColors: true,
-				TimestampFormat : "2006-01-02 15:04:05",
-				FullTimestamp: true,
+				ForceColors:     true,
+				TimestampFormat: "2006-01-02 15:04:05",
+				FullTimestamp:   true,
 			})
 			logrus.SetOutput(f)
 			log.SetOutput(f)
@@ -210,18 +210,21 @@ func main() {
 
 		var containerStateService = state.NewContainerStateService(ioService)
 
-		var syscallMonitorService =
-			seccomp.NewSyscallMonitorService(containerStateService, nsenterService)
-		if syscallMonitorService == nil {
-			logrus.Fatal("syscallMonitorService initialization error. Exiting ...")
-		}
-
 		var handlerService = handler.NewHandlerService(
 			handler.DefaultHandlers,
 			containerStateService,
 			nsenterService,
 			ioService,
 		)
+
+		var syscallMonitorService = seccomp.NewSyscallMonitorService(
+			nsenterService,
+			containerStateService,
+			handlerService,
+		)
+		if syscallMonitorService == nil {
+			logrus.Fatal("syscallMonitorService initialization error. Exiting ...")
+		}
 
 		var ipcService = ipc.NewIpcService(containerStateService, ioService)
 		if ipcService == nil {
@@ -240,7 +243,7 @@ func main() {
 		}
 
 		// TODO: Consider adding sync.Workgroups to ensure that all goroutines
-		// are done with their in-fly tasks before exit()ing.
+		// are done with their in-flight tasks before exit()ing.
 
 		// Launch signal-handler to ensure mountpoint is properly unmounted
 		// if an actionable signal is ever received.
