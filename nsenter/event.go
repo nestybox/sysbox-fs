@@ -213,10 +213,19 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		}
 		break
 
+	case domain.UmountSyscallResponse:
+		logrus.Debug("Received nsenterEvent umountSyscallResponse message.")
+
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: "",
+		}
+		break
+
 	case domain.ErrorResponse:
 		logrus.Debug("Received nsenterEvent errorResponse message.")
 
-		var p fuse.IOerror
+		var p syscall.Errno
 
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
@@ -560,7 +569,7 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 
 	// Perform mount instructions.
 	for i = 0; i < len(mountInfoArray); i++ {
-		err := unix.Mount(
+		err = unix.Mount(
 			mountInfoArray[i].Source,
 			mountInfoArray[i].Target,
 			mountInfoArray[i].FsType,
@@ -568,23 +577,20 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 			mountInfoArray[i].Data,
 		)
 		if err != nil {
+			// Create error response msg.
+			e.ResMsg = &domain.NSenterMessage{
+				Type:    domain.ErrorResponse,
+				Payload: err.(syscall.Errno),
+			}
+
 			break
 		}
 	}
 
 	if err != nil {
 		// Revert previously executed mount instructions.
-		for j := i; j >= 0; j-- {
-			_ = unix.Unmount(
-				mountInfoArray[j].Target,
-				int(mountInfoArray[j].Flags),
-			)
-		}
-
-		// Create error response msg.
-		e.ResMsg = &domain.NSenterMessage{
-			Type:    domain.ErrorResponse,
-			Payload: &fuse.IOerror{RcvError: err},
+		for j := i - 1; j >= 0; j-- {
+			_ = unix.Unmount(mountInfoArray[j].Target, 0)
 		}
 
 		return nil
@@ -593,6 +599,60 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 	// Create success response message.
 	e.ResMsg = &domain.NSenterMessage{
 		Type:    domain.MountSyscallResponse,
+		Payload: "",
+	}
+
+	return nil
+}
+
+func (e *NSenterEvent) processUmountSyscallRequest() error {
+
+	var (
+		i   int
+		err error
+	)
+
+	umountInfoArray := e.ReqMsg.Payload.([]domain.UmountSyscallPayload)
+
+	// Perform umount instructions.
+	for i = 0; i < len(umountInfoArray); i++ {
+		err = unix.Unmount(
+			umountInfoArray[i].Target,
+			int(umountInfoArray[i].Flags),
+		)
+		if err != nil {
+			// Create error response msg.
+			e.ResMsg = &domain.NSenterMessage{
+				Type:    domain.ErrorResponse,
+				Payload: err.(syscall.Errno),
+			}
+
+			break
+		}
+	}
+
+	// If an error is found, notice that we will not revert the changes we could
+	// have made thus far. In order to do that (remount), we need information
+	// that we don't have at this stage (mount-source, mount-flags, etc). Will
+	// leave this 'unwind' logic commented out for now.
+	if err != nil {
+		// Revert previously executed umount instructions.
+		// for j := i - 1; j >= 0; j-- {
+		// 	_ = unix.Mount(
+		// 		mountInfoArray[j].Source,
+		// 		mountInfoArray[j].Target,
+		// 		mountInfoArray[j].FsType,
+		// 		uintptr(mountInfoArray[j].Flags),
+		// 		mountInfoArray[j].Data,
+		// 	)
+		// }
+
+		return nil
+	}
+
+	// Create success response message.
+	e.ResMsg = &domain.NSenterMessage{
+		Type:    domain.UmountSyscallResponse,
 		Payload: "",
 	}
 
@@ -719,6 +779,23 @@ func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 		}
 
 		return e.processMountSyscallRequest()
+
+	case domain.UmountSyscallRequest:
+		var p []domain.UmountSyscallPayload
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
+
+		e.ReqMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+
+		return e.processUmountSyscallRequest()
 
 	default:
 		e.ResMsg = &domain.NSenterMessage{
