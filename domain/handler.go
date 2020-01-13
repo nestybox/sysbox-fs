@@ -20,16 +20,19 @@ const (
 	// Example: "/proc/sys/net/netfilter/nf_conntrack_max"
 	NODE_ADITION = 0x2
 
+	// True mount nodes. Sysbox-fs supports only two so far: "/proc" and "/sys".
+	NODE_MOUNT = 0x4
+
 	// Node entries that need to be bind-mounted for proper emulation. Notice
 	// that these ones carry slightly different semantics than SUBSTITUTION
 	// ones above.
 	// Example: "/proc/meminfo"
-	NODE_BINDMOUNT = 0x4
+	NODE_BINDMOUNT = 0x8
 
 	// Node entries that need to be propagated to L2 containers or L1 chrooted
 	// environments. These are typically a subset of BINDMOUNT ones.
 	// Example: "/proc/uptime"
-	NODE_PROPAGATE = 0x8
+	NODE_PROPAGATE = 0x10
 )
 
 type Handler struct {
@@ -57,7 +60,6 @@ type HandlerIface interface {
 	GetType() HandlerType
 	GetEnabled() bool
 	SetEnabled(val bool)
-	GetBindMount() bool
 	GetService() HandlerService
 	SetService(hs HandlerService)
 }
