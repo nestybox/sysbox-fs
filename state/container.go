@@ -26,6 +26,7 @@ type container struct {
 	gidSize       uint32              // Gid range size
 	procRoPaths   []string            // OCI spec read-only proc paths
 	procMaskPaths []string            // OCI spec masked proc paths
+	specPaths     map[string]struct{} // OCI spec hashmap including all paths
 	pidInode      domain.Inode        // inode associated to container's pid-ns
 	dataStore     domain.StateDataMap // Handler's container-specific storage blob
 }
@@ -88,6 +89,18 @@ func (c *container) ProcMaskPaths() []string {
 	defer c.RUnlock()
 
 	return c.procMaskPaths
+}
+
+func (c *container) IsSpecPath(s string) bool {
+	c.RLock()
+	defer c.RUnlock()
+
+	_, ok := c.specPaths[s]
+	if !ok {
+		return false
+	}
+
+	return true
 }
 
 func (c *container) Data(path string, name string) (string, bool) {

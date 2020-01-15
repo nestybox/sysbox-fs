@@ -67,11 +67,13 @@ func (css *containerStateService) ContainerCreate(
 		procMaskPaths: procMaskPaths,
 	}
 
+	newcntr.specPaths = make(map[string]struct{})
+
 	for _, v := range newcntr.procRoPaths {
-		logrus.Errorf("ropath: %v", v)
+		newcntr.specPaths[v] = struct{}{}
 	}
 	for _, v := range newcntr.procMaskPaths {
-		logrus.Errorf("maskpath: %v", v)
+		newcntr.specPaths[v] = struct{}{}
 	}
 
 	return newcntr

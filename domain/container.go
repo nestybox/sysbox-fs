@@ -23,6 +23,7 @@ type ContainerIface interface {
 	GID() uint32
 	ProcRoPaths() []string
 	ProcMaskPaths() []string
+	IsSpecPath(s string) bool
 	//
 	// Setters
 	//
