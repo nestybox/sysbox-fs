@@ -14,13 +14,12 @@ import (
 )
 
 //
-// Due to the fact that sysbox-fs' procfs is sourced at /proc/sys, there's no
-// much this handler needs to do. This handler's purpose is to be able to manage
-// operations associated to /proc bind-mounts such as cpuinfo, meminfo, etc).
+// This is merely a place-holder for upcoming operations requiring "/sys" node
+// virtualizations.
 //
 
 //
-// /proc Handler
+// /sys Handler
 //
 type SysHandler struct {
 	Name      string

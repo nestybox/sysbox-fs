@@ -38,7 +38,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.ProcHandler{
 		Name:      "proc",
 		Path:      "/proc",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+		Type:      domain.NODE_MOUNT,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -197,12 +197,13 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /sys handlers
 	//
-	// &implementations.SysHandler{
-	// 	Name:      "sys",
-	// 	Path:      "/sys",
-	// 	Enabled:   true,
-	// 	Cacheable: true,
-	// },
+	&implementations.SysHandler{
+		Name:      "sys",
+		Path:      "/sys",
+		Type:      domain.NODE_MOUNT,
+		Enabled:   false,
+		Cacheable: true,
+	},
 	&implementations.NfConntrackHashSizeHandler{
 		Name:      "nfConntrackHashSize",
 		Path:      "/sys/module/nf_conntrack/parameters/hashsize",
@@ -448,7 +449,7 @@ func (hs *handlerService) DirHandlerEntries(s string) []string {
 }
 
 func (hs *handlerService) HandlerDB() map[string]domain.HandlerIface {
-	return hs.HandlerDB()
+	return hs.handlerDB
 }
 
 func (hs *handlerService) StateService() domain.ContainerStateService {
