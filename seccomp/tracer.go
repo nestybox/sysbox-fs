@@ -26,6 +26,7 @@ type sysResponse = libseccomp.ScmpNotifResp
 // Slice of supported syscalls to monitor.
 var monitoredSyscalls = []string{
 	"mount",
+	"umount2",
 	"reboot",
 	"swapon",
 	"swapoff",
@@ -34,18 +35,21 @@ var monitoredSyscalls = []string{
 // Seccomp's syscall-monitoring/trapping service struct. External packages
 // will solely rely on this struct for their syscall-monitoring demands.
 type SyscallMonitorService struct {
-	css    domain.ContainerStateService // for container-state interactions
 	nss    domain.NSenterService        // for nsenter functionality requirements
+	css    domain.ContainerStateService // for container-state interactions
+	hns    domain.HandlerService        // for handlerDB interactions
 	tracer *syscallTracer               // pointer to actual syscall-tracer instance
 }
 
 func NewSyscallMonitorService(
+	nss domain.NSenterService,
 	css domain.ContainerStateService,
-	nss domain.NSenterService) *SyscallMonitorService {
+	hns domain.HandlerService) *SyscallMonitorService {
 
 	svc := &SyscallMonitorService{
-		css: css,
 		nss: nss,
+		css: css,
+		hns: hns,
 	}
 
 	// Allocate a new syscall-tracer.
@@ -61,9 +65,10 @@ func NewSyscallMonitorService(
 
 // Seccomp's syscall-monitor/tracer.
 type syscallTracer struct {
-	sms      *SyscallMonitorService            // backpointer to syscall-monitor service
-	srv      *unixIpc.Server                   // unix server listening to seccomp-notifs
-	syscalls map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
+	sms       *SyscallMonitorService            // backpointer to syscall-monitor service
+	srv       *unixIpc.Server                   // unix server listening to seccomp-notifs
+	syscalls  map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
+	mountInfo *mountInfo                        // hashmap of bindmounts to honor in mount/umount reqs
 }
 
 func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
@@ -73,15 +78,25 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 		syscalls: make(map[libseccomp.ScmpSyscall]string),
 	}
 
-	// Populate hash-map of supported syscalls to monitor.
+	// Populate hashmap of supported syscalls to monitor.
 	for _, syscall := range monitoredSyscalls {
 		syscallId, err := libseccomp.GetSyscallFromName(syscall)
 		if err != nil {
-			logrus.Errorf("Unknown syscall to monitor %v (%v).")
+			logrus.Errorf("Seccomp-tracer initialization error: unknown syscall (%v).",
+				syscall)
 			return nil
 		}
 		tracer.syscalls[syscallId] = syscall
 	}
+
+	// Populate bind-mounts hashmap. Note that handlers are not operating at
+	// this point, so there's no need to acquire locks for this operation.
+	handlerDB := sms.hns.HandlerDB()
+	if handlerDB == nil {
+		logrus.Errorf("Seccomp-tracer initialization error: missing handlerDB")
+		return nil
+	}
+	tracer.mountInfo = newMountInfo(handlerDB)
 
 	return tracer
 }
@@ -192,6 +207,9 @@ func (t *syscallTracer) process(
 	case "mount":
 		resp, err = t.processMount(req, fd, cntr)
 
+	case "umount2":
+		resp, err = t.processUmount(req, fd, cntr)
+
 	case "reboot":
 		resp, err = t.processReboot(req, fd, cntr)
 
@@ -239,10 +257,11 @@ func (t *syscallTracer) processMount(
 	}
 
 	mount := &mountSyscallInfo{
-		syscallInfo: syscallInfo{
+		syscallCtx: syscallCtx{
 			syscallNum: int32(req.Data.Syscall),
 			reqId:      req.Id,
 			pid:        req.Pid,
+			cntr:       cntr,
 			tracer:     t,
 		},
 		MountSyscallPayload: &domain.MountSyscallPayload{
@@ -279,19 +298,17 @@ func (t *syscallTracer) processMount(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	// We are interested in processing a very reduced set of mount syscalls.
-	// Return here if the received syscall doesn't match the following
-	// criteria:
 	//
-	// * 'proc' fsType and associated '/proc' source OR ...
-	// * '/proc/sys' source and '/proc/sys' target
-	// * AND in both cases (above), mount-flags should be associated to new-mount
-	// operations.
-	if !(((mount.FsType == "proc" && mount.Source == "proc") ||
-		(mount.Source == "/proc/sys" && mount.Target == "/proc/sys") ||
-		(mount.FsType == "sysfs" && mount.Source == "sysfs")) &&
-		(mount.Flags&^sysboxSkipMountFlags == mount.Flags)) {
+	switch mount.action() {
+
+	case SYSCALL_CONTINUE:
 		return t.createContinueResponse(req.Id), nil
+
+	case SYSCALL_SUCCESS:
+		return t.createSuccessResponse(req.Id), nil
+
+	case SYSCALL_PROCESS:
+		break
 	}
 
 	// Resolve mount target and verify that process has the proper rights to
@@ -303,6 +320,82 @@ func (t *syscallTracer) processMount(
 
 	// Process mount syscall.
 	return mount.process()
+}
+
+func (t *syscallTracer) processUmount(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface) (*sysResponse, error) {
+
+	logrus.Debug("Received umount syscall.")
+
+	argPtrs := []uint64{req.Data.Args[0]}
+	args, err := t.processMemParse(req.Pid, argPtrs)
+	if err != nil {
+		return nil, err
+	}
+
+	umount := &umountSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum: int32(req.Data.Syscall),
+			reqId:      req.Id,
+			pid:        req.Pid,
+			cntr:       cntr,
+			tracer:     t,
+		},
+		UmountSyscallPayload: &domain.UmountSyscallPayload{
+			Target: args[0],
+			Flags:  req.Data.Args[1],
+		},
+	}
+
+	// Convert to absolute path if dealing with a relative path request.
+	if !filepath.IsAbs(umount.Target) {
+		cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", req.Pid))
+		if err != nil {
+			return nil, err
+		}
+		umount.Target = filepath.Join(cwd, umount.Target)
+	}
+
+	logrus.Debugf(umount.string())
+
+	// As per man's capabilities(7), cap_sys_admin capability is required for
+	// umount operations. Otherwise, return here and let kernel handle the mount
+	// instruction.
+	c, err := capability.NewPid2(int(req.Pid))
+	if err != nil {
+		return nil, err
+	}
+	if err = c.Load(); err != nil {
+		return nil, err
+	}
+	if !(c.Get(capability.EFFECTIVE, capability.CAP_SYS_ADMIN)) {
+		return t.createErrorResponse(req.Id, syscall.EPERM), nil
+	}
+
+	//
+	switch umount.action() {
+
+	case SYSCALL_CONTINUE:
+		return t.createContinueResponse(req.Id), nil
+
+	case SYSCALL_SUCCESS:
+		return t.createSuccessResponse(req.Id), nil
+
+	case SYSCALL_PROCESS:
+		break
+	}
+
+	// Resolve mount target and verify that process has the proper rights to
+	// access each of the components of the path.
+	err = pathres.PathAccess(int(req.Pid), umount.Target, 0)
+	if err != nil {
+		return t.createErrorResponse(req.Id, err), nil
+	}
+
+	// Process umount syscall.
+	return umount.process()
 }
 
 func (t *syscallTracer) processReboot(
