@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/sirupsen/logrus"
 )
 
 type umountSyscallInfo struct {
@@ -16,58 +15,43 @@ type umountSyscallInfo struct {
 	*domain.UmountSyscallPayload // unmount-syscall specific details
 }
 
-func (u *umountSyscallInfo) action() syscallResponse {
-
-	logrus.Errorf("Umount Position 1")
-
-	// Obtain the fstype associated to this mount target as per sysbox-fs
-	// mount-type classification.
-	u.SysFsType = uint8(u.sysboxfsUmountType(u.pid, u.Target))
-
-	switch sysboxMountType(u.SysFsType) {
-
-	case procfsMount:
-		logrus.Errorf("Umount Position 2")
-		return SYSCALL_PROCESS
-
-	case sysfsMount:
-		logrus.Errorf("Umount Position 3")
-		return SYSCALL_PROCESS
-
-	case bindMount:
-		logrus.Errorf("Umount Position 4")
-		return SYSCALL_SUCCESS
-
-	case specMount:
-		logrus.Errorf("Umount Position 5")
-		return SYSCALL_SUCCESS
-	}
-
-	logrus.Errorf("Umount Position 6")
-	return SYSCALL_CONTINUE
-}
-
 // MountSyscall processing wrapper instruction.
 func (u *umountSyscallInfo) process() (*sysResponse, error) {
 
+	// Obtain the fstype associated to this mount target as per sysbox-fs
+	// mount-type classification.
+	u.SysFsType =
+		uint8(u.tracer.mountHelper.sysboxfsMountType(u.pid, u.cntr, u.Target))
+
 	switch sysboxMountType(u.SysFsType) {
 
-	case procfsMount:
+	case PROCFS_MOUNT:
 		return u.processProcUmount()
 
-	case sysfsMount:
-		return u.processSysUmount()
+	case SYSFS_MOUNT:
+		return u.processProcUmount()
+
+	case REAL_PROCFS_MOUNT:
+		return u.tracer.createErrorResponse(u.reqId, syscall.EINVAL), nil
+
+	case BIND_MOUNT:
+		return u.tracer.createSuccessResponse(u.reqId), nil
+
+	case SPEC_MOUNT:
+		return u.tracer.createSuccessResponse(u.reqId), nil
+
+	case INVALID_MOUNT:
+		return u.tracer.createErrorResponse(u.reqId, syscall.EINVAL), nil
 	}
 
-	return nil, fmt.Errorf("Unsupported umount syscall request")
+	return u.tracer.createContinueResponse(u.reqId), nil
 }
 
-// Method handles "/proc" mount syscall requests. As part of this function, we
-// also bind-mount all the sysbox-fs' emulated resources into the mount target
-// requested by the user. Our goal here is to extend sysbox-fs' virtualization
-// capabilities to L2 app containers and/or L1 chroot'ed environments.
+// Method handles "/proc" umount syscall requests. As part of this function, we
+// also unmount all the procfs emulated resources.
 func (u *umountSyscallInfo) processProcUmount() (*sysResponse, error) {
 
+	// Create instructions payload.
 	payload := u.createProcPayload()
 	if payload == nil {
 		return nil, fmt.Errorf("Could not construct procUmount payload")
@@ -118,7 +102,7 @@ func (u *umountSyscallInfo) createProcPayload() *[]*domain.UmountSyscallPayload 
 	var payload []*domain.UmountSyscallPayload
 
 	// Sysbox-fs "/proc" bind-mounts.
-	procBindMounts := u.tracer.mountInfo.procMounts
+	procBindMounts := u.tracer.mountHelper.procMounts
 	for _, v := range procBindMounts {
 		relPath := strings.TrimPrefix(v, "/proc")
 
@@ -127,7 +111,6 @@ func (u *umountSyscallInfo) createProcPayload() *[]*domain.UmountSyscallPayload 
 			Flags:  0,
 		}
 		payload = append(payload, newelem)
-		logrus.Errorf("umount payload 1: %v", newelem)
 	}
 
 	// Container-specific read-only paths.
@@ -143,7 +126,6 @@ func (u *umountSyscallInfo) createProcPayload() *[]*domain.UmountSyscallPayload 
 			Flags:  0,
 		}
 		payload = append(payload, newelem)
-		logrus.Errorf("umount payload 2: %v", newelem)
 	}
 
 	// Container-specific masked paths.
@@ -159,7 +141,6 @@ func (u *umountSyscallInfo) createProcPayload() *[]*domain.UmountSyscallPayload 
 			Flags:  0,
 		}
 		payload = append(payload, newelem)
-		logrus.Errorf("umount payload 3: %v", newelem)
 	}
 
 	// Payload instruction for original "/proc" umount request.
@@ -168,11 +149,11 @@ func (u *umountSyscallInfo) createProcPayload() *[]*domain.UmountSyscallPayload 
 	return &payload
 }
 
-// Method handles "/sys" mount syscall requests. As part of this function, we
-// also bind-mount all the sysbox-fs' emulated resources into the mount target
-// requested by the user.
+// Method handles "/sys" unmount syscall requests. As part of this function, we
+// also unmount all the sysfs emulated resources.
 func (u *umountSyscallInfo) processSysUmount() (*sysResponse, error) {
 
+	// Create instructions payload.
 	payload := u.createSysPayload()
 	if payload == nil {
 		return nil, fmt.Errorf("Could not construct sysUmount payload")
@@ -223,7 +204,7 @@ func (u *umountSyscallInfo) createSysPayload() *[]*domain.UmountSyscallPayload {
 	var payload []*domain.UmountSyscallPayload
 
 	// Sysbox-fs "/sys" bind-mounts.
-	sysBindMounts := u.tracer.mountInfo.sysMounts
+	sysBindMounts := u.tracer.mountHelper.sysMounts
 	for _, v := range sysBindMounts {
 		relPath := strings.TrimPrefix(v, "/sys")
 
@@ -238,21 +219,6 @@ func (u *umountSyscallInfo) createSysPayload() *[]*domain.UmountSyscallPayload {
 	payload = append(payload, u.UmountSyscallPayload)
 
 	return &payload
-}
-
-func (u *umountSyscallInfo) sysboxfsUmountType(pid uint32, target string) sysboxMountType {
-
-	//
-	if u.syscallCtx.cntr.IsSpecPath(target) {
-		return specMount
-	}
-
-	//
-	if u.tracer.mountInfo.isBindMount(target) {
-		return bindMount
-	}
-
-	return getMountInfoType(u.pid, target)
 }
 
 func (u *umountSyscallInfo) string() string {

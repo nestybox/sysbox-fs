@@ -22,27 +22,30 @@ type sysboxMountType uint8
 
 // Sysboxfs mount-types classification.
 const (
-	invalidMount sysboxMountType = iota
-	bindMount
-	specMount
-	procfsMount
-	sysfsMount
-	irrelevantMount
+	INVALID_MOUNT     sysboxMountType = iota
+	BIND_MOUNT                        // procfs or sysfs bind-mount
+	SPEC_MOUNT                        // cntr-specific rdonly or masked path
+	PROCFS_MOUNT                      // proper procfs mount (e.g. "/root/proc")
+	SYSFS_MOUNT                       // proper sysfs mount (e.g. "/sys")
+	REAL_PROCFS_MOUNT                 // real procfs mount (i.e. "/proc")
+	IRRELEVANT_MOUNT                  // valid, yet irrelevant mountpoint
 )
 
-type mountInfo struct {
-	hm         map[string]struct{}
-	procMounts []string
-	sysMounts  []string
-	flagsMap   map[string]uint64
+type mountHelper struct {
+	mapMounts  map[string]struct{} // map of all sysboxfs bind-mounts (rdonly + mask)
+	procMounts []string            // slice of procfs bind-mounts
+	sysMounts  []string            // slice of sysfs bind-mounts
+	flagsMap   map[string]uint64   // helper map to aid in flag conversion
 }
 
-func newMountInfo(hdb map[string]domain.HandlerIface) *mountInfo {
+func newMountHelper(hdb map[string]domain.HandlerIface) *mountHelper {
 
-	info := &mountInfo{
-		hm: make(map[string]struct{}),
+	info := &mountHelper{
+		mapMounts: make(map[string]struct{}),
 	}
 
+	// Iterate through the handleDB to extract the set of bindmounts that need
+	// to be exported (propagated) to L2 containers or L1 chrooted envs.
 	for _, h := range hdb {
 		nodeType := h.GetType()
 		nodePath := h.GetPath()
@@ -50,7 +53,7 @@ func newMountInfo(hdb map[string]domain.HandlerIface) *mountInfo {
 		if nodeType&(domain.NODE_BINDMOUNT|domain.NODE_PROPAGATE) ==
 			(domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE) {
 
-			info.hm[nodePath] = struct{}{}
+			info.mapMounts[nodePath] = struct{}{}
 
 			if strings.HasPrefix(nodePath, "/proc") {
 				info.procMounts = append(info.procMounts, nodePath)
@@ -61,9 +64,18 @@ func newMountInfo(hdb map[string]domain.HandlerIface) *mountInfo {
 		}
 	}
 
+	// Both procMounts and sysMounts slices should be sorted (alphanumerically
+	// in this case), for mount / umount operations to succeed.
 	sort.Sort(sort.StringSlice(info.procMounts))
 	sort.Sort(sort.StringSlice(info.sysMounts))
 
+	//
+	// Initialize a flagsMap to help in "/proc/pid/mountHelper" parsing. Note that
+	// even though these are a subset of the flags supported by Linux kernel, these
+	// are the ones that are taken into account to generate /proc/pid/mountinfo
+	// content. Details here:
+	// https://github.com/torvalds/linux/blob/master/fs/proc_namespace.c#L131
+	// https://github.com/torvalds/linux/blob/master/include/linux/mount.h
 	//
 	info.flagsMap = map[string]uint64{
 		"ro":         unix.MS_RDONLY,     // Read-only file-system
@@ -78,9 +90,12 @@ func newMountInfo(hdb map[string]domain.HandlerIface) *mountInfo {
 	return info
 }
 
-func (bm *mountInfo) isBindMount(s string) bool {
+// Method returns 'true' if passed string corresponds to a sysboxfs bind-mount
+// node. Note that method is fully re-entrant as the map in question will not be
+// modified, thus, there's no need for concurrency primitives here.
+func (m *mountHelper) isBindMount(s string) bool {
 
-	_, ok := bm.hm[s]
+	_, ok := m.mapMounts[s]
 	if !ok {
 		return false
 	}
@@ -88,7 +103,9 @@ func (bm *mountInfo) isBindMount(s string) bool {
 	return true
 }
 
-func (m *mountInfo) stringToFlags(s string) uint64 {
+// Helper method to convert string-based mount flags (as extracted from
+// /proc/pid/mountinfo), into their corresponding numerical values.
+func (m *mountHelper) stringToFlags(s string) uint64 {
 
 	var flags uint64
 
@@ -103,7 +120,7 @@ func (m *mountInfo) stringToFlags(s string) uint64 {
 
 		val, ok := m.flagsMap[v]
 		if !ok {
-			logrus.Errorf("Unsupported flagoption %s", v)
+			logrus.Errorf("Unsupported mount flag option %s", v)
 			continue
 		}
 
@@ -113,26 +130,100 @@ func (m *mountInfo) stringToFlags(s string) uint64 {
 	return flags
 }
 
-func getMountInfoType(pid uint32, mountpoint string) sysboxMountType {
+// Extract the flags associated to any given mountpoint as per kernel's mountinfo
+// file content.
+func (m *mountHelper) getMountFlags(pid uint32, target string) (uint64, error) {
+
+	info, err := libcontainer.GetMountAtPid(pid, target)
+	if err != nil {
+		return 0, err
+	}
+
+	return m.stringToFlags(info.Opts), nil
+}
+
+// Method determines if the passed mount target matches a sysbox-fs node.
+func (m *mountHelper) isSysboxfsMount(
+	pid uint32, cntr domain.ContainerIface, target string) bool {
+
+	nodeType := m.sysboxfsMountType(pid, cntr, target)
+
+	switch nodeType {
+	case BIND_MOUNT:
+		return true
+	case SPEC_MOUNT:
+		return true
+	case PROCFS_MOUNT:
+		return true
+	case SYSFS_MOUNT:
+		return true
+	case REAL_PROCFS_MOUNT:
+		return true
+	}
+
+	return false
+}
+
+// Method returns the sysboxfs mount type associated to the passed mountpoint
+// target.
+func (m *mountHelper) sysboxfsMountType(
+	pid uint32, cntr domain.ContainerIface, target string) sysboxMountType {
+
+	if cntr.IsSpecPath(target) {
+		return SPEC_MOUNT
+	}
+
+	if m.isBindMount(target) {
+		return BIND_MOUNT
+	}
+
+	return m.getmountHelperType(pid, target)
+}
+
+//
+// Method executes the following steps to determine the sysboxfs mount-type
+// associated to any given mountpoint:
+//
+// 1) Collect entire list of mountpoints as per /proc/pid/mountinfo.
+// 2) Iterate through this list till a full-match is found (i.e. /root/proc/sys).
+// 3) If not full-match node is found return an error (INVALID_MOUNT).
+// 4) If the full-match node corresponds to a procfs or sysfs fstype, then
+//    we return its associated type.
+// 5) Otherwise, we backward-interate the list of mountpoints from the spot
+//    where the match was found.
+// 6) Our goal at this point is to identify if the original mountpoint target
+//    (i.e. /root/proc/sys), 'hangs' directly (or indirectly) from a procfs (or
+//	  sysfs) node.
+// 7) If a backing procfs/sysfs entry is found then we return claiming that the
+//    target is a sysboxfs bind-mount node.
+// 8) Otherwise we return 'irrelevant-mount' to indicate that, even though this
+//    is an existing mountpoint, it holds no value for sysboxfs mount processing
+//    logic.
+//
+func (m *mountHelper) getmountHelperType(
+	pid uint32, mountpoint string) sysboxMountType {
 
 	var (
 		i     int
 		found bool
 	)
 
-	entries, err := libcontainer.GetMountsForPid(pid)
+	entries, err := libcontainer.GetMountsPid(pid)
 	if err != nil {
-		logrus.Error("Are we returning here? -10")
-		return invalidMount
+		return INVALID_MOUNT
 	}
 
 	// Search the table for the given mountpoint.
 	for i = 0; i < len(entries); i++ {
 		if entries[i].Mountpoint == mountpoint {
 			if entries[i].Fstype == "proc" {
-				return procfsMount
+				if mountpoint == "/proc" {
+					return REAL_PROCFS_MOUNT
+				}
+				return PROCFS_MOUNT
+
 			} else if entries[i].Fstype == "sysfs" {
-				return sysfsMount
+				return SYSFS_MOUNT
 			}
 
 			found = true
@@ -141,8 +232,7 @@ func getMountInfoType(pid uint32, mountpoint string) sysboxMountType {
 	}
 
 	if !found {
-		logrus.Error("Are we returning here? -11")
-		return invalidMount
+		return INVALID_MOUNT
 	}
 
 	// Iterate backwards starting at 'i' till we reach an entry with 'proc'
@@ -154,16 +244,17 @@ func getMountInfoType(pid uint32, mountpoint string) sysboxMountType {
 		}
 
 		if entries[j].Fstype == "proc" || entries[j].Fstype == "sysfs" {
-			logrus.Error("Are we returning here? 1")
-			return bindMount
+			// Technically, it could have either been a bind-mount or a
+			// spec-mount (rdonly or mask paths), but picking one or the
+			// other doesn't change anything as treatment for both types
+			// is expected to be the same in caller's logic.
+			return BIND_MOUNT
 		} else {
-			logrus.Error("Are we returning here? 2")
 			mountpoint = filepath.Dir(mountpoint)
 		}
 	}
 
-	logrus.Error("Are we returning here? 3")
-	return irrelevantMount
+	return IRRELEVANT_MOUNT
 }
 
 // Exists reports whether the named file or directory exists.

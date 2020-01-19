@@ -8,8 +8,6 @@ import (
 	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	libcontainer "github.com/nestybox/sysbox-runc/libcontainer/mount"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -19,68 +17,37 @@ type mountSyscallInfo struct {
 	*domain.MountSyscallPayload // mount-syscall specific details
 }
 
-//
-func (m *mountSyscallInfo) action() syscallResponse {
-
-	logrus.Errorf("Position 1")
-
-	//
-	if (m.FsType == "proc" || m.FsType == "sysfs") &&
-		m.Flags&^sysboxProcSkipMountFlags == m.Flags {
-		return SYSCALL_PROCESS
-	}
-
-	logrus.Errorf("Position 2")
-
-	// Address bind-mount requests.
-	if m.Flags&unix.MS_BIND == unix.MS_BIND {
-
-		logrus.Errorf("Position 3")
-
-		if m.isSysboxfsMount(m.Target) {
-
-			// If not a remount operation.
-			if m.Flags&unix.MS_REMOUNT != unix.MS_REMOUNT {
-
-				logrus.Errorf("Position 4")
-
-				// If target is a sysbox-fs mountpoint, then just fake it.
-				//if m.Source == m.Target || m.Source == "/dev/null" {
-				logrus.Errorf("Position 5")
-				return SYSCALL_SUCCESS
-				logrus.Errorf("Position 6")
-
-			} else {
-				logrus.Errorf("Position 7")
-				return SYSCALL_PROCESS
-			}
-		}
-	}
-
-	logrus.Errorf("Position 9")
-	return SYSCALL_CONTINUE
-}
-
 // MountSyscall processing wrapper instruction.
 func (m *mountSyscallInfo) process() (*sysResponse, error) {
 
-	switch m.Source {
+	if m.Flags&^sysboxProcSkipMountFlags == m.Flags {
+		if m.FsType == "proc" {
+			return m.processProcMount()
+		} else if m.FsType == "sysfs" {
+			return m.processSysMount()
+		}
+		return m.tracer.createContinueResponse(m.reqId), nil
+	}
 
-	case "proc":
-		return m.processProcMount()
+	// Handle bind-mount requests.
+	if m.Flags&unix.MS_BIND == unix.MS_BIND &&
+		m.tracer.mountHelper.isSysboxfsMount(m.pid, m.cntr, m.Target) {
 
-	case "sysfs":
-		return m.processSysMount()
+		// If dealing with a 'pure' bind-mount request (no remount-flag), return
+		// success here as these operations are already carried out by procMount
+		// and sysMount functions.
+		if m.Flags&unix.MS_REMOUNT != unix.MS_REMOUNT {
+			return m.tracer.createSuccessResponse(m.reqId), nil
+		}
 
-	default:
 		return m.processReMount()
 	}
 
-	return nil, fmt.Errorf("Unsupported mount syscall request")
+	return m.tracer.createContinueResponse(m.reqId), nil
 }
 
 // Method handles "/proc" mount syscall requests. As part of this function, we
-// also bind-mount all the sysbox-fs' emulated resources into the mount target
+// also bind-mount all the procfs emulated resources into the mount target
 // requested by the user. Our goal here is to extend sysbox-fs' virtualization
 // capabilities to L2 app containers and/or L1 chroot'ed environments.
 func (m *mountSyscallInfo) processProcMount() (*sysResponse, error) {
@@ -139,7 +106,7 @@ func (m *mountSyscallInfo) createProcPayload() *[]*domain.MountSyscallPayload {
 	payload = append(payload, m.MountSyscallPayload)
 
 	// Sysbox-fs "/proc" bind-mounts.
-	procBindMounts := m.tracer.mountInfo.procMounts
+	procBindMounts := m.tracer.mountHelper.procMounts
 	for _, v := range procBindMounts {
 		relPath := strings.TrimPrefix(v, "/proc")
 
@@ -151,7 +118,6 @@ func (m *mountSyscallInfo) createProcPayload() *[]*domain.MountSyscallPayload {
 			Data:   "",
 		}
 		payload = append(payload, newelem)
-		logrus.Errorf("payload 1: %v", newelem)
 	}
 
 	// Container-specific read-only paths.
@@ -170,7 +136,6 @@ func (m *mountSyscallInfo) createProcPayload() *[]*domain.MountSyscallPayload {
 			Data:   "",
 		}
 		payload = append(payload, newelem)
-		logrus.Errorf("payload 2: %v", newelem)
 	}
 
 	// Container-specific masked paths.
@@ -189,7 +154,6 @@ func (m *mountSyscallInfo) createProcPayload() *[]*domain.MountSyscallPayload {
 			Data:   "",
 		}
 		payload = append(payload, newelem)
-		logrus.Errorf("payload 3: %v", newelem)
 	}
 
 	// If "/proc" is to be mounted as read-only, we want this requirement to
@@ -203,11 +167,11 @@ func (m *mountSyscallInfo) createProcPayload() *[]*domain.MountSyscallPayload {
 				Source: "",
 				Target: filepath.Join(m.Target, relPath),
 				FsType: "",
-				Flags:  unix.MS_RDONLY | unix.MS_BIND | unix.MS_REMOUNT | unix.MS_NOSUID | unix.MS_NODEV | unix.MS_NOEXEC,
-				Data:   "",
+				// TODO: Avoid hard-coding these flags.
+				Flags: unix.MS_RDONLY | unix.MS_BIND | unix.MS_REMOUNT | unix.MS_NOSUID | unix.MS_NODEV | unix.MS_NOEXEC,
+				Data:  "",
 			}
 			payload = append(payload, newelem)
-			logrus.Errorf("payload ro: %v", newelem)
 		}
 	}
 
@@ -215,7 +179,7 @@ func (m *mountSyscallInfo) createProcPayload() *[]*domain.MountSyscallPayload {
 }
 
 // Method handles "/sys" mount syscall requests. As part of this function, we
-// also bind-mount all the sysbox-fs' emulated resources into the mount target
+// also bind-mount all the sysfs emulated resources into the mount target
 // requested by the user.
 func (m *mountSyscallInfo) processSysMount() (*sysResponse, error) {
 
@@ -273,7 +237,7 @@ func (m *mountSyscallInfo) createSysPayload() *[]*domain.MountSyscallPayload {
 	payload = append(payload, m.MountSyscallPayload)
 
 	// Sysbox-fs "/sys" bind-mounts.
-	sysBindMounts := m.tracer.mountInfo.sysMounts
+	sysBindMounts := m.tracer.mountHelper.sysMounts
 	for _, v := range sysBindMounts {
 		relPath := strings.TrimPrefix(v, "/sys")
 
@@ -287,9 +251,7 @@ func (m *mountSyscallInfo) createSysPayload() *[]*domain.MountSyscallPayload {
 		payload = append(payload, newelem)
 	}
 
-	// Note 1)
-	//
-	// 1) If "/sys" is to be mounted as read-only, we want this requirement to
+	// If "/sys" is to be mounted as read-only, we want this requirement to
 	// extend to all of its inner bind-mounts.
 	if m.Flags&unix.MS_RDONLY == unix.MS_RDONLY {
 
@@ -300,8 +262,9 @@ func (m *mountSyscallInfo) createSysPayload() *[]*domain.MountSyscallPayload {
 				Source: "",
 				Target: filepath.Join(m.Target, relPath),
 				FsType: "",
-				Flags:  unix.MS_RDONLY | unix.MS_BIND | unix.MS_REMOUNT | unix.MS_NOSUID | unix.MS_NODEV | unix.MS_NOEXEC,
-				Data:   "",
+				// TODO: Avoid hard-coding these flags.
+				Flags: unix.MS_RDONLY | unix.MS_BIND | unix.MS_REMOUNT | unix.MS_NOSUID | unix.MS_NODEV | unix.MS_NOEXEC,
+				Data:  "",
 			}
 			payload = append(payload, newelem)
 		}
@@ -317,15 +280,16 @@ func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
 	// to operate. The goal here is to avoid pushing flags that don't fully
 	// match the ones kernel is aware of for this resource.
 	//
-	// TODO: Optimize -- technically, there's no need to parse /proc/pid/mountinfo
-	// again.
-	curFlags, err := m.getMountFlags(m.Target)
+	// TODO: Optimize -- technically, there's no need to parse /proc/pid/mountHelper
+	// again -- process() method could already extract and store this state in
+	// advance.
+	curFlags, err := m.tracer.mountHelper.getMountFlags(m.pid, m.Target)
 	if err != nil {
 		return nil, err
 	}
 
 	// Adjust mount-flags to incorporate (or eliminate) 'read-only' flag based on
-	// the mount requirements, as well as the existing kernel flags for
+	// the mount requirements, as well as the existing kernel flags.
 	if m.Flags&unix.MS_RDONLY == unix.MS_RDONLY {
 		m.Flags = curFlags | unix.MS_RDONLY | unix.MS_BIND | unix.MS_REMOUNT
 	} else {
@@ -369,52 +333,6 @@ func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
 	}
 
 	return m.tracer.createSuccessResponse(m.reqId), nil
-}
-
-//
-func (m *mountSyscallInfo) getMountFlags(target string) (uint64, error) {
-
-	info, err := libcontainer.GetMountAtForPid(m.pid, target)
-	if err != nil {
-		return 0, err
-	}
-
-	return m.tracer.mountInfo.stringToFlags(info.Opts), nil
-}
-
-//
-func (m *mountSyscallInfo) isSysboxfsMount(target string) bool {
-
-	nodeType := m.sysboxfsMountType(m.pid, target)
-
-	switch nodeType {
-	case bindMount:
-		return true
-	case specMount:
-		return true
-	case procfsMount:
-		return true
-	case sysfsMount:
-		return true
-	}
-
-	return false
-}
-
-//
-func (m *mountSyscallInfo) sysboxfsMountType(pid uint32, target string) sysboxMountType {
-
-	//
-	if m.syscallCtx.cntr.IsSpecPath(target) {
-		return specMount
-	}
-
-	//
-	if m.tracer.mountInfo.isBindMount(target) {
-		return bindMount
-	}
-
-	return getMountInfoType(m.pid, target)
 }
 
 func (m *mountSyscallInfo) string() string {

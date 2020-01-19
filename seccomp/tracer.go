@@ -65,10 +65,10 @@ func NewSyscallMonitorService(
 
 // Seccomp's syscall-monitor/tracer.
 type syscallTracer struct {
-	sms       *SyscallMonitorService            // backpointer to syscall-monitor service
-	srv       *unixIpc.Server                   // unix server listening to seccomp-notifs
-	syscalls  map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
-	mountInfo *mountInfo                        // hashmap of bindmounts to honor in mount/umount reqs
+	sms         *SyscallMonitorService            // backpointer to syscall-monitor service
+	srv         *unixIpc.Server                   // unix server listening to seccomp-notifs
+	syscalls    map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
+	mountHelper *mountHelper                      // generic methods/state utilized for (u)mount ops.
 }
 
 func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
@@ -96,7 +96,7 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 		logrus.Errorf("Seccomp-tracer initialization error: missing handlerDB")
 		return nil
 	}
-	tracer.mountInfo = newMountInfo(handlerDB)
+	tracer.mountHelper = newMountHelper(handlerDB)
 
 	return tracer
 }
@@ -128,7 +128,7 @@ func (t *syscallTracer) start() error {
 	return nil
 }
 
-// Tracer's connection handler method. Executed within a dedicated goroutine (one
+// Tracer's connection-handler method. Executed within a dedicated goroutine (one
 // per connection).
 func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 
@@ -182,6 +182,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 	return nil
 }
 
+// Syscall processing entrypoint.
 func (t *syscallTracer) process(
 	req *sysRequest,
 	fd int32,
@@ -298,19 +299,6 @@ func (t *syscallTracer) processMount(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	//
-	switch mount.action() {
-
-	case SYSCALL_CONTINUE:
-		return t.createContinueResponse(req.Id), nil
-
-	case SYSCALL_SUCCESS:
-		return t.createSuccessResponse(req.Id), nil
-
-	case SYSCALL_PROCESS:
-		break
-	}
-
 	// Resolve mount target and verify that process has the proper rights to
 	// access each of the components of the path.
 	err = pathres.PathAccess(int(req.Pid), mount.Target, 0)
@@ -372,19 +360,6 @@ func (t *syscallTracer) processUmount(
 	}
 	if !(c.Get(capability.EFFECTIVE, capability.CAP_SYS_ADMIN)) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
-	}
-
-	//
-	switch umount.action() {
-
-	case SYSCALL_CONTINUE:
-		return t.createContinueResponse(req.Id), nil
-
-	case SYSCALL_SUCCESS:
-		return t.createSuccessResponse(req.Id), nil
-
-	case SYSCALL_PROCESS:
-		break
 	}
 
 	// Resolve mount target and verify that process has the proper rights to
