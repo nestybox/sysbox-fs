@@ -114,7 +114,7 @@ type MountSyscallPayload struct {
 }
 
 type UmountSyscallPayload struct {
-	Target    string `json:"target"`
-	SysFsType uint8  `json:"-"`
-	Flags     uint64 `json:"flags"`
+	Target string `json:"target"`
+	FsType uint8  `json:"-"`
+	Flags  uint64 `json:"flags"`
 }

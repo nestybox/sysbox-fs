@@ -127,6 +127,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		logrus.Debug("Received nsenterEvent lookupResponse message.")
 
 		var p domain.FileInfo
+
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
@@ -145,6 +146,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		logrus.Debug("Received nsenterEvent OpenResponse message.")
 
 		var p int
+
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
@@ -163,6 +165,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		logrus.Debug("Received nsenterEvent readResponse message.")
 
 		var p string
+
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
@@ -190,6 +193,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		logrus.Debug("Received nsenterEvent readDirAllResponse message.")
 
 		var p []domain.FileInfo
+
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
@@ -225,7 +229,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 	case domain.ErrorResponse:
 		logrus.Debug("Received nsenterEvent errorResponse message.")
 
-		var p syscall.Errno
+		var p fuse.IOerror
 
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
@@ -580,7 +584,7 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 			// Create error response msg.
 			e.ResMsg = &domain.NSenterMessage{
 				Type:    domain.ErrorResponse,
-				Payload: err.(syscall.Errno),
+				Payload: &fuse.IOerror{RcvError: err},
 			}
 
 			break
@@ -624,7 +628,7 @@ func (e *NSenterEvent) processUmountSyscallRequest() error {
 			// Create error response msg.
 			e.ResMsg = &domain.NSenterMessage{
 				Type:    domain.ErrorResponse,
-				Payload: err.(syscall.Errno),
+				Payload: &fuse.IOerror{RcvError: err},
 			}
 
 			break
