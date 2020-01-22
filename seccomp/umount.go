@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 type umountSyscallInfo struct {
@@ -20,16 +21,21 @@ func (u *umountSyscallInfo) process() (*sysResponse, error) {
 
 	// Obtain the fstype associated to this mount target as per sysbox-fs
 	// mount-type classification.
-	u.SysFsType =
-		uint8(u.tracer.mountHelper.sysboxfsMountType(u.pid, u.cntr, u.Target))
+	fsType, err :=
+		u.tracer.mountHelper.sysboxfsMountType(u.pid, u.cntr, u.Target, nil)
+	if err != nil {
+		return u.tracer.createContinueResponse(u.reqId), nil
+	}
 
-	switch sysboxMountType(u.SysFsType) {
+	u.FsType = uint8(fsType)
+
+	switch fsType {
 
 	case PROCFS_MOUNT:
 		return u.processProcUmount()
 
 	case SYSFS_MOUNT:
-		return u.processProcUmount()
+		return u.processSysUmount()
 
 	case REAL_PROCFS_MOUNT:
 		return u.tracer.createErrorResponse(u.reqId, syscall.EINVAL), nil
@@ -88,7 +94,7 @@ func (u *umountSyscallInfo) processProcUmount() (*sysResponse, error) {
 	if responseMsg.Type == domain.ErrorResponse {
 		resp := u.tracer.createErrorResponse(
 			u.reqId,
-			responseMsg.Payload.(error).(syscall.Errno))
+			responseMsg.Payload.(fuse.IOerror).Code)
 
 		return resp, nil
 	}
@@ -190,7 +196,7 @@ func (u *umountSyscallInfo) processSysUmount() (*sysResponse, error) {
 	if responseMsg.Type == domain.ErrorResponse {
 		resp := u.tracer.createErrorResponse(
 			u.reqId,
-			responseMsg.Payload.(error).(syscall.Errno))
+			responseMsg.Payload.(fuse.IOerror).Code)
 
 		return resp, nil
 	}

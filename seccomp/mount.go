@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 	"golang.org/x/sys/unix"
 )
 
@@ -30,17 +30,25 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 	}
 
 	// Handle bind-mount requests.
-	if m.Flags&unix.MS_BIND == unix.MS_BIND &&
-		m.tracer.mountHelper.isSysboxfsMount(m.pid, m.cntr, m.Target) {
+	if m.Flags&unix.MS_BIND == unix.MS_BIND {
 
-		// If dealing with a 'pure' bind-mount request (no remount-flag), return
-		// success here as these operations are already carried out by procMount
-		// and sysMount functions.
+		// If dealing with a 'pure' bind-mount request (no 'remount' flag),
+		// determine if the operation needs to be disregarded to avoid duplicated
+		// mount entries. This would happen for all the elements that are implicitly
+		// mounted as part of procMount() and sysMount() execution. Notice that to
+		// narrow down the number of skip instructions, we make use of the
+		// "source==target" and "source==/dev/null" filters as these ones match the
+		// signature of the resources sysbox-fs emulates.
 		if m.Flags&unix.MS_REMOUNT != unix.MS_REMOUNT {
-			return m.tracer.createSuccessResponse(m.reqId), nil
+			if (m.Source == m.Target || m.Source == "/dev/null") &&
+				m.tracer.mountHelper.isSysboxfsMount(m.pid, m.cntr, m.Target, &m.CurFlags) {
+				return m.tracer.createSuccessResponse(m.reqId), nil
+			}
+		} else {
+			if m.tracer.mountHelper.isSysboxfsMount(m.pid, m.cntr, m.Target, &m.CurFlags) {
+				return m.processReMount()
+			}
 		}
-
-		return m.processReMount()
 	}
 
 	return m.tracer.createContinueResponse(m.reqId), nil
@@ -89,7 +97,7 @@ func (m *mountSyscallInfo) processProcMount() (*sysResponse, error) {
 	if responseMsg.Type == domain.ErrorResponse {
 		resp := m.tracer.createErrorResponse(
 			m.reqId,
-			responseMsg.Payload.(error).(syscall.Errno))
+			responseMsg.Payload.(fuse.IOerror).Code)
 
 		return resp, nil
 	}
@@ -220,7 +228,7 @@ func (m *mountSyscallInfo) processSysMount() (*sysResponse, error) {
 	if responseMsg.Type == domain.ErrorResponse {
 		resp := m.tracer.createErrorResponse(
 			m.reqId,
-			responseMsg.Payload.(error).(syscall.Errno))
+			responseMsg.Payload.(fuse.IOerror).Code)
 
 		return resp, nil
 	}
@@ -276,24 +284,12 @@ func (m *mountSyscallInfo) createSysPayload() *[]*domain.MountSyscallPayload {
 // Method handles remount syscall requests within procfs and sysfs node hierarchy.
 func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
 
-	// Obtain the existing flags of the mount target on which we are trying
-	// to operate. The goal here is to avoid pushing flags that don't fully
-	// match the ones kernel is aware of for this resource.
-	//
-	// TODO: Optimize -- technically, there's no need to parse /proc/pid/mountHelper
-	// again -- process() method could already extract and store this state in
-	// advance.
-	curFlags, err := m.tracer.mountHelper.getMountFlags(m.pid, m.Target)
-	if err != nil {
-		return nil, err
-	}
-
 	// Adjust mount-flags to incorporate (or eliminate) 'read-only' flag based on
 	// the mount requirements, as well as the existing kernel flags.
 	if m.Flags&unix.MS_RDONLY == unix.MS_RDONLY {
-		m.Flags = curFlags | unix.MS_RDONLY | unix.MS_BIND | unix.MS_REMOUNT
+		m.Flags = m.CurFlags | unix.MS_RDONLY | unix.MS_BIND | unix.MS_REMOUNT
 	} else {
-		m.Flags = (curFlags &^ unix.MS_RDONLY) | unix.MS_BIND | unix.MS_REMOUNT
+		m.Flags = (m.CurFlags &^ unix.MS_RDONLY) | unix.MS_BIND | unix.MS_REMOUNT
 	}
 
 	// Create nsenter-event envelope.
@@ -317,7 +313,7 @@ func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
 	)
 
 	// Launch nsenter-event.
-	err = nss.SendRequestEvent(event)
+	err := nss.SendRequestEvent(event)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +323,7 @@ func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
 	if responseMsg.Type == domain.ErrorResponse {
 		resp := m.tracer.createErrorResponse(
 			m.reqId,
-			responseMsg.Payload.(error).(syscall.Errno))
+			responseMsg.Payload.(fuse.IOerror).Code)
 
 		return resp, nil
 	}
