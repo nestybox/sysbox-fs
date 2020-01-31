@@ -1,15 +1,7 @@
 package seccomp
 
 import (
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
-
-	"github.com/nestybox/sysbox-fs/domain"
 	libcontainer "github.com/nestybox/sysbox-runc/libcontainer/mount"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 )
 
 type mountInfoParser struct {
