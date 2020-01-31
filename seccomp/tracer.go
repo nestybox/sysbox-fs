@@ -244,7 +244,7 @@ func (t *syscallTracer) processMount(
 	fd int32,
 	cntr domain.ContainerIface) (*sysResponse, error) {
 
-	logrus.Debug("Received mount syscall.")
+	logrus.Debugf("Received mount syscall from pid %d", req.Pid)
 
 	argPtrs := []uint64{
 		req.Data.Args[0],
@@ -315,7 +315,7 @@ func (t *syscallTracer) processUmount(
 	fd int32,
 	cntr domain.ContainerIface) (*sysResponse, error) {
 
-	logrus.Debug("Received umount syscall.")
+	logrus.Debugf("Received umount syscall from pid %d", req.Pid)
 
 	argPtrs := []uint64{req.Data.Args[0]}
 	args, err := t.processMemParse(req.Pid, argPtrs)

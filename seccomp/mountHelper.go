@@ -171,10 +171,10 @@ func (m *mountHelper) isSysboxfsMount(
 	return false
 }
 
-// Method returns the sysboxfs mount-type associated to the passed mount-target.
-// This function is deliberately overloaded to reduce to the minimum the number
-// of iterations over "/proc/pid/mountinfo" file, which are considerable at
-// container creation time. Function serves two main purposes:
+// Method returns the sysboxfs mount-type associated to the passed (u)mount
+// target. This function is deliberately overloaded to reduce to the minimum
+// the number of iterations over "/proc/pid/mountinfo" file, which are
+// considerable at container creation time. Function serves two main purposes:
 //
 // * Classifies the passed mountpoints as per sysbox-fs internal mount-types.
 // * Extracts the mount-flags associated to the mount-target should this one
@@ -190,37 +190,63 @@ func (h *mountHelper) sysboxfsMountType(
 		return REAL_PROCFS_MOUNT, nil
 	}
 
-	// Obtain the mountinfo attributes corresponding to the file-systems sysbox
-	// is emulating (procfs / sysfs), as well as those associated to the target
-	// mountpoint.
-	fsAttrs, targetAttrs, err := h.getMountinfoAttrs(pid, target)
+	// Create a mountInfoParser struct to hold a memory-copy of the content of
+	// "/proc/pid/mountinfo" file.
+	mountInfoCtx, err := newMountInfoParser(pid, target)
 	if err != nil {
 		return INVALID_MOUNT, err
 	}
-	if fsAttrs == nil || targetAttrs == nil {
+	// Passed target has no associated mountpoint present in /proc/pid/mountinfo.
+	// That is, we are dealing with a new-mount or a first-order bind mount
+	// operation, which sysbox-fs doesn't care about.
+	if mountInfoCtx == nil || mountInfoCtx.targetInfo == nil {
 		return IRRELEVANT_MOUNT, nil
 	}
 
-	// Obtain the mount-flags the target is mounted with.
+	// Obtain the mount-flags the target is mounted with and store it in the
+	// corresponding mount/umount object.
 	if flags != nil {
-		*flags = h.stringToFlags(targetAttrs.Opts)
+		*flags = h.stringToFlags(mountInfoCtx.targetInfo.Opts)
 	}
 
-	// If dealing with a procfs or sysfs mount instruction, return here with the
-	// proper mount-type.
-	if !(fsAttrs.Fstype == "proc" || fsAttrs.Fstype == "sysfs") {
+	// Obtain mountInfo attributes for the matching target and return right
+	// away if its associated mountpoint corresponds to a procfs or a sysfs mount
+	// instruction (e.g. mount -t proc proc /root/proc).
+	targetInfo := mountInfoCtx.getTargetInfo()
+	if targetInfo == nil {
 		return IRRELEVANT_MOUNT, nil
-	} else if fsAttrs.Mountpoint == target {
-		if fsAttrs.Fstype == "proc" {
-			return PROCFS_MOUNT, nil
-		} else if fsAttrs.Fstype == "sysfs" {
-			return SYSFS_MOUNT, nil
-		}
+	}
+	if targetInfo.Fstype == "proc" {
+		return PROCFS_MOUNT, nil
+	} else if targetInfo.Fstype == "sysfs" {
+		return SYSFS_MOUNT, nil
+	}
+
+	// Find the procfs or sysfs entry backing this target. If none is found,
+	// then we are dealing with a mountpoint outside the procfs/sysfs subtrees.
+	targetParentInfo := mountInfoCtx.getTargetParentInfo()
+	if targetParentInfo == nil ||
+		(targetParentInfo.Fstype != "proc" && targetParentInfo.Fstype != "sysfs") {
+		return IRRELEVANT_MOUNT, nil
+	}
+
+	// Check if the target hangs from a backing procfs/sysfs that has been
+	// constructed as part of a systemd-triggered mount rbind operation. Notice
+	// that systemd makes use of this specific path ("unit-root") for this
+	// operation, so no other path will be allowed to benefit from this
+	// exception.
+	targetGrandParentInfo := mountInfoCtx.getTargetGrandParentInfo()
+	if targetGrandParentInfo == nil {
+		return IRRELEVANT_MOUNT, nil
+	}
+	if (targetGrandParentInfo.Root != "/" || targetGrandParentInfo.Mountpoint != "/") &&
+		strings.HasPrefix(targetInfo.Mountpoint, "/run/systemd/unit-root") {
+		return IRRELEVANT_MOUNT, nil
 	}
 
 	// Adjust the mount target to accommodate general procfs/sysfs mountpoints.
-	// e.g. "/root/proc".
-	fsRoot := filepath.Dir(fsAttrs.Mountpoint)
+	// e.g. "/root/proc"
+	fsRoot := filepath.Dir(targetParentInfo.Mountpoint)
 	if fsRoot != "/" {
 		target = strings.TrimPrefix(target, fsRoot)
 	}
@@ -234,76 +260,6 @@ func (h *mountHelper) sysboxfsMountType(
 	}
 
 	return IRRELEVANT_MOUNT, nil
-}
-
-//
-// Method identifies the mountinfo entry of the mount-target, as well as the
-// entry of its associated 'backed' procfs / sysfs node. Function returns
-// two pointers corresponding to these two elements.
-//
-// The following steps are executed to complete this task:
-//
-// 1) Collect entire list of mountpoints from "/proc/pid/mountinfo".
-// 2) Iterate through this list till a full-match is found (e.g. "/root/proc/sys").
-// 3) If not full-match entry is found return nil pointers -- typical case for
-//    new mounts.
-// 4) If the full-match node corresponds to a procfs or sysfs fstype, then
-//    return its entry in both return parameters.
-// 5) Otherwise, we backward-interate the list of mountpoints from the spot
-//    where the match was found.
-// 6) Our goal at this point is to identify if the original mountpoint target
-//    (i.e. "/root/proc/sys"), 'hangs' directly (or indirectly) from a procfs (or
-//	  sysfs) node.
-// 7) If a backing procfs/sysfs entry is found then we return the proper entries.
-// 8) Otherwise we return 'nil' in the first parameter to indicate that no backed
-//    procfs/sysfs has been found.
-//
-func (m *mountHelper) getMountinfoAttrs(
-	pid uint32, mountpoint string) (*libcontainer.Info, *libcontainer.Info, error) {
-
-	var (
-		i     int
-		found bool
-	)
-
-	entries, err := libcontainer.GetMountsPid(pid)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Search the table for the given mountpoint.
-	for i = 0; i < len(entries); i++ {
-		if entries[i].Mountpoint == mountpoint {
-			if entries[i].Fstype == "proc" || entries[i].Fstype == "sysfs" {
-				return entries[i], entries[i], nil
-			}
-
-			found = true
-			break
-		}
-	}
-
-	// Inexistent mount-target -- new mount.
-	if !found {
-		return nil, nil, nil
-	}
-
-	// Iterate backwards starting at 'i' till we reach an entry with 'proc'
-	// fstype.
-	for j := i; j > 0; j-- {
-		if entries[j].Mountpoint != mountpoint &&
-			!strings.HasPrefix(mountpoint, entries[j].Mountpoint) {
-			continue
-		}
-
-		if entries[j].Fstype == "proc" || entries[j].Fstype == "sysfs" {
-			return entries[j], entries[i], nil
-		} else {
-			mountpoint = filepath.Dir(mountpoint)
-		}
-	}
-
-	return nil, entries[i], nil
 }
 
 // Exists reports whether the named file or directory exists.
