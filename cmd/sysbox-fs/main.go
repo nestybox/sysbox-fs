@@ -117,6 +117,10 @@ func main() {
 			Usage:       "dentry-cache-timeout timer in minutes",
 			Destination: &fuse.DentryCacheTimeout,
 		},
+		cli.BoolFlag{
+			Name:  "ignore-handler-errors",
+			Usage: "ignore errors during procfs / sysfs node interactions (testing purposes)",
+		},
 	}
 
 	// show-version specialization.
@@ -215,6 +219,7 @@ func main() {
 			containerStateService,
 			nsenterService,
 			ioService,
+			ctx.Bool("ignore-handler-errors"),
 		)
 
 		var syscallMonitorService = seccomp.NewSyscallMonitorService(

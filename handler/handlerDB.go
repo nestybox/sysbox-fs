@@ -255,6 +255,10 @@ type handlerService struct {
 
 	// Represents the pid-namespace inode of the host's true-root.
 	hostPidInode domain.Inode
+
+	// Handler i/o errors should be obviated if this flag is enabled (testing
+	// purposes).
+	ignoreErrors bool
 }
 
 // HandlerService constructor.
@@ -262,7 +266,8 @@ func NewHandlerService(
 	hs []domain.HandlerIface,
 	css domain.ContainerStateService,
 	nss domain.NSenterService,
-	ios domain.IOService) domain.HandlerService {
+	ios domain.IOService,
+	ignoreErrors bool) domain.HandlerService {
 
 	newhs := &handlerService{
 		handlerDB:     make(map[string]domain.HandlerIface),
@@ -270,6 +275,7 @@ func NewHandlerService(
 		css:           css,
 		nss:           nss,
 		ios:           ios,
+		ignoreErrors:  ignoreErrors,
 	}
 
 	// Register all handlers declared as 'enabled'.
@@ -462,6 +468,10 @@ func (hs *handlerService) NSenterService() domain.NSenterService {
 
 func (hs *handlerService) IOService() domain.IOService {
 	return hs.ios
+}
+
+func (hs *handlerService) IgnoreErrors() bool {
+	return hs.ignoreErrors
 }
 
 //

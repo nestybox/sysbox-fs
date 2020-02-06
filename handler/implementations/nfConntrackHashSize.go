@@ -206,7 +206,6 @@ func (h *NfConntrackHashSizeHandler) Write(n domain.IOnode, pid uint32,
 
 	// Push new value to host FS.
 	if err := h.PushFile(n, cntr, newMaxInt); err != nil {
-		logrus.Error("is here? error : %v", err)		
 		return 0, io.EOF
 	}
 
@@ -223,7 +222,7 @@ func (h *NfConntrackHashSizeHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]
 
 func (h *NfConntrackHashSizeHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (string, error) {
 
-	// Read from host FS to extract the existing nf_conntrack_max value.
+	// Read from host FS to extract the existing hashsize value.
 	curHostMax, err := n.ReadLine()
 	if err != nil && err != io.EOF {
 		logrus.Error("Could not read from file ", h.Path)
@@ -270,7 +269,7 @@ func (h *NfConntrackHashSizeHandler) PushFile(n domain.IOnode, c domain.Containe
 	// Push down to host FS the new (larger) value.
 	msg := []byte(strconv.Itoa(newMaxInt))
 	_, err = n.Write(msg)
-	if err != nil {
+	if err != nil && !h.Service.IgnoreErrors() {
 		logrus.Error("Could not write to file: ", err)
 		return err
 	}

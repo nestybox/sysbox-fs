@@ -78,6 +78,7 @@ type HandlerService interface {
 	StateService() ContainerStateService
 	NSenterService() NSenterService
 	IOService() IOService
+	IgnoreErrors() bool
 
 	// Auxiliar methods.
 	HostPidNsInode() Inode
