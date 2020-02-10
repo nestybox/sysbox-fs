@@ -12,6 +12,7 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
 	"github.com/nestybox/sysbox/lib/pathres"
+	"github.com/nestybox/sysbox/lib/pidmonitor"
 	libseccomp "github.com/seccomp/libseccomp-golang"
 	"github.com/sirupsen/logrus"
 	"github.com/syndtr/gocapability/capability"
@@ -63,12 +64,26 @@ func NewSyscallMonitorService(
 	return svc
 }
 
+//
+type cmd int
+
+const (
+	stop cmd = iota
+)
+
+type pidFd struct {
+	pid uint32
+	fd  int32
+}
+
 // Seccomp's syscall-monitor/tracer.
 type syscallTracer struct {
-	sms         *SyscallMonitorService            // backpointer to syscall-monitor service
-	srv         *unixIpc.Server                   // unix server listening to seccomp-notifs
+	sms         *SyscallMonitorService // backpointer to syscall-monitor service
+	srv         *unixIpc.Server        // unix server listening to seccomp-notifs
+	pollsrv     *unixIpc.PollServer
 	syscalls    map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
 	mountHelper *mountHelper                      // generic methods/state utilized for (u)mount ops.
+	pidFdCh     chan pidFd
 }
 
 func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
@@ -76,6 +91,7 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 	tracer := &syscallTracer{
 		sms:      sms,
 		syscalls: make(map[libseccomp.ScmpSyscall]string),
+		pidFdCh:  make(chan pidFd),
 	}
 
 	// Populate hashmap of supported syscalls to monitor.
@@ -122,8 +138,74 @@ func (t *syscallTracer) start() error {
 		logrus.Errorf("Unable to initialize seccomp-tracer server")
 		return err
 	}
-
 	t.srv = srv
+
+	// Launch a new pollServer
+	pollsrv, err := unixIpc.NewPollServer()
+	if err != nil {
+		logrus.Errorf("Unable to initialize seccomp-tracer pollserver")
+		return err
+	}
+	t.pollsrv = pollsrv
+
+	go t.pidMonitor()
+
+	return nil
+}
+
+// Launch fd garbage-collection goroutine
+// 0) Initialize pidMon logic (with no pid initially)
+// 1) Collect / Store seccomp-fds and tracee-pids being in use
+// 2) Add tracee-pid to pidMon event-loop
+// 3) Upon response from pidMon, proceed to close associated fd
+func (t *syscallTracer) pidMonitor() error {
+
+	var pidFdMap = make(map[uint32]pidFd)
+
+	pm, err := pidmonitor.New(&pidmonitor.Cfg{100})
+	if err != nil {
+		logrus.Error("Could not initialize pidMonitor logic")
+		return err
+	}
+	defer pm.Close()
+
+	for {
+
+		select {
+		case elem := <-t.pidFdCh:
+
+			logrus.Errorf("Received pidFd type: %v", elem)
+
+			pidFdMap[elem.pid] = elem
+			pm.AddEvent([]pidmonitor.PidEvent{
+				pidmonitor.PidEvent{
+					Pid:   elem.pid,
+					Event: pidmonitor.Exit,
+					Err:   nil,
+				},
+			})
+
+		case pidList := <-pm.EventCh:
+
+			logrus.Errorf("Received waitEvent response: %v", pidList)
+
+			for _, pidEvent := range pidList {
+				elem, ok := pidFdMap[pidEvent.Pid]
+				if !ok {
+					logrus.Errorf("Unexpected error: file-descriptor not found for pid %d",
+						pidEvent.Pid)
+					continue
+				}
+
+				if err := syscall.Close(int(elem.fd)); err != nil {
+					logrus.Fatal(err)
+				}
+				delete(pidFdMap, pidEvent.Pid)
+
+				t.pollsrv.StopWait(elem.fd)
+			}
+		}
+	}
 
 	return nil
 }
@@ -132,21 +214,38 @@ func (t *syscallTracer) start() error {
 // per connection).
 func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 
-	logrus.Infof("seccompTracer client connection %v", c.RemoteAddr())
+	remoteAddr := c.RemoteAddr().Network()
+
+	logrus.Infof("seccompTracer client connection %v", remoteAddr)
 
 	// Obtain seccomp-notification's file-descriptor and associated context (cntr).
-	fd, cntrId, err := unixIpc.RecvSeccompNotifMsg(c)
+	pid, cntrID, fd, err := unixIpc.RecvSeccompInitMsg(c)
 	if err != nil {
 		return err
 	}
 
+	// Obtain container associated to the received containerId value.
+	cntr := t.sms.css.ContainerLookupById(cntrID)
+	if cntr == nil {
+		logrus.Errorf("Received seccompNotifMsg from unknown container: %s", cntrID)
+		return fmt.Errorf("Received seccompNotifMsg from unknown container: %s", cntrID)
+	}
+
+	// Send pidFd to parent monitor-service for tracking purposes.
+	t.pidFdCh <- pidFd{uint32(pid), fd}
+
 	// Send Ack message back to sysbox-runc.
-	if err = unixIpc.SendSeccompNotifAckMsg(c); err != nil {
+	if err = unixIpc.SendSeccompInitAckMsg(c); err != nil {
 		return err
 	}
 
 	for {
-		// Retrieves a seccomp-notification.
+		// Wait for incoming seccomp-notification msg to be available.
+		if err := t.pollsrv.StartWaitRead(fd); err != nil {
+			return err
+		}
+
+		// Retrieves seccomp-notification message.
 		req, err := libseccomp.NotifReceive(libseccomp.ScmpFd(fd))
 		if err != nil {
 			if err == syscall.EINTR {
@@ -154,13 +253,14 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 					err)
 				continue
 			}
+
 			logrus.Errorf("Unexpected error received during NotifReceive() execution (%v).",
 				err)
 			return err
 		}
 
 		// Process the incoming syscall.
-		resp, err := t.process(req, fd, cntrId)
+		resp, err := t.process(req, fd, cntrID)
 		if err != nil {
 			logrus.Errorf("Unable to process seccomp-notification request (%v).", err)
 			return err
@@ -173,6 +273,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 				logrus.Errorf("Incomplete NotifRespond() execution (%v). Relaunching ...")
 				continue
 			}
+
 			logrus.Errorf("Unexpected error received during NotifRespond() execution (%v).",
 				err)
 			return err
@@ -186,7 +287,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 func (t *syscallTracer) process(
 	req *sysRequest,
 	fd int32,
-	cntrId string) (*sysResponse, error) {
+	cntrID string) (*sysResponse, error) {
 
 	var (
 		resp *sysResponse
@@ -194,10 +295,10 @@ func (t *syscallTracer) process(
 	)
 
 	// Obtain container associated to the received containerId value.
-	cntr := t.sms.css.ContainerLookupById(cntrId)
+	cntr := t.sms.css.ContainerLookupById(cntrID)
 	if cntr == nil {
 		logrus.Errorf("Received seccompNotifMsg generated by unknown container: %v",
-			cntrId)
+			cntrID)
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
@@ -376,7 +477,7 @@ func (t *syscallTracer) processUmount(
 func (t *syscallTracer) processReboot(
 	req *sysRequest,
 	fd int32,
-	cntrId domain.ContainerIface) (*sysResponse, error) {
+	cntrID domain.ContainerIface) (*sysResponse, error) {
 
 	logrus.Errorf("Received reboot syscall")
 

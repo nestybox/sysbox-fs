@@ -7,6 +7,7 @@ require (
 	github.com/nestybox/sysbox-ipc v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox/lib/pathres v0.0.0-00010101000000-000000000000
+	github.com/nestybox/sysbox/lib/pidmonitor v0.0.0-00010101000000-000000000000
 	github.com/seccomp/libseccomp-golang v0.0.0-00010101000000-000000000000
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/afero v1.2.2
@@ -28,3 +29,5 @@ replace bazil.org/fuse => ./bazil
 replace github.com/seccomp/libseccomp-golang => ../lib/seccomp-golang
 
 replace github.com/nestybox/sysbox/lib/pathres => ../lib/pathres
+
+replace github.com/nestybox/sysbox/lib/pidmonitor => ../lib/pidmonitor
