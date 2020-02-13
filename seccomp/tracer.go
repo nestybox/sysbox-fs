@@ -64,34 +64,29 @@ func NewSyscallMonitorService(
 	return svc
 }
 
-//
-type cmd int
-
-const (
-	stop cmd = iota
-)
-
-type pidFd struct {
-	pid uint32
-	fd  int32
+// SeccompSession holds state associated to every seccomp tracee session.
+type seccompSession struct {
+	pid uint32 // pid of the tracee process
+	fd  int32  // tracee's seccomp-fd to allow kernel interaction
 }
 
 // Seccomp's syscall-monitor/tracer.
 type syscallTracer struct {
-	sms         *SyscallMonitorService // backpointer to syscall-monitor service
-	srv         *unixIpc.Server        // unix server listening to seccomp-notifs
-	pollsrv     *unixIpc.PollServer
-	syscalls    map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
-	mountHelper *mountHelper                      // generic methods/state utilized for (u)mount ops.
-	pidFdCh     chan pidFd
+	sms              *SyscallMonitorService            // backpointer to syscall-monitor service
+	srv              *unixIpc.Server                   // unix server listening to seccomp-notifs
+	pollsrv          *unixIpc.PollServer               // unix pollserver for non-blocking i/o on seccomp-fd
+	syscalls         map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
+	mountHelper      *mountHelper                      // generic methods/state utilized for (u)mount ops.
+	seccompSessionCh chan seccompSession               // channel over which to communicate new tracee sessions
 }
 
+// syscallTracer constructor.
 func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 
 	tracer := &syscallTracer{
-		sms:      sms,
-		syscalls: make(map[libseccomp.ScmpSyscall]string),
-		pidFdCh:  make(chan pidFd),
+		sms:              sms,
+		syscalls:         make(map[libseccomp.ScmpSyscall]string),
+		seccompSessionCh: make(chan seccompSession),
 	}
 
 	// Populate hashmap of supported syscalls to monitor.
@@ -140,7 +135,8 @@ func (t *syscallTracer) start() error {
 	}
 	t.srv = srv
 
-	// Launch a new pollServer
+	// Launch a pollServer where to register the fds associated to all the
+	// seccomp-tracees.
 	pollsrv, err := unixIpc.NewPollServer()
 	if err != nil {
 		logrus.Errorf("Unable to initialize seccomp-tracer pollserver")
@@ -148,19 +144,19 @@ func (t *syscallTracer) start() error {
 	}
 	t.pollsrv = pollsrv
 
-	go t.pidMonitor()
+	go t.sessionsMonitor()
 
 	return nil
 }
 
-// Launch fd garbage-collection goroutine
-// 0) Initialize pidMon logic (with no pid initially)
-// 1) Collect / Store seccomp-fds and tracee-pids being in use
-// 2) Add tracee-pid to pidMon event-loop
-// 3) Upon response from pidMon, proceed to close associated fd
-func (t *syscallTracer) pidMonitor() error {
+// Method keeps track of all the 'tracee' processes served by a syscall tracer.
+// From a functional standpoint, this routine acts a garbage-collector for this
+// class. Note that no concurrency management is needed here as this method
+// runs within its own execution context.
+func (t *syscallTracer) sessionsMonitor() error {
 
-	var pidFdMap = make(map[uint32]pidFd)
+	// seccompSession DB to store 'tracees' relevant information.
+	var seccompSessionMap = make(map[uint32]seccompSession)
 
 	pm, err := pidmonitor.New(&pidmonitor.Cfg{100})
 	if err != nil {
@@ -170,13 +166,13 @@ func (t *syscallTracer) pidMonitor() error {
 	defer pm.Close()
 
 	for {
-
 		select {
-		case elem := <-t.pidFdCh:
+		// syscall tracee additions
+		case elem := <-t.seccompSessionCh:
 
-			logrus.Errorf("Received pidFd type: %v", elem)
+			logrus.Debugf("Received 'create' notification for seccomp-tracee: %v", elem)
 
-			pidFdMap[elem.pid] = elem
+			seccompSessionMap[elem.pid] = elem
 			pm.AddEvent([]pidmonitor.PidEvent{
 				pidmonitor.PidEvent{
 					Pid:   elem.pid,
@@ -185,12 +181,13 @@ func (t *syscallTracer) pidMonitor() error {
 				},
 			})
 
+		// syscall tracee deletions
 		case pidList := <-pm.EventCh:
 
-			logrus.Errorf("Received waitEvent response: %v", pidList)
+			logrus.Debugf("Received 'delete' notification for seccomp-tracee: %v", pidList)
 
 			for _, pidEvent := range pidList {
-				elem, ok := pidFdMap[pidEvent.Pid]
+				elem, ok := seccompSessionMap[pidEvent.Pid]
 				if !ok {
 					logrus.Errorf("Unexpected error: file-descriptor not found for pid %d",
 						pidEvent.Pid)
@@ -200,7 +197,7 @@ func (t *syscallTracer) pidMonitor() error {
 				if err := syscall.Close(int(elem.fd)); err != nil {
 					logrus.Fatal(err)
 				}
-				delete(pidFdMap, pidEvent.Pid)
+				delete(seccompSessionMap, pidEvent.Pid)
 
 				t.pollsrv.StopWait(elem.fd)
 			}
@@ -214,25 +211,17 @@ func (t *syscallTracer) pidMonitor() error {
 // per connection).
 func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 
-	remoteAddr := c.RemoteAddr().Network()
-
-	logrus.Infof("seccompTracer client connection %v", remoteAddr)
-
 	// Obtain seccomp-notification's file-descriptor and associated context (cntr).
 	pid, cntrID, fd, err := unixIpc.RecvSeccompInitMsg(c)
 	if err != nil {
 		return err
 	}
 
-	// Obtain container associated to the received containerId value.
-	cntr := t.sms.css.ContainerLookupById(cntrID)
-	if cntr == nil {
-		logrus.Errorf("Received seccompNotifMsg from unknown container: %s", cntrID)
-		return fmt.Errorf("Received seccompNotifMsg from unknown container: %s", cntrID)
-	}
+	logrus.Infof("seccompTracer connection from pid %d cntrId %s",
+		pid, cntrID)
 
-	// Send pidFd to parent monitor-service for tracking purposes.
-	t.pidFdCh <- pidFd{uint32(pid), fd}
+	// Send seccompSession details to parent monitor-service for tracking purposes.
+	t.seccompSessionCh <- seccompSession{uint32(pid), fd}
 
 	// Send Ack message back to sysbox-runc.
 	if err = unixIpc.SendSeccompInitAckMsg(c); err != nil {
@@ -242,6 +231,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 	for {
 		// Wait for incoming seccomp-notification msg to be available.
 		if err := t.pollsrv.StartWaitRead(fd); err != nil {
+			logrus.Errorf("Is there any problem here for pid %v fd %v", pid, fd)
 			return err
 		}
 
