@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/sirupsen/logrus"
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"golang.org/x/sys/unix"
 )
@@ -227,13 +227,6 @@ func (i *IOnodeFile) PidNsInode() (domain.Inode, error) {
 		strconv.FormatUint(uint64(pid), 10),
 		"ns/pid"}, "/")
 
-	// Extract pid-ns info from FS.
-	info, err := AppFs.Stat(pidnsPath)
-	if err != nil {
-		logrus.Error("No process file found for pid:", pid)
-		return 0, err
-	}
-
 	// In unit-testing scenarios we will extract the pidInode value from the
 	// file content itself. This is a direct consequence of afero-fs lacking
 	// Sys() api support.
@@ -248,7 +241,14 @@ func (i *IOnodeFile) PidNsInode() (domain.Inode, error) {
 		return pidInode, nil
 	}
 
-	// In the regular case obtain the real inode value exposed by Sys() api.
+	// In the regular case (not unit-testing) obtain the real file-system inode
+	// associated to this pid-ns file-entry.
+	info, err := os.Stat(pidnsPath)
+	if err != nil {
+		logrus.Error("No process file found for pid:", pid)
+		return 0, err
+	}
+
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
 		logrus.Error("Not a syscall.Stat_t")

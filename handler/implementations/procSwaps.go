@@ -32,7 +32,6 @@ type ProcSwapsHandler struct {
 // /proc/swaps static header
 var swapsHeader = "Filename                                Type            Size    Used    Priority"
 
-
 func (h *ProcSwapsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -97,6 +96,11 @@ func (h *ProcSwapsHandler) Open(n domain.IOnode, pid uint32) error {
 func (h *ProcSwapsHandler) Close(n domain.IOnode) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
+
+	if err := n.Close(); err != nil {
+		logrus.Debug("Error closing file ", h.Path)
+		return fuse.IOerror{Code: syscall.EIO}
+	}
 
 	return nil
 }

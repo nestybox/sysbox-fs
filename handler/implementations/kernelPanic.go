@@ -88,6 +88,11 @@ func (h *KernelPanicHandler) Close(n domain.IOnode) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
+	if err := n.Close(); err != nil {
+		logrus.Debug("Error closing file ", h.Path)
+		return fuse.IOerror{Code: syscall.EIO}
+	}
+
 	return nil
 }
 

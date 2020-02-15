@@ -73,7 +73,7 @@ func (h *ProcMeminfoHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat
 	return commonHandler.Getattr(n, pid)
 }
 
-func (h *ProcMeminfoHandler)Open(n domain.IOnode, pid uint32) error {
+func (h *ProcMeminfoHandler) Open(n domain.IOnode, pid uint32) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
 
@@ -93,6 +93,11 @@ func (h *ProcMeminfoHandler)Open(n domain.IOnode, pid uint32) error {
 func (h *ProcMeminfoHandler) Close(n domain.IOnode) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
+
+	if err := n.Close(); err != nil {
+		logrus.Debug("Error closing file ", h.Path)
+		return fuse.IOerror{Code: syscall.EIO}
+	}
 
 	return nil
 }
