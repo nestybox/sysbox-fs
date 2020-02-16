@@ -20,6 +20,10 @@ type mountSyscallInfo struct {
 // MountSyscall processing wrapper instruction.
 func (m *mountSyscallInfo) process() (*sysResponse, error) {
 
+	if m.FsType == "nfs" {
+		return m.processNfsMount()
+	}
+
 	if m.Flags&^sysboxProcSkipMountFlags == m.Flags {
 		if m.FsType == "proc" {
 			return m.processProcMount()
@@ -298,6 +302,47 @@ func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
 		m.syscallCtx.pid,
 		[]domain.NStype{
 			string(domain.NStypeUser),
+			string(domain.NStypePid),
+			string(domain.NStypeNet),
+			string(domain.NStypeMount),
+			string(domain.NStypeIpc),
+			string(domain.NStypeCgroup),
+			string(domain.NStypeUts),
+		},
+		&domain.NSenterMessage{
+			Type:    domain.MountSyscallRequest,
+			Payload: []*domain.MountSyscallPayload{m.MountSyscallPayload},
+		},
+		nil,
+	)
+
+	// Launch nsenter-event.
+	err := nss.SendRequestEvent(event)
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		resp := m.tracer.createErrorResponse(
+			m.reqId,
+			responseMsg.Payload.(fuse.IOerror).Code)
+
+		return resp, nil
+	}
+
+	return m.tracer.createSuccessResponse(m.reqId), nil
+}
+
+func (m *mountSyscallInfo) processNfsMount() (*sysResponse, error) {
+
+	// Create nsenter-event envelope; in order to perform an nfs mount, we must not enter
+	// the container's user namespace.
+	nss := m.tracer.sms.nss
+	event := nss.NewEvent(
+		m.syscallCtx.pid,
+		[]domain.NStype{
 			string(domain.NStypePid),
 			string(domain.NStypeNet),
 			string(domain.NStypeMount),
