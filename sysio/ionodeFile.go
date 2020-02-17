@@ -290,6 +290,7 @@ func (i *IOnodeFile) PidNsInodeParent() (domain.Inode, error) {
 		return 0, errno
 	}
 	parentNsFd := (int)((uintptr)(unsafe.Pointer(ret)))
+	defer syscall.Close(parentNsFd)
 
 	// Run stat() over the returned file descriptor to obtain the inode that
 	// uniquely identifies the parent namespace.
