@@ -456,7 +456,7 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 	// argument (third one) as this one is not relevant in a procfs; that
 	// is, user cannot create files -- openflags 'O_CREAT' and 'O_TMPFILE'
 	// are not expected (refer to "man open(2)" for details).
-	_, err = os.OpenFile(payload.File, openFlags, 0)
+	fd, err := os.OpenFile(payload.File, openFlags, 0)
 	if err != nil {
 		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
@@ -466,6 +466,7 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 
 		return nil
 	}
+	fd.Close()
 
 	// Create a response message.
 	e.ResMsg = &domain.NSenterMessage{
