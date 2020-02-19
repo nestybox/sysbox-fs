@@ -246,7 +246,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 
 			logrus.Errorf("Unexpected error received during NotifReceive() execution (%v).",
 				err)
-			return err
+			continue
 		}
 
 		// Process the incoming syscall.
