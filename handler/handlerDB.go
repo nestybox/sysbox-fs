@@ -316,7 +316,7 @@ func NewHandlerService(
 		}
 	}
 
-	// Create a directory-handler map to keep track of the associattion between
+	// Create a directory-handler map to keep track of the association between
 	// emulated resource paths, and the parent directory hosting them.
 	newhs.createDirHandlerMap()
 
