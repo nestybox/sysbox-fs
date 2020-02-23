@@ -185,6 +185,37 @@ var DefaultHandlers = []domain.HandlerIface{
 		Cacheable: true,
 	},
 	//
+	// /proc/sys/net/ipv4/vs handlers
+	//
+	&implementations.VsConntrackHandler{
+		Name:      "vsConntrack",
+		Path:      "/proc/sys/net/ipv4/vs/conntrack",
+		Type:      domain.NODE_ADITION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.VsConnReuseModeHandler{
+		Name:      "vsConnReuseMode",
+		Path:      "/proc/sys/net/ipv4/vs/conn_reuse_mode",
+		Type:      domain.NODE_ADITION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.VsExpireNoDestConnHandler{
+		Name:      "vsExpireNoDestConn",
+		Path:      "/proc/sys/net/ipv4/vs/expire_nodest_conn",
+		Type:      domain.NODE_ADITION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.VsExpireQuiescentTemplateHandler{
+		Name:      "vsExpireQuiescentTemplate",
+		Path:      "/proc/sys/net/ipv4/vs/expire_quiescent_template",
+		Type:      domain.NODE_ADITION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	//
 	// /proc/sys/vm handlers
 	//
 	&implementations.VmOvercommitMemHandler{
