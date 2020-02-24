@@ -231,7 +231,6 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 	for {
 		// Wait for incoming seccomp-notification msg to be available.
 		if err := t.pollsrv.StartWaitRead(fd); err != nil {
-			logrus.Errorf("Is there any problem here for pid %v fd %v", pid, fd)
 			return err
 		}
 
