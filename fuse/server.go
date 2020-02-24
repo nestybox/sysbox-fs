@@ -7,25 +7,29 @@ package fuse
 import (
 	"errors"
 	"os"
+	"sync"
 	"syscall"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	_ "bazil.org/fuse/fs/fstestutil"
-	"github.com/spf13/afero"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/sysio"
 )
 
+// FuseService class in charge of running/hosting sysbox-fs' FUSE features.
 type FuseService struct {
-	path       string
-	mountPoint string
-	server     *fs.Server
-	root       *Dir
-	ios        domain.IOService
-	hds        domain.HandlerService
+	sync.RWMutex                       // nodeDB protection
+	path         string                // fs path to emulate -- "/" by default
+	mountPoint   string                // mountpoint -- "/var/lib/sysboxfs" by default
+	server       *fs.Server            // bazil-fuse server instance
+	nodeDB       map[string]*fs.Node   // map to store all fs nodes, e.g. "/proc/uptime" -> File
+	root         *Dir                  // root node of fuse fs -- "/" by default
+	ios          domain.IOService      // i/o service pointer
+	hds          domain.HandlerService // handler service pointer
 }
 
 //
@@ -79,6 +83,7 @@ func NewFuseService(
 		path:       path,
 		mountPoint: mountPoint,
 		server:     nil,
+		nodeDB:     make(map[string]*fs.Node),
 		ios:        ios,
 		hds:        hds,
 		root:       nil,
@@ -110,7 +115,7 @@ func (s *FuseService) Run() error {
 	defer func() {
 		s.Unmount()
 		c.Close()
-	} ()
+	}()
 
 	if p := c.Protocol(); !p.HasInvalidate() {
 		logrus.Panic("Kernel FUSE support is too old to have invalidations: version ", p)

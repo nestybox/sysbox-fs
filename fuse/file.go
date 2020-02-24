@@ -259,6 +259,20 @@ func (f *File) Setattr(
 }
 
 //
+// Forget FS operation.
+//
+func (f *File) Forget() {
+
+	logrus.Debug("Requested Forget() operation for entry ", f.path)
+
+	if _, ok := f.service.nodeDB[f.path]; !ok {
+		return
+	}
+
+	delete(f.service.nodeDB, f.path)
+}
+
+//
 // Size method returns the 'size' of a File element.
 //
 func (f *File) Size() uint64 {
@@ -286,7 +300,7 @@ func (f *File) ModTime() time.Time {
 // Kernel FS node attribs:  fuse.attr (fuse_kernel*.go)
 // FUSE node attribs:       fuse.Attr (fuse.go)
 //
-// TODO: Place me in a more appropiate location
+// TODO: Place me in a more appropriate location
 //
 func statToAttr(s *syscall.Stat_t) fuse.Attr {
 

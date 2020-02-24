@@ -8,9 +8,9 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -66,6 +66,15 @@ func (d *Dir) Lookup(
 
 	path := filepath.Join(d.path, req.Name)
 
+	// If a mataching fs node is found, return this one right away.
+	d.File.service.RLock()
+	node, ok := d.File.service.nodeDB[path]
+	if ok == true {
+		d.File.service.RUnlock()
+		return *node, nil
+	}
+	d.File.service.RUnlock()
+
 	// Upon arrival of lookup() request we must construct a temporary ionode
 	// that reflects the path of the element that needs to be looked up.
 	newIOnode := d.service.ios.NewIOnode(req.Name, path, 0)
@@ -90,12 +99,21 @@ func (d *Dir) Lookup(
 	// Adjust response to carry the proper dentry-cache-timeout value.
 	resp.EntryValid = time.Duration(DentryCacheTimeout) * time.Minute
 
+	var newNode fs.Node
+
 	if info.IsDir() {
 		attr.Mode = os.ModeDir | attr.Mode
-		return NewDir(req.Name, path, &attr, d.File.service), nil
+		newNode = NewDir(req.Name, path, &attr, d.File.service)
+	} else {
+		newNode = NewFile(req.Name, path, &attr, d.File.service)
 	}
 
-	return NewFile(req.Name, path, &attr, d.File.service), nil
+	// Insert new fs node into nodeDB.
+	d.File.service.Lock()
+	d.File.service.nodeDB[path] = &newNode
+	d.File.service.Unlock()
+
+	return newNode, nil
 }
 
 //
@@ -163,7 +181,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 }
 
 //
-// Mkdir FS operation
+// Mkdir FS operation.
 //
 func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
 
@@ -173,4 +191,12 @@ func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error
 	newDir := NewDir(req.Name, path, &fuse.Attr{}, d.File.service)
 
 	return newDir, nil
+}
+
+//
+// Forget FS operation.
+//
+func (d *Dir) Forget() {
+
+	d.File.Forget()
 }
