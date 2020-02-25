@@ -265,6 +265,9 @@ func (f *File) Forget() {
 
 	logrus.Debug("Requested Forget() operation for entry ", f.path)
 
+	f.service.Lock()
+	defer f.service.Unlock()
+
 	if _, ok := f.service.nodeDB[f.path]; !ok {
 		return
 	}
