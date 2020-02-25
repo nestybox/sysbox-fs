@@ -217,8 +217,8 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 		return err
 	}
 
-	logrus.Infof("seccompTracer connection from pid %d cntrId %s",
-		pid, cntrID)
+	logrus.Infof("seccompTracer connection on fd %d from pid %d cntrId %s",
+		fd, pid, cntrID)
 
 	// Send seccompSession details to parent monitor-service for tracking purposes.
 	t.seccompSessionCh <- seccompSession{uint32(pid), fd}
@@ -238,20 +238,21 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 		req, err := libseccomp.NotifReceive(libseccomp.ScmpFd(fd))
 		if err != nil {
 			if err == syscall.EINTR {
-				logrus.Errorf("Incomplete NotifReceive() execution (%v). Relaunching ...",
-					err)
+				logrus.Errorf("Incomplete NotifReceive() execution (%v) on fd %d pid %d",
+					err, fd, pid)
 				continue
 			}
 
-			logrus.Errorf("Unexpected error received during NotifReceive() execution (%v).",
-				err)
+			logrus.Errorf("Unexpected error during NotifReceive() execution (%v) on fd %d pid %d",
+				err, fd, pid)
 			continue
 		}
 
 		// Process the incoming syscall.
 		resp, err := t.process(req, fd, cntrID)
 		if err != nil {
-			logrus.Errorf("Unable to process seccomp-notification request (%v).", err)
+			logrus.Errorf("Unable to process seccomp-notification request (%v) on fd %d pid %d",
+				err, fd, pid)
 			return err
 		}
 
@@ -259,12 +260,13 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 		err = libseccomp.NotifRespond(libseccomp.ScmpFd(fd), resp)
 		if err != nil {
 			if err == syscall.EINTR {
-				logrus.Errorf("Incomplete NotifRespond() execution (%v). Relaunching ...")
+				logrus.Errorf("Incomplete NotifRespond() execution (%v) on fd %d pid %d",
+					err, fd, pid)
 				continue
 			}
 
-			logrus.Errorf("Unexpected error received during NotifRespond() execution (%v).",
-				err)
+			logrus.Errorf("Unexpected error during NotifRespond() execution (%v) on fd %d pid %d",
+				err, fd, pid)
 			return err
 		}
 	}
@@ -311,18 +313,18 @@ func (t *syscallTracer) process(
 		resp, err = t.processSwapoff(req, fd, cntr)
 
 	default:
-		logrus.Errorf("Unsupported syscall notification received (%v).", syscallId)
+		logrus.Errorf("Unsupported syscall notification received (%v)", syscallId)
 		return nil, fmt.Errorf("Unsupported syscall notification")
 	}
 
 	if err != nil {
-		logrus.Errorf("Error during syscall \"%v\" processing (%v).", syscall, err)
+		logrus.Errorf("Error during syscall \"%v\" processing (%v)", syscall, err)
 		return nil, err
 	}
 
 	// TOCTOU check.
 	if err := libseccomp.NotifIdValid(libseccomp.ScmpFd(fd), req.Id); err != nil {
-		logrus.Errorf("TOCTOU check failed: req.Id is no longer valid (%s).", err)
+		logrus.Errorf("TOCTOU check failed: req.Id is no longer valid (%s)", err)
 		return t.createErrorResponse(req.Id, err), nil
 	}
 
