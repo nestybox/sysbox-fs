@@ -6,7 +6,6 @@ package ipc
 
 import (
 	"errors"
-	"strconv"
 
 	"github.com/sirupsen/logrus"
 
@@ -17,16 +16,19 @@ import (
 type ipcService struct {
 	grpcServer *grpc.Server
 	css        domain.ContainerStateService
+	prs        domain.ProcessService
 	ios        domain.IOService
 }
 
 func NewIpcService(
 	css domain.ContainerStateService,
+	prs domain.ProcessService,
 	ios domain.IOService) domain.IpcService {
 
 	// Instantiate a grpcServer for inter-process communication.
 	newService := new(ipcService)
 	newService.css = css
+	newService.prs = prs
 	newService.ios = ios
 	newService.grpcServer = grpc.NewServer(
 		newService,
@@ -58,8 +60,8 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 	ipcService := ctx.(*ipcService)
 
 	// Identify the pidNsInode corresponding to this pid.
-	tmpNode := ipcService.ios.NewIOnode("", strconv.Itoa(int(data.InitPid)), 0)
-	pidInode, err := ipcService.ios.PidNsInode(tmpNode)
+	process := ipcService.prs.ProcessCreate(uint32(data.InitPid))
+	pidInode, err := process.PidNsInode()
 	if err != nil {
 		return err
 	}

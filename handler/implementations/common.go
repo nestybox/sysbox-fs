@@ -33,11 +33,14 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(pid)
+
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
 	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pid)
+	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return nil, errors.New("Container not found")
@@ -80,11 +83,14 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(pid)
+
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
 	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pid)
+	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return nil, errors.New("Container not found")
@@ -101,15 +107,23 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 
 	logrus.Debugf("Executing Open() method on %v handler", h.Name)
 
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(pid)
+
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
 	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pid)
+	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return errors.New("Container not found")
 	}
+
+	//
+	// if err := process.PathAccess(n.Path(), n.OpenFlags()); err != nil {
+	// 	return err
+	// }
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
@@ -166,11 +180,14 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 	name := n.Name()
 	path := n.Path()
 
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(pid)
+
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
 	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pid)
+	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return 0, errors.New("Container not found")
@@ -214,13 +231,16 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 	name := n.Name()
 	path := n.Path()
 
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(pid)
+
 	newContent := strings.TrimSpace(string(buf))
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
 	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pid)
+	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return 0, errors.New("Container not found")
@@ -263,11 +283,14 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 
 	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
 
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(pid)
+
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
 	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pid)
+	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return nil, errors.New("Container not found")
@@ -415,7 +438,7 @@ func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (str
 	return info, nil
 }
 
-// Auxiliar method to inject content into any given file within a container.
+// Auxiliary method to inject content into any given file within a container.
 func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s string) error {
 
 	// Create nsenterEvent to initiate interaction with container namespaces.

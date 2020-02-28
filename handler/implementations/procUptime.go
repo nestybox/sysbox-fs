@@ -114,11 +114,14 @@ func (h *ProcUptimeHandler) Read(n domain.IOnode, pid uint32,
 		return 0, io.EOF
 	}
 
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(pid)
+
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
 	// registered in sysbox-fs.
 	css := h.Service.StateService()
-	cntr := css.ContainerLookupByPid(pid)
+	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
 		return 0, errors.New("Container not found")

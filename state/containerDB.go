@@ -6,7 +6,6 @@ package state
 
 import (
 	"errors"
-	"strconv"
 	"sync"
 	"time"
 
@@ -26,15 +25,21 @@ type containerStateService struct {
 	// (inode) and the internal structure to hold all the container state.
 	pidTable map[domain.Inode]*container
 
+	// Pointer to the service providing process-handling capabilities.
+	prs domain.ProcessService
+
 	// Pointer to the service providing file-system I/O capabilities.
 	ios domain.IOService
 }
 
-func NewContainerStateService(ios domain.IOService) domain.ContainerStateService {
+func NewContainerStateService(
+	prs domain.ProcessService,
+	ios domain.IOService) domain.ContainerStateService {
 
 	newCSS := &containerStateService{
 		idTable:  make(map[string]domain.Inode),
 		pidTable: make(map[domain.Inode]*container),
+		prs:      prs,
 		ios:      ios,
 	}
 
@@ -211,17 +216,16 @@ func (css *containerStateService) ContainerLookupByInode(pidInode domain.Inode) 
 	return cntr
 }
 
-func (css *containerStateService) ContainerLookupByPid(pid uint32) domain.ContainerIface {
+func (css *containerStateService) ContainerLookupByProcess(p domain.ProcessIface) domain.ContainerIface {
 
-	// Identify the pidNsInode corresponding to this pid.
-	ionode := css.ios.NewIOnode("", strconv.Itoa(int(pid)), 0)
-	pidInode, err := css.ios.PidNsInode(ionode)
+	// Identify the pidNsInode corresponding to this process.
+	pidInode, err := p.PidNsInode()
 	if err != nil {
 		return nil
 	}
 
 	// Find the container-state corresponding to the container hosting this
-	// Pid.
+	// pid-ns-inode.
 	cntr := css.ContainerLookupByInode(pidInode)
 	if cntr == nil {
 		// If no container is found then determine if we are dealing with a nested
@@ -231,9 +235,9 @@ func (css *containerStateService) ContainerLookupByPid(pid uint32) domain.Contai
 		// namespace (and its associated inode), and we search through containerDB
 		// once again. If there's a match then we serve this request making use of
 		// the parent (L1) system container state.
-		parentPidInode, err := css.ios.PidNsInodeParent(ionode)
+		parentPidInode, err := p.PidNsInodeParent()
 		if err != nil {
-			logrus.Errorf("Could not identify a parent namespace for pid %v", pid)
+			logrus.Errorf("Could not identify a parent namespace for pid %v", p.Pid())
 			return nil
 		}
 

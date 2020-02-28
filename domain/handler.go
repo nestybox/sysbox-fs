@@ -76,6 +76,7 @@ type HandlerService interface {
 	// getters/setter
 	HandlerDB() map[string]HandlerIface
 	StateService() ContainerStateService
+	ProcessService() ProcessService
 	NSenterService() NSenterService
 	IOService() IOService
 	IgnoreErrors() bool

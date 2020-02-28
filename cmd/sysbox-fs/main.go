@@ -18,6 +18,7 @@ import (
 	"github.com/nestybox/sysbox-fs/handler"
 	"github.com/nestybox/sysbox-fs/ipc"
 	"github.com/nestybox/sysbox-fs/nsenter"
+	"github.com/nestybox/sysbox-fs/process"
 	"github.com/nestybox/sysbox-fs/seccomp"
 	"github.com/nestybox/sysbox-fs/state"
 	"github.com/nestybox/sysbox-fs/sysio"
@@ -208,16 +209,22 @@ func main() {
 
 		// Initialize sysbox-fs' services.
 
+		var processService = process.NewProcessService()
+
 		var nsenterService = nsenter.NewNSenterService()
 
 		var ioService = sysio.NewIOService(sysio.IOFileService)
 
-		var containerStateService = state.NewContainerStateService(ioService)
+		var containerStateService = state.NewContainerStateService(
+			processService,
+			ioService,
+		)
 
 		var handlerService = handler.NewHandlerService(
 			handler.DefaultHandlers,
 			containerStateService,
 			nsenterService,
+			processService,
 			ioService,
 			ctx.Bool("ignore-handler-errors"),
 		)
@@ -231,7 +238,10 @@ func main() {
 			logrus.Fatal("syscallMonitorService initialization error. Exiting ...")
 		}
 
-		var ipcService = ipc.NewIpcService(containerStateService, ioService)
+		var ipcService = ipc.NewIpcService(
+			containerStateService,
+			processService,
+			ioService)
 		if ipcService == nil {
 			logrus.Fatal("IpcService initialization error. Exiting ...")
 		}

@@ -10,15 +10,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strconv"
-	"strings"
-	"syscall"
-	"unsafe"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
-	"golang.org/x/sys/unix"
 )
 
 //
@@ -81,14 +75,6 @@ func (s *ioFileService) StatNode(i domain.IOnode) (os.FileInfo, error) {
 
 func (s *ioFileService) SeekResetNode(i domain.IOnode) (int64, error) {
 	return i.SeekReset()
-}
-
-func (s *ioFileService) PidNsInode(i domain.IOnode) (domain.Inode, error) {
-	return i.PidNsInode()
-}
-
-func (s *ioFileService) PidNsInodeParent(i domain.IOnode) (domain.Inode, error) {
-	return i.PidNsInodeParent()
 }
 
 func (s *ioFileService) PathNode(i domain.IOnode) string {
@@ -213,94 +199,6 @@ func (i *IOnodeFile) SeekReset() (int64, error) {
 	}
 
 	return i.file.Seek(io.SeekStart, 0)
-}
-
-func (i *IOnodeFile) PidNsInode() (domain.Inode, error) {
-
-	pid, err := strconv.Atoi(i.path)
-	if err != nil {
-		return 0, err
-	}
-
-	pidnsPath := strings.Join([]string{
-		"/proc",
-		strconv.FormatUint(uint64(pid), 10),
-		"ns/pid"}, "/")
-
-	// In unit-testing scenarios we will extract the pidInode value from the
-	// file content itself. This is a direct consequence of afero-fs lacking
-	// Sys() api support.
-	_, ok := AppFs.(*afero.MemMapFs)
-	if ok {
-		content, err := afero.ReadFile(AppFs, pidnsPath)
-		if err != nil {
-			return 0, err
-		}
-		pidInode, err := strconv.ParseUint(string(content), 10, 64)
-
-		return pidInode, nil
-	}
-
-	// In the regular case (not unit-testing) obtain the real file-system inode
-	// associated to this pid-ns file-entry.
-	info, err := os.Stat(pidnsPath)
-	if err != nil {
-		logrus.Error("No process file found for pid:", pid)
-		return 0, err
-	}
-
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok {
-		logrus.Error("Not a syscall.Stat_t")
-		return 0, nil
-	}
-
-	return stat.Ino, nil
-}
-
-func (i *IOnodeFile) PidNsInodeParent() (domain.Inode, error) {
-
-	// ioctl to retrieve the parent namespace.
-	const NS_GET_PARENT = 0xb702
-
-	pid, err := strconv.Atoi(i.path)
-	if err != nil {
-		return 0, err
-	}
-
-	pidnsPath := strings.Join(
-		[]string{"/proc", strconv.FormatUint(uint64(pid), 10), "ns/pid"},
-		"/",
-	)
-
-	// Open /proc/<pid>/ns/pid to obtain a file-desc to refer to.
-	childNsFd, err := os.Open(pidnsPath)
-	if err != nil {
-		return 0, err
-	}
-	defer childNsFd.Close()
-
-	// Launch ioctl to collect parent namespace fd.
-	ret, _, errno := unix.Syscall(
-		unix.SYS_IOCTL,
-		childNsFd.Fd(),
-		uintptr(NS_GET_PARENT),
-		0)
-	if errno != 0 {
-		return 0, errno
-	}
-	parentNsFd := (int)((uintptr)(unsafe.Pointer(ret)))
-	defer syscall.Close(parentNsFd)
-
-	// Run stat() over the returned file descriptor to obtain the inode that
-	// uniquely identifies the parent namespace.
-	var stat syscall.Stat_t
-	err = syscall.Fstat(parentNsFd, &stat)
-	if err != nil {
-		return 0, err
-	}
-
-	return stat.Ino, nil
 }
 
 func (i *IOnodeFile) Name() string {

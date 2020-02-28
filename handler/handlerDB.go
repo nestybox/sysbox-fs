@@ -8,7 +8,6 @@ import (
 	"errors"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -281,6 +280,9 @@ type handlerService struct {
 	// Pointer to the service providing nsenter (rexec) capabilities.
 	nss domain.NSenterService
 
+	// Pointer to the service providing process-handling functionality.
+	prs domain.ProcessService
+
 	// Pointer to the service providing file-system I/O capabilities.
 	ios domain.IOService
 
@@ -297,6 +299,7 @@ func NewHandlerService(
 	hs []domain.HandlerIface,
 	css domain.ContainerStateService,
 	nss domain.NSenterService,
+	prs domain.ProcessService,
 	ios domain.IOService,
 	ignoreErrors bool) domain.HandlerService {
 
@@ -305,6 +308,7 @@ func NewHandlerService(
 		dirHandlerMap: make(map[string][]string),
 		css:           css,
 		nss:           nss,
+		prs:           prs,
 		ios:           ios,
 		ignoreErrors:  ignoreErrors,
 	}
@@ -497,6 +501,10 @@ func (hs *handlerService) NSenterService() domain.NSenterService {
 	return hs.nss
 }
 
+func (hs *handlerService) ProcessService() domain.ProcessService {
+	return hs.prs
+}
+
 func (hs *handlerService) IOService() domain.IOService {
 	return hs.ios
 }
@@ -514,8 +522,8 @@ func (hs *handlerService) HostPidNsInode() domain.Inode {
 
 func (hs *handlerService) FindPidNsInode(pid uint32) domain.Inode {
 
-	tmpNode := hs.ios.NewIOnode("", strconv.FormatUint(uint64(pid), 10), 0)
-	pidInode, err := hs.ios.PidNsInode(tmpNode)
+	process := hs.prs.ProcessCreate(pid)
+	pidInode, err := process.PidNsInode()
 	if err != nil {
 		return 0
 	}
