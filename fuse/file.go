@@ -83,8 +83,14 @@ func (f *File) Getattr(
 		return fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
+	request := &domain.HandlerRequest{
+		Pid: req.Pid,
+		Uid: req.Uid,
+		Gid: req.Gid,
+	}
+
 	// Handler execution.
-	stat, err := handler.Getattr(f.ionode, req.Pid)
+	stat, err := handler.Getattr(f.ionode, request)
 	if err != nil {
 		logrus.Debug("Getattr() error: ", err)
 		return err
@@ -121,8 +127,14 @@ func (f *File) Open(
 		return nil, fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
+	request := &domain.HandlerRequest{
+		Pid: req.Pid,
+		Uid: req.Uid,
+		Gid: req.Gid,
+	}
+
 	// Handler execution.
-	err := handler.Open(f.ionode, req.Pid)
+	err := handler.Open(f.ionode, request)
 	if err != nil && err != io.EOF {
 		logrus.Debug("Open() error: ", err)
 		return nil, err
@@ -192,8 +204,16 @@ func (f *File) Read(
 		return fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
+	request := &domain.HandlerRequest{
+		Pid:    req.Pid,
+		Uid:    req.Uid,
+		Gid:    req.Gid,
+		Offset: req.Offset,
+		Data:   resp.Data,
+	}
+
 	// Handler execution.
-	n, err := handler.Read(f.ionode, req.Pid, resp.Data, req.Offset)
+	n, err := handler.Read(f.ionode, request)
 	if err != nil && err != io.EOF {
 		logrus.Debug("Read() error: ", err)
 		return err
@@ -226,8 +246,15 @@ func (f *File) Write(
 		return fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
+	request := &domain.HandlerRequest{
+		Pid:  req.Pid,
+		Uid:  req.Uid,
+		Gid:  req.Gid,
+		Data: req.Data,
+	}
+
 	// Handler execution.
-	n, err := handler.Write(f.ionode, req.Pid, req.Data)
+	n, err := handler.Write(f.ionode, request)
 	if err != nil && err != io.EOF {
 		logrus.Debug("Write() error: ", err)
 		return err

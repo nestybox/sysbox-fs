@@ -7,15 +7,17 @@ package fuse
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/nestybox/sysbox-fs/domain"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	"github.com/sirupsen/logrus"
 )
 
 // Default dentry-cache-timeout interval (in minutes). This is the maximum
@@ -66,7 +68,7 @@ func (d *Dir) Lookup(
 
 	path := filepath.Join(d.path, req.Name)
 
-	// If a mataching fs node is found, return this one right away.
+	// If a matching fs node is found, return this one right away.
 	d.File.service.RLock()
 	node, ok := d.File.service.nodeDB[path]
 	if ok == true {
@@ -86,8 +88,14 @@ func (d *Dir) Lookup(
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
 	}
 
+	request := &domain.HandlerRequest{
+		Pid: req.Pid,
+		Uid: req.Uid,
+		Gid: req.Gid,
+	}
+
 	// Handler execution.
-	info, err := handler.Lookup(newIOnode, req.Pid)
+	info, err := handler.Lookup(newIOnode, request)
 	if err != nil {
 		return nil, fuse.ENOENT
 	}
@@ -133,6 +141,69 @@ func (d *Dir) Open(
 }
 
 //
+// Create FS operation.
+//
+func (d *Dir) Create(
+	ctx context.Context,
+	req *fuse.CreateRequest,
+	resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
+
+	logrus.Debug("Requested Create() operation for entry ", req.Name)
+
+	path := filepath.Join(d.path, req.Name)
+
+	// New ionode reflecting the path of the element to be created.
+	newIOnode := d.service.ios.NewIOnode(req.Name, path, 0)
+	newIOnode.SetOpenFlags(int(req.Flags))
+	newIOnode.SetOpenMode(req.Mode)
+
+	// Lookup the associated handler within handler-DB.
+	handler, ok := d.service.hds.LookupHandler(newIOnode)
+	if !ok {
+		logrus.Errorf("No supported handler for %v resource", path)
+		return nil, nil, fmt.Errorf("No supported handler for %v resource", path)
+	}
+
+	request := &domain.HandlerRequest{
+		Pid: req.Pid,
+		Uid: req.Uid,
+		Gid: req.Gid,
+	}
+
+	// Handler execution. 'Open' handler will create new element if requesting
+	// process has the proper credentials / capabilities.
+	err := handler.Open(newIOnode, request)
+	if err != nil && err != io.EOF {
+		logrus.Debug("Open() error: ", err)
+		return nil, nil, err
+	}
+	resp.Flags |= fuse.OpenDirectIO
+
+	// To satisfy Bazil FUSE lib we are expected to return a lookup-response
+	// and an open-response, let's start with the lookup() one.
+	info, err := handler.Lookup(newIOnode, request)
+	if err != nil {
+		return nil, nil, fuse.ENOENT
+	}
+
+	// Extract received file attributes.
+	attr := statToAttr(info.Sys().(*syscall.Stat_t))
+
+	// Adjust response to carry the proper dentry-cache-timeout value.
+	resp.EntryValid = time.Duration(DentryCacheTimeout) * time.Minute
+
+	var newNode fs.Node
+	newNode = NewFile(req.Name, path, &attr, d.File.service)
+
+	// Insert new fs node into nodeDB.
+	d.File.service.Lock()
+	d.File.service.nodeDB[path] = &newNode
+	d.File.service.Unlock()
+
+	return newNode, newNode, nil
+}
+
+//
 // ReadDirAll FS operation.
 //
 func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dirent, error) {
@@ -148,8 +219,14 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
 	}
 
+	request := &domain.HandlerRequest{
+		Pid: req.Pid,
+		Uid: req.Uid,
+		Gid: req.Gid,
+	}
+
 	// Handler execution.
-	files, err := handler.ReadDirAll(d.ionode, req.Pid)
+	files, err := handler.ReadDirAll(d.ionode, request)
 	if err != nil {
 		logrus.Error("ReadDirAll() error: ", err)
 		return nil, fuse.ENOENT
@@ -161,7 +238,8 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 		// the specific paths emulated by sysbox-fs.
 		//
 		if d.path == "/" {
-			if node.Name() != "sys" && node.Name() != "proc" {
+			if node.Name() != "sys" && node.Name() != "proc" &&
+				node.Name() != "testing" {
 				continue
 			}
 		}
