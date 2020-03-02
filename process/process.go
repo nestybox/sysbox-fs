@@ -14,7 +14,11 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
+
+	//cap "github.com/syndtr/gocapability/capability"
+	cap "github.com/nestybox/sysbox-fs/capability"
 	"golang.org/x/sys/unix"
+	setxid "gopkg.in/hlandau/service.v1/daemon/setuid"
 )
 
 //
@@ -27,9 +31,15 @@ func NewProcessService() domain.ProcessService {
 	return &processService{}
 }
 
-func (ps *processService) ProcessCreate(pid uint32) domain.ProcessIface {
+func (ps *processService) ProcessCreate(
+	pid uint32,
+	uid uint32,
+	gid uint32) domain.ProcessIface {
+
 	return &process{
 		pid: pid,
+		uid: uid,
+		gid: gid,
 	}
 }
 
@@ -37,15 +47,105 @@ type process struct {
 	pid    uint32            // process id
 	root   string            // root dir
 	cwd    string            // current working dir
-	uid    int               // effective uid
-	gid    int               // effective gid
+	uid    uint32            // effective uid
+	gid    uint32            // effective gid
 	sgid   []int             // supplementary groups
-	cap    uint64            // effective caps
+	cap    cap.Capabilities  // process capabilities
 	status map[string]string // process status fields
 }
 
 func (p *process) Pid() uint32 {
 	return p.pid
+}
+
+func (p *process) Uid() uint32 {
+	return p.uid
+}
+
+func (p *process) Gid() uint32 {
+	return p.gid
+}
+
+// Capabilities method retrieves all process capabilities.
+func (p *process) Capabilities() error {
+
+	c, err := cap.NewPid2(int(p.pid))
+	if err != nil {
+		return err
+	}
+
+	if err = c.Load(); err != nil {
+		return err
+	}
+
+	p.cap = c
+
+	return nil
+}
+
+func (p *process) IsCapabilitySet(which uint, what int) bool {
+
+	return p.cap.Get(cap.CapType(which), cap.Cap(what))
+}
+
+func (p *process) SetCapability(which uint, what ...int) {
+
+	for elem := range what {
+		p.cap.Set(cap.CapType(which), cap.Cap(elem))
+	}
+}
+
+//
+//
+//
+func (p *process) Camouflage(
+	uid uint32,
+	gid uint32,
+	capDacRead bool,
+	capDacOverride bool) error {
+
+	if uid == 0 {
+
+		if !capDacRead {
+			p.cap.Unset(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH)
+		}
+		if !capDacOverride {
+			p.cap.Unset(cap.EFFECTIVE, cap.CAP_DAC_OVERRIDE)
+		}
+		if err := p.cap.Apply(
+			cap.EFFECTIVE | cap.PERMITTED | cap.INHERITABLE); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	if err := setxid.Setresgid(-1, int(gid), -1); err != nil {
+		return err
+	}
+
+	if err := setxid.Setresuid(-1, int(uid), -1); err != nil {
+		return err
+	}
+
+	if capDacRead || capDacOverride {
+
+		p.cap.Clear(cap.EFFECTIVE)
+
+		if capDacRead {
+			p.cap.Set(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH)
+		}
+		if capDacOverride {
+			p.cap.Set(cap.EFFECTIVE, cap.CAP_DAC_OVERRIDE)
+		}
+
+		if err := p.cap.Apply(
+			cap.EFFECTIVE | cap.PERMITTED | cap.INHERITABLE); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p *process) PidNsInode() (domain.Inode, error) {
@@ -90,11 +190,6 @@ func (p *process) PidNsInodeParent() (domain.Inode, error) {
 
 	// ioctl to retrieve the parent namespace.
 	const NS_GET_PARENT = 0xb702
-
-	// pid, err := strconv.Atoi(i.path)
-	// if err != nil {
-	// 	return 0, err
-	// }
 
 	pidnsPath := strings.Join(
 		[]string{"/proc", strconv.FormatUint(uint64(p.pid), 10), "ns/pid"},
@@ -153,13 +248,15 @@ func (p *process) PidNsInodeParent() (domain.Inode, error) {
 // syscall.EACCES: the process does not have permission to access at least one component of the path.
 // syscall.ELOOP: the path too many symlinks (e.g. > 40).
 
-func (p *process) PathAccess(path string, mode domain.AccessMode) error {
+func (p *process) PathAccess(path string, accessFlags int) error {
 
 	if err := p.getInfo(); err != nil {
 		return err
 	}
 
-	return p.pathAccess(path, mode)
+	aMode := p.pathAccessMode(accessFlags)
+
+	return p.pathAccess(path, aMode)
 }
 
 // getInfo retrieves info about the process
@@ -167,7 +264,7 @@ func (p *process) getInfo() error {
 
 	space := regexp.MustCompile(`\s+`)
 
-	fields := []string{"Uid", "Gid", "Groups", "CapEff"}
+	fields := []string{"Uid", "Gid", "Groups"}
 	if err := p.getStatus(fields); err != nil {
 		return err
 	}
@@ -212,11 +309,10 @@ func (p *process) getInfo() error {
 		sgid = append(sgid, val)
 	}
 
-	// effective caps
-	str = strings.TrimSpace(p.status["CapEff"])
-	capEff, err := strconv.ParseInt(str, 16, 64)
+	// obtain process capabilities
+	err = p.Capabilities()
 	if err != nil {
-		return fmt.Errorf("invalid cap status")
+		return err
 	}
 
 	// process root & cwd
@@ -226,16 +322,15 @@ func (p *process) getInfo() error {
 	// store all collected attributes
 	p.root = root
 	p.cwd = cwd
-	p.uid = euid
-	p.gid = egid
+	p.uid = uint32(euid)
+	p.gid = uint32(egid)
 	p.sgid = sgid
-	p.cap = uint64(capEff)
 
 	return nil
 }
 
-// getStatus retrieves process status info obtained from the /proc/[pid]/status
-// file
+// getStatus retrieves process status info obtained from the
+// /proc/[pid]/status file.
 func (p *process) getStatus(fields []string) error {
 
 	filename := fmt.Sprintf("/proc/%d/status", p.pid)
@@ -274,6 +369,21 @@ func (p *process) getStatus(fields []string) error {
 	p.status = status
 
 	return nil
+}
+
+func (p *process) pathAccessMode(flags int) domain.AccessMode {
+
+	var aMode domain.AccessMode
+
+	if flags&os.O_RDONLY == os.O_RDONLY {
+		aMode = domain.R_OK
+	} else if flags&os.O_WRONLY == os.O_WRONLY {
+		aMode = domain.W_OK
+	} else if flags&os.O_RDWR == os.O_RDONLY {
+		aMode = domain.R_OK | domain.W_OK
+	}
+
+	return aMode
 }
 
 func (p *process) pathAccess(path string, mode domain.AccessMode) error {
@@ -399,8 +509,8 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 	if !ok {
 		return false, fmt.Errorf("failed to convert to syscall.Stat_t")
 	}
-	fuid := int(st.Uid)
-	fgid := int(st.Gid)
+	fuid := st.Uid
+	fgid := st.Gid
 
 	mode := uint32(aMode)
 
@@ -429,7 +539,7 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 	}
 
 	// capability checks
-	if p.isCapSet(unix.CAP_DAC_OVERRIDE) {
+	if p.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_OVERRIDE)) {
 		// Per capabilities(7): CAP_DAC_OVERRIDE bypasses file read, write, and execute
 		// permission checks.
 		//
@@ -450,7 +560,7 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 		}
 	}
 
-	if p.isCapSet(unix.CAP_DAC_READ_SEARCH) {
+	if p.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_READ_SEARCH)) {
 		// Per capabilities(7): CAP_DAC_READ_SEARCH bypasses file read permission checks and
 		// directory read and execute permission checks
 		if fi.IsDir() && (aMode&domain.W_OK != domain.W_OK) {
@@ -465,15 +575,6 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 	return false, nil
 }
 
-// isCapSet verifies is a given capability is set
-func (p *process) isCapSet(which int) bool {
-
-	if which > 63 {
-		return false
-	}
-	return p.cap&(1<<which) == (1 << which)
-}
-
 // isSymlink returns true if the given file is a symlink
 func isSymlink(path string) (bool, bool, error) {
 	fi, err := os.Lstat(path)
@@ -485,9 +586,9 @@ func isSymlink(path string) (bool, bool, error) {
 }
 
 // intSliceContains returns true if x is in a
-func intSliceContains(a []int, x int) bool {
+func intSliceContains(a []int, x uint32) bool {
 	for _, n := range a {
-		if x == n {
+		if int(x) == n {
 			return true
 		}
 	}

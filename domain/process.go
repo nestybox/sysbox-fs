@@ -18,11 +18,21 @@ const (
 
 type ProcessIface interface {
 	Pid() uint32
+	Uid() uint32
+	Gid() uint32
+	Capabilities() error
+	SetCapability(which uint, what ...int)
+	IsCapabilitySet(which uint, what int) bool
 	PidNsInode() (Inode, error)
 	PidNsInodeParent() (Inode, error)
-	PathAccess(path string, mode AccessMode) error
+	PathAccess(path string, accessFlags int) error
+	Camouflage(
+		uid uint32,
+		gid uint32,
+		capDacRead bool,
+		capDacOverride bool) error
 }
 
 type ProcessService interface {
-	ProcessCreate(pid uint32) ProcessIface
+	ProcessCreate(pid uint32, uid uint32, gid uint32) ProcessIface
 }

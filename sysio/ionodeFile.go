@@ -27,11 +27,14 @@ var _ domain.IOService = (*ioFileService)(nil)
 //
 type ioFileService struct{}
 
-func (s *ioFileService) NewIOnode(n string, p string, attr os.FileMode) domain.IOnode {
+func (s *ioFileService) NewIOnode(
+	n string,
+	p string,
+	mode os.FileMode) domain.IOnode {
 	newFile := &IOnodeFile{
 		name: n,
 		path: p,
-		attr: attr,
+		mode: mode,
 	}
 
 	return newFile
@@ -88,13 +91,13 @@ type IOnodeFile struct {
 	name  string
 	path  string
 	flags int
-	attr  os.FileMode
+	mode  os.FileMode
 	file  afero.File
 }
 
 func (i *IOnodeFile) Open() error {
 
-	file, err := AppFs.OpenFile(i.path, i.flags, i.attr)
+	file, err := AppFs.OpenFile(i.path, i.flags, i.mode)
 	if err != nil {
 		return err
 	}
@@ -213,6 +216,14 @@ func (i *IOnodeFile) OpenFlags() int {
 	return i.flags
 }
 
+func (i *IOnodeFile) OpenMode() os.FileMode {
+	return i.mode
+}
+
 func (i *IOnodeFile) SetOpenFlags(flags int) {
 	i.flags = flags
+}
+
+func (i *IOnodeFile) SetOpenMode(mode os.FileMode) {
+	i.mode = mode
 }

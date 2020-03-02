@@ -211,7 +211,7 @@ func main() {
 
 		var processService = process.NewProcessService()
 
-		var nsenterService = nsenter.NewNSenterService()
+		var nsenterService = nsenter.NewNSenterService(processService)
 
 		var ioService = sysio.NewIOService(sysio.IOFileService)
 
@@ -233,6 +233,7 @@ func main() {
 			nsenterService,
 			containerStateService,
 			handlerService,
+			processService,
 		)
 		if syscallMonitorService == nil {
 			logrus.Fatal("syscallMonitorService initialization error. Exiting ...")

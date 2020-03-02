@@ -15,7 +15,9 @@ import (
 	"github.com/nestybox/sysbox/lib/pidmonitor"
 	libseccomp "github.com/seccomp/libseccomp-golang"
 	"github.com/sirupsen/logrus"
-	"github.com/syndtr/gocapability/capability"
+
+	//cap "github.com/syndtr/gocapability/capability"
+	cap "github.com/nestybox/sysbox-fs/capability"
 )
 
 const seccompTracerSockAddr = "/run/sysbox/sysfs-seccomp.sock"
@@ -39,18 +41,21 @@ type SyscallMonitorService struct {
 	nss    domain.NSenterService        // for nsenter functionality requirements
 	css    domain.ContainerStateService // for container-state interactions
 	hns    domain.HandlerService        // for handlerDB interactions
+	prs    domain.ProcessService        // for process class interactions
 	tracer *syscallTracer               // pointer to actual syscall-tracer instance
 }
 
 func NewSyscallMonitorService(
 	nss domain.NSenterService,
 	css domain.ContainerStateService,
-	hns domain.HandlerService) *SyscallMonitorService {
+	hns domain.HandlerService,
+	prs domain.ProcessService) *SyscallMonitorService {
 
 	svc := &SyscallMonitorService{
 		nss: nss,
 		css: css,
 		hns: hns,
+		prs: prs,
 	}
 
 	// Allocate a new syscall-tracer.
@@ -380,14 +385,11 @@ func (t *syscallTracer) processMount(
 	// As per man's capabilities(7), cap_sys_admin capability is required for
 	// mount operations. Otherwise, return here and let kernel handle the mount
 	// instruction.
-	c, err := capability.NewPid2(int(req.Pid))
-	if err != nil {
+	process := t.sms.prs.ProcessCreate(req.Pid, 0, 0)
+	if err = process.Capabilities(); err != nil {
 		return nil, err
 	}
-	if err = c.Load(); err != nil {
-		return nil, err
-	}
-	if !(c.Get(capability.EFFECTIVE, capability.CAP_SYS_ADMIN)) {
+	if !(process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_SYS_ADMIN))) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
@@ -443,14 +445,11 @@ func (t *syscallTracer) processUmount(
 	// As per man's capabilities(7), cap_sys_admin capability is required for
 	// umount operations. Otherwise, return here and let kernel handle the mount
 	// instruction.
-	c, err := capability.NewPid2(int(req.Pid))
-	if err != nil {
+	process := t.sms.prs.ProcessCreate(req.Pid, 0, 0)
+	if err = process.Capabilities(); err != nil {
 		return nil, err
 	}
-	if err = c.Load(); err != nil {
-		return nil, err
-	}
-	if !(c.Get(capability.EFFECTIVE, capability.CAP_SYS_ADMIN)) {
+	if !(process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_SYS_ADMIN))) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
