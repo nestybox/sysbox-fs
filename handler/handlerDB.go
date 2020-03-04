@@ -259,6 +259,15 @@ var DefaultHandlers = []domain.HandlerIface{
 		Enabled:   true,
 		Cacheable: false,
 	},
+	//
+	// Testing handler
+	//
+	&implementations.TestingHandler{
+		Name:      "testing",
+		Path:      "/testing",
+		Enabled:   true,
+		Cacheable: false,
+	},
 }
 
 type handlerService struct {
@@ -522,7 +531,7 @@ func (hs *handlerService) HostPidNsInode() domain.Inode {
 
 func (hs *handlerService) FindPidNsInode(pid uint32) domain.Inode {
 
-	process := hs.prs.ProcessCreate(pid)
+	process := hs.prs.ProcessCreate(pid, 0, 0)
 	pidInode, err := process.PidNsInode()
 	if err != nil {
 		return 0

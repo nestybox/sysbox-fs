@@ -26,21 +26,27 @@ type FsBinfmtRegisterHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *FsBinfmtRegisterHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *FsBinfmtRegisterHandler) Lookup(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	return nil, fuse.IOerror{Code: syscall.ENOENT}
 }
 
-func (h *FsBinfmtRegisterHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *FsBinfmtRegisterHandler) Getattr(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	return nil, nil
 }
 
-func (h *FsBinfmtRegisterHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *FsBinfmtRegisterHandler) Open(
+	n domain.IOnode,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
 
@@ -54,23 +60,27 @@ func (h *FsBinfmtRegisterHandler) Close(node domain.IOnode) error {
 	return nil
 }
 
-func (h *FsBinfmtRegisterHandler) Read(n domain.IOnode, pid uint32,
-	buf []byte, off int64) (int, error) {
+func (h *FsBinfmtRegisterHandler) Read(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	return 0, nil
 }
 
-func (h *FsBinfmtRegisterHandler) Write(n domain.IOnode, pid uint32,
-	buf []byte) (int, error) {
+func (h *FsBinfmtRegisterHandler) Write(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	return 0, nil
 }
 
-func (h *FsBinfmtRegisterHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
+func (h *FsBinfmtRegisterHandler) ReadDirAll(
+	n domain.IOnode,
+	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	logrus.Debugf("Executing %v ReadDirAll() method", h.Name)
 

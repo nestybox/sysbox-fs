@@ -31,12 +31,14 @@ type ProcHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *ProcHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *ProcHandler) Lookup(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -44,14 +46,18 @@ func (h *ProcHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 	return n.Stat()
 }
 
-func (h *ProcHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *ProcHandler) Getattr(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	return nil, nil
 }
 
-func (h *ProcHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *ProcHandler) Open(
+	n domain.IOnode,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
 
@@ -65,23 +71,27 @@ func (h *ProcHandler) Close(n domain.IOnode) error {
 	return nil
 }
 
-func (h *ProcHandler) Read(n domain.IOnode, pid uint32,
-	buf []byte, off int64) (int, error) {
+func (h *ProcHandler) Read(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	return 0, nil
 }
 
-func (h *ProcHandler) Write(n domain.IOnode, pid uint32,
-	buf []byte) (int, error) {
+func (h *ProcHandler) Write(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	return 0, nil
 }
 
-func (h *ProcHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
+func (h *ProcHandler) ReadDirAll(
+	n domain.IOnode,
+	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }

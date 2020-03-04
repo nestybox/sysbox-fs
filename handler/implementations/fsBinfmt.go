@@ -28,12 +28,14 @@ type FsBinfmtHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *FsBinfmtHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *FsBinfmtHandler) Lookup(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -41,12 +43,14 @@ func (h *FsBinfmtHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, erro
 	return n.Stat()
 }
 
-func (h *FsBinfmtHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *FsBinfmtHandler) Getattr(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -69,10 +73,12 @@ func (h *FsBinfmtHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t,
 		return nil, fmt.Errorf("No commonHandler found")
 	}
 
-	return commonHandler.Getattr(n, pid)
+	return commonHandler.Getattr(n, req)
 }
 
-func (h *FsBinfmtHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *FsBinfmtHandler) Open(
+	n domain.IOnode,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
 
@@ -86,27 +92,31 @@ func (h *FsBinfmtHandler) Close(node domain.IOnode) error {
 	return nil
 }
 
-func (h *FsBinfmtHandler) Read(n domain.IOnode, pid uint32,
-	buf []byte, off int64) (int, error) {
+func (h *FsBinfmtHandler) Read(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
-	if off > 0 {
+	if req.Offset > 0 {
 		return 0, io.EOF
 	}
 
 	return 0, nil
 }
 
-func (h *FsBinfmtHandler) Write(n domain.IOnode, pid uint32,
-	buf []byte) (int, error) {
+func (h *FsBinfmtHandler) Write(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing Write() method on %v handler", h.Name)
 
 	return 0, nil
 }
 
-func (h *FsBinfmtHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
+func (h *FsBinfmtHandler) ReadDirAll(
+	n domain.IOnode,
+	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
 

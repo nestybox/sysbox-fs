@@ -28,12 +28,14 @@ type ProcSysHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *ProcSysHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *ProcSysHandler) Lookup(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -41,12 +43,14 @@ func (h *ProcSysHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error
 	return n.Stat()
 }
 
-func (h *ProcSysHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *ProcSysHandler) Getattr(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -69,10 +73,12 @@ func (h *ProcSysHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, 
 		return nil, fmt.Errorf("No commonHandler found")
 	}
 
-	return commonHandler.Getattr(n, pid)
+	return commonHandler.Getattr(n, req)
 }
 
-func (h *ProcSysHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *ProcSysHandler) Open(
+	n domain.IOnode,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
 
@@ -86,25 +92,29 @@ func (h *ProcSysHandler) Close(node domain.IOnode) error {
 	return nil
 }
 
-func (h *ProcSysHandler) Read(n domain.IOnode, pid uint32,
-	buf []byte, off int64) (int, error) {
+func (h *ProcSysHandler) Read(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
-	if off > 0 {
+	if req.Offset > 0 {
 		return 0, io.EOF
 	}
 
 	return 0, nil
 }
 
-func (h *ProcSysHandler) Write(n domain.IOnode, pid uint32,
-	buf []byte) (int, error) {
+func (h *ProcSysHandler) Write(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcSysHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
+func (h *ProcSysHandler) ReadDirAll(
+	n domain.IOnode,
+	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
 
@@ -113,7 +123,7 @@ func (h *ProcSysHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo,
 		return nil, fmt.Errorf("No commonHandler found")
 	}
 
-	return commonHandler.ReadDirAll(n, pid)
+	return commonHandler.ReadDirAll(n, req)
 }
 
 func (h *ProcSysHandler) GetName() string {

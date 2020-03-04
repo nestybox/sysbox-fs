@@ -29,12 +29,14 @@ type ProcPartitionsHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *ProcPartitionsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *ProcPartitionsHandler) Lookup(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -42,12 +44,14 @@ func (h *ProcPartitionsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo
 	return n.Stat()
 }
 
-func (h *ProcPartitionsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *ProcPartitionsHandler) Getattr(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -70,10 +74,12 @@ func (h *ProcPartitionsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.S
 		return nil, fmt.Errorf("No commonHandler found")
 	}
 
-	return commonHandler.Getattr(n, pid)
+	return commonHandler.Getattr(n, req)
 }
 
-func (h *ProcPartitionsHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *ProcPartitionsHandler) Open(
+	n domain.IOnode,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
 
@@ -102,31 +108,34 @@ func (h *ProcPartitionsHandler) Close(n domain.IOnode) error {
 	return nil
 }
 
-func (h *ProcPartitionsHandler) Read(n domain.IOnode, pid uint32,
-	buf []byte, off int64) (int, error) {
+func (h *ProcPartitionsHandler) Read(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	// Bypass emulation logic for now by going straight to host fs.
 	ios := h.Service.IOService()
-	len, err := ios.ReadNode(n, buf)
+	len, err := ios.ReadNode(n, req.Data)
 	if err != nil && err != io.EOF {
 		return 0, err
 	}
 
-	buf = buf[:len]
+	req.Data = req.Data[:len]
 
 	return len, nil
 }
 
-func (h *ProcPartitionsHandler) Write(n domain.IOnode, pid uint32,
-	buf []byte) (int, error) {
+func (h *ProcPartitionsHandler) Write(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcPartitionsHandler) ReadDirAll(n domain.IOnode,
-	pid uint32) ([]os.FileInfo, error) {
+func (h *ProcPartitionsHandler) ReadDirAll(
+	n domain.IOnode,
+	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }

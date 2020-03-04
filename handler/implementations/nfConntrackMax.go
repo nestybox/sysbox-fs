@@ -31,12 +31,14 @@ type NfConntrackMaxHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *NfConntrackMaxHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *NfConntrackMaxHandler) Lookup(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -44,7 +46,9 @@ func (h *NfConntrackMaxHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo
 	return n.Stat()
 }
 
-func (h *NfConntrackMaxHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *NfConntrackMaxHandler) Getattr(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
@@ -53,10 +57,12 @@ func (h *NfConntrackMaxHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.S
 		return nil, fmt.Errorf("No commonHandler found")
 	}
 
-	return commonHandler.Getattr(n, pid)
+	return commonHandler.Getattr(n, req)
 }
 
-func (h *NfConntrackMaxHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *NfConntrackMaxHandler) Open(
+	n domain.IOnode,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
 
@@ -92,14 +98,15 @@ func (h *NfConntrackMaxHandler) Close(n domain.IOnode) error {
 	return nil
 }
 
-func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
-	buf []byte, off int64) (int, error) {
+func (h *NfConntrackMaxHandler) Read(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	// We are dealing with a single integer element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
-	if off > 0 {
+	if req.Offset > 0 {
 		return 0, io.EOF
 	}
 
@@ -107,7 +114,7 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 	path := n.Path()
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, 0, 0)
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -115,7 +122,8 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return 0, errors.New("Container not found")
 	}
 
@@ -126,7 +134,7 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 	// the container struct.
 	data, ok := cntr.Data(path, name)
 	if !ok {
-		data, err = h.FetchFile(n, cntr)
+		data, err = h.fetchFile(n, cntr)
 		if err != nil && err != io.EOF {
 			return 0, err
 		}
@@ -136,18 +144,19 @@ func (h *NfConntrackMaxHandler) Read(n domain.IOnode, pid uint32,
 
 	data += "\n"
 
-	return copyResultBuffer(buf, []byte(data))
+	return copyResultBuffer(req.Data, []byte(data))
 }
 
-func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,
-	buf []byte) (int, error) {
+func (h *NfConntrackMaxHandler) Write(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	name := n.Name()
 	path := n.Path()
 
-	newMax := strings.TrimSpace(string(buf))
+	newMax := strings.TrimSpace(string(req.Data))
 	newMaxInt, err := strconv.Atoi(newMax)
 	if err != nil {
 		logrus.Error("Unexpected error: ", err)
@@ -155,7 +164,7 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,
 	}
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, 0, 0)
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -163,7 +172,8 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return 0, errors.New("Container not found")
 	}
 
@@ -171,13 +181,13 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,
 	// push it to the host FS and store it within the container struct.
 	curMax, ok := cntr.Data(path, name)
 	if !ok {
-		if err := h.PushFile(n, cntr, newMaxInt); err != nil {
+		if err := h.pushFile(n, cntr, newMaxInt); err != nil {
 			return 0, err
 		}
 
 		cntr.SetData(path, name, newMax)
 
-		return len(buf), nil
+		return len(req.Data), nil
 	}
 
 	curMaxInt, err := strconv.Atoi(curMax)
@@ -193,26 +203,30 @@ func (h *NfConntrackMaxHandler) Write(n domain.IOnode, pid uint32,
 	if newMaxInt <= curMaxInt {
 		cntr.SetData(path, name, newMax)
 
-		return len(buf), nil
+		return len(req.Data), nil
 	}
 
 	// Push new value to host FS.
-	if err := h.PushFile(n, cntr, newMaxInt); err != nil {
+	if err := h.pushFile(n, cntr, newMaxInt); err != nil {
 		return 0, io.EOF
 	}
 
 	// Writing the new value into container-state struct.
 	cntr.SetData(path, name, newMax)
 
-	return len(buf), nil
+	return len(req.Data), nil
 }
 
-func (h *NfConntrackMaxHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
+func (h *NfConntrackMaxHandler) ReadDirAll(
+	n domain.IOnode,
+	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
-func (h *NfConntrackMaxHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (string, error) {
+func (h *NfConntrackMaxHandler) fetchFile(
+	n domain.IOnode,
+	c domain.ContainerIface) (string, error) {
 
 	// Read from host FS to extract the existing nf_conntrack_max value.
 	curHostMax, err := n.ReadLine()
@@ -231,7 +245,7 @@ func (h *NfConntrackMaxHandler) FetchFile(n domain.IOnode, c domain.ContainerIfa
 	return curHostMax, nil
 }
 
-func (h *NfConntrackMaxHandler) PushFile(n domain.IOnode, c domain.ContainerIface,
+func (h *NfConntrackMaxHandler) pushFile(n domain.IOnode, c domain.ContainerIface,
 	newMaxInt int) error {
 
 	curHostMax, err := n.ReadLine()

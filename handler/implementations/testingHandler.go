@@ -14,13 +14,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
-// /proc/loadavg Handler
+// /proc/sys Handler
 //
-type ProcLoadavgHandler struct {
+type TestingHandler struct {
 	Name      string
 	Path      string
 	Type      domain.HandlerType
@@ -29,7 +28,7 @@ type ProcLoadavgHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *ProcLoadavgHandler) Lookup(
+func (h *TestingHandler) Lookup(
 	n domain.IOnode,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -44,7 +43,7 @@ func (h *ProcLoadavgHandler) Lookup(
 	return n.Stat()
 }
 
-func (h *ProcLoadavgHandler) Getattr(
+func (h *TestingHandler) Getattr(
 	n domain.IOnode,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -77,95 +76,80 @@ func (h *ProcLoadavgHandler) Getattr(
 	return commonHandler.Getattr(n, req)
 }
 
-func (h *ProcLoadavgHandler) Open(
+func (h *TestingHandler) Open(
 	n domain.IOnode,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
 
-	flags := n.OpenFlags()
-	if flags != syscall.O_RDONLY {
-		return fuse.IOerror{Code: syscall.EACCES}
-	}
-
-	if err := n.Open(); err != nil {
-		logrus.Debug("Error opening file ", h.Path)
-		return fuse.IOerror{Code: syscall.EIO}
-	}
-
 	return nil
 }
 
-func (h *ProcLoadavgHandler) Close(n domain.IOnode) error {
+func (h *TestingHandler) Close(node domain.IOnode) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
-	if err := n.Close(); err != nil {
-		logrus.Debug("Error closing file ", h.Path)
-		return fuse.IOerror{Code: syscall.EIO}
-	}
-
 	return nil
 }
 
-func (h *ProcLoadavgHandler) Read(
+func (h *TestingHandler) Read(
 	n domain.IOnode,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
-	// Bypass emulation logic for now by going straight to host fs.
-	ios := h.Service.IOService()
-	len, err := ios.ReadNode(n, req.Data)
-	if err != nil && err != io.EOF {
-		return 0, err
+	if req.Offset > 0 {
+		return 0, io.EOF
 	}
-
-	req.Data = req.Data[:len]
-
-	return len, nil
-}
-
-func (h *ProcLoadavgHandler) Write(
-	n domain.IOnode,
-	req *domain.HandlerRequest) (int, error) {
-
-	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	return 0, nil
 }
 
-func (h *ProcLoadavgHandler) ReadDirAll(
+func (h *TestingHandler) Write(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
+
+	return 0, nil
+}
+
+func (h *TestingHandler) ReadDirAll(
 	n domain.IOnode,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	return nil, nil
+	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
+
+	commonHandler, ok := h.Service.FindHandler("commonHandler")
+	if !ok {
+		return nil, fmt.Errorf("No commonHandler found")
+	}
+
+	return commonHandler.ReadDirAll(n, req)
 }
 
-func (h *ProcLoadavgHandler) GetName() string {
+func (h *TestingHandler) GetName() string {
 	return h.Name
 }
 
-func (h *ProcLoadavgHandler) GetPath() string {
+func (h *TestingHandler) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcLoadavgHandler) GetEnabled() bool {
+func (h *TestingHandler) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *ProcLoadavgHandler) GetType() domain.HandlerType {
+func (h *TestingHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcLoadavgHandler) GetService() domain.HandlerService {
+func (h *TestingHandler) GetService() domain.HandlerService {
 	return h.Service
 }
 
-func (h *ProcLoadavgHandler) SetEnabled(val bool) {
+func (h *TestingHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcLoadavgHandler) SetService(hs domain.HandlerService) {
+func (h *TestingHandler) SetService(hs domain.HandlerService) {
 	h.Service = hs
 }

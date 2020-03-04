@@ -12,9 +12,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/nestybox/sysbox-fs/domain"
+
+	"github.com/sirupsen/logrus"
+	//cap "github.com/syndtr/gocapability/capability"
+	cap "github.com/nestybox/sysbox-fs/capability"
 )
 
 //
@@ -29,12 +31,12 @@ type CommonHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *CommonHandler) Lookup(n domain.IOnode, req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -42,7 +44,8 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return nil, errors.New("Container not found")
 	}
 
@@ -58,7 +61,12 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 			string(domain.NStypeCgroup),
 			string(domain.NStypeUts),
 		},
-		&domain.NSenterMessage{Type: domain.LookupRequest, Payload: n.Path()},
+		&domain.NSenterMessage{
+			Type: domain.LookupRequest,
+			Payload: &domain.LookupPayload{
+				Entry: n.Path(),
+			},
+		},
 		nil,
 	)
 
@@ -79,12 +87,12 @@ func (h *CommonHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error)
 	return info, nil
 }
 
-func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *CommonHandler) Getattr(n domain.IOnode, req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -92,7 +100,8 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return nil, errors.New("Container not found")
 	}
 
@@ -103,12 +112,13 @@ func (h *CommonHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, e
 	return stat, nil
 }
 
-func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing Open() method on %v handler", h.Name)
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
+	process.Capabilities()
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -116,14 +126,10 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return errors.New("Container not found")
 	}
-
-	//
-	// if err := process.PathAccess(n.Path(), n.OpenFlags()); err != nil {
-	// 	return err
-	// }
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
@@ -140,8 +146,16 @@ func (h *CommonHandler) Open(n domain.IOnode, pid uint32) error {
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
 			Payload: &domain.OpenFilePayload{
+				Header: domain.NSenterMsgHeader{
+					Pid:            process.Pid(),
+					Uid:            process.Uid() - cntr.UID(),
+					Gid:            process.Gid() - cntr.GID(),
+					CapDacRead:     process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_READ_SEARCH)),
+					CapDacOverride: process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_OVERRIDE)),
+				},
 				File:  n.Path(),
 				Flags: strconv.Itoa(n.OpenFlags()),
+				Mode:  strconv.Itoa(int(n.OpenMode())),
 			},
 		},
 		nil,
@@ -169,11 +183,11 @@ func (h *CommonHandler) Close(node domain.IOnode) error {
 	return nil
 }
 
-func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64) (int, error) {
+func (h *CommonHandler) Read(n domain.IOnode, req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing Read() method on %v handler", h.Name)
 
-	if off > 0 {
+	if req.Offset > 0 {
 		return 0, io.EOF
 	}
 
@@ -181,7 +195,7 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 	path := n.Path()
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -189,7 +203,8 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return 0, errors.New("Container not found")
 	}
 
@@ -205,7 +220,7 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 		// the container struct.
 		data, ok = cntr.Data(path, name)
 		if !ok {
-			data, err = h.FetchFile(n, cntr)
+			data, err = h.fetchFile(n, cntr)
 			if err != nil {
 				return 0, err
 			}
@@ -213,7 +228,7 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 			cntr.SetData(path, name, data)
 		}
 	} else {
-		data, err = h.FetchFile(n, cntr)
+		data, err = h.fetchFile(n, cntr)
 		if err != nil {
 			return 0, err
 		}
@@ -221,10 +236,10 @@ func (h *CommonHandler) Read(n domain.IOnode, pid uint32, buf []byte, off int64)
 
 	data += "\n"
 
-	return copyResultBuffer(buf, []byte(data))
+	return copyResultBuffer(req.Data, []byte(data))
 }
 
-func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, error) {
+func (h *CommonHandler) Write(n domain.IOnode, req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing Write() method on %v handler", h.Name)
 
@@ -232,9 +247,9 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 	path := n.Path()
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 
-	newContent := strings.TrimSpace(string(buf))
+	newContent := strings.TrimSpace(string(req.Data))
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -242,7 +257,8 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return 0, errors.New("Container not found")
 	}
 
@@ -251,19 +267,19 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 		// push it to the host FS and store it within the container struct.
 		curContent, ok := cntr.Data(path, name)
 		if !ok {
-			if err := h.PushFile(n, cntr, newContent); err != nil {
+			if err := h.pushFile(n, cntr, newContent); err != nil {
 				return 0, err
 			}
 
 			cntr.SetData(path, name, newContent)
 
-			return len(buf), nil
+			return len(req.Data), nil
 		}
 
 		// If new value matches the existing one, then there's noting else to be
 		// done here.
 		if newContent == curContent {
-			return len(buf), nil
+			return len(req.Data), nil
 		}
 
 		// Writing the new value into container-state struct.
@@ -271,20 +287,21 @@ func (h *CommonHandler) Write(n domain.IOnode, pid uint32, buf []byte) (int, err
 
 	} else {
 		// Push new value to host FS.
-		if err := h.PushFile(n, cntr, newContent); err != nil {
+		if err := h.pushFile(n, cntr, newContent); err != nil {
 			return 0, err
 		}
 	}
 
-	return len(buf), nil
+	return len(req.Data), nil
 }
 
-func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
+func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
+	process.Capabilities()
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -292,7 +309,8 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return nil, errors.New("Container not found")
 	}
 
@@ -308,7 +326,19 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 			string(domain.NStypeCgroup),
 			string(domain.NStypeUts),
 		},
-		&domain.NSenterMessage{Type: domain.ReadDirRequest, Payload: n.Path()},
+		&domain.NSenterMessage{
+			Type: domain.ReadDirRequest,
+			Payload: &domain.ReadDirPayload{
+				Header: domain.NSenterMsgHeader{
+					Pid:            process.Pid(),
+					Uid:            process.Uid() - cntr.UID(),
+					Gid:            process.Gid() - cntr.GID(),
+					CapDacRead:     process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_READ_SEARCH)),
+					CapDacOverride: process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_OVERRIDE)),
+				},
+				Dir: n.Path(),
+			},
+		},
 		nil,
 	)
 
@@ -335,15 +365,79 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, 
 
 	// Obtain FileEntries corresponding to emulated resources that could
 	// potentially live in this folder.
-	osEmulatedFileEntries := h.EmulatedFilesInfo(n, pid)
+	osEmulatedFileEntries := h.EmulatedFilesInfo(n, req)
 
 	osFileEntries = append(osFileEntries, osEmulatedFileEntries...)
 
 	return osFileEntries, nil
 }
 
+func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) error {
+
+	logrus.Debugf("Executing Setattr() method on %v handler", h.Name)
+
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
+	process.Capabilities()
+
+	// Identify the container holding the process represented by this pid. This
+	// action can only succeed if the associated container has been previously
+	// registered in sysbox-fs.
+	css := h.Service.StateService()
+	cntr := css.ContainerLookupByProcess(process)
+	if cntr == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return errors.New("Container not found")
+	}
+
+	// Create nsenterEvent to initiate interaction with container namespaces.
+	nss := h.Service.NSenterService()
+	event := nss.NewEvent(
+		cntr.InitPid(),
+		[]domain.NStype{
+			string(domain.NStypeUser),
+			string(domain.NStypePid),
+			string(domain.NStypeNet),
+			string(domain.NStypeIpc),
+			string(domain.NStypeCgroup),
+			string(domain.NStypeUts),
+		},
+		&domain.NSenterMessage{
+			Type: domain.OpenFileRequest,
+			Payload: &domain.OpenFilePayload{
+				Header: domain.NSenterMsgHeader{
+					Pid:            process.Pid(),
+					Uid:            process.Uid() - cntr.UID(),
+					Gid:            process.Gid() - cntr.GID(),
+					CapDacRead:     process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_READ_SEARCH)),
+					CapDacOverride: process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_OVERRIDE)),
+				},
+				File:  n.Path(),
+				Flags: strconv.Itoa(n.OpenFlags()),
+				Mode:  strconv.Itoa(int(n.OpenMode())),
+			},
+		},
+		nil,
+	)
+
+	// Launch nsenter-event.
+	err := nss.SendRequestEvent(event)
+	if err != nil {
+		return err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return responseMsg.Payload.(error)
+	}
+
+	return nil
+}
+
 // Auxiliary routine to aid during ReadDirAll() execution.
-func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, pid uint32) []os.FileInfo {
+func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, req *domain.HandlerRequest) []os.FileInfo {
 
 	var emulatedResources []string
 	var emulatedFilesInfo []os.FileInfo
@@ -384,7 +478,7 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, pid uint32) []os.File
 		newIOnode := ios.NewIOnode("", handlerPath, 0)
 
 		// Handler execution.
-		info, err := handler.Lookup(newIOnode, pid)
+		info, err := handler.Lookup(newIOnode, req)
 		if err != nil {
 			logrus.Error("Lookup() error: ", err)
 			return nil
@@ -396,13 +490,15 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, pid uint32) []os.File
 	return emulatedFilesInfo
 }
 
-// Auxiliar method to fetch the content of any given file within a container.
-func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (string, error) {
+// Auxiliary method to fetch the content of any given file within a container.
+func (h *CommonHandler) fetchFile(
+	n domain.IOnode,
+	cntr domain.ContainerIface) (string, error) {
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		c.InitPid(),
+		cntr.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
@@ -439,12 +535,15 @@ func (h *CommonHandler) FetchFile(n domain.IOnode, c domain.ContainerIface) (str
 }
 
 // Auxiliary method to inject content into any given file within a container.
-func (h *CommonHandler) PushFile(n domain.IOnode, c domain.ContainerIface, s string) error {
+func (h *CommonHandler) pushFile(
+	n domain.IOnode,
+	cntr domain.ContainerIface,
+	s string) error {
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		c.InitPid(),
+		cntr.InitPid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),

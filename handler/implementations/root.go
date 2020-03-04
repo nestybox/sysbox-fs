@@ -34,12 +34,14 @@ type RootHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *RootHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *RootHandler) Lookup(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -47,14 +49,18 @@ func (h *RootHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
 	return n.Stat()
 }
 
-func (h *RootHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *RootHandler) Getattr(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	return nil, nil
 }
 
-func (h *RootHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *RootHandler) Open(
+	n domain.IOnode,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
 
@@ -68,23 +74,27 @@ func (h *RootHandler) Close(node domain.IOnode) error {
 	return nil
 }
 
-func (h *RootHandler) Read(n domain.IOnode, pid uint32,
-	buf []byte, off int64) (int, error) {
+func (h *RootHandler) Read(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	return 0, nil
 }
 
-func (h *RootHandler) Write(n domain.IOnode, pid uint32,
-	buf []byte) (int, error) {
+func (h *RootHandler) Write(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	return 0, nil
 }
 
-func (h *RootHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
+func (h *RootHandler) ReadDirAll(
+	n domain.IOnode,
+	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	logrus.Debugf("Executing %v ReadDirAll() method", h.Name)
 

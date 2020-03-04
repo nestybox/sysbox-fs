@@ -44,12 +44,14 @@ type KernelPanicOopsHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *KernelPanicOopsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *KernelPanicOopsHandler) Lookup(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -57,7 +59,9 @@ func (h *KernelPanicOopsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInf
 	return n.Stat()
 }
 
-func (h *KernelPanicOopsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *KernelPanicOopsHandler) Getattr(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
@@ -66,10 +70,12 @@ func (h *KernelPanicOopsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.
 		return nil, fmt.Errorf("No commonHandler found")
 	}
 
-	return commonHandler.Getattr(n, pid)
+	return commonHandler.Getattr(n, req)
 }
 
-func (h *KernelPanicOopsHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *KernelPanicOopsHandler) Open(
+	n domain.IOnode,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
 
@@ -98,14 +104,15 @@ func (h *KernelPanicOopsHandler) Close(n domain.IOnode) error {
 	return nil
 }
 
-func (h *KernelPanicOopsHandler) Read(n domain.IOnode, pid uint32,
-	buf []byte, off int64) (int, error) {
+func (h *KernelPanicOopsHandler) Read(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	// We are dealing with a single integer element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
-	if off > 0 {
+	if req.Offset > 0 {
 		return 0, io.EOF
 	}
 
@@ -113,7 +120,7 @@ func (h *KernelPanicOopsHandler) Read(n domain.IOnode, pid uint32,
 	path := n.Path()
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, 0, 0)
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -121,7 +128,8 @@ func (h *KernelPanicOopsHandler) Read(n domain.IOnode, pid uint32,
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return 0, errors.New("Container not found")
 	}
 
@@ -150,18 +158,19 @@ func (h *KernelPanicOopsHandler) Read(n domain.IOnode, pid uint32,
 
 	data += "\n"
 
-	return copyResultBuffer(buf, []byte(data))
+	return copyResultBuffer(req.Data, []byte(data))
 }
 
-func (h *KernelPanicOopsHandler) Write(n domain.IOnode, pid uint32,
-	buf []byte) (int, error) {
+func (h *KernelPanicOopsHandler) Write(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	name := n.Name()
 	path := n.Path()
 
-	newVal := strings.TrimSpace(string(buf))
+	newVal := strings.TrimSpace(string(req.Data))
 	newValInt, err := strconv.Atoi(newVal)
 	if err != nil {
 		logrus.Error("Unsupported kernel_panic_oops value: ", newVal)
@@ -176,7 +185,7 @@ func (h *KernelPanicOopsHandler) Write(n domain.IOnode, pid uint32,
 	}
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, 0, 0)
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -184,17 +193,21 @@ func (h *KernelPanicOopsHandler) Write(n domain.IOnode, pid uint32,
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return 0, errors.New("Container not found")
 	}
 
 	// Store the new value within the container struct.
 	cntr.SetData(path, name, newVal)
 
-	return len(buf), nil
+	return len(req.Data), nil
 }
 
-func (h *KernelPanicOopsHandler) ReadDirAll(n domain.IOnode, pid uint32) ([]os.FileInfo, error) {
+func (h *KernelPanicOopsHandler) ReadDirAll(
+	n domain.IOnode,
+	req *domain.HandlerRequest) ([]os.FileInfo, error) {
+
 	return nil, nil
 }
 

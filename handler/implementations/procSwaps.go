@@ -32,12 +32,14 @@ type ProcSwapsHandler struct {
 // /proc/swaps static header
 var swapsHeader = "Filename                                Type            Size    Used    Priority"
 
-func (h *ProcSwapsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, error) {
+func (h *ProcSwapsHandler) Lookup(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -45,12 +47,14 @@ func (h *ProcSwapsHandler) Lookup(n domain.IOnode, pid uint32) (os.FileInfo, err
 	return n.Stat()
 }
 
-func (h *ProcSwapsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t, error) {
+func (h *ProcSwapsHandler) Getattr(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
 	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(pid)
+	pidInode := h.Service.FindPidNsInode(req.Pid)
 	if pidInode == 0 {
 		return nil, errors.New("Could not identify pidNsInode")
 	}
@@ -73,10 +77,12 @@ func (h *ProcSwapsHandler) Getattr(n domain.IOnode, pid uint32) (*syscall.Stat_t
 		return nil, fmt.Errorf("No commonHandler found")
 	}
 
-	return commonHandler.Getattr(n, pid)
+	return commonHandler.Getattr(n, req)
 }
 
-func (h *ProcSwapsHandler) Open(n domain.IOnode, pid uint32) error {
+func (h *ProcSwapsHandler) Open(
+	n domain.IOnode,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
 
@@ -105,12 +111,13 @@ func (h *ProcSwapsHandler) Close(n domain.IOnode) error {
 	return nil
 }
 
-func (h *ProcSwapsHandler) Read(n domain.IOnode, pid uint32,
-	buf []byte, off int64) (int, error) {
+func (h *ProcSwapsHandler) Read(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
-	if off > 0 {
+	if req.Offset > 0 {
 		return 0, io.EOF
 	}
 
@@ -118,7 +125,7 @@ func (h *ProcSwapsHandler) Read(n domain.IOnode, pid uint32,
 	path := n.Path()
 
 	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(pid)
+	process := prs.ProcessCreate(req.Pid, 0, 0)
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -126,7 +133,8 @@ func (h *ProcSwapsHandler) Read(n domain.IOnode, pid uint32,
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return 0, errors.New("Container not found")
 	}
 
@@ -135,7 +143,7 @@ func (h *ProcSwapsHandler) Read(n domain.IOnode, pid uint32,
 	data, ok := cntr.Data(path, name)
 	if !ok || data == "swapoff" {
 		result := []byte(swapsHeader + "\n")
-		return copyResultBuffer(buf, result)
+		return copyResultBuffer(req.Data, result)
 	}
 
 	var result []byte
@@ -151,17 +159,19 @@ func (h *ProcSwapsHandler) Read(n domain.IOnode, pid uint32,
 		return 0, err
 	}
 
-	return copyResultBuffer(buf, result)
+	return copyResultBuffer(req.Data, result)
 }
 
-func (h *ProcSwapsHandler) Write(n domain.IOnode, pid uint32,
-	buf []byte) (int, error) {
+func (h *ProcSwapsHandler) Write(
+	n domain.IOnode,
+	req *domain.HandlerRequest) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcSwapsHandler) ReadDirAll(n domain.IOnode,
-	pid uint32) ([]os.FileInfo, error) {
+func (h *ProcSwapsHandler) ReadDirAll(
+	n domain.IOnode,
+	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
