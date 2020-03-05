@@ -8,10 +8,14 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
-type nsenterService struct {}
+type nsenterService struct {
+	prs domain.ProcessService // for process class interactions (capabilities)
+}
 
-func NewNSenterService() domain.NSenterService {
-	return &nsenterService{}
+func NewNSenterService(prs domain.ProcessService) domain.NSenterService {
+	return &nsenterService{
+		prs: prs,
+	}
 }
 
 func (s *nsenterService) NewEvent(

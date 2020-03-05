@@ -27,6 +27,7 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
+	"github.com/nestybox/sysbox-fs/process"
 	"github.com/nestybox/sysbox-runc/libcontainer"
 )
 
@@ -56,6 +57,9 @@ type pid struct {
 // message exchanges.
 //
 type NSenterEvent struct {
+
+	// Parent NSenterEvent Service (used for capability handling)
+	prs domain.ProcessService
 
 	// initPid associated to the targeted container.
 	Pid uint32 `json:"pid"`
@@ -408,11 +412,11 @@ func (e *NSenterEvent) ReceiveResponse() *domain.NSenterMessage {
 
 func (e *NSenterEvent) processLookupRequest() error {
 
-	path := e.ReqMsg.Payload.(string)
+	payload := e.ReqMsg.Payload.(domain.LookupPayload)
 
 	// Verify if the resource being looked up is reachable and obtain FileInfo
 	// details.
-	info, err := os.Stat(path)
+	info, err := os.Stat(payload.Entry)
 	if err != nil {
 		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
@@ -442,12 +446,40 @@ func (e *NSenterEvent) processLookupRequest() error {
 	return nil
 }
 
+//
+// Once a file has been opened with open(), no permission checking is performed
+// by subsequent system calls that work with the returned file descriptor (such
+//  as read(), write(), fstat(), fcntl(), and mmap()).
+//
 func (e *NSenterEvent) processOpenFileRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.OpenFilePayload)
 
+	process := e.prs.ProcessCreate(0, 0, 0)
+	process.Capabilities()
+
+	if err := process.Camouflage(
+		payload.Header.Uid,
+		payload.Header.Gid,
+		payload.Header.CapDacRead,
+		payload.Header.CapDacOverride); err != nil {
+
+		// Send an error-message response.
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+
+		return nil
+	}
+
 	// Extract openflags from the incoming payload.
 	openFlags, err := strconv.Atoi(payload.Flags)
+	if err != nil {
+		return nil
+	}
+	// Extract openMode from the incoming payload.
+	mode, err := strconv.Atoi(payload.Mode)
 	if err != nil {
 		return nil
 	}
@@ -456,7 +488,7 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 	// argument (third one) as this one is not relevant in a procfs; that
 	// is, user cannot create files -- openflags 'O_CREAT' and 'O_TMPFILE'
 	// are not expected (refer to "man open(2)" for details).
-	fd, err := os.OpenFile(payload.File, openFlags, 0)
+	fd, err := os.OpenFile(payload.File, openFlags, os.FileMode(mode))
 	if err != nil {
 		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
@@ -528,8 +560,28 @@ func (e *NSenterEvent) processFileWriteRequest() error {
 
 func (e *NSenterEvent) processDirReadRequest() error {
 
+	payload := e.ReqMsg.Payload.(domain.ReadDirPayload)
+
+	process := e.prs.ProcessCreate(0, 0, 0)
+	process.Capabilities()
+
+	if err := process.Camouflage(
+		payload.Header.Uid,
+		payload.Header.Gid,
+		payload.Header.CapDacRead,
+		payload.Header.CapDacOverride); err != nil {
+
+		// Send an error-message response.
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+
+		return nil
+	}
+
 	// Perform readDir operation and return error msg should this one fail.
-	dirContent, err := ioutil.ReadDir(e.ReqMsg.Payload.(string))
+	dirContent, err := ioutil.ReadDir(payload.Dir)
 	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
@@ -570,16 +622,16 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 		err error
 	)
 
-	mountInfoArray := e.ReqMsg.Payload.([]domain.MountSyscallPayload)
+	payload := e.ReqMsg.Payload.([]domain.MountSyscallPayload)
 
 	// Perform mount instructions.
-	for i = 0; i < len(mountInfoArray); i++ {
+	for i = 0; i < len(payload); i++ {
 		err = unix.Mount(
-			mountInfoArray[i].Source,
-			mountInfoArray[i].Target,
-			mountInfoArray[i].FsType,
-			uintptr(mountInfoArray[i].Flags),
-			mountInfoArray[i].Data,
+			payload[i].Source,
+			payload[i].Target,
+			payload[i].FsType,
+			uintptr(payload[i].Flags),
+			payload[i].Data,
 		)
 		if err != nil {
 			// Create error response msg.
@@ -595,7 +647,7 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 	if err != nil {
 		// Revert previously executed mount instructions.
 		for j := i - 1; j >= 0; j-- {
-			_ = unix.Unmount(mountInfoArray[j].Target, 0)
+			_ = unix.Unmount(payload[j].Target, 0)
 		}
 
 		return nil
@@ -617,13 +669,13 @@ func (e *NSenterEvent) processUmountSyscallRequest() error {
 		err error
 	)
 
-	umountInfoArray := e.ReqMsg.Payload.([]domain.UmountSyscallPayload)
+	payload := e.ReqMsg.Payload.([]domain.UmountSyscallPayload)
 
 	// Perform umount instructions.
-	for i = 0; i < len(umountInfoArray); i++ {
+	for i = 0; i < len(payload); i++ {
 		err = unix.Unmount(
-			umountInfoArray[i].Target,
-			int(umountInfoArray[i].Flags),
+			payload[i].Target,
+			int(payload[i].Flags),
 		)
 		if err != nil {
 			// Create error response msg.
@@ -689,7 +741,7 @@ func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 	switch nsenterMsg.Type {
 
 	case domain.LookupRequest:
-		var p string
+		var p domain.LookupPayload
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
@@ -753,7 +805,7 @@ func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 		return e.processFileWriteRequest()
 
 	case domain.ReadDirRequest:
-		var p string
+		var p domain.ReadDirPayload
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
 			if err != nil {
@@ -767,6 +819,22 @@ func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 			Payload: p,
 		}
 		return e.processDirReadRequest()
+
+	// case domain.SetAttrRequest:
+	// 	var p domain.SetAttrPayload
+	// 	if payload != nil {
+	// 		err := json.Unmarshal(payload, &p)
+	// 		if err != nil {
+	// 			logrus.Error(err)
+	// 			return err
+	// 		}
+	// 	}
+
+	// 	e.ReqMsg = &domain.NSenterMessage{
+	// 		Type:    nsenterMsg.Type,
+	// 		Payload: p,
+	// 	}
+	// 	return e.processSetAttrRequest()
 
 	case domain.MountSyscallRequest:
 		var p []domain.MountSyscallPayload
@@ -837,7 +905,10 @@ func Init() (err error) {
 	// specific env vars.
 	os.Clearenv()
 
-	var event NSenterEvent
+	var processService = process.NewProcessService()
+	var event = NSenterEvent{prs: processService}
+
+	// Process incoming request.
 	err = event.processRequest(pipe)
 	if err != nil {
 		return err

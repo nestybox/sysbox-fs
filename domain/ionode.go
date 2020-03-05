@@ -38,7 +38,9 @@ type IOnode interface {
 	Name() string
 	Path() string
 	OpenFlags() int
+	OpenMode() os.FileMode
 	SetOpenFlags(flags int)
+	SetOpenMode(mode os.FileMode)
 }
 
 type IOService interface {

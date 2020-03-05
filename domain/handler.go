@@ -35,6 +35,14 @@ const (
 	NODE_PROPAGATE = 0x10
 )
 
+type HandlerRequest struct {
+	Pid    uint32
+	Uid    uint32
+	Gid    uint32
+	Offset int64
+	Data   []byte
+}
+
 type Handler struct {
 	Name    string
 	Path    string
@@ -46,13 +54,13 @@ type Handler struct {
 
 type HandlerIface interface {
 	// FS operations.
-	Open(node IOnode, pid uint32) error
+	Open(node IOnode, req *HandlerRequest) error
 	Close(node IOnode) error
-	Lookup(n IOnode, pid uint32) (os.FileInfo, error)
-	Getattr(n IOnode, pid uint32) (*syscall.Stat_t, error)
-	Read(node IOnode, pid uint32, buf []byte, off int64) (int, error)
-	Write(node IOnode, pid uint32, buf []byte) (int, error)
-	ReadDirAll(node IOnode, pid uint32) ([]os.FileInfo, error)
+	Lookup(n IOnode, req *HandlerRequest) (os.FileInfo, error)
+	Getattr(n IOnode, req *HandlerRequest) (*syscall.Stat_t, error)
+	Read(node IOnode, req *HandlerRequest) (int, error)
+	Write(node IOnode, req *HandlerRequest) (int, error)
+	ReadDirAll(node IOnode, req *HandlerRequest) ([]os.FileInfo, error)
 
 	// getters/setters.
 	GetName() string

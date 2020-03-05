@@ -34,6 +34,8 @@ const (
 	WriteFileResponse     NSenterMsgType = "writeFileResponse"
 	ReadDirRequest        NSenterMsgType = "readDirRequest"
 	ReadDirResponse       NSenterMsgType = "readDirResponse"
+	SetAttrRequest        NSenterMsgType = "setAttrRequest"
+	SetAttrResponse       NSenterMsgType = "setAttrResponse"
 	MountSyscallRequest   NSenterMsgType = "mountSyscallRequest"
 	MountSyscallResponse  NSenterMsgType = "mountSyscallResponse"
 	UmountSyscallRequest  NSenterMsgType = "umountSyscallRequest"
@@ -88,9 +90,23 @@ type NSenterMessage struct {
 	Payload interface{} `json:"payload"`
 }
 
+type NSenterMsgHeader struct {
+	Pid            uint32 `json:"pid"`
+	Uid            uint32 `json:"uid"`
+	Gid            uint32 `json:"gid"`
+	CapDacRead     bool   `json:"capDacRead"`
+	CapDacOverride bool   `json:"capDacOverride"`
+}
+
+type LookupPayload struct {
+	Entry string `json:"entry"`
+}
+
 type OpenFilePayload struct {
-	File  string `json:"file"`
-	Flags string `json:"flags"`
+	Header NSenterMsgHeader
+	File   string `json:"file"`
+	Flags  string `json:"flags"`
+	Mode   string `json:"mode"`
 }
 
 type ReadFilePayload struct {
@@ -101,6 +117,11 @@ type ReadFilePayload struct {
 type WriteFilePayload struct {
 	File    string `json:"file"`
 	Content string `json:"content"`
+}
+
+type ReadDirPayload struct {
+	Header NSenterMsgHeader
+	Dir    string `json:"dir"`
 }
 
 type MountSyscallPayload struct {
