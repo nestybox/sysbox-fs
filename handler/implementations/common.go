@@ -15,8 +15,6 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 
 	"github.com/sirupsen/logrus"
-	//cap "github.com/syndtr/gocapability/capability"
-	cap "github.com/nestybox/sysbox-fs/capability"
 )
 
 //
@@ -150,8 +148,8 @@ func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error 
 					Pid:            process.Pid(),
 					Uid:            process.Uid() - cntr.UID(),
 					Gid:            process.Gid() - cntr.GID(),
-					CapDacRead:     process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_READ_SEARCH)),
-					CapDacOverride: process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_OVERRIDE)),
+					CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
+					CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
 				},
 				File:  n.Path(),
 				Flags: strconv.Itoa(n.OpenFlags()),
@@ -333,8 +331,8 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 					Pid:            process.Pid(),
 					Uid:            process.Uid() - cntr.UID(),
 					Gid:            process.Gid() - cntr.GID(),
-					CapDacRead:     process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_READ_SEARCH)),
-					CapDacOverride: process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_OVERRIDE)),
+					CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
+					CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
 				},
 				Dir: n.Path(),
 			},
@@ -410,8 +408,8 @@ func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) err
 					Pid:            process.Pid(),
 					Uid:            process.Uid() - cntr.UID(),
 					Gid:            process.Gid() - cntr.GID(),
-					CapDacRead:     process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_READ_SEARCH)),
-					CapDacOverride: process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_OVERRIDE)),
+					CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
+					CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
 				},
 				File:  n.Path(),
 				Flags: strconv.Itoa(n.OpenFlags()),

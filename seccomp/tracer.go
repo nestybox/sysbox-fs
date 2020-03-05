@@ -14,10 +14,8 @@ import (
 	"github.com/nestybox/sysbox/lib/pathres"
 	"github.com/nestybox/sysbox/lib/pidmonitor"
 	libseccomp "github.com/seccomp/libseccomp-golang"
-	"github.com/sirupsen/logrus"
 
-	//cap "github.com/syndtr/gocapability/capability"
-	cap "github.com/nestybox/sysbox-fs/capability"
+	"github.com/sirupsen/logrus"
 )
 
 const seccompTracerSockAddr = "/run/sysbox/sysfs-seccomp.sock"
@@ -389,7 +387,7 @@ func (t *syscallTracer) processMount(
 	if err = process.Capabilities(); err != nil {
 		return nil, err
 	}
-	if !(process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_SYS_ADMIN))) {
+	if !(process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_SYS_ADMIN)) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
@@ -449,7 +447,7 @@ func (t *syscallTracer) processUmount(
 	if err = process.Capabilities(); err != nil {
 		return nil, err
 	}
-	if !(process.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_SYS_ADMIN))) {
+	if !(process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_SYS_ADMIN)) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 

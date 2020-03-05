@@ -21,8 +21,8 @@ type ProcessIface interface {
 	Uid() uint32
 	Gid() uint32
 	Capabilities() error
-	SetCapability(which uint, what ...int)
-	IsCapabilitySet(which uint, what int) bool
+	SetCapability(which CapType, what ...Cap)
+	IsCapabilitySet(which CapType, what Cap) bool
 	PidNsInode() (Inode, error)
 	PidNsInodeParent() (Inode, error)
 	PathAccess(path string, accessFlags int) error

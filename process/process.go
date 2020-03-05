@@ -1,3 +1,7 @@
+//
+// Copyright: (C) 2020 Nestybox Inc.  All rights reserved.
+//
+
 package process
 
 import (
@@ -12,11 +16,10 @@ import (
 	"unsafe"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	cap "github.com/nestybox/sysbox-fs/process/capability"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
-
-	//cap "github.com/syndtr/gocapability/capability"
-	cap "github.com/nestybox/sysbox-fs/capability"
 	"golang.org/x/sys/unix"
 	setxid "gopkg.in/hlandau/service.v1/daemon/setuid"
 )
@@ -54,19 +57,8 @@ type process struct {
 	status map[string]string // process status fields
 }
 
-func (p *process) Pid() uint32 {
-	return p.pid
-}
-
-func (p *process) Uid() uint32 {
-	return p.uid
-}
-
-func (p *process) Gid() uint32 {
-	return p.gid
-}
-
-// Capabilities method retrieves all process capabilities.
+// Capabilities method retrieves process capabilities from kernel and store
+// them within 'capability' data-struct.
 func (p *process) Capabilities() error {
 
 	c, err := cap.NewPid2(int(p.pid))
@@ -83,15 +75,21 @@ func (p *process) Capabilities() error {
 	return nil
 }
 
-func (p *process) IsCapabilitySet(which uint, what int) bool {
+// Simple wrapper method to determine capability presence.
+func (p *process) IsCapabilitySet(
+	which domain.CapType,
+	what domain.Cap) bool {
 
-	return p.cap.Get(cap.CapType(which), cap.Cap(what))
+	return p.cap.Get(which, what)
 }
 
-func (p *process) SetCapability(which uint, what ...int) {
+// Simple wrapper method to set capability values.
+func (p *process) SetCapability(
+	which domain.CapType,
+	what ...domain.Cap) {
 
-	for elem := range what {
-		p.cap.Set(cap.CapType(which), cap.Cap(elem))
+	for _, elem := range what {
+		p.cap.Set(which, elem)
 	}
 }
 
@@ -107,13 +105,13 @@ func (p *process) Camouflage(
 	if uid == 0 {
 
 		if !capDacRead {
-			p.cap.Unset(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH)
+			p.cap.Unset(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH)
 		}
 		if !capDacOverride {
-			p.cap.Unset(cap.EFFECTIVE, cap.CAP_DAC_OVERRIDE)
+			p.cap.Unset(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE)
 		}
 		if err := p.cap.Apply(
-			cap.EFFECTIVE | cap.PERMITTED | cap.INHERITABLE); err != nil {
+			domain.EFFECTIVE | domain.PERMITTED | domain.INHERITABLE); err != nil {
 			return err
 		}
 
@@ -130,17 +128,17 @@ func (p *process) Camouflage(
 
 	if capDacRead || capDacOverride {
 
-		p.cap.Clear(cap.EFFECTIVE)
+		p.cap.Clear(domain.EFFECTIVE)
 
 		if capDacRead {
-			p.cap.Set(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH)
+			p.cap.Set(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH)
 		}
 		if capDacOverride {
-			p.cap.Set(cap.EFFECTIVE, cap.CAP_DAC_OVERRIDE)
+			p.cap.Set(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE)
 		}
 
 		if err := p.cap.Apply(
-			cap.EFFECTIVE | cap.PERMITTED | cap.INHERITABLE); err != nil {
+			domain.EFFECTIVE | domain.PERMITTED | domain.INHERITABLE); err != nil {
 			return err
 		}
 	}
@@ -539,7 +537,7 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 	}
 
 	// capability checks
-	if p.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_OVERRIDE)) {
+	if p.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE) {
 		// Per capabilities(7): CAP_DAC_OVERRIDE bypasses file read, write, and execute
 		// permission checks.
 		//
@@ -560,7 +558,7 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 		}
 	}
 
-	if p.IsCapabilitySet(uint(cap.EFFECTIVE), int(cap.CAP_DAC_READ_SEARCH)) {
+	if p.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH) {
 		// Per capabilities(7): CAP_DAC_READ_SEARCH bypasses file read permission checks and
 		// directory read and execute permission checks
 		if fi.IsDir() && (aMode&domain.W_OK != domain.W_OK) {
@@ -574,6 +572,26 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 
 	return false, nil
 }
+
+//
+// Process' getter methods
+//
+
+func (p *process) Pid() uint32 {
+	return p.pid
+}
+
+func (p *process) Uid() uint32 {
+	return p.uid
+}
+
+func (p *process) Gid() uint32 {
+	return p.gid
+}
+
+//
+// Miscellaneous auxiliary functions
+//
 
 // isSymlink returns true if the given file is a symlink
 func isSymlink(path string) (bool, bool, error) {
