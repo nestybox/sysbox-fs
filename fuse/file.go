@@ -46,7 +46,7 @@ func NewFile(name string, path string, attr *fuse.Attr, srv *FuseService) *File 
 		path:    path,
 		attr:    attr,
 		service: srv,
-		ionode:  srv.ios.NewIOnode(name, path, attr.Mode),
+		ionode:  srv.ios.NewIOnode(name, path, 0),
 	}
 
 	return newFile
