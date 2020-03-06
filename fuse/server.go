@@ -97,14 +97,21 @@ func NewFuseService(
 
 func (s *FuseService) Run() error {
 	//
-	// Creating a FUSE mount at the requested mountpoint. Notice that we are
-	// making use of "allowOther" flag to allow unprivileged users to access
-	// this mount.
+	// Creating a FUSE mount at the requested mountpoint.
+	//
+	// The "AllowOther" flag allows unprivileged users to access the resources
+	// exposed on this mountpoint.
+	//
+	// The "DefaultPermissions" flag serves to instruct the kernel to perform
+	// its own permission check, instead of deferring all permission checking
+	// to sysbox-fs filesystem.
 	//
 	c, err := fuse.Mount(
 		s.mountPoint,
 		fuse.FSName("sysboxfs"),
-		fuse.AllowOther())
+		fuse.AllowOther(),
+		fuse.DefaultPermissions(),
+	)
 	if err != nil {
 		logrus.Fatal(err)
 		return err
