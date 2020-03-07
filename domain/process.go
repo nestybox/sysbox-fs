@@ -20,7 +20,6 @@ type ProcessIface interface {
 	Pid() uint32
 	Uid() uint32
 	Gid() uint32
-	Capabilities() error
 	SetCapability(which CapType, what ...Cap)
 	IsCapabilitySet(which CapType, what Cap) bool
 	PidNsInode() (Inode, error)

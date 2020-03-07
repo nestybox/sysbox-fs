@@ -57,9 +57,9 @@ type process struct {
 	status map[string]string // process status fields
 }
 
-// Capabilities method retrieves process capabilities from kernel and store
+// initCapability method retrieves process capabilities from kernel and store
 // them within 'capability' data-struct.
-func (p *process) Capabilities() error {
+func (p *process) initCapability() error {
 
 	c, err := cap.NewPid2(int(p.pid))
 	if err != nil {
@@ -75,48 +75,83 @@ func (p *process) Capabilities() error {
 	return nil
 }
 
-// Simple wrapper method to determine capability presence.
-func (p *process) IsCapabilitySet(
-	which domain.CapType,
-	what domain.Cap) bool {
-
-	return p.cap.Get(which, what)
-}
-
 // Simple wrapper method to set capability values.
-func (p *process) SetCapability(
-	which domain.CapType,
-	what ...domain.Cap) {
+func (p *process) SetCapability(which domain.CapType, what ...domain.Cap) {
+
+	if p.cap == nil {
+		if err := p.initCapability(); err != nil {
+			return
+		}
+	}
 
 	for _, elem := range what {
 		p.cap.Set(which, elem)
 	}
 }
 
-//
-//
-//
+// Simple wrapper method to determine capability presence.
+func (p *process) IsCapabilitySet(which domain.CapType, what domain.Cap) bool {
+
+	if p.cap == nil {
+		if err := p.initCapability(); err != nil {
+			return false
+		}
+	}
+
+	return p.cap.Get(which, what)
+}
+
+// Camouflage() method's purpose is to adjust the process personality to another
+// process. The ultimate goal is to be able to utilize a 'proxy' process (such
+// 'sysbox-fs nsenter') to execute instructions on behalf of the original
+// process
 func (p *process) Camouflage(
 	uid uint32,
 	gid uint32,
 	capDacRead bool,
 	capDacOverride bool) error {
 
+	var capChangeRequired bool = false
+
+	// Initialize capability struct if not already done.
+	if p.cap == nil {
+		if err := p.initCapability(); err != nil {
+			return err
+		}
+	}
+
+	// If UID corresponds to 'root' user then adjust capabilities of this
+	// running process accordingly.
 	if uid == 0 {
 
 		if !capDacRead {
 			p.cap.Unset(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH)
+			capChangeRequired = true
 		}
 		if !capDacOverride {
 			p.cap.Unset(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE)
+			capChangeRequired = true
 		}
-		if err := p.cap.Apply(
-			domain.EFFECTIVE | domain.PERMITTED | domain.INHERITABLE); err != nil {
-			return err
+		if capChangeRequired {
+			if err := p.cap.Apply(
+				domain.EFFECTIVE | domain.PERMITTED | domain.INHERITABLE); err != nil {
+				return err
+			}
 		}
 
 		return nil
 	}
+
+	// If UID is 'non-root' then we proceed as below:
+	//
+	// 1) Execute setregid() syscall to set this process' effective gid.
+	// 2) Execute setreuid() syscall to set this process' effective uid.
+	// 3) Adjust capabilities to match original (end-user) process.
+	//
+	// Notice that during execution of 2) all effective capabilities of the
+	// running process will be reset, which is something that we are looking
+	// after given that 'sysbox-fs nsenter' process by default runs with all
+	// capabilities turned on.
 
 	if err := setxid.Setresgid(-1, int(gid), -1); err != nil {
 		return err
@@ -132,14 +167,18 @@ func (p *process) Camouflage(
 
 		if capDacRead {
 			p.cap.Set(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH)
+			capChangeRequired = true
 		}
 		if capDacOverride {
 			p.cap.Set(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE)
+			capChangeRequired = true
 		}
 
-		if err := p.cap.Apply(
-			domain.EFFECTIVE | domain.PERMITTED | domain.INHERITABLE); err != nil {
-			return err
+		if capChangeRequired {
+			if err := p.cap.Apply(
+				domain.EFFECTIVE | domain.PERMITTED | domain.INHERITABLE); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -305,12 +344,6 @@ func (p *process) getInfo() error {
 			return err
 		}
 		sgid = append(sgid, val)
-	}
-
-	// obtain process capabilities
-	err = p.Capabilities()
-	if err != nil {
-		return err
 	}
 
 	// process root & cwd
