@@ -379,6 +379,29 @@ func (c *capsV3) Fill(kind domain.CapType) {
 	}
 }
 
+func (c *capsV3) ClearOriginal(kind domain.CapType) {
+	if kind&domain.CAPS == domain.CAPS {
+		c.data[0].effective = 0
+		c.data[0].permitted = 0
+		c.data[0].inheritable = 0
+		c.data[1].effective = 0
+		c.data[1].permitted = 0
+		c.data[1].inheritable = 0
+	}
+
+	if kind&domain.BOUNDS == domain.BOUNDS {
+		c.bounds[0] = 0
+		c.bounds[1] = 0
+	}
+	if kind&domain.AMBS == domain.AMBS {
+		c.ambient[0] = 0
+		c.ambient[1] = 0
+	}
+}
+
+// Sysbox-fs implementation of the original Clear() method (see above). In this
+// implementation we are handling every CAPS category separately to allow any
+// capability-type (kind) to be individually updated.
 func (c *capsV3) Clear(kind domain.CapType) {
 	if kind&domain.EFFECTIVE == domain.EFFECTIVE {
 		c.data[0].effective = 0
@@ -411,7 +434,7 @@ func (c *capsV3) String() (ret string) {
 	return mkString(c, domain.BOUNDING)
 }
 
-func (c *capsV3) Load() (err error) {
+func (c *capsV3) LoadOriginal() (err error) {
 	err = capget(&c.hdr, &c.data[0])
 	if err != nil {
 		return
@@ -448,6 +471,18 @@ func (c *capsV3) Load() (err error) {
 		}
 	}
 	f.Close()
+
+	return
+}
+
+// Sysbox-fs implementation of the original Load() method (see above). For
+// efficiency purposes, in this case we are not parsing 'status' file to
+// extract 'ambient' and 'bonding' capabilities.
+func (c *capsV3) Load() (err error) {
+	err = capget(&c.hdr, &c.data[0])
+	if err != nil {
+		return
+	}
 
 	return
 }
