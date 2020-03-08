@@ -11,7 +11,6 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
-	"github.com/nestybox/sysbox/lib/pathres"
 	"github.com/nestybox/sysbox/lib/pidmonitor"
 	libseccomp "github.com/seccomp/libseccomp-golang"
 
@@ -384,18 +383,8 @@ func (t *syscallTracer) processMount(
 	// mount operations. Otherwise, return here and let kernel handle the mount
 	// instruction.
 	process := t.sms.prs.ProcessCreate(req.Pid, 0, 0)
-	if err = process.Capabilities(); err != nil {
-		return nil, err
-	}
 	if !(process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_SYS_ADMIN)) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
-	}
-
-	// Resolve mount target and verify that process has the proper rights to
-	// access each of the components of the path.
-	err = pathres.PathAccess(int(req.Pid), mount.Target, 0)
-	if err != nil {
-		return t.createErrorResponse(req.Id, err), nil
 	}
 
 	// Process mount syscall.
@@ -444,18 +433,8 @@ func (t *syscallTracer) processUmount(
 	// umount operations. Otherwise, return here and let kernel handle the mount
 	// instruction.
 	process := t.sms.prs.ProcessCreate(req.Pid, 0, 0)
-	if err = process.Capabilities(); err != nil {
-		return nil, err
-	}
 	if !(process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_SYS_ADMIN)) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
-	}
-
-	// Resolve mount target and verify that process has the proper rights to
-	// access each of the components of the path.
-	err = pathres.PathAccess(int(req.Pid), umount.Target, 0)
-	if err != nil {
-		return t.createErrorResponse(req.Id, err), nil
 	}
 
 	// Process umount syscall.

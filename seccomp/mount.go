@@ -102,7 +102,6 @@ func (m *mountSyscallInfo) processProcMount() (*sysResponse, error) {
 		resp := m.tracer.createErrorResponse(
 			m.reqId,
 			responseMsg.Payload.(fuse.IOerror).Code)
-
 		return resp, nil
 	}
 
@@ -112,10 +111,26 @@ func (m *mountSyscallInfo) processProcMount() (*sysResponse, error) {
 // Build instructions payload required to mount "/proc" subtree.
 func (m *mountSyscallInfo) createProcPayload() *[]*domain.MountSyscallPayload {
 
+	// Create a process struct to represent the process generating the 'mount'
+	// instruction, and extract its capabilities to hand them out to 'nsenter'
+	// logic.
+	process := m.tracer.sms.prs.ProcessCreate(m.pid, 0, 0)
+
 	var payload []*domain.MountSyscallPayload
 
 	// Payload instruction for original "/proc" mount request.
 	payload = append(payload, m.MountSyscallPayload)
+
+	// Define a common payload-header for just one of the 'mountSyscallPayload'
+	// instructions. The subsequent instructions within this payload-slice, will
+	// rely on this header too.
+	payload[0].Header = domain.NSenterMsgHeader{
+		Pid:            process.Pid(),
+		Uid:            0, // process with admin_cap, uid is indifferent
+		Gid:            0, // process with admin_cap, gid is indifferent
+		CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
+		CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
+	}
 
 	// Sysbox-fs "/proc" bind-mounts.
 	procBindMounts := m.tracer.mountHelper.procMounts
@@ -233,7 +248,6 @@ func (m *mountSyscallInfo) processSysMount() (*sysResponse, error) {
 		resp := m.tracer.createErrorResponse(
 			m.reqId,
 			responseMsg.Payload.(fuse.IOerror).Code)
-
 		return resp, nil
 	}
 
@@ -243,10 +257,26 @@ func (m *mountSyscallInfo) processSysMount() (*sysResponse, error) {
 // Build instructions payload required to mount "/sys" subtree.
 func (m *mountSyscallInfo) createSysPayload() *[]*domain.MountSyscallPayload {
 
+	// Create a process struct to represent the process generating the 'mount'
+	// instruction, and extract its capabilities to hand them out to 'nsenter'
+	// logic.
+	process := m.tracer.sms.prs.ProcessCreate(m.pid, 0, 0)
+
 	var payload []*domain.MountSyscallPayload
 
 	// Payload instruction for original "/sys" mount request.
 	payload = append(payload, m.MountSyscallPayload)
+
+	// Define a common payload-header for just one of the 'mountSyscallPayload'
+	// instructions. The subsequent instructions within this payload-slice, will
+	// rely on this  header too.
+	payload[0].Header = domain.NSenterMsgHeader{
+		Pid:            process.Pid(),
+		Uid:            0, // process with admin_cap, uid is indifferent
+		Gid:            0, // process with admin_cap, gid is indifferent
+		CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
+		CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
+	}
 
 	// Sysbox-fs "/sys" bind-mounts.
 	sysBindMounts := m.tracer.mountHelper.sysMounts
@@ -296,6 +326,12 @@ func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
 		m.Flags = (m.CurFlags &^ unix.MS_RDONLY) | unix.MS_BIND | unix.MS_REMOUNT
 	}
 
+	// Create instruction's payload.
+	payload := m.createReMountPayload()
+	if payload == nil {
+		return nil, fmt.Errorf("Could not construct ReMount payload")
+	}
+
 	// Create nsenter-event envelope.
 	nss := m.tracer.sms.nss
 	event := nss.NewEvent(
@@ -311,7 +347,8 @@ func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
 		},
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
-			Payload: []*domain.MountSyscallPayload{m.MountSyscallPayload},
+			Payload: payload,
+			//Payload: []*domain.MountSyscallPayload{m.MountSyscallPayload},
 		},
 		nil,
 	)
@@ -328,14 +365,49 @@ func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
 		resp := m.tracer.createErrorResponse(
 			m.reqId,
 			responseMsg.Payload.(fuse.IOerror).Code)
-
 		return resp, nil
 	}
 
 	return m.tracer.createSuccessResponse(m.reqId), nil
 }
 
+// Build instructions payload required for remount operations.
+func (m *mountSyscallInfo) createReMountPayload() *[]*domain.MountSyscallPayload {
+
+	// Remount payload has been already partially built in tracer's processMount().
+	// Our goal here is to adjust this original payload with the proper flags and
+	// to add payload header with necessary metdadata.
+	var payload []*domain.MountSyscallPayload
+
+	// Payload instruction for original "/sys" mount request.
+	payload = append(payload, m.MountSyscallPayload)
+
+	// Create a process struct to represent the process generating the 'mount'
+	// instruction, and extract its capabilities to hand them out to 'nsenter'
+	// logic.
+	process := m.tracer.sms.prs.ProcessCreate(m.pid, 0, 0)
+
+	// Define a common payload-header for just one of the 'mountSyscallPayload'
+	// instructions. The subsequent instructions within this payload-slice, will
+	// rely on this  header too.
+	payload[0].Header = domain.NSenterMsgHeader{
+		Pid:            process.Pid(),
+		Uid:            0, // process with admin_cap, uid is indifferent
+		Gid:            0, // process with admin_cap, gid is indifferent
+		CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
+		CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
+	}
+
+	return &payload
+}
+
 func (m *mountSyscallInfo) processNfsMount() (*sysResponse, error) {
+
+	// Create instruction's payload.
+	payload := m.createNfsMountPayload()
+	if payload == nil {
+		return nil, fmt.Errorf("Could not construct nfsMount payload")
+	}
 
 	// Create nsenter-event envelope; in order to perform an nfs mount, we must not enter
 	// the container's user namespace.
@@ -352,7 +424,7 @@ func (m *mountSyscallInfo) processNfsMount() (*sysResponse, error) {
 		},
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
-			Payload: []*domain.MountSyscallPayload{m.MountSyscallPayload},
+			Payload: payload,
 		},
 		nil,
 	)
@@ -369,11 +441,37 @@ func (m *mountSyscallInfo) processNfsMount() (*sysResponse, error) {
 		resp := m.tracer.createErrorResponse(
 			m.reqId,
 			responseMsg.Payload.(fuse.IOerror).Code)
-
 		return resp, nil
 	}
 
 	return m.tracer.createSuccessResponse(m.reqId), nil
+}
+
+// Build instructions payload required for remount operations.
+func (m *mountSyscallInfo) createNfsMountPayload() *[]*domain.MountSyscallPayload {
+
+	// Remount payload has been already partially built in tracer's processMount().
+	// Our goal here is to adjust this original payload with a payload header
+	// with necessary metdadata.
+	var payload []*domain.MountSyscallPayload
+
+	// Create a process struct to represent the process generating the 'mount'
+	// instruction, and extract its capabilities to hand them out to 'nsenter'
+	// logic.
+	process := m.tracer.sms.prs.ProcessCreate(m.pid, 0, 0)
+
+	// Define a common payload-header for just one of the 'mountSyscallPayload'
+	// instructions. The subsequent instructions within this payload-slice, will
+	// rely on this  header too.
+	payload[0].Header = domain.NSenterMsgHeader{
+		Pid:            process.Pid(),
+		Uid:            0, // process with admin_cap, uid is indifferent
+		Gid:            0, // process with admin_cap, gid is indifferent
+		CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
+		CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
+	}
+
+	return &payload
 }
 
 func (m *mountSyscallInfo) string() string {

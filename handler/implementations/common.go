@@ -116,7 +116,6 @@ func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error 
 
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-	process.Capabilities()
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -299,7 +298,6 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-	process.Capabilities()
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously
@@ -376,7 +374,6 @@ func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) err
 
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-	process.Capabilities()
 
 	// Identify the container holding the process represented by this pid. This
 	// action can only succeed if the associated container has been previously

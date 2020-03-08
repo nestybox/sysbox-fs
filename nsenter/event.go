@@ -455,9 +455,11 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.OpenFilePayload)
 
+	// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
+	// executing this logic.
 	process := e.prs.ProcessCreate(0, 0, 0)
-	process.Capabilities()
 
+	// Adjust 'nsenter' process personality to the end-user's original process.
 	if err := process.Camouflage(
 		payload.Header.Uid,
 		payload.Header.Gid,
@@ -508,6 +510,7 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 
 	return nil
 }
+
 func (e *NSenterEvent) processFileReadRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.ReadFilePayload)
@@ -562,9 +565,11 @@ func (e *NSenterEvent) processDirReadRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.ReadDirPayload)
 
+	// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
+	// executing this logic.
 	process := e.prs.ProcessCreate(0, 0, 0)
-	process.Capabilities()
 
+	// Adjust 'nsenter' process personality to the end-user's original process.
 	if err := process.Camouflage(
 		payload.Header.Uid,
 		payload.Header.Gid,
@@ -617,12 +622,35 @@ func (e *NSenterEvent) processDirReadRequest() error {
 
 func (e *NSenterEvent) processMountSyscallRequest() error {
 
+	payload := e.ReqMsg.Payload.([]domain.MountSyscallPayload)
+
+	// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
+	// executing this logic.
+	process := e.prs.ProcessCreate(0, 0, 0)
+
+	// Extract payload-header from the first element of the payload slice.
+	header := payload[0].Header
+
+	// Adjust 'nsenter' process personality to the end-user's original process.
+	if err := process.Camouflage(
+		header.Uid,
+		header.Gid,
+		header.CapDacRead,
+		header.CapDacOverride); err != nil {
+
+		// Send an error-message response.
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+
+		return nil
+	}
+
 	var (
 		i   int
 		err error
 	)
-
-	payload := e.ReqMsg.Payload.([]domain.MountSyscallPayload)
 
 	// Perform mount instructions.
 	for i = 0; i < len(payload); i++ {
@@ -664,12 +692,35 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 
 func (e *NSenterEvent) processUmountSyscallRequest() error {
 
+	payload := e.ReqMsg.Payload.([]domain.UmountSyscallPayload)
+
+	// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
+	// executing this logic.
+	process := e.prs.ProcessCreate(0, 0, 0)
+
+	// Extract payload-header from the last element of the payload slice.
+	header := payload[len(payload)-1].Header
+
+	// Adjust 'nsenter' process personality to the end-user's original process.
+	if err := process.Camouflage(
+		header.Uid,
+		header.Gid,
+		header.CapDacRead,
+		header.CapDacOverride); err != nil {
+
+		// Send an error-message response.
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+
+		return nil
+	}
+
 	var (
 		i   int
 		err error
 	)
-
-	payload := e.ReqMsg.Payload.([]domain.UmountSyscallPayload)
 
 	// Perform umount instructions.
 	for i = 0; i < len(payload); i++ {

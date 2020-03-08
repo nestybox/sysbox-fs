@@ -149,8 +149,24 @@ func (u *umountSyscallInfo) createProcPayload() *[]*domain.UmountSyscallPayload 
 		payload = append(payload, newelem)
 	}
 
+	// Create a process struct to represent the process generating the 'mount'
+	// instruction and extract its capabilities to hand them out to 'nsenter'
+	// logic.
+	process := u.tracer.sms.prs.ProcessCreate(u.pid, 0, 0)
+
 	// Payload instruction for original "/proc" umount request.
 	payload = append(payload, u.UmountSyscallPayload)
+
+	// Define a common payload-header for just one of the 'mountSyscallPayload'
+	// instructions. The subsequent instructions within this payload-slice, will
+	// make use of this header too.
+	payload[len(payload)-1].Header = domain.NSenterMsgHeader{
+		Pid:            process.Pid(),
+		Uid:            0, // process with admin_cap, uid is indifferent
+		Gid:            0, // process with admin_cap, gid is indifferent
+		CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
+		CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
+	}
 
 	return &payload
 }
@@ -221,8 +237,24 @@ func (u *umountSyscallInfo) createSysPayload() *[]*domain.UmountSyscallPayload {
 		payload = append(payload, newelem)
 	}
 
-	// Payload instruction for original "/proc" umount request.
+	// Create a process struct to represent the process generating the 'mount'
+	// instruction, and extract its capabilities to hand them out to 'nsenter'
+	// logic.
+	process := u.tracer.sms.prs.ProcessCreate(u.pid, 0, 0)
+
+	// Payload instruction for original "/sys" umount request.
 	payload = append(payload, u.UmountSyscallPayload)
+
+	// Define a common payload-header for just one of the 'mountSyscallPayload'
+	// instructions. The subsequent instructions within this payload-slice, will
+	// make use of this header too.
+	payload[len(payload)-1].Header = domain.NSenterMsgHeader{
+		Pid:            process.Pid(),
+		Uid:            0, // process with admin_cap, uid is indifferent
+		Gid:            0, // process with admin_cap, gid is indifferent
+		CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
+		CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
+	}
 
 	return &payload
 }
