@@ -485,6 +485,11 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 			cur = filepath.Join(cur, c)
 		}
 
+		// Exit if reached 'final' stage with an empty component.
+		if final && c == "." {
+			break
+		}
+
 		symlink, isDir, err := isSymlink(cur)
 		if err != nil {
 			return syscall.ENOENT
