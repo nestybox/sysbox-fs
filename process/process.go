@@ -57,22 +57,20 @@ type process struct {
 	status map[string]string // process status fields
 }
 
-// initCapability method retrieves process capabilities from kernel and store
-// them within 'capability' data-struct.
-func (p *process) initCapability() error {
+//
+// Public methods
+//
 
-	c, err := cap.NewPid2(int(p.pid))
-	if err != nil {
-		return err
-	}
+func (p *process) Pid() uint32 {
+	return p.pid
+}
 
-	if err = c.Load(); err != nil {
-		return err
-	}
+func (p *process) Uid() uint32 {
+	return p.uid
+}
 
-	p.cap = c
-
-	return nil
+func (p *process) Gid() uint32 {
+	return p.gid
 }
 
 // Simple wrapper method to set capability values.
@@ -101,10 +99,28 @@ func (p *process) IsCapabilitySet(which domain.CapType, what domain.Cap) bool {
 	return p.cap.Get(which, what)
 }
 
+// initCapability method retrieves process capabilities from kernel and store
+// them within 'capability' data-struct.
+func (p *process) initCapability() error {
+
+	c, err := cap.NewPid2(int(p.pid))
+	if err != nil {
+		return err
+	}
+
+	if err = c.Load(); err != nil {
+		return err
+	}
+
+	p.cap = c
+
+	return nil
+}
+
 // Camouflage() method's purpose is to adjust the process personality to another
 // process. The ultimate goal is to be able to utilize a 'proxy' process (such
-// 'sysbox-fs nsenter') to execute instructions on behalf of the original
-// process
+// as 'sysbox-fs nsenter') to execute instructions on behalf of the original
+// process.
 func (p *process) Camouflage(
 	uid uint32,
 	gid uint32,
@@ -350,6 +366,13 @@ func (p *process) getInfo() error {
 	root := fmt.Sprintf("/proc/%d/root", p.pid)
 	cwd := fmt.Sprintf("/proc/%d/cwd", p.pid)
 
+	// process capabilities
+	if p.cap == nil {
+		if err := p.initCapability(); err != nil {
+			return err
+		}
+	}
+
 	// store all collected attributes
 	p.root = root
 	p.cwd = cwd
@@ -427,7 +450,7 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 		return syscall.ENAMETOOLONG
 	}
 
-	// Determine the start point
+	// Determine the start point.
 	var start string
 	if filepath.IsAbs(path) {
 		start = p.root
@@ -435,8 +458,8 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 		start = p.cwd
 	}
 
-	// Break up path into it's components; note that repeated "/" results in empty path
-	// components
+	// Break up path into it's components; note that repeated "/" results in
+	// empty path components.
 	components := strings.Split(path, "/")
 
 	cur := start
@@ -471,9 +494,9 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 			return syscall.ENOTDIR
 		}
 
-		// Follow the symlink (unless it's the proc.root); may recurse if symlink points to
-		// another symlink and so on; we stop at symlinkMax recursions (just as the Linux
-		// kernel does)
+		// Follow the symlink (unless it's the proc.root); may recurse if
+		//symlink points to another symlink and so on; we stop at symlinkMax
+		// recursions (just as the Linux kernel does).
 
 		if symlink && cur != p.root {
 			for {
@@ -523,11 +546,12 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 	return nil
 }
 
-// checkPerm checks if the given process has permission to access the file or directory at
-// the given path. The access mode indicates what type of access is being checked (i.e.,
-// read, write, execute, or a combination of these). The given path must not be a symlink.
-// Returns true if the given process has the required permission, false otherwise. The
-// returned error indicates if an error occurred during the check.
+// checkPerm checks if the given process has permission to access the file or
+// directory at the given path. The access mode indicates what type of access is
+// being checked (i.e., read, write, execute, or a combination of these). The
+// given path must not be a symlink. Returns true if the given process has the
+// required permission, false otherwise. The returned error indicates if an
+// error occurred during the check.
 func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) {
 
 	fi, err := os.Stat(path)
@@ -571,13 +595,14 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 
 	// capability checks
 	if p.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE) {
-		// Per capabilities(7): CAP_DAC_OVERRIDE bypasses file read, write, and execute
-		// permission checks.
+		// Per capabilities(7): CAP_DAC_OVERRIDE bypasses file read, write,
+		// and execute permission checks.
 		//
-		// Per The Linux Programming Interface, 15.4.3: A process with the CAP_DAC_OVERRIDE
-		// capability always has read and write permissions for any type of file, and also
-		// has execute permission if the file is a directory or if execute permission is
-		// granted to at least one of the permission categories for the file.
+		// Per The Linux Programming Interface, 15.4.3: A process with the
+		// CAP_DAC_OVERRIDE capability always has read and write permissions
+		// for any type of file, and also has execute permission if the file
+		// is a directory or if execute permission is granted to at least one
+		// of the permission categories for the file.
 		if fi.IsDir() {
 			return true, nil
 		} else {
@@ -592,8 +617,8 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 	}
 
 	if p.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH) {
-		// Per capabilities(7): CAP_DAC_READ_SEARCH bypasses file read permission checks and
-		// directory read and execute permission checks
+		// Per capabilities(7): CAP_DAC_READ_SEARCH bypasses file read permission
+		// checks and directory read and execute permission checks
 		if fi.IsDir() && (aMode&domain.W_OK != domain.W_OK) {
 			return true, nil
 		}
@@ -604,22 +629,6 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 	}
 
 	return false, nil
-}
-
-//
-// Process' getter methods
-//
-
-func (p *process) Pid() uint32 {
-	return p.pid
-}
-
-func (p *process) Uid() uint32 {
-	return p.uid
-}
-
-func (p *process) Gid() uint32 {
-	return p.gid
 }
 
 //
