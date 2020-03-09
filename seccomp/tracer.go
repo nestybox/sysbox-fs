@@ -368,15 +368,6 @@ func (t *syscallTracer) processMount(
 		},
 	}
 
-	// Convert to absolute path if dealing with a relative path request.
-	if !filepath.IsAbs(mount.Target) {
-		cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", req.Pid))
-		if err != nil {
-			return nil, err
-		}
-		mount.Target = filepath.Join(cwd, mount.Target)
-	}
-
 	logrus.Debugf(mount.string())
 
 	// As per man's capabilities(7), cap_sys_admin capability is required for
@@ -385,6 +376,23 @@ func (t *syscallTracer) processMount(
 	process := t.sms.prs.ProcessCreate(req.Pid, 0, 0)
 	if !(process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_SYS_ADMIN)) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
+	}
+
+	// Resolve mount target and verify that process has the proper rights to
+	// access each of the components of the path.
+	err = process.PathAccess(mount.Target, 0)
+	if err != nil {
+		return t.createErrorResponse(req.Id, err), nil
+	}
+
+	// To simplify mount processing logic, convert to absolute path if dealing
+	// with a relative path request.
+	if !filepath.IsAbs(mount.Target) {
+		cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", req.Pid))
+		if err != nil {
+			return nil, err
+		}
+		mount.Target = filepath.Join(cwd, mount.Target)
 	}
 
 	// Process mount syscall.
@@ -418,15 +426,6 @@ func (t *syscallTracer) processUmount(
 		},
 	}
 
-	// Convert to absolute path if dealing with a relative path request.
-	if !filepath.IsAbs(umount.Target) {
-		cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", req.Pid))
-		if err != nil {
-			return nil, err
-		}
-		umount.Target = filepath.Join(cwd, umount.Target)
-	}
-
 	logrus.Debugf(umount.string())
 
 	// As per man's capabilities(7), cap_sys_admin capability is required for
@@ -435,6 +434,23 @@ func (t *syscallTracer) processUmount(
 	process := t.sms.prs.ProcessCreate(req.Pid, 0, 0)
 	if !(process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_SYS_ADMIN)) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
+	}
+
+	// Resolve mount target and verify that process has the proper rights to
+	// access each of the components of the path.
+	err = process.PathAccess(umount.Target, 0)
+	if err != nil {
+		return t.createErrorResponse(req.Id, err), nil
+	}
+
+	// To simplify umount processing logic, convert to absolute path if dealing
+	// with a relative path request.
+	if !filepath.IsAbs(umount.Target) {
+		cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", req.Pid))
+		if err != nil {
+			return nil, err
+		}
+		umount.Target = filepath.Join(cwd, umount.Target)
 	}
 
 	// Process umount syscall.
