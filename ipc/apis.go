@@ -59,9 +59,9 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 
 	ipcService := ctx.(*ipcService)
 
-	// Identify the pidNsInode corresponding to this pid.
+	// Identify the userNsInode corresponding to this pid.
 	process := ipcService.prs.ProcessCreate(uint32(data.InitPid), 0, 0)
-	pidInode, err := process.PidNsInode()
+	usernsInode, err := process.UserNsInode()
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 	cntr := ipcService.css.ContainerCreate(
 		data.Id,
 		uint32(data.InitPid),
-		pidInode,
+		usernsInode,
 		data.Ctime,
 		uint32(data.UidFirst),
 		uint32(data.UidSize),

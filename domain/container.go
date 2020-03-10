@@ -16,7 +16,7 @@ type ContainerIface interface {
 	ID() string
 	InitPid() uint32
 	Ctime() time.Time
-	PidInode() Inode
+	UserNsInode() Inode
 	Data(path string, name string) (string, bool)
 	String() string
 	UID() uint32
@@ -45,7 +45,7 @@ type ContainerStateService interface {
 	ContainerCreate(
 		id string,
 		pid uint32,
-		pidNsInode Inode,
+		usernsInode Inode,
 		ctime time.Time,
 		uidFirst uint32,
 		uidSize uint32,
@@ -58,6 +58,6 @@ type ContainerStateService interface {
 	ContainerUpdate(c ContainerIface) error
 	ContainerDelete(c ContainerIface) error
 	ContainerLookupById(id string) ContainerIface
-	ContainerLookupByInode(pidInode Inode) ContainerIface
+	ContainerLookupByInode(usernsInode Inode) ContainerIface
 	ContainerLookupByProcess(process ProcessIface) ContainerIface
 }

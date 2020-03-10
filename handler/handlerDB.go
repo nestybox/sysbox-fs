@@ -295,8 +295,8 @@ type handlerService struct {
 	// Pointer to the service providing file-system I/O capabilities.
 	ios domain.IOService
 
-	// Represents the pid-namespace inode of the host's true-root.
-	hostPidInode domain.Inode
+	// Represents the user-namespace inode of the host's true-root.
+	hostUserNsInode domain.Inode
 
 	// Handler i/o errors should be obviated if this flag is enabled (testing
 	// purposes).
@@ -333,7 +333,7 @@ func NewHandlerService(
 	// emulated resource paths, and the parent directory hosting them.
 	newhs.createDirHandlerMap()
 
-	newhs.hostPidInode = newhs.FindPidNsInode(uint32(os.Getpid()))
+	newhs.hostUserNsInode = newhs.FindUserNsInode(uint32(os.Getpid()))
 
 	return newhs
 }
@@ -525,17 +525,17 @@ func (hs *handlerService) IgnoreErrors() bool {
 //
 // Auxiliary methods
 //
-func (hs *handlerService) HostPidNsInode() domain.Inode {
-	return hs.hostPidInode
+func (hs *handlerService) HostUserNsInode() domain.Inode {
+	return hs.hostUserNsInode
 }
 
-func (hs *handlerService) FindPidNsInode(pid uint32) domain.Inode {
+func (hs *handlerService) FindUserNsInode(pid uint32) domain.Inode {
 
 	process := hs.prs.ProcessCreate(pid, 0, 0)
-	pidInode, err := process.PidNsInode()
+	usernsInode, err := process.UserNsInode()
 	if err != nil {
 		return 0
 	}
 
-	return pidInode
+	return usernsInode
 }

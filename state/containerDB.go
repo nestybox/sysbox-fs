@@ -21,9 +21,9 @@ type containerStateService struct {
 	// corresponding to the container's pid-namespace.
 	idTable map[string]domain.Inode
 
-	// Map to keep track of the association between container's pid-namespaces
+	// Map to keep track of the association between container's user-namespaces
 	// (inode) and the internal structure to hold all the container state.
-	pidTable map[domain.Inode]*container
+	usernsTable map[domain.Inode]*container
 
 	// Pointer to the service providing process-handling capabilities.
 	prs domain.ProcessService
@@ -37,10 +37,10 @@ func NewContainerStateService(
 	ios domain.IOService) domain.ContainerStateService {
 
 	newCSS := &containerStateService{
-		idTable:  make(map[string]domain.Inode),
-		pidTable: make(map[domain.Inode]*container),
-		prs:      prs,
-		ios:      ios,
+		idTable:     make(map[string]domain.Inode),
+		usernsTable: make(map[domain.Inode]*container),
+		prs:         prs,
+		ios:         ios,
 	}
 
 	return newCSS
@@ -62,7 +62,7 @@ func (css *containerStateService) ContainerCreate(
 	newcntr := &container{
 		id:            id,
 		initPid:       initpid,
-		pidInode:      inode,
+		usernsInode:   inode,
 		ctime:         ctime,
 		uidFirst:      uidFirst,
 		uidSize:       uidSize,
@@ -96,15 +96,16 @@ func (css *containerStateService) ContainerAdd(c domain.ContainerIface) error {
 		return errors.New("Container ID already present")
 	}
 
-	// Ensure that new container's pidNsInode is not already registered.
-	if _, ok := css.pidTable[cntr.pidInode]; ok {
+	// Ensure that new container's userNsInode is not already registered.
+	if _, ok := css.usernsTable[cntr.usernsInode]; ok {
 		css.Unlock()
-		logrus.Errorf("Container addition error: container with PID-inode %v already present", cntr.pidInode)
-		return errors.New("Container with PID-inode already present")
+		logrus.Errorf("Container addition error: container with userns-inode %v already present",
+			cntr.usernsInode)
+		return errors.New("Container with userns-inode already present")
 	}
 
-	css.idTable[cntr.id] = cntr.pidInode
-	css.pidTable[cntr.pidInode] = cntr
+	css.idTable[cntr.id] = cntr.usernsInode
+	css.usernsTable[cntr.usernsInode] = cntr
 	css.Unlock()
 
 	logrus.Info(cntr.String())
@@ -118,7 +119,7 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	cntr := c.(*container)
 
 	//
-	// Identify the inode associated to the pid-ns of the container being
+	// Identify the inode associated to the user-ns of the container being
 	// updated.
 	//
 	inode, ok := css.idTable[cntr.id]
@@ -129,10 +130,11 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	}
 
 	// Obtain the existing container struct.
-	currCntr, ok := css.pidTable[inode]
+	currCntr, ok := css.usernsTable[inode]
 	if !ok {
 		css.Unlock()
-		logrus.Error("Container update failure: could not find container with pid-ns-inode ", inode)
+		logrus.Error("Container update failure: could not find container with user-ns-inode ",
+			inode)
 		return errors.New("Could not find container to update")
 	}
 
@@ -154,7 +156,7 @@ func (css *containerStateService) ContainerDelete(c domain.ContainerIface) error
 	cntr := c.(*container)
 
 	//
-	// Identify the inode associated to the pid-ns of the container being
+	// Identify the inode associated to the user-ns of the container being
 	// eliminated.
 	//
 	inode, ok := css.idTable[cntr.id]
@@ -164,15 +166,16 @@ func (css *containerStateService) ContainerDelete(c domain.ContainerIface) error
 		return errors.New("Container ID not found")
 	}
 
-	currCntr, ok := css.pidTable[inode]
+	currCntr, ok := css.usernsTable[inode]
 	if !ok {
 		css.Unlock()
-		logrus.Error("Container deletion error: could not find container with PID-inode ", inode)
-		return errors.New("Container with PID-inode already present")
+		logrus.Errorf("Container deletion error: could not find container with user-inode %v",
+			inode)
+		return errors.New("Container with userns-inode already present")
 	}
 
 	delete(css.idTable, currCntr.id)
-	delete(css.pidTable, inode)
+	delete(css.usernsTable, inode)
 	css.Unlock()
 
 	logrus.Info(currCntr.String())
@@ -184,12 +187,12 @@ func (css *containerStateService) ContainerLookupById(id string) domain.Containe
 	css.RLock()
 	defer css.RUnlock()
 
-	pidInode, ok := css.idTable[id]
+	usernsInode, ok := css.idTable[id]
 	if !ok {
 		return nil
 	}
 
-	cntr, ok := css.pidTable[pidInode]
+	cntr, ok := css.usernsTable[usernsInode]
 	if !ok {
 		return nil
 	}
@@ -197,11 +200,13 @@ func (css *containerStateService) ContainerLookupById(id string) domain.Containe
 	return cntr
 }
 
-func (css *containerStateService) ContainerLookupByInode(pidInode domain.Inode) domain.ContainerIface {
+func (css *containerStateService) ContainerLookupByInode(
+	usernsInode domain.Inode) domain.ContainerIface {
+
 	css.RLock()
 	defer css.RUnlock()
 
-	cntr, ok := css.pidTable[pidInode]
+	cntr, ok := css.usernsTable[usernsInode]
 	if !ok {
 		return nil
 	}
@@ -218,33 +223,34 @@ func (css *containerStateService) ContainerLookupByInode(pidInode domain.Inode) 
 
 func (css *containerStateService) ContainerLookupByProcess(p domain.ProcessIface) domain.ContainerIface {
 
-	// Identify the pidNsInode corresponding to this process.
-	pidInode, err := p.PidNsInode()
+	// Identify the userNsInode corresponding to this process.
+	usernsInode, err := p.UserNsInode()
 	if err != nil {
 		return nil
 	}
 
 	// Find the container-state corresponding to the container hosting this
-	// pid-ns-inode.
-	cntr := css.ContainerLookupByInode(pidInode)
+	// user-ns-inode.
+	cntr := css.ContainerLookupByInode(usernsInode)
 	if cntr == nil {
 		// If no container is found then determine if we are dealing with a nested
 		// container scenario. If that's the case, it's natural to expect sysbox-fs
 		// to be totally unaware of L2 containers launching this request, so we
-		// would be tempted to discard it. To avoid that we obtain the parent pid
+		// would be tempted to discard it. To avoid that we obtain the parent user
 		// namespace (and its associated inode), and we search through containerDB
 		// once again. If there's a match then we serve this request making use of
 		// the parent (L1) system container state.
-		parentPidInode, err := p.PidNsInodeParent()
+		parentUsernsInode, err := p.UserNsInodeParent()
 		if err != nil {
-			logrus.Errorf("Could not identify a parent namespace for pid %v", p.Pid())
+			logrus.Errorf("Could not identify a parent user-namespace for pid %v",
+				p.Pid())
 			return nil
 		}
 
-		parentCntr := css.ContainerLookupByInode(parentPidInode)
+		parentCntr := css.ContainerLookupByInode(parentUsernsInode)
 		if parentCntr == nil {
-			logrus.Errorf("Could not find the container originating this request (pidNsInode %v)",
-				pidInode)
+			logrus.Errorf("Could not find the container originating this request (userNsInode %v)",
+				usernsInode)
 			return nil
 		}
 

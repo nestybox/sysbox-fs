@@ -201,30 +201,30 @@ func (p *process) Camouflage(
 	return nil
 }
 
-func (p *process) PidNsInode() (domain.Inode, error) {
+func (p *process) UserNsInode() (domain.Inode, error) {
 
-	pidnsPath := strings.Join([]string{
+	usernsPath := strings.Join([]string{
 		"/proc",
 		strconv.FormatUint(uint64(p.pid), 10),
-		"ns/pid"}, "/")
+		"ns/user"}, "/")
 
-	// In unit-testing scenarios we will extract the pidInode value from the
+	// In unit-testing scenarios we will extract the userNsInode value from the
 	// file content itself. This is a direct consequence of afero-fs lacking
 	// Sys() api support.
 	_, ok := AppFs.(*afero.MemMapFs)
 	if ok {
-		content, err := afero.ReadFile(AppFs, pidnsPath)
+		content, err := afero.ReadFile(AppFs, usernsPath)
 		if err != nil {
 			return 0, err
 		}
-		pidInode, err := strconv.ParseUint(string(content), 10, 64)
+		usernsInode, err := strconv.ParseUint(string(content), 10, 64)
 
-		return pidInode, nil
+		return usernsInode, nil
 	}
 
 	// In the regular case (not unit-testing) obtain the real file-system inode
 	// associated to this pid-ns file-entry.
-	info, err := os.Stat(pidnsPath)
+	info, err := os.Stat(usernsPath)
 	if err != nil {
 		logrus.Error("No process file found for pid:", p.pid)
 		return 0, err
@@ -239,18 +239,18 @@ func (p *process) PidNsInode() (domain.Inode, error) {
 	return stat.Ino, nil
 }
 
-func (p *process) PidNsInodeParent() (domain.Inode, error) {
+func (p *process) UserNsInodeParent() (domain.Inode, error) {
 
 	// ioctl to retrieve the parent namespace.
 	const NS_GET_PARENT = 0xb702
 
-	pidnsPath := strings.Join(
-		[]string{"/proc", strconv.FormatUint(uint64(p.pid), 10), "ns/pid"},
+	usernsPath := strings.Join(
+		[]string{"/proc", strconv.FormatUint(uint64(p.pid), 10), "ns/user"},
 		"/",
 	)
 
-	// Open /proc/<pid>/ns/pid to obtain a file-desc to refer to.
-	childNsFd, err := os.Open(pidnsPath)
+	// Open /proc/<pid>/ns/user to obtain a file-desc to refer to.
+	childNsFd, err := os.Open(usernsPath)
 	if err != nil {
 		return 0, err
 	}

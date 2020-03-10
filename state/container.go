@@ -27,7 +27,7 @@ type container struct {
 	procRoPaths   []string            // OCI spec read-only proc paths
 	procMaskPaths []string            // OCI spec masked proc paths
 	specPaths     map[string]struct{} // OCI spec hashmap including all paths
-	pidInode      domain.Inode        // inode associated to container's pid-ns
+	usernsInode   domain.Inode        // inode associated to container's user-ns
 	dataStore     domain.StateDataMap // Handler's container-specific storage blob
 }
 
@@ -56,11 +56,11 @@ func (c *container) Ctime() time.Time {
 	return c.ctime
 }
 
-func (c *container) PidInode() domain.Inode {
+func (c *container) UserNsInode() domain.Inode {
 	c.RLock()
 	defer c.RUnlock()
 
-	return c.pidInode
+	return c.usernsInode
 }
 
 func (c *container) UID() uint32 {
@@ -126,7 +126,7 @@ func (c *container) String() string {
 	result := "\n\t\t id: " + c.id + "\n" +
 		"\t\t initPid: " + strconv.Itoa(int(c.initPid)) + "\n" +
 		"\t\t ctime: " + c.ctime.String() + "\n" +
-		"\t\t pidNsInode: " + strconv.FormatUint(c.pidInode, 10) + "\n" +
+		"\t\t usernsInode: " + strconv.FormatUint(c.usernsInode, 10) + "\n" +
 		"\t\t UID: " + strconv.Itoa(int(c.uidFirst)) + "\n" +
 		"\t\t GID: " + strconv.Itoa(int(c.gidFirst))
 

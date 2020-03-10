@@ -37,10 +37,10 @@ func (h *VmOvercommitMemHandler) Lookup(
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
-	// Identify the pidNsInode corresponding to this pid.
-	pidInode := h.Service.FindPidNsInode(req.Pid)
-	if pidInode == 0 {
-		return nil, errors.New("Could not identify pidNsInode")
+	// Identify the userNsInode corresponding to this pid.
+	usernsInode := h.Service.FindUserNsInode(req.Pid)
+	if usernsInode == 0 {
+		return nil, errors.New("Could not identify userNsInode")
 	}
 
 	return n.Stat()

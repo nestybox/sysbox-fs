@@ -90,6 +90,6 @@ type HandlerService interface {
 	IgnoreErrors() bool
 
 	// Auxiliar methods.
-	HostPidNsInode() Inode
-	FindPidNsInode(pid uint32) Inode
+	HostUserNsInode() Inode
+	FindUserNsInode(pid uint32) Inode
 }
