@@ -301,13 +301,11 @@ func (p *process) PidNsInodeParent() (domain.Inode, error) {
 // syscall.EACCES: the process does not have permission to access at least one component of the path.
 // syscall.ELOOP: the path too many symlinks (e.g. > 40).
 
-func (p *process) PathAccess(path string, accessFlags int) error {
+func (p *process) PathAccess(path string, aMode domain.AccessMode) error {
 
 	if err := p.getInfo(); err != nil {
 		return err
 	}
-
-	aMode := p.pathAccessMode(accessFlags)
 
 	return p.pathAccess(path, aMode)
 }
@@ -425,21 +423,6 @@ func (p *process) getStatus(fields []string) error {
 	return nil
 }
 
-func (p *process) pathAccessMode(flags int) domain.AccessMode {
-
-	var aMode domain.AccessMode
-
-	if flags&os.O_RDONLY == os.O_RDONLY {
-		aMode = domain.R_OK
-	} else if flags&os.O_WRONLY == os.O_WRONLY {
-		aMode = domain.W_OK
-	} else if flags&os.O_RDWR == os.O_RDONLY {
-		aMode = domain.R_OK | domain.W_OK
-	}
-
-	return aMode
-}
-
 func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 
 	if path == "" {
@@ -485,11 +468,6 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 			cur = filepath.Join(cur, c)
 		}
 
-		// Exit if reached 'final' stage with an empty component.
-		if final && c == "." {
-			break
-		}
-
 		symlink, isDir, err := isSymlink(cur)
 		if err != nil {
 			return syscall.ENOENT
@@ -500,7 +478,7 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 		}
 
 		// Follow the symlink (unless it's the proc.root); may recurse if
-		//symlink points to another symlink and so on; we stop at symlinkMax
+		// symlink points to another symlink and so on; we stop at symlinkMax
 		// recursions (just as the Linux kernel does).
 
 		if symlink && cur != p.root {
@@ -518,6 +496,15 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 					cur = filepath.Join(p.root, link)
 				} else {
 					cur = filepath.Join(filepath.Dir(cur), link)
+				}
+
+				// If 'cur' ever matches 'p.root' then there's no need to continue
+				// iterating as we know for sure that 'p.root' is a valid /
+				// non-cyclical path. If we were to continue our iteration, we
+				// would end up dereferencing 'p.root' -- through readlink() --
+				// which would erroneously points us to "/" in the host fs.
+				if cur == p.root {
+					break
 				}
 
 				symlink, isDir, err = isSymlink(cur)
