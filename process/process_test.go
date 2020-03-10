@@ -594,6 +594,35 @@ func TestProcPathAccessSymlink(t *testing.T) {
 	if err := os.Chdir(testCwd); err != nil {
 		t.Fatalf("failed on os.Chdir(): %v", err)
 	}
+
+	//
+	// Reproducing corner case exposed by issue #574, observed during execution
+	// initialization of an inner container ("mount -o bind,remount .").
+	//
+	// /tmp/TestPathres/
+	// |-- cwdLink  ->  /
+	// |-- rootLink ->  /
+	//
+
+	cwd := filepath.Join(tmpDir, "/cwdLink")
+	if err := os.Symlink("/", cwd); err != nil {
+		t.Fatalf("failed to create test path: %v", err)
+	}
+	root := filepath.Join(tmpDir, "/rootLink")
+	if err := os.Symlink("/", root); err != nil {
+		t.Fatalf("failed to create test path: %v", err)
+	}
+
+	p = &process{
+		root: root,
+		cwd:  cwd,
+		uid:  uint32(os.Geteuid()),
+		gid:  uint32(os.Getegid()),
+	}
+
+	if err := p.pathAccess(".", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
+	}
 }
 
 func TestPathAccess(t *testing.T) {
