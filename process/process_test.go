@@ -1,44 +1,14 @@
 package process
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 	"syscall"
 	"testing"
 
-	"golang.org/x/sys/unix"
+	"github.com/nestybox/sysbox-fs/domain"
 )
-
-func TestGetProcInfo(t *testing.T) {
-
-	groups, err := os.Getgroups()
-	if err != nil {
-		t.Fatalf("Getgroups() failed: %v", err)
-	}
-
-	mypid := os.Getpid()
-
-	want := &procInfo{
-		root: fmt.Sprintf("/proc/%d/root", mypid),
-		cwd:  fmt.Sprintf("/proc/%d/cwd", mypid),
-		uid:  os.Geteuid(),
-		gid:  os.Getegid(),
-		sgid: groups,
-		cap:  0,
-	}
-
-	got, err := getProcInfo(os.Getpid())
-	if err != nil {
-		t.Fatalf("getProcInfo failed: %v", err)
-	}
-
-	if !reflect.DeepEqual(*want, *got) {
-		t.Fatalf("getProcInfo failed: want %+v; got %+v", want, got)
-	}
-}
 
 func TestCheckPermOwner(t *testing.T) {
 
@@ -57,23 +27,22 @@ func TestCheckPermOwner(t *testing.T) {
 		t.Fatalf("failed to chmod test file: %v", err)
 	}
 
-	// check owner perm
-	pi := &procInfo{
+	p := &process{
 		root: tmpDir,
 		cwd:  tmpDir,
-		uid:  os.Geteuid(),
-		gid:  os.Getegid(),
+		uid:  uint32(os.Geteuid()),
+		gid:  uint32(os.Getegid()),
 	}
 
-	mode := R_OK | W_OK
-	ok, err := checkPerm(pi, filename, mode)
+	mode := domain.R_OK | domain.W_OK
+	ok, err := p.checkPerm(filename, mode)
 	if err != nil || !ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
 
 	// check no execute perm
-	mode = X_OK
-	ok, err = checkPerm(pi, filename, mode)
+	mode = domain.X_OK
+	ok, err = p.checkPerm(filename, mode)
 	if err != nil || ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
@@ -97,21 +66,21 @@ func TestCheckPermGroup(t *testing.T) {
 	}
 
 	// check group perm
-	pi := &procInfo{
+	p := &process{
 		root: tmpDir,
 		cwd:  tmpDir,
 		uid:  800,
-		gid:  os.Getegid(),
+		gid:  uint32(os.Getegid()),
 	}
 
-	mode := R_OK | W_OK
-	ok, err := checkPerm(pi, filename, mode)
+	mode := domain.R_OK | domain.W_OK
+	ok, err := p.checkPerm(filename, mode)
 	if err != nil || !ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
 
 	// check suppl group perm
-	pi = &procInfo{
+	p = &process{
 		root: tmpDir,
 		cwd:  tmpDir,
 		uid:  800,
@@ -119,15 +88,15 @@ func TestCheckPermGroup(t *testing.T) {
 		sgid: []int{os.Getegid()},
 	}
 
-	mode = R_OK | W_OK
-	ok, err = checkPerm(pi, filename, mode)
+	mode = domain.R_OK | domain.W_OK
+	ok, err = p.checkPerm(filename, mode)
 	if err != nil || !ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
 
 	// check no execute perm
-	mode = X_OK
-	ok, err = checkPerm(pi, filename, mode)
+	mode = domain.X_OK
+	ok, err = p.checkPerm(filename, mode)
 	if err != nil || ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
@@ -151,22 +120,22 @@ func TestCheckPermOther(t *testing.T) {
 	}
 
 	// check other perm
-	pi := &procInfo{
+	p := &process{
 		root: tmpDir,
 		cwd:  tmpDir,
 		uid:  800,
 		gid:  800,
 	}
 
-	mode := R_OK
-	ok, err := checkPerm(pi, filename, mode)
+	mode := domain.R_OK
+	ok, err := p.checkPerm(filename, mode)
 	if err != nil || !ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
 
 	// check no write or execute perm
-	mode = W_OK | X_OK
-	ok, err = checkPerm(pi, filename, mode)
+	mode = domain.W_OK | domain.X_OK
+	ok, err = p.checkPerm(filename, mode)
 	if err != nil || ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
@@ -191,16 +160,17 @@ func TestCheckPermCapDacOverride(t *testing.T) {
 		t.Fatalf("failed to chmod test file: %v", err)
 	}
 
-	pi := &procInfo{
+	p := &process{
 		root: tmpDir,
 		cwd:  tmpDir,
 		uid:  800,
 		gid:  800,
-		cap:  1 << unix.CAP_DAC_OVERRIDE,
 	}
 
-	mode := R_OK | W_OK | X_OK
-	ok, err := checkPerm(pi, filename, mode)
+	p.SetCapability(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE)
+
+	mode := domain.R_OK | domain.W_OK | domain.X_OK
+	ok, err := p.checkPerm(filename, mode)
 	if err != nil || !ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
@@ -210,14 +180,14 @@ func TestCheckPermCapDacOverride(t *testing.T) {
 		t.Fatalf("failed to chmod test file: %v", err)
 	}
 
-	mode = R_OK | W_OK
-	ok, err = checkPerm(pi, filename, mode)
+	mode = domain.R_OK | domain.W_OK
+	ok, err = p.checkPerm(filename, mode)
 	if err != nil || !ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
 
-	mode = X_OK
-	ok, err = checkPerm(pi, filename, mode)
+	mode = domain.X_OK
+	ok, err = p.checkPerm(filename, mode)
 	if err != nil || ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
@@ -242,16 +212,17 @@ func TestCheckPermCapDacReadSearch(t *testing.T) {
 		t.Fatalf("failed to chmod test file: %v", err)
 	}
 
-	pi := &procInfo{
+	p := &process{
 		root: tmpDir,
 		cwd:  tmpDir,
 		uid:  800,
 		gid:  800,
-		cap:  1 << unix.CAP_DAC_READ_SEARCH,
 	}
 
-	mode := R_OK
-	ok, err := checkPerm(pi, filename, mode)
+	p.SetCapability(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH)
+
+	mode := domain.R_OK
+	ok, err := p.checkPerm(filename, mode)
 	if err != nil || !ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
@@ -263,19 +234,19 @@ func TestCheckPermCapDacReadSearch(t *testing.T) {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	mode = R_OK | X_OK
-	ok, err = checkPerm(pi, dirname, mode)
+	mode = domain.R_OK | domain.X_OK
+	ok, err = p.checkPerm(dirname, mode)
 	if err != nil || !ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
 
 	// CAP_DAC_READ_SEARCH does not allow writes
-	mode = W_OK
-	ok, err = checkPerm(pi, filename, mode)
+	mode = domain.W_OK
+	ok, err = p.checkPerm(filename, mode)
 	if err != nil || ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
-	ok, err = checkPerm(pi, dirname, mode)
+	ok, err = p.checkPerm(dirname, mode)
 	if err != nil || ok {
 		t.Fatalf("checkPerm() failed: ok = %v, err = %v", ok, err)
 	}
@@ -296,73 +267,74 @@ func TestProcPathAccess(t *testing.T) {
 	}
 
 	cwd := filepath.Join(tmpDir, "/some/path/to")
-	pi := &procInfo{
+
+	p := &process{
 		root: tmpDir,
 		cwd:  cwd,
-		uid:  os.Geteuid(),
-		gid:  os.Getegid(),
+		uid:  uint32(os.Geteuid()),
+		gid:  uint32(os.Getegid()),
 	}
 
-	mode := R_OK | W_OK | X_OK
+	mode := domain.R_OK | domain.W_OK | domain.X_OK
 
-	if err := procPathAccess(pi, "a/dir", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("a/dir", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
 	// test handling of repeated "/"
-	if err := procPathAccess(pi, "a////dir", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("a////dir", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
 	// test handling of "."
-	if err := procPathAccess(pi, "./a/dir", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("./a/dir", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "a/dir/.", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("a/dir/.", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "././a/./dir/.", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("././a/./dir/.", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
 	// test handling of ".."
-	if err := procPathAccess(pi, "../to/a/dir", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("../to/a/dir", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "../../path/to/a/dir", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("../../path/to/a/dir", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "../../../some/path/to/a/dir", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("../../../some/path/to/a/dir", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "../../../../some/path/to/a/dir", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("../../../../some/path/to/a/dir", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "a/../a/dir", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("a/../a/dir", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "a/../a/../../to/a/dir", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("a/../a/../../to/a/dir", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "../../../../../../../some/path/../path/to/a/dir", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("../../../../../../../some/path/../path/to/a/dir", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "../to/a/dir/..", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("../to/a/dir/..", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
 	// combine all of the above
-	if err := procPathAccess(pi, "../../../../.././../.././///some/path/../path///to/./a/dir////", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("../../../../.././../.././///some/path/../path///to/./a/dir////", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 }
 
@@ -387,15 +359,16 @@ func TestProcPathAccessDirAndFilePerm(t *testing.T) {
 	}
 
 	cwd := filepath.Join(tmpDir, "/some/path/to")
-	pi := &procInfo{
+
+	p := &process{
 		root: tmpDir,
 		cwd:  cwd,
-		uid:  os.Geteuid(),
-		gid:  os.Getegid(),
+		uid:  uint32(os.Geteuid()),
+		gid:  uint32(os.Getegid()),
 	}
 
-	if err := procPathAccess(pi, "/some/path/to/a/dir/somefile", 0); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("/some/path/to/a/dir/somefile", 0); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
 	// Restrict access on the file and verify
@@ -403,24 +376,24 @@ func TestProcPathAccessDirAndFilePerm(t *testing.T) {
 		t.Fatalf("failed to chmod test file: %v", err)
 	}
 
-	pi = &procInfo{
+	p = &process{
 		root: tmpDir,
 		cwd:  cwd,
 		uid:  800,
 		gid:  800,
 	}
 
-	if err := procPathAccess(pi, "/some/path/to/a/dir/somefile", 0); err != nil {
+	if err := p.pathAccess("/some/path/to/a/dir/somefile", 0); err != nil {
 		t.Fatalf("procPathAccess() failed: %v", err)
 	}
-	if err := procPathAccess(pi, "/some/path/to/a/dir/somefile", R_OK); err != syscall.EACCES {
-		t.Fatalf("procPathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
+	if err := p.pathAccess("/some/path/to/a/dir/somefile", domain.R_OK); err != syscall.EACCES {
+		t.Fatalf("pathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
-	if err := procPathAccess(pi, "/some/path/to/a/dir/somefile", W_OK); err != syscall.EACCES {
-		t.Fatalf("procPathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
+	if err := p.pathAccess("/some/path/to/a/dir/somefile", domain.W_OK); err != syscall.EACCES {
+		t.Fatalf("pathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
-	if err := procPathAccess(pi, "/some/path/to/a/dir/somefile", X_OK); err != syscall.EACCES {
-		t.Fatalf("procPathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
+	if err := p.pathAccess("/some/path/to/a/dir/somefile", domain.X_OK); err != syscall.EACCES {
+		t.Fatalf("pathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
 
 	// Restrict access on a dir of the path and verify
@@ -430,19 +403,23 @@ func TestProcPathAccessDirAndFilePerm(t *testing.T) {
 	if err := os.Chmod(filename, 0777); err != nil {
 		t.Fatalf("failed to chmod test file: %v", err)
 	}
-	if err := procPathAccess(pi, "/some/path/to/a/dir/somefile", R_OK|W_OK|X_OK); err != syscall.EACCES {
-		t.Fatalf("procPathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
+	if err := p.pathAccess(
+		"/some/path/to/a/dir/somefile",
+		domain.R_OK|domain.W_OK|domain.X_OK); err != syscall.EACCES {
+		t.Fatalf("pathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
 
-	pi = &procInfo{
+	p = &process{
 		root: tmpDir,
 		cwd:  cwd,
-		uid:  os.Geteuid(),
-		gid:  os.Getegid(),
+		uid:  uint32(os.Geteuid()),
+		gid:  uint32(os.Getegid()),
 	}
 
-	if err := procPathAccess(pi, "/some/path/to/a/dir/somefile", R_OK|W_OK|X_OK); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess(
+		"/some/path/to/a/dir/somefile",
+		domain.R_OK|domain.W_OK|domain.X_OK); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 }
 
@@ -461,40 +438,41 @@ func TestProcPathAccessEnoent(t *testing.T) {
 	}
 
 	cwd := filepath.Join(tmpDir, "/some/path/to")
-	pi := &procInfo{
+
+	p := &process{
 		root: tmpDir,
 		cwd:  cwd,
-		uid:  os.Geteuid(),
-		gid:  os.Getegid(),
+		uid:  uint32(os.Geteuid()),
+		gid:  uint32(os.Getegid()),
 	}
 
-	mode := R_OK
+	mode := domain.R_OK
 
-	if err = procPathAccess(pi, "a/non/existent/dir", mode); err != syscall.ENOENT {
+	if err = p.pathAccess("a/non/existent/dir", mode); err != syscall.ENOENT {
 		goto Fail
 	}
 
-	if err = procPathAccess(pi, "../to/a/non/existent/dir", mode); err != syscall.ENOENT {
+	if err = p.pathAccess("../to/a/non/existent/dir", mode); err != syscall.ENOENT {
 		goto Fail
 	}
 
-	if err = procPathAccess(pi, "a/dir/../bad", mode); err != syscall.ENOENT {
+	if err = p.pathAccess("a/dir/../bad", mode); err != syscall.ENOENT {
 		goto Fail
 	}
 
-	if err = procPathAccess(pi, "a/dir/../../bad", mode); err != syscall.ENOENT {
+	if err = p.pathAccess("a/dir/../../bad", mode); err != syscall.ENOENT {
 		goto Fail
 	}
 
-	if err = procPathAccess(pi, "a/dir/../../../../../../../bad", mode); err != syscall.ENOENT {
+	if err = p.pathAccess("a/dir/../../../../../../../bad", mode); err != syscall.ENOENT {
 		goto Fail
 	}
 
-	if err = procPathAccess(pi, "a/./bad/./dir/", mode); err != syscall.ENOENT {
+	if err = p.pathAccess("a/./bad/./dir/", mode); err != syscall.ENOENT {
 		goto Fail
 	}
 
-	if err = procPathAccess(pi, "/some/path/to/a/non/existent/dir", mode); err != syscall.ENOENT {
+	if err = p.pathAccess("/some/path/to/a/non/existent/dir", mode); err != syscall.ENOENT {
 		goto Fail
 	}
 
@@ -506,8 +484,8 @@ Fail:
 
 func TestProcPathAccessSymlink(t *testing.T) {
 
-	// This test creates the following dir and symlink hierarchy and verifies all symlinks
-	// get resolved correctly.
+	// This test creates the following dir and symlink hierarchy and verifies all
+	// symlinks get resolved correctly.
 	//
 	// /tmp/TestPathres/
 	// ├── another
@@ -535,27 +513,27 @@ func TestProcPathAccessSymlink(t *testing.T) {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	old := "/this/is/the/real/path"
+	old := "./this/is/the/real/path"
 	new := filepath.Join(tmpDir, "/link")
 	if err := os.Symlink(old, new); err != nil {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	pi := &procInfo{
+	p := &process{
 		root: tmpDir,
 		cwd:  tmpDir,
-		uid:  os.Geteuid(),
-		gid:  os.Getegid(),
+		uid:  uint32(os.Geteuid()),
+		gid:  uint32(os.Getegid()),
 	}
 
-	mode := R_OK | X_OK
+	mode := domain.R_OK | domain.X_OK
 
-	if err := procPathAccess(pi, "/link", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("/link", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "/link/..", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("/link/..", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
 	// test recursive symlinks
@@ -565,8 +543,8 @@ func TestProcPathAccessSymlink(t *testing.T) {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	if err := procPathAccess(pi, "/link2", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("/link2", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
 	path = filepath.Join(tmpDir, "/another/path")
@@ -581,8 +559,8 @@ func TestProcPathAccessSymlink(t *testing.T) {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	if err := procPathAccess(pi, "/another/path/link3", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("/another/path/link3", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
 	path = filepath.Join(tmpDir, "/another/path/again")
@@ -605,12 +583,12 @@ func TestProcPathAccessSymlink(t *testing.T) {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	if err := procPathAccess(pi, "/another/path/again/link4", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("/another/path/again/link4", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
-	if err := procPathAccess(pi, "/another/path/again/link4/..", mode); err != nil {
-		t.Fatalf("procPathAccess() failed: %v", err)
+	if err := p.pathAccess("/another/path/again/link4/..", mode); err != nil {
+		t.Fatalf("pathAccess() failed: %v", err)
 	}
 
 	if err := os.Chdir(testCwd); err != nil {
@@ -620,7 +598,7 @@ func TestProcPathAccessSymlink(t *testing.T) {
 
 func TestPathAccess(t *testing.T) {
 
-	mypid := os.Getpid()
+	p := &process{pid: uint32(os.Getpid())}
 
 	tmpDir, err := ioutil.TempDir("/tmp", "TestPathres")
 	if err != nil {
@@ -642,29 +620,37 @@ func TestPathAccess(t *testing.T) {
 	}
 
 	// file access
-	if err := PathAccess(mypid, filename, R_OK|W_OK); err != nil {
+	if err := p.PathAccess(filename, domain.R_OK|domain.W_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
 	// dir access
 	path = tmpDir + "/some/path/to/a/dir"
-	if err := PathAccess(mypid, path, R_OK|X_OK); err != nil {
+	if err := p.PathAccess(
+		path,
+		domain.R_OK|domain.X_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
 	// .. and .
 	path = tmpDir + "/some/path/../../some/path/to/a/./dir/somefile"
-	if err := PathAccess(mypid, path, R_OK|W_OK); err != nil {
+	if err := p.PathAccess(
+		path,
+		domain.R_OK|domain.W_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
 	path = tmpDir + "/some/path/../../some/path/to/a/./dir/./././"
-	if err := PathAccess(mypid, path, R_OK|X_OK); err != nil {
+	if err := p.PathAccess(
+		path,
+		domain.R_OK|domain.X_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
 	path = tmpDir + "/../../../../" + tmpDir + "/some/path/to/a/../a/dir/."
-	if err := PathAccess(mypid, path, R_OK|X_OK); err != nil {
+	if err := p.PathAccess(
+		path,
+		domain.R_OK|domain.X_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
@@ -680,7 +666,9 @@ func TestPathAccess(t *testing.T) {
 	}
 
 	path = "to/a/dir/somefile"
-	if err := PathAccess(mypid, path, R_OK|W_OK); err != nil {
+	if err := p.PathAccess(
+		path,
+		domain.R_OK|domain.W_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
@@ -689,7 +677,9 @@ func TestPathAccess(t *testing.T) {
 	}
 
 	path = "a/dir"
-	if err := PathAccess(mypid, path, R_OK|X_OK); err != nil {
+	if err := p.PathAccess(
+		path,
+		domain.R_OK|domain.X_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
@@ -700,7 +690,7 @@ func TestPathAccess(t *testing.T) {
 
 func TestPathAccessPerm(t *testing.T) {
 
-	mypid := os.Getpid()
+	p := &process{pid: uint32(os.Getpid())}
 
 	tmpDir, err := ioutil.TempDir("/tmp", "TestPathres")
 	if err != nil {
@@ -726,15 +716,15 @@ func TestPathAccessPerm(t *testing.T) {
 		t.Fatalf("failed to chmod test file: %v", err)
 	}
 
-	if err := PathAccess(mypid, filename, R_OK); err != nil {
+	if err := p.PathAccess(filename, domain.R_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
-	if err := PathAccess(mypid, filename, W_OK); err != syscall.EACCES {
+	if err := p.PathAccess(filename, domain.W_OK); err != syscall.EACCES {
 		t.Fatalf("PathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
 
-	if err := PathAccess(mypid, filename, X_OK); err != syscall.EACCES {
+	if err := p.PathAccess(filename, domain.X_OK); err != syscall.EACCES {
 		t.Fatalf("PathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
 
@@ -743,15 +733,15 @@ func TestPathAccessPerm(t *testing.T) {
 		t.Fatalf("failed to chmod test file: %v", err)
 	}
 
-	if err := PathAccess(mypid, filename, W_OK); err != nil {
+	if err := p.PathAccess(filename, domain.W_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
-	if err := PathAccess(mypid, filename, R_OK); err != syscall.EACCES {
+	if err := p.PathAccess(filename, domain.R_OK); err != syscall.EACCES {
 		t.Fatalf("PathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
 
-	if err := PathAccess(mypid, filename, X_OK); err != syscall.EACCES {
+	if err := p.PathAccess(filename, domain.X_OK); err != syscall.EACCES {
 		t.Fatalf("PathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
 
@@ -760,15 +750,15 @@ func TestPathAccessPerm(t *testing.T) {
 		t.Fatalf("failed to chmod test file: %v", err)
 	}
 
-	if err := PathAccess(mypid, filename, X_OK); err != nil {
+	if err := p.PathAccess(filename, domain.X_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
-	if err := PathAccess(mypid, filename, R_OK); err != syscall.EACCES {
+	if err := p.PathAccess(filename, domain.R_OK); err != syscall.EACCES {
 		t.Fatalf("PathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
 
-	if err := PathAccess(mypid, filename, W_OK); err != syscall.EACCES {
+	if err := p.PathAccess(filename, domain.W_OK); err != syscall.EACCES {
 		t.Fatalf("PathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
 
@@ -781,14 +771,14 @@ func TestPathAccessPerm(t *testing.T) {
 		t.Fatalf("failed to chmod test file: %v", err)
 	}
 
-	if err := PathAccess(mypid, filename, R_OK); err != syscall.EACCES {
+	if err := p.PathAccess(filename, domain.R_OK); err != syscall.EACCES {
 		t.Fatalf("PathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
 }
 
 func TestPathAccessSymlink(t *testing.T) {
 
-	mypid := os.Getpid()
+	p := &process{pid: uint32(os.Getpid())}
 
 	tmpDir, err := ioutil.TempDir("/tmp", "TestPathres")
 	if err != nil {
@@ -815,7 +805,7 @@ func TestPathAccessSymlink(t *testing.T) {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	if err := PathAccess(mypid, link, R_OK|W_OK); err != nil {
+	if err := p.PathAccess(link, domain.R_OK|domain.W_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
@@ -830,7 +820,7 @@ func TestPathAccessSymlink(t *testing.T) {
 		t.Fatalf("failed on os.Chdir(): %v", err)
 	}
 
-	if err := PathAccess(mypid, "link", R_OK|W_OK); err != nil {
+	if err := p.PathAccess("link", domain.R_OK|domain.W_OK); err != nil {
 		t.Fatalf("PathAccess() failed: %v", err)
 	}
 
@@ -840,7 +830,7 @@ func TestPathAccessSymlink(t *testing.T) {
 
 	// negative test on file perm
 
-	if err := PathAccess(mypid, filename, X_OK); err != syscall.EACCES {
+	if err := p.PathAccess(filename, domain.X_OK); err != syscall.EACCES {
 		t.Fatalf("PathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
 }

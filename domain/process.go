@@ -24,7 +24,7 @@ type ProcessIface interface {
 	IsCapabilitySet(which CapType, what Cap) bool
 	PidNsInode() (Inode, error)
 	PidNsInodeParent() (Inode, error)
-	PathAccess(path string, accessFlags int) error
+	PathAccess(path string, accessFlags AccessMode) error
 	Camouflage(
 		uid uint32,
 		gid uint32,
