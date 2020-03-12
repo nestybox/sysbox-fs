@@ -7,7 +7,6 @@ package implementations
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"syscall"
 
@@ -33,12 +32,6 @@ func (h *FsBinfmtHandler) Lookup(
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
-
-	// Identify the userNsInode corresponding to this pid.
-	usernsInode := h.Service.FindUserNsInode(req.Pid)
-	if usernsInode == 0 {
-		return nil, errors.New("Could not identify userNsInode")
-	}
 
 	return n.Stat()
 }
@@ -97,10 +90,6 @@ func (h *FsBinfmtHandler) Read(
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
-
-	if req.Offset > 0 {
-		return 0, io.EOF
-	}
 
 	return 0, nil
 }

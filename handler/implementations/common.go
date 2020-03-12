@@ -107,6 +107,7 @@ func (h *CommonHandler) Getattr(n domain.IOnode, req *domain.HandlerRequest) (*s
 		Uid: cntr.UID(),
 		Gid: cntr.GID(),
 	}
+
 	return stat, nil
 }
 

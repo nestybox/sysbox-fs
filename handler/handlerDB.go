@@ -525,6 +525,7 @@ func (hs *handlerService) IgnoreErrors() bool {
 //
 // Auxiliary methods
 //
+
 func (hs *handlerService) HostUserNsInode() domain.Inode {
 	return hs.hostUserNsInode
 }

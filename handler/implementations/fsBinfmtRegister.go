@@ -5,6 +5,8 @@
 package implementations
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"syscall"
 
@@ -41,7 +43,31 @@ func (h *FsBinfmtRegisterHandler) Getattr(
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
-	return nil, nil
+	// Identify the userNsInode corresponding to this pid.
+	usernsInode := h.Service.FindUserNsInode(req.Pid)
+	if usernsInode == 0 {
+		return nil, errors.New("Could not identify userNsInode")
+	}
+
+	// If userNsInode matches the one of system's true-root, then return here
+	// with UID/GID = 0. This step is required during container initialization
+	// phase.
+	if usernsInode == h.Service.HostUserNsInode() {
+		stat := &syscall.Stat_t{
+			Uid: 0,
+			Gid: 0,
+		}
+
+		return stat, nil
+	}
+
+	// Let's refer to the common handler for the rest.
+	commonHandler, ok := h.Service.FindHandler("commonHandler")
+	if !ok {
+		return nil, fmt.Errorf("No commonHandler found")
+	}
+
+	return commonHandler.Getattr(n, req)
 }
 
 func (h *FsBinfmtRegisterHandler) Open(
