@@ -367,7 +367,6 @@ func (e *NSenterEvent) SendRequest() error {
 
 	// Transfer the nsenterEvent details to grand-child for processing.
 	data, err := json.Marshal(*(e.ReqMsg))
-	//data, err := json.Marshal(e)
 	if err != nil {
 		logrus.Errorf("Error while encoding nsenter payload (%v).", err)
 		return err
