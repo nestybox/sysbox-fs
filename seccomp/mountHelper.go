@@ -123,7 +123,7 @@ func (m *mountHelper) stringToFlags(s string) uint64 {
 
 		val, ok := m.flagsMap[v]
 		if !ok {
-			logrus.Errorf("Unsupported mount flag option %s", v)
+			logrus.Warnf("Unsupported mount flag option %s", v)
 			continue
 		}
 
