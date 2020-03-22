@@ -16,7 +16,6 @@ type ContainerIface interface {
 	ID() string
 	InitPid() uint32
 	Ctime() time.Time
-	UserNsInode() Inode
 	Data(path string, name string) (string, bool)
 	String() string
 	UID() uint32
@@ -24,6 +23,7 @@ type ContainerIface interface {
 	ProcRoPaths() []string
 	ProcMaskPaths() []string
 	IsSpecPath(s string) bool
+	InitProc() ProcessIface
 	//
 	// Setters
 	//
@@ -45,7 +45,6 @@ type ContainerStateService interface {
 	ContainerCreate(
 		id string,
 		pid uint32,
-		usernsInode Inode,
 		ctime time.Time,
 		uidFirst uint32,
 		uidSize uint32,

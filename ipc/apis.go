@@ -59,18 +59,10 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 
 	ipcService := ctx.(*ipcService)
 
-	// Identify the userNsInode corresponding to this pid.
-	process := ipcService.prs.ProcessCreate(uint32(data.InitPid), 0, 0)
-	usernsInode, err := process.UserNsInode()
-	if err != nil {
-		return err
-	}
-
 	// Create new container and add it to the containerDB.
 	cntr := ipcService.css.ContainerCreate(
 		data.Id,
 		uint32(data.InitPid),
-		usernsInode,
 		data.Ctime,
 		uint32(data.UidFirst),
 		uint32(data.UidSize),
@@ -80,7 +72,7 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 		data.ProcMaskPaths,
 	)
 
-	err = ipcService.css.ContainerAdd(cntr)
+	err := ipcService.css.ContainerAdd(cntr)
 	if err != nil {
 		return err
 	}
@@ -105,7 +97,6 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 	cntr := ipcService.css.ContainerCreate(
 		data.Id,
 		uint32(data.InitPid),
-		0,
 		data.Ctime,
 		uint32(data.UidFirst),
 		uint32(data.UidSize),
@@ -140,7 +131,6 @@ func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 	cntr := ipcService.css.ContainerCreate(
 		data.Id,
 		uint32(data.InitPid),
-		0,
 		data.Ctime,
 		uint32(data.UidFirst),
 		uint32(data.UidSize),

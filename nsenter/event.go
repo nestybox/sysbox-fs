@@ -267,6 +267,9 @@ func (e *NSenterEvent) namespacePaths() []string {
 
 	var paths []string
 
+	// Note: e.Namespace is assumed to be ordered such that if userns is present, it's
+	// always first.
+
 	for _, nstype := range e.Namespace {
 		path := filepath.Join(
 			nstype,

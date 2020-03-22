@@ -48,8 +48,7 @@ func NewContainerStateService(
 
 func (css *containerStateService) ContainerCreate(
 	id string,
-	initpid uint32,
-	inode domain.Inode,
+	initPid uint32,
 	ctime time.Time,
 	uidFirst uint32,
 	uidSize uint32,
@@ -61,8 +60,7 @@ func (css *containerStateService) ContainerCreate(
 
 	newcntr := &container{
 		id:            id,
-		initPid:       initpid,
-		usernsInode:   inode,
+		initPid:       initPid,
 		ctime:         ctime,
 		uidFirst:      uidFirst,
 		uidSize:       uidSize,
@@ -81,6 +79,8 @@ func (css *containerStateService) ContainerCreate(
 		newcntr.specPaths[v] = struct{}{}
 	}
 
+	newcntr.initProc = css.prs.ProcessCreate(initPid, uidFirst, gidFirst)
+
 	return newcntr
 }
 
@@ -96,16 +96,17 @@ func (css *containerStateService) ContainerAdd(c domain.ContainerIface) error {
 		return errors.New("Container ID already present")
 	}
 
-	// Ensure that new container's userNsInode is not already registered.
-	if _, ok := css.usernsTable[cntr.usernsInode]; ok {
+	// Ensure that new container's init process userns inode is not already registered.
+	usernsInode := cntr.initProc.UserNsInode()
+	if _, ok := css.usernsTable[usernsInode]; ok {
 		css.Unlock()
 		logrus.Errorf("Container addition error: container with userns-inode %v already present",
-			cntr.usernsInode)
+			usernsInode)
 		return errors.New("Container with userns-inode already present")
 	}
 
-	css.idTable[cntr.id] = cntr.usernsInode
-	css.usernsTable[cntr.usernsInode] = cntr
+	css.idTable[cntr.id] = usernsInode
+	css.usernsTable[usernsInode] = cntr
 	css.Unlock()
 
 	logrus.Info(cntr.String())
@@ -224,10 +225,7 @@ func (css *containerStateService) ContainerLookupByInode(
 func (css *containerStateService) ContainerLookupByProcess(p domain.ProcessIface) domain.ContainerIface {
 
 	// Identify the userNsInode corresponding to this process.
-	usernsInode, err := p.UserNsInode()
-	if err != nil {
-		return nil
-	}
+	usernsInode := p.UserNsInode()
 
 	// Find the container-state corresponding to the container hosting this
 	// user-ns-inode.

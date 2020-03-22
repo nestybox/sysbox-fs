@@ -4,6 +4,8 @@
 
 package domain
 
+import "reflect"
+
 const (
 	SymlinkMax = 40
 )
@@ -22,7 +24,8 @@ type ProcessIface interface {
 	Gid() uint32
 	SetCapability(which CapType, what ...Cap)
 	IsCapabilitySet(which CapType, what Cap) bool
-	UserNsInode() (Inode, error)
+	NsInodes() map[string]Inode
+	UserNsInode() Inode
 	UserNsInodeParent() (Inode, error)
 	PathAccess(path string, accessFlags AccessMode) error
 	Camouflage(
@@ -34,4 +37,9 @@ type ProcessIface interface {
 
 type ProcessService interface {
 	ProcessCreate(pid uint32, uid uint32, gid uint32) ProcessIface
+}
+
+// ProcessNsMatch returns true if the given processes are in the same namespaces.
+func ProcessNsMatch(p1, p2 ProcessIface) bool {
+	return reflect.DeepEqual(p1.NsInodes(), p2.NsInodes())
 }

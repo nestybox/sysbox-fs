@@ -538,12 +538,6 @@ func (hs *handlerService) HostUserNsInode() domain.Inode {
 }
 
 func (hs *handlerService) FindUserNsInode(pid uint32) domain.Inode {
-
 	process := hs.prs.ProcessCreate(pid, 0, 0)
-	usernsInode, err := process.UserNsInode()
-	if err != nil {
-		return 0
-	}
-
-	return usernsInode
+	return process.UserNsInode()
 }

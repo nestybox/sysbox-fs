@@ -24,14 +24,53 @@ import (
 	setxid "gopkg.in/hlandau/service.v1/daemon/setuid"
 )
 
-//
 var AppFs = afero.NewOsFs()
 
-//
 type processService struct{}
 
 func NewProcessService() domain.ProcessService {
 	return &processService{}
+}
+
+// Collects the namespace inodes of the given process
+func getNsInodes(pid uint32) (map[string]domain.Inode, error) {
+
+	// collect the process' namespace inodes
+	nsList := []string{"user", "mnt", "ipc", "cgroup", "net", "pid", "uts"}
+	nsInodes := make(map[string]domain.Inode)
+	pidStr := strconv.FormatUint(uint64(pid), 10)
+
+	for _, ns := range nsList {
+		nsPath := filepath.Join("/proc", pidStr, "ns", ns)
+
+		// In unit-testing scenarios we will extract the nsInode value from the
+		// file content itself. This is a direct consequence of afero-fs lacking
+		// Sys() api support.
+		_, ok := AppFs.(*afero.MemMapFs)
+		if ok {
+			content, err := afero.ReadFile(AppFs, nsPath)
+			if err != nil {
+				return nil, err
+			}
+			nsInode, err := strconv.ParseUint(string(content), 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			nsInodes[ns] = nsInode
+			continue
+		}
+
+		info, err := os.Stat(nsPath)
+		if err != nil {
+			logrus.Errorf("No process %s ns file found for pid:", ns, pid)
+			return nil, err
+		}
+
+		stat := info.Sys().(*syscall.Stat_t)
+		nsInodes[ns] = stat.Ino
+	}
+
+	return nsInodes, nil
 }
 
 func (ps *processService) ProcessCreate(
@@ -39,22 +78,33 @@ func (ps *processService) ProcessCreate(
 	uid uint32,
 	gid uint32) domain.ProcessIface {
 
+	var nsInodes map[string]domain.Inode
+
+	// Parse the process ns inodes
+	if pid != 0 {
+		nsInodes, _ = getNsInodes(pid)
+	} else {
+		nsInodes = nil
+	}
+
 	return &process{
-		pid: pid,
-		uid: uid,
-		gid: gid,
+		pid:      pid,
+		uid:      uid,
+		gid:      gid,
+		nsInodes: nsInodes,
 	}
 }
 
 type process struct {
-	pid    uint32            // process id
-	root   string            // root dir
-	cwd    string            // current working dir
-	uid    uint32            // effective uid
-	gid    uint32            // effective gid
-	sgid   []int             // supplementary groups
-	cap    cap.Capabilities  // process capabilities
-	status map[string]string // process status fields
+	pid      uint32                  // process id
+	root     string                  // root dir
+	cwd      string                  // current working dir
+	uid      uint32                  // effective uid
+	gid      uint32                  // effective gid
+	sgid     []int                   // supplementary groups
+	cap      cap.Capabilities        // process capabilities
+	status   map[string]string       // process status fields
+	nsInodes map[string]domain.Inode // process namespace inodes
 }
 
 //
@@ -201,42 +251,12 @@ func (p *process) Camouflage(
 	return nil
 }
 
-func (p *process) UserNsInode() (domain.Inode, error) {
+func (p *process) NsInodes() map[string]domain.Inode {
+	return p.nsInodes
+}
 
-	usernsPath := strings.Join([]string{
-		"/proc",
-		strconv.FormatUint(uint64(p.pid), 10),
-		"ns/user"}, "/")
-
-	// In unit-testing scenarios we will extract the userNsInode value from the
-	// file content itself. This is a direct consequence of afero-fs lacking
-	// Sys() api support.
-	_, ok := AppFs.(*afero.MemMapFs)
-	if ok {
-		content, err := afero.ReadFile(AppFs, usernsPath)
-		if err != nil {
-			return 0, err
-		}
-		usernsInode, err := strconv.ParseUint(string(content), 10, 64)
-
-		return usernsInode, nil
-	}
-
-	// In the regular case (not unit-testing) obtain the real file-system inode
-	// associated to this pid-ns file-entry.
-	info, err := os.Stat(usernsPath)
-	if err != nil {
-		logrus.Error("No process file found for pid:", p.pid)
-		return 0, err
-	}
-
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok {
-		logrus.Error("Not a syscall.Stat_t")
-		return 0, nil
-	}
-
-	return stat.Ino, nil
+func (p *process) UserNsInode() domain.Inode {
+	return p.nsInodes["user"]
 }
 
 func (p *process) UserNsInodeParent() (domain.Inode, error) {
@@ -244,10 +264,7 @@ func (p *process) UserNsInodeParent() (domain.Inode, error) {
 	// ioctl to retrieve the parent namespace.
 	const NS_GET_PARENT = 0xb702
 
-	usernsPath := strings.Join(
-		[]string{"/proc", strconv.FormatUint(uint64(p.pid), 10), "ns/user"},
-		"/",
-	)
+	usernsPath := filepath.Join("/proc", strconv.FormatUint(uint64(p.pid), 10), "ns", "user")
 
 	// Open /proc/<pid>/ns/user to obtain a file-desc to refer to.
 	childNsFd, err := os.Open(usernsPath)

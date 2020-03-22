@@ -1,5 +1,5 @@
 //
-// Copyright: (C) 2019 Nestybox Inc.  All rights reserved.
+// Copyright: (C) 2019-2020 Nestybox Inc.  All rights reserved.
 //
 
 package implementations
@@ -50,7 +50,7 @@ func (h *CommonHandler) Lookup(n domain.IOnode, req *domain.HandlerRequest) (os.
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		cntr.InitPid(),
+		process.Pid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
@@ -132,7 +132,7 @@ func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		cntr.InitPid(),
+		process.Pid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
@@ -212,13 +212,13 @@ func (h *CommonHandler) Read(n domain.IOnode, req *domain.HandlerRequest) (int, 
 		err  error
 	)
 
-	if h.Cacheable {
+	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
 		// Check if this resource has been initialized for this container. Otherwise,
 		// fetch the information from the host FS and store it accordingly within
 		// the container struct.
 		data, ok = cntr.Data(path, name)
 		if !ok {
-			data, err = h.fetchFile(n, cntr)
+			data, err = h.fetchFile(n, process)
 			if err != nil {
 				return 0, err
 			}
@@ -226,7 +226,7 @@ func (h *CommonHandler) Read(n domain.IOnode, req *domain.HandlerRequest) (int, 
 			cntr.SetData(path, name, data)
 		}
 	} else {
-		data, err = h.fetchFile(n, cntr)
+		data, err = h.fetchFile(n, process)
 		if err != nil {
 			return 0, err
 		}
@@ -260,12 +260,12 @@ func (h *CommonHandler) Write(n domain.IOnode, req *domain.HandlerRequest) (int,
 		return 0, errors.New("Container not found")
 	}
 
-	if h.Cacheable {
+	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
 		// Check if this resource has been initialized for this container. If not,
 		// push it to the host FS and store it within the container struct.
 		curContent, ok := cntr.Data(path, name)
 		if !ok {
-			if err := h.pushFile(n, cntr, newContent); err != nil {
+			if err := h.pushFile(n, process, newContent); err != nil {
 				return 0, err
 			}
 
@@ -285,7 +285,7 @@ func (h *CommonHandler) Write(n domain.IOnode, req *domain.HandlerRequest) (int,
 
 	} else {
 		// Push new value to host FS.
-		if err := h.pushFile(n, cntr, newContent); err != nil {
+		if err := h.pushFile(n, process, newContent); err != nil {
 			return 0, err
 		}
 	}
@@ -314,7 +314,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		cntr.InitPid(),
+		process.Pid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
@@ -390,7 +390,7 @@ func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) err
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		cntr.InitPid(),
+		process.Pid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
@@ -489,12 +489,12 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, req *domain.HandlerRe
 // Auxiliary method to fetch the content of any given file within a container.
 func (h *CommonHandler) fetchFile(
 	n domain.IOnode,
-	cntr domain.ContainerIface) (string, error) {
+	process domain.ProcessIface) (string, error) {
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		cntr.InitPid(),
+		process.Pid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
@@ -533,13 +533,13 @@ func (h *CommonHandler) fetchFile(
 // Auxiliary method to inject content into any given file within a container.
 func (h *CommonHandler) pushFile(
 	n domain.IOnode,
-	cntr domain.ContainerIface,
+	process domain.ProcessIface,
 	s string) error {
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		cntr.InitPid(),
+		process.Pid(),
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
