@@ -255,7 +255,7 @@ var DefaultHandlers = []domain.HandlerIface{
 		Name:      "common",
 		Path:      "commonHandler",
 		Enabled:   true,
-		Cacheable: false,
+		Cacheable: true,
 	},
 	//
 	// SysCommon handler -- to be utilized for all namespaced resources.
