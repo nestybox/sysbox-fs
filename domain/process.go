@@ -28,11 +28,6 @@ type ProcessIface interface {
 	UserNsInode() Inode
 	UserNsInodeParent() (Inode, error)
 	PathAccess(path string, accessFlags AccessMode) error
-	Camouflage(
-		uid uint32,
-		gid uint32,
-		capDacRead bool,
-		capDacOverride bool) error
 }
 
 type ProcessService interface {

@@ -451,31 +451,11 @@ func (e *NSenterEvent) processLookupRequest() error {
 //
 // Once a file has been opened with open(), no permission checking is performed
 // by subsequent system calls that work with the returned file descriptor (such
-//  as read(), write(), fstat(), fcntl(), and mmap()).
+// as read(), write(), fstat(), fcntl(), and mmap()).
 //
 func (e *NSenterEvent) processOpenFileRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.OpenFilePayload)
-
-	// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
-	// executing this logic.
-	process := e.prs.ProcessCreate(0, 0, 0)
-
-	// Adjust 'nsenter' process personality to the end-user's original process.
-	if err := process.Camouflage(
-		payload.Header.Uid,
-		payload.Header.Gid,
-		payload.Header.CapDacRead,
-		payload.Header.CapDacOverride); err != nil {
-
-		// Send an error-message response.
-		e.ResMsg = &domain.NSenterMessage{
-			Type:    domain.ErrorResponse,
-			Payload: &fuse.IOerror{RcvError: err},
-		}
-
-		return nil
-	}
 
 	// Extract openflags from the incoming payload.
 	openFlags, err := strconv.Atoi(payload.Flags)
@@ -566,26 +546,6 @@ func (e *NSenterEvent) processFileWriteRequest() error {
 func (e *NSenterEvent) processDirReadRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.ReadDirPayload)
-
-	// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
-	// executing this logic.
-	process := e.prs.ProcessCreate(0, 0, 0)
-
-	// Adjust 'nsenter' process personality to the end-user's original process.
-	if err := process.Camouflage(
-		payload.Header.Uid,
-		payload.Header.Gid,
-		payload.Header.CapDacRead,
-		payload.Header.CapDacOverride); err != nil {
-
-		// Send an error-message response.
-		e.ResMsg = &domain.NSenterMessage{
-			Type:    domain.ErrorResponse,
-			Payload: &fuse.IOerror{RcvError: err},
-		}
-
-		return nil
-	}
 
 	// Perform readDir operation and return error msg should this one fail.
 	dirContent, err := ioutil.ReadDir(payload.Dir)
