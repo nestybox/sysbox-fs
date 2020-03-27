@@ -107,7 +107,7 @@ func (e *NSenterEvent) GetResponseMsg() *domain.NSenterMessage {
 //
 func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 
-	// Rawmessage payload to aid in decoding generic messages (see below
+	// Raw message payload to aid in decoding generic messages (see below
 	// explanation).
 	var payload json.RawMessage
 	nsenterMsg := domain.NSenterMessage{
@@ -121,8 +121,8 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 	// remote-end. This second step is executed as part of a subsequent
 	// unmarshal instruction (see further below).
 	if err := json.NewDecoder(pipe).Decode(&nsenterMsg); err != nil {
-		logrus.Errorf("Error decoding received nsenterMsg response (%v).", err)
-		return errors.New("Error decoding received event response")
+		logrus.Warnf("Error decoding received nsenterMsg response: %s", err)
+		return fmt.Errorf("Error decoding received nsenterMsg response: %s", err)
 	}
 
 	switch nsenterMsg.Type {
@@ -398,8 +398,7 @@ func (e *NSenterEvent) SendRequest() error {
 	}
 
 	if ierr != nil {
-		logrus.Warnf("Reaping childs (%d, %d) due to process response error", firstChildProcess.Pid, cmd.Process.Pid)
-		firstChildProcess.Wait()
+		logrus.Warnf("Reaping child pid %d due to process response error", cmd.Process.Pid)
 		cmd.Wait()
 		return ierr
 	}
@@ -471,11 +470,19 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 	// Extract openflags from the incoming payload.
 	openFlags, err := strconv.Atoi(payload.Flags)
 	if err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
 		return nil
 	}
 	// Extract openMode from the incoming payload.
 	mode, err := strconv.Atoi(payload.Mode)
 	if err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
 		return nil
 	}
 
@@ -485,12 +492,10 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 	// are not expected (refer to "man open(2)" for details).
 	fd, err := os.OpenFile(payload.File, openFlags, os.FileMode(mode))
 	if err != nil {
-		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: &fuse.IOerror{RcvError: err},
 		}
-
 		return nil
 	}
 	fd.Close()
@@ -511,13 +516,11 @@ func (e *NSenterEvent) processFileReadRequest() error {
 	// Perform read operation and return error msg should this one fail.
 	fileContent, err := ioutil.ReadFile(payload.File)
 	if err != nil {
-		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: &fuse.IOerror{RcvError: err},
 		}
-
-		return err
+		return nil
 	}
 
 	// Create a response message.
@@ -536,12 +539,10 @@ func (e *NSenterEvent) processFileWriteRequest() error {
 	// Perform write operation and return error msg should this one fail.
 	err := ioutil.WriteFile(payload.File, []byte(payload.Content), 0644)
 	if err != nil {
-		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: &fuse.IOerror{RcvError: err},
 		}
-
 		return nil
 	}
 
@@ -565,8 +566,7 @@ func (e *NSenterEvent) processDirReadRequest() error {
 			Type:    domain.ErrorResponse,
 			Payload: err.Error(),
 		}
-
-		return err
+		return nil
 	}
 
 	// Create a FileInfo slice to return to sysbox-fs' main instance.
@@ -698,7 +698,7 @@ func (e *NSenterEvent) processUmountSyscallRequest() error {
 // instance.
 func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 
-	// Rawmessage payload to aid in decoding generic messages (see below
+	// Raw message payload to aid in decoding generic messages (see below
 	// explanation).
 	var payload json.RawMessage
 	nsenterMsg := domain.NSenterMessage{
@@ -889,7 +889,10 @@ func Init() (err error) {
 	// Process incoming request.
 	err = event.processRequest(pipe)
 	if err != nil {
-		return err
+		event.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
 	}
 
 	// Encode / push response back to sysbox-main.
@@ -898,6 +901,9 @@ func Init() (err error) {
 		return err
 	}
 	_, err = pipe.Write(data)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

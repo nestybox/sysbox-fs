@@ -168,7 +168,6 @@ func (h *VmOvercommitMemHandler) Write(
 	newVal := strings.TrimSpace(string(req.Data))
 	newValInt, err := strconv.Atoi(newVal)
 	if err != nil {
-		logrus.Error("Unsupported vm_overcommit_mem value: ", newVal)
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 
@@ -182,7 +181,6 @@ func (h *VmOvercommitMemHandler) Write(
 	// 2: Kernel will not overcommit memory, and only allocate as much memory as
 	//    defined in overcommit_ratio.
 	if newValInt < 0 || newValInt > 2 {
-		logrus.Error("Unsupported vm_overcommit_mem value: ", newVal)
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 

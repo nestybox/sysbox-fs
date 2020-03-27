@@ -167,14 +167,12 @@ func (h *KernelPanicOopsHandler) Write(
 	newVal := strings.TrimSpace(string(req.Data))
 	newValInt, err := strconv.Atoi(newVal)
 	if err != nil {
-		logrus.Error("Unsupported kernel_panic_oops value: ", newVal)
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 
 	// Ensure that only proper values are allowed as per this resource's
 	// supported values.
 	if newValInt < 0 || newValInt > 1 {
-		logrus.Error("Unsupported kernel_panic_oops value: ", newVal)
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 

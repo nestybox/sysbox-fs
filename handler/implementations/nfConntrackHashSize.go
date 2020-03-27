@@ -172,7 +172,7 @@ func (h *NfConntrackHashSizeHandler) Write(
 	newMax := strings.TrimSpace(string(req.Data))
 	newMaxInt, err := strconv.Atoi(newMax)
 	if err != nil {
-		logrus.Error("Unexpected error: ", err)
+		logrus.Errorf("Unexpected error: %s", err)
 		return 0, err
 	}
 
@@ -205,7 +205,7 @@ func (h *NfConntrackHashSizeHandler) Write(
 
 	curMaxInt, err := strconv.Atoi(curMax)
 	if err != nil {
-		logrus.Error("Unexpected error: ", err)
+		logrus.Errorf("Unexpected error: %s", err)
 		return 0, err
 	}
 
@@ -242,7 +242,7 @@ func (h *NfConntrackHashSizeHandler) fetchFile(n domain.IOnode, c domain.Contain
 	// Read from host FS to extract the existing hashsize value.
 	curHostMax, err := n.ReadLine()
 	if err != nil && err != io.EOF {
-		logrus.Error("Could not read from file ", h.Path)
+		logrus.Errorf("Could not read from file %s", h.Path)
 		return "", err
 	}
 
@@ -265,7 +265,7 @@ func (h *NfConntrackHashSizeHandler) pushFile(n domain.IOnode, c domain.Containe
 	}
 	curHostMaxInt, err := strconv.Atoi(curHostMax)
 	if err != nil {
-		logrus.Error("Unexpected error: ", err)
+		logrus.Errorf("Unexpected error: %s", err)
 		return err
 	}
 
@@ -279,7 +279,7 @@ func (h *NfConntrackHashSizeHandler) pushFile(n domain.IOnode, c domain.Containe
 	// Rewinding file offset back to its start point.
 	_, err = n.SeekReset()
 	if err != nil {
-		logrus.Error("Could not reset file offset: ", err)
+		logrus.Errorf("Could not reset file offset: %s", err)
 		return err
 	}
 
@@ -287,7 +287,7 @@ func (h *NfConntrackHashSizeHandler) pushFile(n domain.IOnode, c domain.Containe
 	msg := []byte(strconv.Itoa(newMaxInt))
 	_, err = n.Write(msg)
 	if err != nil && !h.Service.IgnoreErrors() {
-		logrus.Error("Could not write to file: ", err)
+		logrus.Errorf("Could not write to file: %s", err)
 		return err
 	}
 

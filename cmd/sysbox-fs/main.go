@@ -153,6 +153,7 @@ func main() {
 			Name:  "nsenter",
 			Usage: "Execute action within container namespaces",
 			Action: func(c *cli.Context) error {
+				// nsenter errors are passed back to sysbox-fs via a pipe
 				nsenter.Init()
 				return nil
 			},
