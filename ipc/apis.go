@@ -94,6 +94,7 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 
 	// Create temporary container struct to be passed as reference to containerDB,
 	// where the matching (real) container will be identified and then eliminated.
+
 	cntr := ipcService.css.ContainerCreate(
 		data.Id,
 		uint32(data.InitPid),

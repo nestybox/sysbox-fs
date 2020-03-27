@@ -25,6 +25,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+
+	"golang.org/x/sys/unix"
 )
 
 // TODO: Improve one-liner description.
@@ -45,45 +47,56 @@ var (
 )
 
 //
-// sysbox-fs signal handler goroutine.
+// sysbox-fs exit handler goroutine.
 //
-func signalHandler(signalChan chan os.Signal, fs domain.FuseService) {
+func exitHandler(signalChan chan os.Signal, fs domain.FuseService) {
 
 	s := <-signalChan
+	logrus.Warnf("Caught OS signal: %s", s)
 
-	switch s {
-
-	// TODO: Handle SIGHUP differently -- e.g. re-read sysbox-fs conf file
-	case syscall.SIGHUP:
-		logrus.Warn("sysbox-fs caught signal: SIGHUP")
-
-	case syscall.SIGSEGV:
-		logrus.Warn("sysbox-fs caught signal: SIGSEGV")
-
-	case syscall.SIGINT:
-		logrus.Warn("sysbox-fs caught signal: SIGTINT")
-
-	case syscall.SIGTERM:
-		logrus.Warn("sysbox-fs caught signal: SIGTERM")
-
-	case syscall.SIGQUIT:
-		logrus.Warn("sysbox-fs caught signal: SIGQUIT")
-
-	default:
-		logrus.Warn("sysbox-fs caught unknown signal")
-	}
-
-	logrus.Warnf(
-		"Unmounting sysbox-fs from mountpoint %v. Exiting ...",
-		fs.MountPoint(),
-	)
-
+	// Unmount sysbox-fs
+	logrus.Infof("Unmounting sysbox-fs from mountpoint %v.", fs.MountPoint())
 	fs.Unmount()
 
 	// Deferring exit() to allow FUSE to dump unnmount() logs
 	time.Sleep(2)
 
+	logrus.Info("Exiting.")
 	os.Exit(0)
+}
+
+//
+// sysbox-fs child reaper: reaps zombie child processes that sometimes occur when
+// sysbox-fs dispatches nsenter processes to perform actions within the sys container's
+// namespace.
+//
+// This child reaper is really a "backup" reaper, as normally the function that dispatches
+// the nsenter process performs the reaping, though in some cases that reaping does not
+// occur due to inherent race conditions that occur when the nsenter occurs at a time
+// when a sys container is being destroyed. For those cases, this reaper cleans left-over
+// zombies.
+//
+// Note: a user can also request sysbox-fs to execute this reaper via:
+//
+// $ sudo kill -s SIGCHLD $(pidof sysbox-fs)
+//
+
+func childReaper(signalChan chan os.Signal) {
+	var wstatus syscall.WaitStatus
+
+	for {
+		<-signalChan
+
+		// We are a backup reaper, so we wait after receiving SIGCHLD for any left-over zombies
+		time.Sleep(5 * time.Second)
+
+		wpid, err := syscall.Wait4(-1, &wstatus, 0, nil)
+		if err != nil {
+			continue
+		}
+
+		logrus.Debugf("Reaped left-over child pid %d", wpid)
+	}
 }
 
 //
@@ -261,17 +274,29 @@ func main() {
 		// TODO: Consider adding sync.Workgroups to ensure that all goroutines
 		// are done with their in-flight tasks before exit()ing.
 
-		// Launch signal-handler to ensure mountpoint is properly unmounted
-		// if an actionable signal is ever received.
-		var signalChan = make(chan os.Signal)
+		// Launch exit handler (performs proper cleanup of sysbox-fs upon receiving
+		// termination signals)
+		var exitChan = make(chan os.Signal, 1)
 		signal.Notify(
-			signalChan,
+			exitChan,
 			syscall.SIGHUP,
 			syscall.SIGINT,
 			syscall.SIGTERM,
 			syscall.SIGSEGV,
 			syscall.SIGQUIT)
-		go signalHandler(signalChan, fuseService)
+		go exitHandler(exitChan, fuseService)
+
+		// Launch the sysbox-fs child reaper (cleans up zombie childs)
+		err := unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)
+		if err != nil {
+			logrus.Fatalf("Failed to set sysbox-fs as child subreaper: %s", err)
+		}
+
+		var childReaperChan = make(chan os.Signal, 1)
+		signal.Notify(
+			childReaperChan,
+			syscall.SIGCHLD)
+		go childReaper(childReaperChan)
 
 		// Initiate sysbox-fs' FUSE service.
 		if err := fuseService.Run(); err != nil {

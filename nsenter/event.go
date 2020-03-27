@@ -61,7 +61,7 @@ type NSenterEvent struct {
 	// Parent NSenterEvent Service (used for capability handling)
 	prs domain.ProcessService
 
-	// initPid associated to the targeted container.
+	// Pid on behalf of which we are doing the nsenter event
 	Pid uint32 `json:"pid"`
 
 	// namespace-types to attach to.
@@ -303,6 +303,7 @@ func (e *NSenterEvent) SendRequest() error {
 	// define the associated netlink-payload to transfer to child process.
 	namespaces := e.namespacePaths()
 
+	// Create the nsenter instruction packet
 	r := nl.NewNetlinkRequest(int(libcontainer.InitMsg), 0)
 	r.AddData(&libcontainer.Bytemsg{
 		Type:  libcontainer.NsPathsAttr,
@@ -324,21 +325,25 @@ func (e *NSenterEvent) SendRequest() error {
 	err = cmd.Start()
 	childPipe.Close()
 	if err != nil {
+		logrus.Errorf("Error launching sysbox-fs first child process: %s", err)
 		return errors.New("Error launching sysbox-fs first child process")
 	}
 
 	// Send the config to child process.
 	if _, err := io.Copy(parentPipe, bytes.NewReader(r.Serialize())); err != nil {
+		logrus.Errorf("Error copying payload to pipe: %s", err)
 		return errors.New("Error copying payload to pipe")
 	}
 
 	// Wait for sysbox-fs' first child process to finish.
 	status, err := cmd.Process.Wait()
 	if err != nil {
+		logrus.Warnf("Error waiting for sysbox-fs first child process %d: %s", cmd.Process.Pid, err)
 		cmd.Wait()
 		return err
 	}
 	if !status.Success() {
+		logrus.Warnf("Sysbox-fs first child process error status: pid = %d", cmd.Process.Pid)
 		cmd.Wait()
 		return errors.New("Error waiting for sysbox-fs first child process")
 	}
@@ -347,12 +352,14 @@ func (e *NSenterEvent) SendRequest() error {
 	var pid pid
 	decoder := json.NewDecoder(parentPipe)
 	if err := decoder.Decode(&pid); err != nil {
+		logrus.Warnf("Error receiving first-child pid")
 		cmd.Wait()
 		return errors.New("Error receiving first-child pid")
 	}
 
 	firstChildProcess, err := os.FindProcess(pid.PidFirstChild)
 	if err != nil {
+		logrus.Warnf("Error finding first-child pid: %s", err)
 		return err
 	}
 
@@ -364,6 +371,7 @@ func (e *NSenterEvent) SendRequest() error {
 	// go runtime.
 	process, err := os.FindProcess(pid.Pid)
 	if err != nil {
+		logrus.Warnf("Error finding grand-child pid %s: %s", pid.Pid, err)
 		return err
 	}
 	cmd.Process = process
@@ -372,6 +380,7 @@ func (e *NSenterEvent) SendRequest() error {
 	data, err := json.Marshal(*(e.ReqMsg))
 	if err != nil {
 		logrus.Errorf("Error while encoding nsenter payload (%v).", err)
+		cmd.Wait()
 		return err
 	}
 	_, err = parentPipe.Write(data)
@@ -385,10 +394,12 @@ func (e *NSenterEvent) SendRequest() error {
 
 	// Destroy the socket pair.
 	if err := unix.Shutdown(int(parentPipe.Fd()), unix.SHUT_WR); err != nil {
-		return errors.New("Shutting down sysbox-fs nsenter pipe")
+		logrus.Warnf("Error shutting down sysbox-fs nsenter pipe: %s", err)
 	}
 
 	if ierr != nil {
+		logrus.Warnf("Reaping childs (%d, %d) due to process response error", firstChildProcess.Pid, cmd.Process.Pid)
+		firstChildProcess.Wait()
 		cmd.Wait()
 		return ierr
 	}
@@ -701,7 +712,7 @@ func (e *NSenterEvent) processRequest(pipe io.Reader) error {
 	// remote-end. This second step is executed as part of a subsequent
 	// unmarshal instruction (see further below).
 	if err := json.NewDecoder(pipe).Decode(&nsenterMsg); err != nil {
-		logrus.Errorf("Error decoding received nsenterMsg request (%v).", err)
+		logrus.Warnf("Error decoding received nsenterMsg request (%v).", err)
 		return errors.New("Error decoding received event request.")
 	}
 
