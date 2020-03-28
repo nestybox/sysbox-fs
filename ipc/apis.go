@@ -55,7 +55,7 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return errors.New("Invalid input parameters")
 	}
 
-	logrus.Info("Container registration message received for initPid: ", data.InitPid)
+	logrus.Infof("Container registration message received for initPid: %v", data.InitPid)
 
 	ipcService := ctx.(*ipcService)
 

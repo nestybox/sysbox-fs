@@ -79,7 +79,7 @@ func (h *KernelPanicOopsHandler) Open(
 	}
 
 	if err := n.Open(); err != nil {
-		logrus.Debug("Error opening file ", h.Path)
+		logrus.Debugf("Error opening file %v", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 
@@ -91,7 +91,7 @@ func (h *KernelPanicOopsHandler) Close(n domain.IOnode) error {
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	if err := n.Close(); err != nil {
-		logrus.Debug("Error closing file ", h.Path)
+		logrus.Debugf("Error closing file %v", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 
@@ -135,7 +135,7 @@ func (h *KernelPanicOopsHandler) Read(
 		// Read from host FS to extract the existing 'panic' interval value.
 		curHostVal, err := n.ReadLine()
 		if err != nil && err != io.EOF {
-			logrus.Error("Could not read from file ", h.Path)
+			logrus.Errorf("Could not read from file %s", h.Path)
 			return 0, fuse.IOerror{Code: syscall.EIO}
 		}
 

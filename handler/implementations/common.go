@@ -476,7 +476,7 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, req *domain.HandlerRe
 		// Handler execution.
 		info, err := handler.Lookup(newIOnode, req)
 		if err != nil {
-			logrus.Error("Lookup() error: ", err)
+			logrus.Errorf("Lookup() error: %v", err)
 			return nil
 		}
 

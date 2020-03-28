@@ -134,7 +134,7 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	currCntr, ok := css.usernsTable[inode]
 	if !ok {
 		css.Unlock()
-		logrus.Error("Container update failure: could not find container with user-ns-inode ",
+		logrus.Errorf("Container update failure: could not find container with user-ns-inode %v",
 			inode)
 		return errors.New("Could not find container to update")
 	}

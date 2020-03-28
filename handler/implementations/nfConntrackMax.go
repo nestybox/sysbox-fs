@@ -73,7 +73,7 @@ func (h *NfConntrackMaxHandler) Open(
 	}
 
 	if err := n.Open(); err != nil {
-		logrus.Debug("Error opening file ", h.Path)
+		logrus.Debugf("Error opening file %v", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 
@@ -85,7 +85,7 @@ func (h *NfConntrackMaxHandler) Close(n domain.IOnode) error {
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	if err := n.Close(); err != nil {
-		logrus.Debug("Error closing file ", h.Path)
+		logrus.Debugf("Error closing file %v", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 
@@ -153,7 +153,7 @@ func (h *NfConntrackMaxHandler) Write(
 	newMax := strings.TrimSpace(string(req.Data))
 	newMaxInt, err := strconv.Atoi(newMax)
 	if err != nil {
-		logrus.Error("Unexpected error: ", err)
+		logrus.Errorf("Unexpected error: %v", err)
 		return 0, err
 	}
 
@@ -186,7 +186,7 @@ func (h *NfConntrackMaxHandler) Write(
 
 	curMaxInt, err := strconv.Atoi(curMax)
 	if err != nil {
-		logrus.Error("Unexpected error: ", err)
+		logrus.Errorf("Unexpected error: %v", err)
 		return 0, err
 	}
 
@@ -225,7 +225,7 @@ func (h *NfConntrackMaxHandler) fetchFile(
 	// Read from host FS to extract the existing nf_conntrack_max value.
 	curHostMax, err := n.ReadLine()
 	if err != nil && err != io.EOF {
-		logrus.Error("Could not read from file ", h.Path)
+		logrus.Errorf("Could not read from file %v", h.Path)
 		return "", err
 	}
 
@@ -248,7 +248,7 @@ func (h *NfConntrackMaxHandler) pushFile(n domain.IOnode, c domain.ContainerIfac
 	}
 	curHostMaxInt, err := strconv.Atoi(curHostMax)
 	if err != nil {
-		logrus.Error("Unexpected error: ", err)
+		logrus.Errorf("Unexpected error: %v", err)
 		return err
 	}
 
@@ -262,7 +262,7 @@ func (h *NfConntrackMaxHandler) pushFile(n domain.IOnode, c domain.ContainerIfac
 	// Rewinding file offset back to its start point.
 	_, err = n.SeekReset()
 	if err != nil {
-		logrus.Error("Could not reset file offset: ", err)
+		logrus.Errorf("Could not reset file offset: %v", err)
 		return err
 	}
 
@@ -270,7 +270,7 @@ func (h *NfConntrackMaxHandler) pushFile(n domain.IOnode, c domain.ContainerIfac
 	msg := []byte(strconv.Itoa(newMaxInt))
 	_, err = n.Write(msg)
 	if err != nil {
-		logrus.Error("Could not write to file: ", err)
+		logrus.Errorf("Could not write to file: %v", err)
 		return err
 	}
 

@@ -57,7 +57,7 @@ func NewFile(name string, path string, attr *fuse.Attr, srv *FuseService) *File 
 //
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 
-	logrus.Debug("Requested Attr() operation for entry ", f.path)
+	logrus.Debugf("Requested Attr() operation for entry %v", f.path)
 
 	// Simply return the attributes that were previously collected during the
 	// lookup() execution.
@@ -74,7 +74,7 @@ func (f *File) Getattr(
 	req *fuse.GetattrRequest,
 	resp *fuse.GetattrResponse) error {
 
-	logrus.Debug("Requested GetAttr() operation for entry ", f.path)
+	logrus.Debugf("Requested GetAttr() operation for entry %v", f.path)
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
@@ -92,7 +92,7 @@ func (f *File) Getattr(
 	// Handler execution.
 	stat, err := handler.Getattr(f.ionode, request)
 	if err != nil {
-		logrus.Debug("Getattr() error: ", err)
+		logrus.Debugf("Getattr() error: %v", err)
 		return err
 	}
 
@@ -116,7 +116,7 @@ func (f *File) Open(
 	req *fuse.OpenRequest,
 	resp *fuse.OpenResponse) (fs.Handle, error) {
 
-	logrus.Debug("Requested Open() operation for entry ", f.path)
+	logrus.Debugf("Requested Open() operation for entry %v", f.path)
 
 	f.ionode.SetOpenFlags(int(req.Flags))
 
@@ -136,7 +136,7 @@ func (f *File) Open(
 	// Handler execution.
 	err := handler.Open(f.ionode, request)
 	if err != nil && err != io.EOF {
-		logrus.Debug("Open() error: ", err)
+		logrus.Debugf("Open() error: %v", err)
 		return nil, err
 	}
 
@@ -164,7 +164,7 @@ func (f *File) Open(
 //
 func (f *File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 
-	logrus.Debug("Requested Release() operation for entry ", f.path)
+	logrus.Debugf("Requested Release() operation for entry %v", f.path)
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
@@ -187,7 +187,7 @@ func (f *File) Read(
 	req *fuse.ReadRequest,
 	resp *fuse.ReadResponse) error {
 
-	logrus.Debug("Requested Read() operation for entry ", f.path)
+	logrus.Debugf("Requested Read() operation for entry %v", f.path)
 
 	if f.ionode == nil {
 		logrus.Error("Read() error: File should be properly defined by now")
@@ -215,7 +215,7 @@ func (f *File) Read(
 	// Handler execution.
 	n, err := handler.Read(f.ionode, request)
 	if err != nil && err != io.EOF {
-		logrus.Debug("Read() error: ", err)
+		logrus.Debugf("Read() error: %v", err)
 		return err
 	}
 
@@ -232,7 +232,7 @@ func (f *File) Write(
 	req *fuse.WriteRequest,
 	resp *fuse.WriteResponse) error {
 
-	logrus.Debug("Requested Write() operation for entry ", f.path)
+	logrus.Debugf("Requested Write() operation for entry %v", f.path)
 
 	if f.ionode == nil {
 		logrus.Error("Write() error: File should be properly defined by now")
@@ -256,7 +256,7 @@ func (f *File) Write(
 	// Handler execution.
 	n, err := handler.Write(f.ionode, request)
 	if err != nil && err != io.EOF {
-		logrus.Debug("Write() error: ", err)
+		logrus.Debugf("Write() error: %v", err)
 		return err
 	}
 
@@ -273,7 +273,7 @@ func (f *File) Setattr(
 	req *fuse.SetattrRequest,
 	resp *fuse.SetattrResponse) error {
 
-	logrus.Debug("Requested Setattr() operation for entry ", f.path)
+	logrus.Debugf("Requested Setattr() operation for entry %v", f.path)
 
 	// No file attr changes are allowed in a procfs, with the exception of
 	// 'size' modifications which are needed to allow write()/truncate() ops.
@@ -290,7 +290,7 @@ func (f *File) Setattr(
 //
 func (f *File) Forget() {
 
-	logrus.Debug("Requested Forget() operation for entry ", f.path)
+	logrus.Debugf("Requested Forget() operation for entry %v", f.path)
 
 	f.service.Lock()
 	defer f.service.Unlock()

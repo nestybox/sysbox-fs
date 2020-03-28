@@ -83,7 +83,7 @@ func (h *ProcLoadavgHandler) Open(
 	}
 
 	if err := n.Open(); err != nil {
-		logrus.Debug("Error opening file ", h.Path)
+		logrus.Debugf("Error opening file %v", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 
@@ -95,7 +95,7 @@ func (h *ProcLoadavgHandler) Close(n domain.IOnode) error {
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	if err := n.Close(); err != nil {
-		logrus.Debug("Error closing file ", h.Path)
+		logrus.Debugf("Error closing file %v", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 

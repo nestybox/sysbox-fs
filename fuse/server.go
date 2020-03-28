@@ -46,10 +46,10 @@ func NewFuseService(
 	pathInfo, err := pathIOnode.Stat()
 	if err != nil {
 		if os.IsNotExist(err) {
-			logrus.Error("File-System path not found: ", path)
+			logrus.Errorf("File-System path not found: %v", path)
 			return nil
 		} else {
-			logrus.Error("File-System path not accessible: ", path)
+			logrus.Errorf("File-System path not accessible: %v", path)
 			return nil
 		}
 	}
@@ -59,10 +59,10 @@ func NewFuseService(
 	_, err = mountPointIOnode.Stat()
 	if err != nil {
 		if os.IsNotExist(err) {
-			logrus.Error("File-System mountpoint not found: ", mountPoint)
+			logrus.Errorf("File-System mountpoint not found: %v", mountPoint)
 			return nil
 		} else {
-			logrus.Error("File-System mountpoint not accessible: ", mountPoint)
+			logrus.Errorf("File-System mountpoint not accessible: %v", mountPoint)
 			return nil
 		}
 	}

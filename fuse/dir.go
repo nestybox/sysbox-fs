@@ -64,7 +64,7 @@ func (d *Dir) Lookup(
 	req *fuse.LookupRequest,
 	resp *fuse.LookupResponse) (fs.Node, error) {
 
-	logrus.Debug("Requested Lookup() operation for entry ", req.Name)
+	logrus.Debugf("Requested Lookup() operation for entry %v", req.Name)
 
 	path := filepath.Join(d.path, req.Name)
 
@@ -148,7 +148,7 @@ func (d *Dir) Create(
 	req *fuse.CreateRequest,
 	resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
 
-	logrus.Debug("Requested Create() operation for entry ", req.Name)
+	logrus.Debugf("Requested Create() operation for entry %v", req.Name)
 
 	path := filepath.Join(d.path, req.Name)
 
@@ -174,7 +174,7 @@ func (d *Dir) Create(
 	// process has the proper credentials / capabilities.
 	err := handler.Open(newIOnode, request)
 	if err != nil && err != io.EOF {
-		logrus.Debug("Open() error: ", err)
+		logrus.Debugf("Open() error: %v", err)
 		return nil, nil, err
 	}
 	resp.Flags |= fuse.OpenDirectIO
@@ -210,7 +210,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 
 	var children []fuse.Dirent
 
-	logrus.Debug("Requested ReadDirAll() on directory ", d.path)
+	logrus.Debugf("Requested ReadDirAll() on directory %v", d.path)
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := d.service.hds.LookupHandler(d.ionode)
@@ -228,7 +228,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 	// Handler execution.
 	files, err := handler.ReadDirAll(d.ionode, request)
 	if err != nil {
-		logrus.Error("ReadDirAll() error: ", err)
+		logrus.Errorf("ReadDirAll() error: %v", err)
 		return nil, fuse.ENOENT
 	}
 
@@ -263,7 +263,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 //
 func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
 
-	logrus.Debug("Requested Mkdir() on directory ", req.Name)
+	logrus.Debugf("Requested Mkdir() on directory %v", req.Name)
 
 	path := filepath.Join(d.path, req.Name)
 	newDir := NewDir(req.Name, path, &fuse.Attr{}, d.File.service)

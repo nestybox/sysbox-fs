@@ -78,7 +78,7 @@ func (h *VsExpireNoDestConnHandler) Open(
 	}
 
 	if err := n.Open(); err != nil {
-		logrus.Debug("Error opening file ", h.Path)
+		logrus.Debugf("Error opening file %v", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 
@@ -90,7 +90,7 @@ func (h *VsExpireNoDestConnHandler) Close(n domain.IOnode) error {
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	if err := n.Close(); err != nil {
-		logrus.Debug("Error closing file ", h.Path)
+		logrus.Debugf("Error closing file %v", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 
@@ -158,7 +158,7 @@ func (h *VsExpireNoDestConnHandler) Write(
 	newVal := strings.TrimSpace(string(req.Data))
 	newValInt, err := strconv.Atoi(newVal)
 	if err != nil {
-		logrus.Error("Unexpected error: ", err)
+		logrus.Errorf("Unexpected error: %v", err)
 		return 0, err
 	}
 
@@ -197,7 +197,7 @@ func (h *VsExpireNoDestConnHandler) fetchFile(
 	// Read from kernel to extract the existing expire_nodest_conn value.
 	curHostVal, err := n.ReadLine()
 	if err != nil && err != io.EOF {
-		logrus.Error("Could not read from file ", h.Path)
+		logrus.Errorf("Could not read from file %v", h.Path)
 		return "", err
 	}
 
@@ -218,7 +218,7 @@ func (h *VsExpireNoDestConnHandler) pushFile(
 	// Rewinding file offset back to its start point.
 	_, err := n.SeekReset()
 	if err != nil {
-		logrus.Error("Could not reset file offset: ", err)
+		logrus.Errorf("Could not reset file offset: %v", err)
 		return err
 	}
 
@@ -226,7 +226,7 @@ func (h *VsExpireNoDestConnHandler) pushFile(
 	msg := []byte(strconv.Itoa(newValInt))
 	_, err = n.Write(msg)
 	if err != nil {
-		logrus.Error("Could not write to file: ", err)
+		logrus.Errorf("Could not write to file: %v", err)
 		return err
 	}
 
