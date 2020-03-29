@@ -32,7 +32,7 @@ func (h *ProcSysHandler) Lookup(
 	n domain.IOnode,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
+	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	return n.Stat()
 }
@@ -41,7 +41,7 @@ func (h *ProcSysHandler) Getattr(
 	n domain.IOnode,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
-	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
+	logrus.Debugf("Executing Getattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	// Identify the userNsInode corresponding to this pid.
 	usernsInode := h.Service.FindUserNsInode(req.Pid)
@@ -74,7 +74,7 @@ func (h *ProcSysHandler) Open(
 	n domain.IOnode,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing %v Open() method", h.Name)
+	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	return nil
 }
@@ -90,7 +90,7 @@ func (h *ProcSysHandler) Read(
 	n domain.IOnode,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing %v Read() method", h.Name)
+	logrus.Debugf("Executing Read() method for Req ID=%#v method on %v handler", req.ID, h.Name)
 
 	if req.Offset > 0 {
 		return 0, io.EOF
@@ -110,7 +110,7 @@ func (h *ProcSysHandler) ReadDirAll(
 	n domain.IOnode,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
+	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	commonHandler, ok := h.Service.FindHandler("commonHandler")
 	if !ok {

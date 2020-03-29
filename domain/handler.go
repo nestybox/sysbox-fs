@@ -36,6 +36,7 @@ const (
 )
 
 type HandlerRequest struct {
+	ID     uint64
 	Pid    uint32
 	Uid    uint32
 	Gid    uint32

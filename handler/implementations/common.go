@@ -31,7 +31,7 @@ type CommonHandler struct {
 
 func (h *CommonHandler) Lookup(n domain.IOnode, req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
+	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
@@ -87,7 +87,7 @@ func (h *CommonHandler) Lookup(n domain.IOnode, req *domain.HandlerRequest) (os.
 
 func (h *CommonHandler) Getattr(n domain.IOnode, req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
-	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
+	logrus.Debugf("Executing Getattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
@@ -113,7 +113,7 @@ func (h *CommonHandler) Getattr(n domain.IOnode, req *domain.HandlerRequest) (*s
 
 func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Open() method on %v handler", h.Name)
+	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
@@ -124,8 +124,7 @@ func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error 
 	css := h.Service.StateService()
 	cntr := css.ContainerLookupByProcess(process)
 	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
+		logrus.Errorf("Could not find the container originating this request (pid %v)", req.Pid)
 		return errors.New("Container not found")
 	}
 
@@ -183,7 +182,7 @@ func (h *CommonHandler) Close(node domain.IOnode) error {
 
 func (h *CommonHandler) Read(n domain.IOnode, req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() method on %v handler", h.Name)
+	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	if req.Offset > 0 {
 		return 0, io.EOF
@@ -239,7 +238,7 @@ func (h *CommonHandler) Read(n domain.IOnode, req *domain.HandlerRequest) (int, 
 
 func (h *CommonHandler) Write(n domain.IOnode, req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Write() method on %v handler", h.Name)
+	logrus.Debugf("Executing Write() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	name := n.Name()
 	path := n.Path()
@@ -295,7 +294,7 @@ func (h *CommonHandler) Write(n domain.IOnode, req *domain.HandlerRequest) (int,
 
 func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
+	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
@@ -371,7 +370,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 
 func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Setattr() method on %v handler", h.Name)
+	logrus.Debugf("Executing Setattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)

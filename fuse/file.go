@@ -74,7 +74,7 @@ func (f *File) Getattr(
 	req *fuse.GetattrRequest,
 	resp *fuse.GetattrResponse) error {
 
-	logrus.Debugf("Requested GetAttr() operation for entry %v", f.path)
+	logrus.Debugf("Requested GetAttr() operation for entry %v (Req ID=%#v)", f.path, uint64(req.ID))
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
@@ -84,6 +84,7 @@ func (f *File) Getattr(
 	}
 
 	request := &domain.HandlerRequest{
+		ID:  uint64(req.ID),
 		Pid: req.Pid,
 		Uid: req.Uid,
 		Gid: req.Gid,
@@ -116,7 +117,7 @@ func (f *File) Open(
 	req *fuse.OpenRequest,
 	resp *fuse.OpenResponse) (fs.Handle, error) {
 
-	logrus.Debugf("Requested Open() operation for entry %v", f.path)
+	logrus.Debugf("Requested Open() operation for entry %v (Req ID=%#v)", f.path, uint64(req.ID))
 
 	f.ionode.SetOpenFlags(int(req.Flags))
 
@@ -128,6 +129,7 @@ func (f *File) Open(
 	}
 
 	request := &domain.HandlerRequest{
+		ID:  uint64(req.ID),
 		Pid: req.Pid,
 		Uid: req.Uid,
 		Gid: req.Gid,
@@ -164,7 +166,7 @@ func (f *File) Open(
 //
 func (f *File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 
-	logrus.Debugf("Requested Release() operation for entry %v", f.path)
+	logrus.Debugf("Requested Release() operation for entry %v (Req ID=%#v)", f.path, uint64(req.ID))
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := f.service.hds.LookupHandler(f.ionode)
@@ -187,7 +189,7 @@ func (f *File) Read(
 	req *fuse.ReadRequest,
 	resp *fuse.ReadResponse) error {
 
-	logrus.Debugf("Requested Read() operation for entry %v", f.path)
+	logrus.Debugf("Requested Read() operation for entry %v (Req ID=%#v)", f.path, uint64(req.ID))
 
 	if f.ionode == nil {
 		logrus.Error("Read() error: File should be properly defined by now")
@@ -205,6 +207,7 @@ func (f *File) Read(
 	}
 
 	request := &domain.HandlerRequest{
+		ID:     uint64(req.ID),
 		Pid:    req.Pid,
 		Uid:    req.Uid,
 		Gid:    req.Gid,
@@ -232,7 +235,7 @@ func (f *File) Write(
 	req *fuse.WriteRequest,
 	resp *fuse.WriteResponse) error {
 
-	logrus.Debugf("Requested Write() operation for entry %v", f.path)
+	logrus.Debugf("Requested Write() operation for entry %v (Req ID=%#v)", f.path, uint64(req.ID))
 
 	if f.ionode == nil {
 		logrus.Error("Write() error: File should be properly defined by now")
@@ -247,6 +250,7 @@ func (f *File) Write(
 	}
 
 	request := &domain.HandlerRequest{
+		ID:   uint64(req.ID),
 		Pid:  req.Pid,
 		Uid:  req.Uid,
 		Gid:  req.Gid,
@@ -273,7 +277,7 @@ func (f *File) Setattr(
 	req *fuse.SetattrRequest,
 	resp *fuse.SetattrResponse) error {
 
-	logrus.Debugf("Requested Setattr() operation for entry %v", f.path)
+	logrus.Debugf("Requested Setattr() operation for entry %v (Req ID=%#v)", f.path, uint64(req.ID))
 
 	// No file attr changes are allowed in a procfs, with the exception of
 	// 'size' modifications which are needed to allow write()/truncate() ops.

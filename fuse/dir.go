@@ -64,7 +64,7 @@ func (d *Dir) Lookup(
 	req *fuse.LookupRequest,
 	resp *fuse.LookupResponse) (fs.Node, error) {
 
-	logrus.Debugf("Requested Lookup() operation for entry %v", req.Name)
+	logrus.Debugf("Requested Lookup() operation for entry %v (req ID=%#x)", req.Name, uint64(req.ID))
 
 	path := filepath.Join(d.path, req.Name)
 
@@ -89,6 +89,7 @@ func (d *Dir) Lookup(
 	}
 
 	request := &domain.HandlerRequest{
+		ID:  uint64(req.ID),
 		Pid: req.Pid,
 		Uid: req.Uid,
 		Gid: req.Gid,
@@ -148,7 +149,7 @@ func (d *Dir) Create(
 	req *fuse.CreateRequest,
 	resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
 
-	logrus.Debugf("Requested Create() operation for entry %v", req.Name)
+	logrus.Debugf("Requested Create() operation for entry %v (req ID=%#x)", req.Name, uint64(req.ID))
 
 	path := filepath.Join(d.path, req.Name)
 
@@ -165,6 +166,7 @@ func (d *Dir) Create(
 	}
 
 	request := &domain.HandlerRequest{
+		ID:  uint64(req.ID),
 		Pid: req.Pid,
 		Uid: req.Uid,
 		Gid: req.Gid,
@@ -210,7 +212,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 
 	var children []fuse.Dirent
 
-	logrus.Debugf("Requested ReadDirAll() on directory %v", d.path)
+	logrus.Debugf("Requested ReadDirAll() on directory %v (req ID=%#v)", d.path, uint64(req.ID))
 
 	// Lookup the associated handler within handler-DB.
 	handler, ok := d.service.hds.LookupHandler(d.ionode)
@@ -220,6 +222,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 	}
 
 	request := &domain.HandlerRequest{
+		ID:  uint64(req.ID),
 		Pid: req.Pid,
 		Uid: req.Uid,
 		Gid: req.Gid,
@@ -263,7 +266,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 //
 func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
 
-	logrus.Debugf("Requested Mkdir() on directory %v", req.Name)
+	logrus.Debugf("Requested Mkdir() on directory %v (Req ID=%#v)", req.Name, uint64(req.ID))
 
 	path := filepath.Join(d.path, req.Name)
 	newDir := NewDir(req.Name, path, &fuse.Attr{}, d.File.service)
