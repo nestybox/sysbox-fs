@@ -108,6 +108,16 @@ func (d *Dir) Lookup(
 	// Adjust response to carry the proper dentry-cache-timeout value.
 	resp.EntryValid = time.Duration(DentryCacheTimeout) * time.Minute
 
+	// Override the uid & gid attributes with the root uid & gid in the requester's
+	// user-ns.
+	uid, gid, err := d.getUsernsRootUid(req.Pid, req.Uid, req.Gid)
+	if err != nil {
+		return nil, err
+	}
+
+	attr.Uid = uid
+	attr.Gid = gid
+
 	var newNode fs.Node
 
 	if info.IsDir() {

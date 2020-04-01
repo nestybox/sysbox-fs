@@ -6,6 +6,7 @@ package fuse
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -76,35 +77,17 @@ func (f *File) Getattr(
 
 	logrus.Debugf("Requested GetAttr() operation for entry %v (Req ID=%#v)", f.path, uint64(req.ID))
 
-	// Lookup the associated handler within handler-DB.
-	handler, ok := f.service.hds.LookupHandler(f.ionode)
-	if !ok {
-		logrus.Errorf("No supported handler for %v resource", f.path)
-		return fmt.Errorf("No supported handler for %v resource", f.path)
-	}
+	// Use the attributes obtained during Lookup()
+	resp.Attr = *f.attr
 
-	request := &domain.HandlerRequest{
-		ID:  uint64(req.ID),
-		Pid: req.Pid,
-		Uid: req.Uid,
-		Gid: req.Gid,
-	}
-
-	// Handler execution.
-	stat, err := handler.Getattr(f.ionode, request)
+	// Override the uid & gid attributes with the requester'ss user-ns root uid & gid
+	uid, gid, err := f.getUsernsRootUid(req.Pid, req.Uid, req.Gid)
 	if err != nil {
-		logrus.Debugf("Getattr() error: %v", err)
 		return err
 	}
 
-	// Simply return the attributes that were previously collected during the
-	// lookup() execution, with the exception of the UID/GID, which must be
-	// updated based on the obtained response.
-	resp.Attr = *f.attr
-	if stat != nil {
-		resp.Attr.Uid = stat.Uid
-		resp.Attr.Gid = stat.Gid
-	}
+	resp.Attr.Uid = uid
+	resp.Attr.Gid = gid
 
 	return nil
 }
@@ -325,6 +308,36 @@ func (f *File) Mode() os.FileMode {
 //
 func (f *File) ModTime() time.Time {
 	return f.attr.Mtime
+}
+
+// getUsernsRootUid returns the uid and gid for the root user in the user-ns associated
+// with the given request.
+func (f *File) getUsernsRootUid(reqPid, reqUid, reqGid uint32) (uint32, uint32, error) {
+
+	usernsInode := f.service.hds.FindUserNsInode(reqPid)
+	if usernsInode == 0 {
+		return 0, 0, errors.New("Could not identify userNsInode")
+	}
+
+	if usernsInode == f.service.hds.HostUserNsInode() {
+		return 0, 0, nil
+	}
+
+	// TODO: for now we return the root uid and gid associated with the the sys container.
+	// in the future we should return the requester's user-ns root uid & gid instead; this
+	// will help us to support "unshare -U -m --mount-proc" inside a sys container.
+
+	prs := f.service.hds.ProcessService()
+	css := f.service.hds.StateService()
+
+	process := prs.ProcessCreate(reqPid, reqUid, reqGid)
+	cntr := css.ContainerLookupByProcess(process)
+
+	if cntr == nil {
+		return 0, 0, errors.New("Could not find container")
+	}
+
+	return cntr.UID(), cntr.GID(), nil
 }
 
 //
