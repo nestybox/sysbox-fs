@@ -152,20 +152,6 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /proc/sys/kernel handlers
 	//
-	&implementations.KernelNgroupsMaxHandler{
-		Name:      "kernelNgroupsMax",
-		Path:      "/proc/sys/kernel/ngroups_max",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
-	},
-	&implementations.KernelLastCapHandler{
-		Name:      "kernelLastCap",
-		Path:      "/proc/sys/kernel/cap_last_cap",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
-	},
 	&implementations.KernelPanicHandler{
 		Name:      "kernelPanic",
 		Path:      "/proc/sys/kernel/panic",
