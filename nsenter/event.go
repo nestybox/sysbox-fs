@@ -72,6 +72,9 @@ type NSenterEvent struct {
 
 	// Request message to be received.
 	ResMsg *domain.NSenterMessage `json:"response"`
+
+	// Zombie Reaper (for left-over nsenter child processes)
+	reaper *zombieReaper
 }
 
 //
@@ -292,6 +295,10 @@ func (e *NSenterEvent) SendRequest() error {
 
 	logrus.Debug("Executing nsenterEvent's request() method")
 
+	// Alert the zombie reaper that nsenter is about to start
+	e.reaper.nsenterStarted()
+	defer e.reaper.nsenterEnded()
+
 	// Create a socket pair.
 	parentPipe, childPipe, err := utils.NewSockPair("nsenterPipe")
 	if err != nil {
@@ -343,6 +350,11 @@ func (e *NSenterEvent) SendRequest() error {
 	}
 	if !status.Success() {
 		logrus.Warnf("Sysbox-fs first child process error status: pid = %d", cmd.Process.Pid)
+
+		// This error may potentially leave zombie childs; signal the child-reaper to reap
+		// them when possible.
+		e.reaper.nsenterReapReq()
+
 		return errors.New("Error waiting for sysbox-fs first child process")
 	}
 

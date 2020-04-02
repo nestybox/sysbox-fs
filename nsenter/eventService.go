@@ -1,5 +1,5 @@
 //
-// Copyright: (C) 2019 Nestybox Inc.  All rights reserved.
+// Copyright: (C) 2019-2020 Nestybox Inc.  All rights reserved.
 //
 
 package nsenter
@@ -9,12 +9,14 @@ import (
 )
 
 type nsenterService struct {
-	prs domain.ProcessService // for process class interactions (capabilities)
+	prs    domain.ProcessService // for process class interactions (capabilities)
+	reaper *zombieReaper
 }
 
 func NewNSenterService(prs domain.ProcessService) domain.NSenterService {
 	return &nsenterService{
-		prs: prs,
+		prs:    prs,
+		reaper: newZombieReaper(),
 	}
 }
 
@@ -29,6 +31,7 @@ func (s *nsenterService) NewEvent(
 		Namespace: ns,
 		ReqMsg:    req,
 		ResMsg:    res,
+		reaper:    s.reaper,
 	}
 }
 
