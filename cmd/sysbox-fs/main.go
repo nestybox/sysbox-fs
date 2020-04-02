@@ -25,8 +25,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
-
-	"golang.org/x/sys/unix"
 )
 
 // TODO: Improve one-liner description.
@@ -63,40 +61,6 @@ func exitHandler(signalChan chan os.Signal, fs domain.FuseService) {
 
 	logrus.Info("Exiting.")
 	os.Exit(0)
-}
-
-//
-// sysbox-fs child reaper: reaps zombie child processes that sometimes occur when
-// sysbox-fs dispatches nsenter processes to perform actions within the sys container's
-// namespace.
-//
-// This child reaper is really a "backup" reaper, as normally the function that dispatches
-// the nsenter process performs the reaping, though in some cases that reaping does not
-// occur due to inherent race conditions that occur when the nsenter occurs at a time
-// when a sys container is being destroyed. For those cases, this reaper cleans left-over
-// zombies.
-//
-// Note: a user can also request sysbox-fs to execute this reaper via:
-//
-// $ sudo kill -s SIGCHLD $(pidof sysbox-fs)
-//
-
-func childReaper(signalChan chan os.Signal) {
-	var wstatus syscall.WaitStatus
-
-	for {
-		<-signalChan
-
-		// We are a backup reaper, so we wait after receiving SIGCHLD for any left-over zombies
-		time.Sleep(5 * time.Second)
-
-		wpid, err := syscall.Wait4(-1, &wstatus, 0, nil)
-		if err != nil {
-			continue
-		}
-
-		logrus.Debugf("Reaped left-over child pid %d", wpid)
-	}
 }
 
 //
@@ -286,18 +250,6 @@ func main() {
 			syscall.SIGSEGV,
 			syscall.SIGQUIT)
 		go exitHandler(exitChan, fuseService)
-
-		// Launch the sysbox-fs child reaper (cleans up zombie childs)
-		err := unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)
-		if err != nil {
-			logrus.Fatalf("Failed to set sysbox-fs as child subreaper: %s", err)
-		}
-
-		var childReaperChan = make(chan os.Signal, 1)
-		signal.Notify(
-			childReaperChan,
-			syscall.SIGCHLD)
-		go childReaper(childReaperChan)
 
 		// Initiate sysbox-fs' FUSE service.
 		if err := fuseService.Run(); err != nil {

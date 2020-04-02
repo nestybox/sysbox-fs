@@ -339,12 +339,10 @@ func (e *NSenterEvent) SendRequest() error {
 	status, err := cmd.Process.Wait()
 	if err != nil {
 		logrus.Warnf("Error waiting for sysbox-fs first child process %d: %s", cmd.Process.Pid, err)
-		cmd.Wait()
 		return err
 	}
 	if !status.Success() {
 		logrus.Warnf("Sysbox-fs first child process error status: pid = %d", cmd.Process.Pid)
-		cmd.Wait()
 		return errors.New("Error waiting for sysbox-fs first child process")
 	}
 
@@ -352,8 +350,7 @@ func (e *NSenterEvent) SendRequest() error {
 	var pid pid
 	decoder := json.NewDecoder(parentPipe)
 	if err := decoder.Decode(&pid); err != nil {
-		logrus.Warnf("Error receiving first-child pid")
-		cmd.Wait()
+		logrus.Warnf("Error receiving first-child pid: %s", err)
 		return errors.New("Error receiving first-child pid")
 	}
 
@@ -365,7 +362,7 @@ func (e *NSenterEvent) SendRequest() error {
 
 	// Wait for sysbox-fs' second child process to finish. Ignore the error in
 	// case the child has already been reaped for any reason.
-	_, _ = firstChildProcess.Wait()
+	firstChildProcess.Wait()
 
 	// Sysbox-fs' third child (grand-child) process remains and will enter the
 	// go runtime.
@@ -376,11 +373,12 @@ func (e *NSenterEvent) SendRequest() error {
 	}
 	cmd.Process = process
 
+	defer cmd.Wait()
+
 	// Transfer the nsenterEvent details to grand-child for processing.
 	data, err := json.Marshal(*(e.ReqMsg))
 	if err != nil {
 		logrus.Errorf("Error while encoding nsenter payload (%v).", err)
-		cmd.Wait()
 		return err
 	}
 	_, err = parentPipe.Write(data)
@@ -399,12 +397,8 @@ func (e *NSenterEvent) SendRequest() error {
 
 	if ierr != nil {
 		logrus.Warnf("Reaping child pid %d due to process response error", cmd.Process.Pid)
-		cmd.Wait()
 		return ierr
 	}
-
-	// Wait for grand-child exit()
-	cmd.Wait()
 
 	return nil
 }
