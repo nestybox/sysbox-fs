@@ -24,7 +24,7 @@ type ProcessIface interface {
 	Gid() uint32
 	SetCapability(which CapType, what ...Cap)
 	IsCapabilitySet(which CapType, what Cap) bool
-	NsInodes() map[string]Inode
+	NsInodes() (map[string]Inode, error)
 	UserNsInode() Inode
 	UserNsInodeParent() (Inode, error)
 	PathAccess(path string, accessFlags AccessMode) error
@@ -36,5 +36,12 @@ type ProcessService interface {
 
 // ProcessNsMatch returns true if the given processes are in the same namespaces.
 func ProcessNsMatch(p1, p2 ProcessIface) bool {
-	return reflect.DeepEqual(p1.NsInodes(), p2.NsInodes())
+	p1Inodes, p1Err := p1.NsInodes()
+	p2Inodes, p2Err := p2.NsInodes()
+
+	if p1Err != nil || p2Err != nil {
+		return false
+	}
+
+	return reflect.DeepEqual(p1Inodes, p2Inodes)
 }
