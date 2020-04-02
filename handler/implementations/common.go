@@ -260,23 +260,9 @@ func (h *CommonHandler) Write(n domain.IOnode, req *domain.HandlerRequest) (int,
 	}
 
 	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
-		// Check if this resource has been initialized for this container. If not,
-		// push it to the host FS and store it within the container struct.
-		curContent, ok := cntr.Data(path, name)
-		if !ok {
-			if err := h.pushFile(n, process, newContent); err != nil {
-				return 0, err
-			}
-
-			cntr.SetData(path, name, newContent)
-
-			return len(req.Data), nil
-		}
-
-		// If new value matches the existing one, then there's noting else to be
-		// done here.
-		if newContent == curContent {
-			return len(req.Data), nil
+		// Push new value to host FS.
+		if err := h.pushFile(n, process, newContent); err != nil {
+			return 0, err
 		}
 
 		// Writing the new value into container-state struct.
