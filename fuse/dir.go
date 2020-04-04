@@ -68,15 +68,6 @@ func (d *Dir) Lookup(
 
 	path := filepath.Join(d.path, req.Name)
 
-	// If a matching fs node is found, return this one right away.
-	d.File.service.RLock()
-	node, ok := d.File.service.nodeDB[path]
-	if ok == true {
-		d.File.service.RUnlock()
-		return *node, nil
-	}
-	d.File.service.RUnlock()
-
 	// Upon arrival of lookup() request we must construct a temporary ionode
 	// that reflects the path of the element that needs to be looked up.
 	newIOnode := d.service.ios.NewIOnode(req.Name, path, 0)
@@ -126,11 +117,6 @@ func (d *Dir) Lookup(
 	} else {
 		newNode = NewFile(req.Name, path, &attr, d.File.service)
 	}
-
-	// Insert new fs node into nodeDB.
-	d.File.service.Lock()
-	d.File.service.nodeDB[path] = &newNode
-	d.File.service.Unlock()
 
 	return newNode, nil
 }
@@ -206,11 +192,6 @@ func (d *Dir) Create(
 
 	var newNode fs.Node
 	newNode = NewFile(req.Name, path, &attr, d.File.service)
-
-	// Insert new fs node into nodeDB.
-	d.File.service.Lock()
-	d.File.service.nodeDB[path] = &newNode
-	d.File.service.Unlock()
 
 	return newNode, newNode, nil
 }
