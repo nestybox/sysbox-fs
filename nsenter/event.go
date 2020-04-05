@@ -338,7 +338,8 @@ func (e *NSenterEvent) SendRequest() error {
 
 	// Send the config to child process.
 	if _, err := io.Copy(parentPipe, bytes.NewReader(r.Serialize())); err != nil {
-		logrus.Errorf("Error copying payload to pipe: %s", err)
+		logrus.Warnf("Error copying payload to pipe: %s", err)
+		e.reaper.nsenterReapReq()
 		return errors.New("Error copying payload to pipe")
 	}
 
@@ -346,15 +347,12 @@ func (e *NSenterEvent) SendRequest() error {
 	status, err := cmd.Process.Wait()
 	if err != nil {
 		logrus.Warnf("Error waiting for sysbox-fs first child process %d: %s", cmd.Process.Pid, err)
+		e.reaper.nsenterReapReq()
 		return err
 	}
 	if !status.Success() {
 		logrus.Warnf("Sysbox-fs first child process error status: pid = %d", cmd.Process.Pid)
-
-		// This error may potentially leave zombie childs; signal the child-reaper to reap
-		// them when possible.
 		e.reaper.nsenterReapReq()
-
 		return errors.New("Error waiting for sysbox-fs first child process")
 	}
 
@@ -374,7 +372,7 @@ func (e *NSenterEvent) SendRequest() error {
 
 	// Wait for sysbox-fs' second child process to finish. Ignore the error in
 	// case the child has already been reaped for any reason.
-	firstChildProcess.Wait()
+	_, _ = firstChildProcess.Wait()
 
 	// Sysbox-fs' third child (grand-child) process remains and will enter the
 	// go runtime.
@@ -385,17 +383,17 @@ func (e *NSenterEvent) SendRequest() error {
 	}
 	cmd.Process = process
 
-	defer cmd.Wait()
-
 	// Transfer the nsenterEvent details to grand-child for processing.
 	data, err := json.Marshal(*(e.ReqMsg))
 	if err != nil {
-		logrus.Errorf("Error while encoding nsenter payload (%v).", err)
+		logrus.Warnf("Error while encoding nsenter payload (%v).", err)
+		e.reaper.nsenterReapReq()
 		return err
 	}
 	_, err = parentPipe.Write(data)
 	if err != nil {
-		logrus.Errorf("Error while writing nsenter payload into pipeline (%v)", err)
+		logrus.Warnf("Error while writing nsenter payload into pipeline (%v)", err)
+		e.reaper.nsenterReapReq()
 		return err
 	}
 
@@ -408,9 +406,11 @@ func (e *NSenterEvent) SendRequest() error {
 	}
 
 	if ierr != nil {
-		logrus.Warnf("Reaping child pid %d due to process response error", cmd.Process.Pid)
+		e.reaper.nsenterReapReq()
 		return ierr
 	}
+
+	cmd.Wait()
 
 	return nil
 }

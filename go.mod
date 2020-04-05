@@ -11,7 +11,8 @@ require (
 	github.com/seccomp/libseccomp-golang v0.0.0-00010101000000-000000000000
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/afero v1.2.2
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/objx v0.2.0 // indirect
+	github.com/stretchr/testify v1.5.1
 	github.com/urfave/cli v1.20.0
 	github.com/vishvananda/netlink v1.0.0
 	golang.org/x/sys v0.0.0-20191224085550-c709ea063b76
