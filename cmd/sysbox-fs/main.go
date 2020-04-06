@@ -88,12 +88,6 @@ func main() {
 			Value: "info",
 			Usage: "log categories to include (debug, info, warning, error, fatal)",
 		},
-		cli.IntFlag{
-			Name:        "dentry-cache-timeout, t",
-			Value:       fuse.DentryCacheTimeout,
-			Usage:       "dentry-cache-timeout timer in minutes",
-			Destination: &fuse.DentryCacheTimeout,
-		},
 		cli.BoolFlag{
 			Name:  "ignore-handler-errors",
 			Usage: "ignore errors during procfs / sysfs node interactions (testing purposes)",

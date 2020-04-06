@@ -20,10 +20,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Default dentry-cache-timeout interval (in minutes). This is the maximum
+// Default dentry-cache-timeout interval: This is the maximum
 // amount of time that VFS will hold on to dentry elements before starting
-// to forward lookup() operations to FUSE server.
-var DentryCacheTimeout = 5
+// to forward lookup() operations to FUSE server. We want to set this to
+// infinite ideally; we set it to the max allowed value
+var DentryCacheTimeout int64 = 0x7fffffffffffffff
 
 //
 // Dir struct serves as a FUSE-friendly abstraction to represent directories
@@ -68,6 +69,15 @@ func (d *Dir) Lookup(
 
 	path := filepath.Join(d.path, req.Name)
 
+	//
+	// nodeDB caches the attributes associated with each file. This way, we perform the
+	// lookup of a given procfs/sysfs dir/file only once, improving performance. This works
+	// because most of attributes of procfs/sysfs dirs/files are static (e.g., permissions
+	// never change). The only attribute that does change is uid and gid, as these must
+	// correspond to the root user of the user-namespace associated with the request. To
+	// deal with this, we get the attributes from the nodeDB cache (if present) and
+	// override the uid(gid) portion.
+	//
 	d.File.server.RLock()
 	node, ok := d.server.nodeDB[path]
 	if ok == true {
@@ -118,7 +128,7 @@ func (d *Dir) Lookup(
 	attr := statToAttr(info.Sys().(*syscall.Stat_t))
 
 	// Adjust response to carry the proper dentry-cache-timeout value.
-	resp.EntryValid = time.Duration(DentryCacheTimeout) * time.Minute
+	resp.EntryValid = time.Duration(DentryCacheTimeout)
 
 	// Override the uid & gid attributes with the root uid & gid in the
 	// requester's user-ns.
@@ -214,7 +224,7 @@ func (d *Dir) Create(
 	attr := statToAttr(info.Sys().(*syscall.Stat_t))
 
 	// Adjust response to carry the proper dentry-cache-timeout value.
-	resp.EntryValid = time.Duration(DentryCacheTimeout) * time.Minute
+	resp.EntryValid = time.Duration(DentryCacheTimeout)
 
 	var newNode fs.Node
 	newNode = NewFile(req.Name, path, &attr, d.File.server)
@@ -223,6 +233,11 @@ func (d *Dir) Create(
 	d.server.Lock()
 	d.server.nodeDB[path] = &newNode
 	d.server.Unlock()
+
+	// Insert new fs node into nodeDB.
+	d.File.service.Lock()
+	d.File.service.nodeDB[path] = &newNode
+	d.File.service.Unlock()
 
 	return newNode, newNode, nil
 }
