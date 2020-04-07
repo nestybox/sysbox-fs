@@ -219,7 +219,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 		return err
 	}
 
-	logrus.Infof("seccompTracer connection on fd %d from pid %d cntrId %s",
+	logrus.Debugf("seccompTracer connection on fd %d from pid %d cntrId %s",
 		fd, pid, cntrID)
 
 	// Send seccompSession details to parent monitor-service for tracking purposes.
