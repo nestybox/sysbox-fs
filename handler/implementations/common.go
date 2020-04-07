@@ -188,10 +188,19 @@ func (h *CommonHandler) Read(n domain.IOnode, req *domain.HandlerRequest) (int, 
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 	cntr := req.Container
 
+	//
+	// Caching here improves performance by avoiding dispatching the nsenter agent.  But
+	// note that caching is only helping processes at the sys container level, not in inner
+	// containers or unshared namespaces. To enable caching for those, we would need to
+	// have a cache per each namespace and this is expensive; plus we would also need to
+	// know when the namespace ceases to exist in order to destroy the cache associated
+	// with it.
+	//
 	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
-		// Check if this resource has been initialized for this container. Otherwise,
-		// fetch the information from the host FS and store it accordingly within
-		// the container struct.
+
+		// If this resource is cached, return it's data; otherwise fetch its data from teh
+		// host FS and store it in the cache.
+
 		data, ok = cntr.Data(path, name)
 		if !ok {
 			data, err = h.fetchFile(n, process)
@@ -233,17 +242,15 @@ func (h *CommonHandler) Write(n domain.IOnode, req *domain.HandlerRequest) (int,
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 	cntr := req.Container
 
+	// If caching is enabled, store the data in the cache and do a write-through to the
+	// host FS. Otherwise just do the write-through.
 	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
-		// Push new value to host FS.
 		if err := h.pushFile(n, process, newContent); err != nil {
 			return 0, err
 		}
-
-		// Writing the new value into container-state struct.
 		cntr.SetData(path, name, newContent)
 
 	} else {
-		// Push new value to host FS.
 		if err := h.pushFile(n, process, newContent); err != nil {
 			return 0, err
 		}
