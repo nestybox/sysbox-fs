@@ -56,7 +56,7 @@ func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return errors.New("Invalid input parameters")
 	}
 
-	logrus.Infof("Container pre-registration message received for id: %v", data.Id)
+	logrus.Infof("Container pre-registration message received for id: %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -65,7 +65,7 @@ func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Info("Container pre-registration successfully completed for id: %v", data.Id)
+	logrus.Infof("Container pre-registration successfully completed for id: %s", data.Id)
 
 	return nil
 }
@@ -76,7 +76,7 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return errors.New("Invalid input parameters")
 	}
 
-	logrus.Infof("Container registration message received for id: %v", data.Id)
+	logrus.Infof("Container registration message received for id: %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -99,7 +99,7 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Info("Container registration successfully completed for id: %v", data.Id)
+	logrus.Infof("Container registration successfully completed for id: %s", data.Id)
 
 	return nil
 }
@@ -110,7 +110,7 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 		return errors.New("Invalid input parameters")
 	}
 
-	logrus.Info("Container unregistration message received")
+	logrus.Infof("Container unregistration message received for id: %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -124,7 +124,7 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Info("Container unregistration successfully completed for id: %v", data.Id)
+	logrus.Infof("Container unregistration successfully completed for id: %s", data.Id)
 
 	return nil
 }
@@ -135,7 +135,7 @@ func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 		return errors.New("Invalid input parameters")
 	}
 
-	logrus.Info("Container update message received for id: %v", data.Id)
+	logrus.Infof("Container update message received for id: %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -149,7 +149,7 @@ func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Info("Container update successfully processed for id: %v", data.Id)
+	logrus.Infof("Container update successfully processed for id: %s", data.Id)
 
 	return nil
 }
