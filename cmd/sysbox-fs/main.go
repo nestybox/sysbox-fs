@@ -47,14 +47,14 @@ var (
 //
 // sysbox-fs exit handler goroutine.
 //
-func exitHandler(signalChan chan os.Signal, fs domain.FuseService) {
+func exitHandler(signalChan chan os.Signal, fss domain.FuseServerServiceIface) {
 
 	s := <-signalChan
 	logrus.Warnf("Caught OS signal: %s", s)
 
 	// Unmount sysbox-fs
-	logrus.Infof("Unmounting sysbox-fs from mountpoint %v.", fs.MountPoint())
-	fs.Unmount()
+	// logrus.Infof("Unmounting sysbox-fs from mountpoint %v.", fss.MountPoint())
+	// fss.Unmount()
 
 	// Deferring exit() to allow FUSE to dump unnmount() logs
 	time.Sleep(2)
@@ -193,18 +193,24 @@ func main() {
 
 		var ioService = sysio.NewIOService(sysio.IOFileService)
 
-		var containerStateService = state.NewContainerStateService(
-			processService,
-			ioService,
-		)
-
 		var handlerService = handler.NewHandlerService(
 			handler.DefaultHandlers,
-			containerStateService,
+			nil, // to be filled in during containerStateService initialziation
 			nsenterService,
 			processService,
 			ioService,
 			ctx.Bool("ignore-handler-errors"),
+		)
+
+		var fuseServerService = fuse.NewFuseServerService(
+			ctx.GlobalString("mountpoint"),
+			ioService,
+			handlerService)
+
+		var containerStateService = state.NewContainerStateService(
+			fuseServerService,
+			processService,
+			ioService,
 		)
 
 		var syscallMonitorService = seccomp.NewSyscallMonitorService(
@@ -224,17 +230,6 @@ func main() {
 		if ipcService == nil {
 			logrus.Fatal("IpcService initialization error. Exiting ...")
 		}
-		ipcService.Init()
-
-		var fuseService = fuse.NewFuseService(
-			"/",
-			ctx.GlobalString("mountpoint"),
-			ioService,
-			handlerService,
-		)
-		if fuseService == nil {
-			logrus.Fatal("FuseService initialization error. Exiting ...")
-		}
 
 		// TODO: Consider adding sync.Workgroups to ensure that all goroutines
 		// are done with their in-flight tasks before exit()ing.
@@ -249,10 +244,11 @@ func main() {
 			syscall.SIGTERM,
 			syscall.SIGSEGV,
 			syscall.SIGQUIT)
-		go exitHandler(exitChan, fuseService)
+		go exitHandler(exitChan, fuseServerService)
 
-		// Initiate sysbox-fs' FUSE service.
-		if err := fuseService.Run(); err != nil {
+		logrus.Info("Initializing sysbox-fs ipc service ...")
+
+		if err := ipcService.Init(); err != nil {
 			logrus.Panic(err)
 		}
 

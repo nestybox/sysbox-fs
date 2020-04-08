@@ -499,6 +499,10 @@ func (hs *handlerService) StateService() domain.ContainerStateService {
 	return hs.css
 }
 
+func (hs *handlerService) SetStateService(css domain.ContainerStateService) {
+	hs.css = css
+}
+
 func (hs *handlerService) NSenterService() domain.NSenterService {
 	return hs.nss
 }

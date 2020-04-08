@@ -1,5 +1,5 @@
 //
-// Copyright: (C) 2019 Nestybox Inc.  All rights reserved.
+// Copyright: (C) 2019-2020 Nestybox Inc.  All rights reserved.
 //
 
 package state
@@ -17,13 +17,16 @@ import (
 type containerStateService struct {
 	sync.RWMutex
 
-	// Map to store the association between container ids (string) and the inode
-	// corresponding to the container's pid-namespace.
-	idTable map[string]domain.Inode
+	// Map to store the association between container ids (string) and its
+	// corresponding container data structure.
+	idTable map[string]*container
 
 	// Map to keep track of the association between container's user-namespaces
-	// (inode) and the internal structure to hold all the container state.
+	// (inode) and its corresponding container data structure.
 	usernsTable map[domain.Inode]*container
+
+	// Pointer to the fuse-server service engine.
+	fss domain.FuseServerServiceIface
 
 	// Pointer to the service providing process-handling capabilities.
 	prs domain.ProcessService
@@ -33,17 +36,22 @@ type containerStateService struct {
 }
 
 func NewContainerStateService(
+	fss domain.FuseServerServiceIface,
 	prs domain.ProcessService,
 	ios domain.IOService) domain.ContainerStateService {
 
-	newCSS := &containerStateService{
-		idTable:     make(map[string]domain.Inode),
+	newCss := &containerStateService{
+		idTable:     make(map[string]*container),
 		usernsTable: make(map[domain.Inode]*container),
+		fss:         fss,
 		prs:         prs,
 		ios:         ios,
 	}
 
-	return newCSS
+	// Set backpointer to service parent.
+	newCss.fss.SetContainerService(newCss)
+
+	return newCss
 }
 
 func (css *containerStateService) ContainerCreate(
@@ -68,36 +76,65 @@ func (css *containerStateService) ContainerCreate(
 		gidSize:       gidSize,
 		procRoPaths:   procRoPaths,
 		procMaskPaths: procMaskPaths,
+		specPaths:     make(map[string]struct{}),
 	}
-
-	newcntr.specPaths = make(map[string]struct{})
-
-	for _, v := range newcntr.procRoPaths {
-		newcntr.specPaths[v] = struct{}{}
-	}
-	for _, v := range newcntr.procMaskPaths {
-		newcntr.specPaths[v] = struct{}{}
-	}
-
-	newcntr.initProc = css.prs.ProcessCreate(initPid, uidFirst, gidFirst)
 
 	return newcntr
 }
 
-func (css *containerStateService) ContainerAdd(c domain.ContainerIface) error {
+func (css *containerStateService) ContainerPreRegister(id string) error {
+	css.Lock()
+
+	// Ensure that new container's id is not already present.
+	if _, ok := css.idTable[id]; ok {
+		css.Unlock()
+		logrus.Errorf("Container pre-registration error: container ID %v already present", id)
+		return errors.New("Container ID already present")
+	}
+
+	cntr := &container{id: id}
+	css.idTable[cntr.id] = cntr
+
+	// Create dedicated fuse-server for each sys container.
+	err := css.fss.CreateFuseServer(id)
+	if err == nil {
+		css.Unlock()
+		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container ID %v", id)
+		return errors.New("Unable to initialize fuseServer")
+	}
+
+	css.Unlock()
+
+	return nil
+}
+
+func (css *containerStateService) ContainerRegister(c domain.ContainerIface) error {
 	css.Lock()
 
 	cntr := c.(*container)
 
 	// Ensure that new container's id is not already present.
-	if _, ok := css.idTable[cntr.id]; ok {
+	if _, ok := css.idTable[cntr.id]; !ok {
 		css.Unlock()
-		logrus.Errorf("Container addition error: container ID %v already present", cntr.id)
-		return errors.New("Container ID already present")
+		logrus.Errorf("Container registration error: container ID %v not present", cntr.id)
+		return errors.New("Container ID not found")
+	}
+
+	// Initialize initProc.
+	cntr.initProc = css.prs.ProcessCreate(
+		cntr.initPid,
+		cntr.uidFirst,
+		cntr.gidFirst,
+	)
+
+	usernsInode := cntr.InitProc().UserNsInode()
+	if usernsInode == 0 {
+		logrus.Errorf("Container registration error: container ID %v with invalid user-ns",
+			cntr.id)
+		return errors.New("Container with invalid userns-inode")
 	}
 
 	// Ensure that new container's init process userns inode is not already registered.
-	usernsInode := cntr.initProc.UserNsInode()
 	if _, ok := css.usernsTable[usernsInode]; ok {
 		css.Unlock()
 		logrus.Errorf("Container addition error: container with userns-inode %v already present",
@@ -105,7 +142,7 @@ func (css *containerStateService) ContainerAdd(c domain.ContainerIface) error {
 		return errors.New("Container with userns-inode already present")
 	}
 
-	css.idTable[cntr.id] = usernsInode
+	css.idTable[cntr.id] = cntr
 	css.usernsTable[usernsInode] = cntr
 	css.Unlock()
 
@@ -119,31 +156,19 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 
 	cntr := c.(*container)
 
-	//
 	// Identify the inode associated to the user-ns of the container being
 	// updated.
-	//
-	inode, ok := css.idTable[cntr.id]
+	currCntr, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
 		logrus.Errorf("Container update failure: container ID %v not found", cntr.id)
 		return errors.New("Container ID not found")
 	}
 
-	// Obtain the existing container struct.
-	currCntr, ok := css.usernsTable[inode]
-	if !ok {
-		css.Unlock()
-		logrus.Errorf("Container update failure: could not find container with user-ns-inode %v",
-			inode)
-		return errors.New("Could not find container to update")
-	}
-
-	//
 	// Update the existing container-state struct with the one being received.
 	// Only 'creation-time' attribute is supported for now.
-	//
 	currCntr.SetCtime(cntr.ctime)
+
 	css.Unlock()
 
 	logrus.Info(currCntr.String())
@@ -151,35 +176,38 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	return nil
 }
 
-func (css *containerStateService) ContainerDelete(c domain.ContainerIface) error {
+func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) error {
 	css.Lock()
 
 	cntr := c.(*container)
 
-	//
 	// Identify the inode associated to the user-ns of the container being
 	// eliminated.
-	//
-	inode, ok := css.idTable[cntr.id]
+	currCntrIdTable, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
-		logrus.Errorf("Container deletion failure: container ID %v not found ", cntr.id)
+		logrus.Errorf("Container unregistration failure: container ID %v not found ", cntr.id)
 		return errors.New("Container ID not found")
 	}
 
-	currCntr, ok := css.usernsTable[inode]
+	usernsInode := cntr.InitProc().UserNsInode()
+	currCntrUsernsTable, ok := css.usernsTable[usernsInode]
 	if !ok {
 		css.Unlock()
 		logrus.Errorf("Container deletion error: could not find container with user-inode %v",
-			inode)
+			usernsInode)
 		return errors.New("Container with userns-inode already present")
 	}
 
-	delete(css.idTable, currCntr.id)
-	delete(css.usernsTable, inode)
+	if currCntrIdTable != currCntrUsernsTable {
+		return errors.New("Container corrupted informationrr")
+	}
+
+	delete(css.idTable, cntr.id)
+	delete(css.usernsTable, usernsInode)
 	css.Unlock()
 
-	logrus.Info(currCntr.String())
+	logrus.Info(currCntrIdTable.String())
 
 	return nil
 }
@@ -188,12 +216,7 @@ func (css *containerStateService) ContainerLookupById(id string) domain.Containe
 	css.RLock()
 	defer css.RUnlock()
 
-	usernsInode, ok := css.idTable[id]
-	if !ok {
-		return nil
-	}
-
-	cntr, ok := css.usernsTable[usernsInode]
+	cntr, ok := css.idTable[id]
 	if !ok {
 		return nil
 	}
@@ -214,8 +237,12 @@ func (css *containerStateService) ContainerLookupByInode(
 
 	// Although not strictly needed, let's check in container's idTable too for
 	// data-consistency's sake.
-	_, ok = css.idTable[cntr.id]
+	cntrIdTable, ok := css.idTable[cntr.id]
 	if !ok {
+		return nil
+	}
+
+	if cntr != cntrIdTable {
 		return nil
 	}
 

@@ -34,20 +34,20 @@ type File struct {
 	ionode domain.IOnode
 
 	// Pointer to parent fuseService hosting this file/dir.
-	service *FuseService
+	server *fuseServer
 }
 
 //
 // NewFile method serves as File constructor.
 //
-func NewFile(name string, path string, attr *fuse.Attr, srv *FuseService) *File {
+func NewFile(name string, path string, attr *fuse.Attr, srv *fuseServer) *File {
 
 	newFile := &File{
-		name:    name,
-		path:    path,
-		attr:    attr,
-		service: srv,
-		ionode:  srv.ios.NewIOnode(name, path, 0),
+		name:   name,
+		path:   path,
+		attr:   attr,
+		server: srv,
+		ionode: srv.service.ios.NewIOnode(name, path, 0),
 	}
 
 	return newFile
@@ -105,7 +105,7 @@ func (f *File) Open(
 	f.ionode.SetOpenFlags(int(req.Flags))
 
 	// Lookup the associated handler within handler-DB.
-	handler, ok := f.service.hds.LookupHandler(f.ionode)
+	handler, ok := f.server.service.hds.LookupHandler(f.ionode)
 	if !ok {
 		logrus.Errorf("No supported handler for %v resource", f.path)
 		return nil, fmt.Errorf("No supported handler for %v resource", f.path)
@@ -152,7 +152,7 @@ func (f *File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	logrus.Debugf("Requested Release() operation for entry %v (Req ID=%#v)", f.path, uint64(req.ID))
 
 	// Lookup the associated handler within handler-DB.
-	handler, ok := f.service.hds.LookupHandler(f.ionode)
+	handler, ok := f.server.service.hds.LookupHandler(f.ionode)
 	if !ok {
 		logrus.Errorf("No supported handler for %v resource", f.path)
 		return fmt.Errorf("No supported handler for %v resource", f.path)
@@ -183,7 +183,7 @@ func (f *File) Read(
 	resp.Data = resp.Data[:req.Size]
 
 	// Identify the associated handler and execute it accordingly.
-	handler, ok := f.service.hds.LookupHandler(f.ionode)
+	handler, ok := f.server.service.hds.LookupHandler(f.ionode)
 	if !ok {
 		logrus.Errorf("Read() error: No supported handler for %v resource", f.path)
 		return fmt.Errorf("No supported handler for %v resource", f.path)
@@ -226,7 +226,7 @@ func (f *File) Write(
 	}
 
 	// Lookup the associated handler within handler-DB.
-	handler, ok := f.service.hds.LookupHandler(f.ionode)
+	handler, ok := f.server.service.hds.LookupHandler(f.ionode)
 	if !ok {
 		logrus.Errorf("Write() error: No supported handler for %v resource", f.path)
 		return fmt.Errorf("No supported handler for %v resource", f.path)
@@ -305,12 +305,12 @@ func (f *File) ModTime() time.Time {
 // with the given request.
 func (f *File) getUsernsRootUid(reqPid, reqUid, reqGid uint32) (uint32, uint32, error) {
 
-	usernsInode := f.service.hds.FindUserNsInode(reqPid)
+	usernsInode := f.server.service.hds.FindUserNsInode(reqPid)
 	if usernsInode == 0 {
 		return 0, 0, errors.New("Could not identify userNsInode")
 	}
 
-	if usernsInode == f.service.hds.HostUserNsInode() {
+	if usernsInode == f.server.service.hds.HostUserNsInode() {
 		return 0, 0, nil
 	}
 
@@ -318,8 +318,8 @@ func (f *File) getUsernsRootUid(reqPid, reqUid, reqGid uint32) (uint32, uint32, 
 	// in the future we should return the requester's user-ns root uid & gid instead; this
 	// will help us to support "unshare -U -m --mount-proc" inside a sys container.
 
-	prs := f.service.hds.ProcessService()
-	css := f.service.hds.StateService()
+	prs := f.server.service.hds.ProcessService()
+	css := f.server.service.hds.StateService()
 
 	process := prs.ProcessCreate(reqPid, reqUid, reqGid)
 	cntr := css.ContainerLookupByProcess(process)

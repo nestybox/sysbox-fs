@@ -47,7 +47,7 @@ type Dir struct {
 //
 // NewDir method serves as Dir constructor.
 //
-func NewDir(name string, path string, attr *fuse.Attr, srv *FuseService) *Dir {
+func NewDir(name string, path string, attr *fuse.Attr, srv *fuseServer) *Dir {
 
 	newDir := &Dir{
 		File: *NewFile(name, path, attr, srv),
@@ -70,10 +70,10 @@ func (d *Dir) Lookup(
 
 	// Upon arrival of lookup() request we must construct a temporary ionode
 	// that reflects the path of the element that needs to be looked up.
-	newIOnode := d.service.ios.NewIOnode(req.Name, path, 0)
+	newIOnode := d.server.service.ios.NewIOnode(req.Name, path, 0)
 
 	// Lookup the associated handler within handler-DB.
-	handler, ok := d.service.hds.LookupHandler(newIOnode)
+	handler, ok := d.server.service.hds.LookupHandler(newIOnode)
 	if !ok {
 		logrus.Errorf("No supported handler for %v resource", d.path)
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
@@ -113,9 +113,9 @@ func (d *Dir) Lookup(
 
 	if info.IsDir() {
 		attr.Mode = os.ModeDir | attr.Mode
-		newNode = NewDir(req.Name, path, &attr, d.File.service)
+		newNode = NewDir(req.Name, path, &attr, d.File.server)
 	} else {
-		newNode = NewFile(req.Name, path, &attr, d.File.service)
+		newNode = NewFile(req.Name, path, &attr, d.File.server)
 	}
 
 	return newNode, nil
@@ -150,12 +150,12 @@ func (d *Dir) Create(
 	path := filepath.Join(d.path, req.Name)
 
 	// New ionode reflecting the path of the element to be created.
-	newIOnode := d.service.ios.NewIOnode(req.Name, path, 0)
+	newIOnode := d.server.service.ios.NewIOnode(req.Name, path, 0)
 	newIOnode.SetOpenFlags(int(req.Flags))
 	newIOnode.SetOpenMode(req.Mode)
 
 	// Lookup the associated handler within handler-DB.
-	handler, ok := d.service.hds.LookupHandler(newIOnode)
+	handler, ok := d.server.service.hds.LookupHandler(newIOnode)
 	if !ok {
 		logrus.Errorf("No supported handler for %v resource", path)
 		return nil, nil, fmt.Errorf("No supported handler for %v resource", path)
@@ -191,7 +191,7 @@ func (d *Dir) Create(
 	resp.EntryValid = time.Duration(DentryCacheTimeout) * time.Minute
 
 	var newNode fs.Node
-	newNode = NewFile(req.Name, path, &attr, d.File.service)
+	newNode = NewFile(req.Name, path, &attr, d.File.server)
 
 	return newNode, newNode, nil
 }
@@ -206,7 +206,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 	logrus.Debugf("Requested ReadDirAll() on directory %v (req ID=%#v)", d.path, uint64(req.ID))
 
 	// Lookup the associated handler within handler-DB.
-	handler, ok := d.service.hds.LookupHandler(d.ionode)
+	handler, ok := d.server.service.hds.LookupHandler(d.ionode)
 	if !ok {
 		logrus.Errorf("No supported handler for %v resource", d.path)
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
@@ -260,7 +260,7 @@ func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error
 	logrus.Debugf("Requested Mkdir() on directory %v (Req ID=%#v)", req.Name, uint64(req.ID))
 
 	path := filepath.Join(d.path, req.Name)
-	newDir := NewDir(req.Name, path, &fuse.Attr{}, d.File.service)
+	newDir := NewDir(req.Name, path, &fuse.Attr{}, d.File.server)
 
 	return newDir, nil
 }

@@ -53,9 +53,10 @@ type ContainerStateService interface {
 		procRoPaths []string,
 		procMaskPaths []string) ContainerIface
 
-	ContainerAdd(c ContainerIface) error
+	ContainerPreRegister(id string) error
+	ContainerRegister(c ContainerIface) error
 	ContainerUpdate(c ContainerIface) error
-	ContainerDelete(c ContainerIface) error
+	ContainerUnregister(c ContainerIface) error
 	ContainerLookupById(id string) ContainerIface
 	ContainerLookupByInode(usernsInode Inode) ContainerIface
 	ContainerLookupByProcess(process ProcessIface) ContainerIface

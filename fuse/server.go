@@ -16,54 +16,48 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 
-	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/sysio"
 )
 
-// FuseService class in charge of running/hosting sysbox-fs' FUSE features.
-type FuseService struct {
-	sync.RWMutex                       // nodeDB protection
-	path         string                // fs path to emulate -- "/" by default
-	mountPoint   string                // mountpoint -- "/var/lib/sysboxfs" by default
-	server       *fs.Server            // bazil-fuse server instance
-	nodeDB       map[string]*fs.Node   // map to store all fs nodes, e.g. "/proc/uptime" -> File
-	root         *Dir                  // root node of fuse fs -- "/" by default
-	ios          domain.IOService      // i/o service pointer
-	hds          domain.HandlerService // handler service pointer
+// FuseServer class in charge of running/hosting sysbox-fs' FUSE server features.
+type fuseServer struct {
+	sync.RWMutex                     // nodeDB protection
+	path         string              // fs path to emulate -- "/" by default
+	mountPoint   string              // mountpoint -- "/var/lib/sysboxfs" by default
+	server       *fs.Server          // bazil-fuse server instance
+	nodeDB       map[string]*fs.Node // map to store all fs nodes, e.g. "/proc/uptime" -> File
+	root         *Dir                // root node of fuse fs -- "/" by default
+	service      *FuseServerService  //domain.FuseServerServiceIface
 }
 
-//
-// NewFuseService serves as sysbox-fs' fuse-server constructor.
-//
-func NewFuseService(
-	path string,
-	mountPoint string,
-	ios domain.IOService,
-	hds domain.HandlerService) domain.FuseService {
+func (s *fuseServer) Init() error {
 
 	// Verify the existence of the requested path in the host FS.
-	pathIOnode := ios.NewIOnode(path, path, os.ModeDir)
+	pathIOnode := s.service.ios.NewIOnode(s.path, s.path, os.ModeDir)
 	pathInfo, err := pathIOnode.Stat()
 	if err != nil {
 		if os.IsNotExist(err) {
-			logrus.Errorf("File-System path not found: %v", path)
-			return nil
+			logrus.Errorf("File-System path not found: %v", s.path)
+			return err
 		} else {
-			logrus.Errorf("File-System path not accessible: %v", path)
-			return nil
+			logrus.Errorf("File-System path not accessible: %v", s.path)
+			return err
 		}
 	}
 
 	// Verify the existence of the requested mountpoint in the host FS.
-	mountPointIOnode := ios.NewIOnode(mountPoint, mountPoint, os.ModeDir)
+	mountPointIOnode := s.service.ios.NewIOnode(
+		s.mountPoint,
+		s.mountPoint,
+		os.ModeDir)
 	_, err = mountPointIOnode.Stat()
 	if err != nil {
 		if os.IsNotExist(err) {
-			logrus.Errorf("File-System mountpoint not found: %v", mountPoint)
-			return nil
+			logrus.Errorf("File-System mountpoint not found: %v", s.mountPoint)
+			return err
 		} else {
-			logrus.Errorf("File-System mountpoint not accessible: %v", mountPoint)
-			return nil
+			logrus.Errorf("File-System mountpoint not accessible: %v", s.mountPoint)
+			return err
 		}
 	}
 
@@ -79,23 +73,16 @@ func NewFuseService(
 
 	attr.Mode = os.ModeDir | os.FileMode(int(0600))
 
-	newfs := &FuseService{
-		path:       path,
-		mountPoint: mountPoint,
-		server:     nil,
-		nodeDB:     make(map[string]*fs.Node),
-		ios:        ios,
-		hds:        hds,
-		root:       nil,
-	}
+	// Unused right now.
+	s.nodeDB = make(map[string]*fs.Node)
 
 	// Build sysbox-fs top-most directory (root).
-	newfs.root = NewDir(path, path, &attr, newfs)
+	s.root = NewDir(s.path, s.path, &attr, s)
 
-	return newfs
+	return nil
 }
 
-func (s *FuseService) Run() error {
+func (s *fuseServer) Run() error {
 	//
 	// Creating a FUSE mount at the requested mountpoint.
 	//
@@ -156,17 +143,17 @@ func (s *FuseService) Run() error {
 // Root method. This is a Bazil-FUSE-lib requirement. Function returns
 // sysbox-fs' root-node.
 //
-func (s *FuseService) Root() (fs.Node, error) {
+func (s *fuseServer) Root() (fs.Node, error) {
 
 	return s.root, nil
 }
 
-func (s *FuseService) MountPoint() string {
+func (s *fuseServer) MountPoint() string {
 
 	return s.mountPoint
 }
 
-func (s *FuseService) Unmount() {
+func (s *fuseServer) Unmount() {
 
 	fuse.Unmount(s.mountPoint)
 }
