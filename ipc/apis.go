@@ -114,6 +114,7 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 
 	ipcService := ctx.(*ipcService)
 
+	// Identify the container being unregistered.
 	cntr := ipcService.css.ContainerLookupById(data.Id)
 	if cntr == nil {
 		return nil
@@ -139,10 +140,19 @@ func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 
 	ipcService := ctx.(*ipcService)
 
-	cntr := ipcService.css.ContainerLookupById(data.Id)
-	if cntr == nil {
-		return nil
-	}
+	// Create temporary container struct to be passed as reference to containerDB,
+	// where the matching (real) container will be identified and then updated.
+	cntr := ipcService.css.ContainerCreate(
+		data.Id,
+		uint32(data.InitPid),
+		data.Ctime,
+		uint32(data.UidFirst),
+		uint32(data.UidSize),
+		uint32(data.GidFirst),
+		uint32(data.GidSize),
+		data.ProcRoPaths,
+		data.ProcMaskPaths,
+	)
 
 	err := ipcService.css.ContainerUpdate(cntr)
 	if err != nil {

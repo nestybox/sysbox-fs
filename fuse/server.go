@@ -27,7 +27,7 @@ type fuseServer struct {
 	server       *fs.Server          // bazil-fuse server instance
 	nodeDB       map[string]*fs.Node // map to store all fs nodes, e.g. "/proc/uptime" -> File
 	root         *Dir                // root node of fuse fs -- "/" by default
-	service      *FuseServerService  //domain.FuseServerServiceIface
+	service      *FuseServerService  // backpointer to parent service
 }
 
 func (s *fuseServer) Init() error {
@@ -133,6 +133,17 @@ func (s *fuseServer) Run() error {
 	<-c.Ready
 	if err := c.MountError; err != nil {
 		logrus.Panic(err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *fuseServer) Destroy() error {
+
+	err := fuse.Unmount(s.mountPoint)
+	if err != nil {
+		logrus.Errorf("FUSE file-system could not be unmounted: %v", err)
 		return err
 	}
 

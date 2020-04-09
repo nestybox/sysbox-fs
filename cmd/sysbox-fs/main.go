@@ -52,9 +52,8 @@ func exitHandler(signalChan chan os.Signal, fss domain.FuseServerServiceIface) {
 	s := <-signalChan
 	logrus.Warnf("Caught OS signal: %s", s)
 
-	// Unmount sysbox-fs
-	// logrus.Infof("Unmounting sysbox-fs from mountpoint %v.", fss.MountPoint())
-	// fss.Unmount()
+	// Destroy fuse-service and inner fuse-servers.
+	fss.DestroyFuseService()
 
 	// Deferring exit() to allow FUSE to dump unnmount() logs
 	time.Sleep(2)
@@ -234,8 +233,8 @@ func main() {
 		// TODO: Consider adding sync.Workgroups to ensure that all goroutines
 		// are done with their in-flight tasks before exit()ing.
 
-		// Launch exit handler (performs proper cleanup of sysbox-fs upon receiving
-		// termination signals)
+		// Launch exit handler (performs proper cleanup of sysbox-fs upon
+		// receiving termination signals).
 		var exitChan = make(chan os.Signal, 1)
 		signal.Notify(
 			exitChan,

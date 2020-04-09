@@ -97,7 +97,7 @@ func (css *containerStateService) ContainerPreRegister(id string) error {
 
 	// Create dedicated fuse-server for each sys container.
 	err := css.fss.CreateFuseServer(id)
-	if err == nil {
+	if err != nil {
 		css.Unlock()
 		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container ID %v", id)
 		return errors.New("Unable to initialize fuseServer")
@@ -200,7 +200,17 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	}
 
 	if currCntrIdTable != currCntrUsernsTable {
-		return errors.New("Container corrupted informationrr")
+		css.Unlock()
+		return errors.New("Container corrupted information")
+	}
+
+	// Create dedicated fuse-server for each sys container.
+	err := css.fss.DestroyFuseServer(cntr.id)
+	if err != nil {
+		css.Unlock()
+		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container ID %v",
+			cntr.id)
+		return errors.New("Unable to initialize fuseServer")
 	}
 
 	delete(css.idTable, cntr.id)
