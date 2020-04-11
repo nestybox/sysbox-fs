@@ -42,13 +42,7 @@ func (h *ProcSysHandler) Getattr(
 
 	logrus.Debugf("Executing Getattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	// Let's refer to the common handler for the rest.
-	commonHandler, ok := h.Service.FindHandler("commonHandler")
-	if !ok {
-		return nil, fmt.Errorf("No commonHandler found")
-	}
-
-	return commonHandler.Getattr(n, req)
+	return nil, nil
 }
 
 func (h *ProcSysHandler) Open(

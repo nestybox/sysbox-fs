@@ -6,7 +6,6 @@ package implementations
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -46,12 +45,7 @@ func (h *NfConntrackMaxHandler) Getattr(
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
-	commonHandler, ok := h.Service.FindHandler("commonHandler")
-	if !ok {
-		return nil, fmt.Errorf("No commonHandler found")
-	}
-
-	return commonHandler.Getattr(n, req)
+	return nil, nil
 }
 
 func (h *NfConntrackMaxHandler) Open(

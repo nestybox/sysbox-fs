@@ -5,7 +5,6 @@
 package implementations
 
 import (
-	"fmt"
 	"os"
 	"syscall"
 
@@ -42,13 +41,7 @@ func (h *FsBinfmtStatusHandler) Getattr(
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
 
-	// Let's refer to the common handler for the rest.
-	commonHandler, ok := h.Service.FindHandler("commonHandler")
-	if !ok {
-		return nil, fmt.Errorf("No commonHandler found")
-	}
-
-	return commonHandler.Getattr(n, req)
+	return nil, nil
 }
 
 func (h *FsBinfmtStatusHandler) Open(
