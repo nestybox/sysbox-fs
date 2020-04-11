@@ -20,7 +20,7 @@ type FuseServerService struct {
 	sync.RWMutex                        // servers map protection
 	path         string                 // fs path to emulate -- "/" by default
 	mountPoint   string                 // base mountpoint -- "/var/lib/sysboxfs" by default
-	servers      map[string]*fuseServer // tracks created fuse-servers
+	serversMap   map[string]*fuseServer // tracks created fuse-servers
 	ios          domain.IOService       // i/o service pointer
 	hds          domain.HandlerService  // handler service pointer
 }
@@ -32,7 +32,7 @@ func NewFuseServerService(
 	hds domain.HandlerService) *FuseServerService {
 
 	newServerService := &FuseServerService{
-		servers:    make(map[string]*fuseServer),
+		serversMap: make(map[string]*fuseServer),
 		mountPoint: mp,
 		ios:        ios,
 		hds:        hds,
@@ -44,17 +44,19 @@ func NewFuseServerService(
 // FuseServerService destructor.
 func (fss *FuseServerService) DestroyFuseService() {
 
-	for k, _ := range fss.servers {
+	for k, _ := range fss.serversMap {
 		fss.DestroyFuseServer(k)
 	}
 }
 
 // Creates new fuse-server.
-func (fss *FuseServerService) CreateFuseServer(cntrId string) error {
+func (fss *FuseServerService) CreateFuseServer(cntr domain.ContainerIface) error {
+
+	cntrId := cntr.ID()
 
 	// Ensure no fuse-server already exists for this cntr.
 	fss.RLock()
-	if _, ok := fss.servers[cntrId]; ok {
+	if _, ok := fss.serversMap[cntrId]; ok {
 		fss.RUnlock()
 		logrus.Errorf("FuseServer to create is already present for container id %s",
 			cntrId)
@@ -71,11 +73,12 @@ func (fss *FuseServerService) CreateFuseServer(cntrId string) error {
 	srv := &fuseServer{
 		path:       "/",
 		mountPoint: cntrMountpoint,
+		container:  cntr,
 		service:    fss,
 	}
 
-	// Initialize fuse-server.
-	if err := srv.Init(); err != nil {
+	// Create new fuse-server.
+	if err := srv.Create(); err != nil {
 		return errors.New("FuseServer initialization error")
 	}
 
@@ -84,7 +87,7 @@ func (fss *FuseServerService) CreateFuseServer(cntrId string) error {
 
 	// Store newly created fuse-server.
 	fss.Lock()
-	fss.servers[cntrId] = srv
+	fss.serversMap[cntrId] = srv
 	fss.Unlock()
 
 	return nil
@@ -95,7 +98,7 @@ func (fss *FuseServerService) DestroyFuseServer(cntrId string) error {
 
 	// Ensure fuse-server to eliminate is present.
 	fss.RLock()
-	srv, ok := fss.servers[cntrId]
+	srv, ok := fss.serversMap[cntrId]
 	if !ok {
 		fss.RUnlock()
 		logrus.Errorf("FuseServer to destroy is not present for container id %s",
@@ -121,7 +124,7 @@ func (fss *FuseServerService) DestroyFuseServer(cntrId string) error {
 
 	// Update state.
 	fss.Lock()
-	delete(fss.servers, cntrId)
+	delete(fss.serversMap, cntrId)
 	fss.Unlock()
 
 	return nil

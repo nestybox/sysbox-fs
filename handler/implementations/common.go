@@ -33,15 +33,8 @@ func (h *CommonHandler) Lookup(n domain.IOnode, req *domain.HandlerRequest) (os.
 
 	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
-	if cntr == nil {
+	// Ensure operation is generated from within a registered sys container.
+	if req.Container == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)",
 			req.Pid)
 		return nil, errors.New("Container not found")
@@ -50,7 +43,7 @@ func (h *CommonHandler) Lookup(n domain.IOnode, req *domain.HandlerRequest) (os.
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		process.Pid(),
+		req.Pid,
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
@@ -89,23 +82,16 @@ func (h *CommonHandler) Getattr(n domain.IOnode, req *domain.HandlerRequest) (*s
 
 	logrus.Debugf("Executing Getattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
-	if cntr == nil {
+	// Ensure operation is generated from within a registered sys container.
+	if req.Container == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)",
 			req.Pid)
 		return nil, errors.New("Container not found")
 	}
 
 	stat := &syscall.Stat_t{
-		Uid: cntr.UID(),
-		Gid: cntr.GID(),
+		Uid: req.Container.UID(),
+		Gid: req.Container.GID(),
 	}
 
 	return stat, nil
@@ -115,23 +101,17 @@ func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error 
 
 	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)", req.Pid)
+	// Ensure operation is generated from within a registered sys container.
+	if req.Container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
 		return errors.New("Container not found")
 	}
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		process.Pid(),
+		req.Pid,
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
@@ -144,11 +124,11 @@ func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error 
 			Type: domain.OpenFileRequest,
 			Payload: &domain.OpenFilePayload{
 				Header: domain.NSenterMsgHeader{
-					Pid:            process.Pid(),
-					Uid:            process.Uid() - cntr.UID(),
-					Gid:            process.Gid() - cntr.GID(),
-					CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
-					CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
+					Pid:            req.Pid,
+					Uid:            0,
+					Gid:            0,
+					CapDacRead:     false,
+					CapDacOverride: false,
 				},
 				File:  n.Path(),
 				Flags: strconv.Itoa(n.OpenFlags()),
@@ -191,15 +171,8 @@ func (h *CommonHandler) Read(n domain.IOnode, req *domain.HandlerRequest) (int, 
 	name := n.Name()
 	path := n.Path()
 
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
-	if cntr == nil {
+	// Ensure operation is generated from within a registered sys container.
+	if req.Container == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)",
 			req.Pid)
 		return 0, errors.New("Container not found")
@@ -210,6 +183,10 @@ func (h *CommonHandler) Read(n domain.IOnode, req *domain.HandlerRequest) (int, 
 		ok   bool
 		err  error
 	)
+
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
+	cntr := req.Container
 
 	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
 		// Check if this resource has been initialized for this container. Otherwise,
@@ -243,21 +220,18 @@ func (h *CommonHandler) Write(n domain.IOnode, req *domain.HandlerRequest) (int,
 	name := n.Name()
 	path := n.Path()
 
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-
-	newContent := strings.TrimSpace(string(req.Data))
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
-	if cntr == nil {
+	// Ensure operation is generated from within a registered sys container.
+	if req.Container == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)",
 			req.Pid)
 		return 0, errors.New("Container not found")
 	}
+
+	newContent := strings.TrimSpace(string(req.Data))
+
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
+	cntr := req.Container
 
 	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
 		// Push new value to host FS.
@@ -282,15 +256,8 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 
 	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
-	if cntr == nil {
+	// Ensure operation is generated from within a registered sys container.
+	if req.Container == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)",
 			req.Pid)
 		return nil, errors.New("Container not found")
@@ -299,7 +266,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		process.Pid(),
+		req.Pid,
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
@@ -312,11 +279,11 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 			Type: domain.ReadDirRequest,
 			Payload: &domain.ReadDirPayload{
 				Header: domain.NSenterMsgHeader{
-					Pid:            process.Pid(),
-					Uid:            process.Uid() - cntr.UID(),
-					Gid:            process.Gid() - cntr.GID(),
-					CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
-					CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
+					Pid:            req.Pid,
+					Uid:            0,
+					Gid:            0,
+					CapDacRead:     false,
+					CapDacOverride: false,
 				},
 				Dir: n.Path(),
 			},
@@ -358,15 +325,8 @@ func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) err
 
 	logrus.Debugf("Executing Setattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
-	if cntr == nil {
+	// Ensure operation is generated from within a registered sys container.
+	if req.Container == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)",
 			req.Pid)
 		return errors.New("Container not found")
@@ -375,7 +335,7 @@ func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) err
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
-		process.Pid(),
+		req.Pid,
 		[]domain.NStype{
 			string(domain.NStypeUser),
 			string(domain.NStypePid),
@@ -388,11 +348,11 @@ func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) err
 			Type: domain.OpenFileRequest,
 			Payload: &domain.OpenFilePayload{
 				Header: domain.NSenterMsgHeader{
-					Pid:            process.Pid(),
-					Uid:            process.Uid() - cntr.UID(),
-					Gid:            process.Gid() - cntr.GID(),
-					CapDacRead:     process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH),
-					CapDacOverride: process.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE),
+					Pid:            req.Pid,
+					Uid:            0,
+					Gid:            0,
+					CapDacRead:     false,
+					CapDacOverride: false,
 				},
 				File:  n.Path(),
 				Flags: strconv.Itoa(n.OpenFlags()),

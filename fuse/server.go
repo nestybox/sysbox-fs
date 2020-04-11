@@ -16,21 +16,23 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 
+	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/sysio"
 )
 
 // FuseServer class in charge of running/hosting sysbox-fs' FUSE server features.
 type fuseServer struct {
-	sync.RWMutex                     // nodeDB protection
-	path         string              // fs path to emulate -- "/" by default
-	mountPoint   string              // mountpoint -- "/var/lib/sysboxfs" by default
-	server       *fs.Server          // bazil-fuse server instance
-	nodeDB       map[string]*fs.Node // map to store all fs nodes, e.g. "/proc/uptime" -> File
-	root         *Dir                // root node of fuse fs -- "/" by default
-	service      *FuseServerService  // backpointer to parent service
+	sync.RWMutex                       // nodeDB protection
+	path         string                // fs path to emulate -- "/" by default
+	mountPoint   string                // mountpoint -- "/var/lib/sysboxfs" by default
+	container    domain.ContainerIface // associated sys container
+	server       *fs.Server            // bazil-fuse server instance
+	nodeDB       map[string]*fs.Node   // map to store all fs nodes, e.g. "/proc/uptime" -> File
+	root         *Dir                  // root node of fuse fs -- "/" by default
+	service      *FuseServerService    // backpointer to parent service
 }
 
-func (s *fuseServer) Init() error {
+func (s *fuseServer) Create() error {
 
 	// Verify the existence of the requested path in the host FS.
 	pathIOnode := s.service.ios.NewIOnode(s.path, s.path, os.ModeDir)
@@ -61,7 +63,7 @@ func (s *fuseServer) Init() error {
 		}
 	}
 
-	// Creating a first node corresponding to the root element in
+	// Creating a first node corresponding to the root (dir) element in
 	// sysbox-fs.
 	var attr fuse.Attr
 	_, ok := sysio.AppFs.(*afero.OsFs)
@@ -141,11 +143,18 @@ func (s *fuseServer) Run() error {
 
 func (s *fuseServer) Destroy() error {
 
+	// Unmount sysboxfs from mountpoint.
 	err := fuse.Unmount(s.mountPoint)
 	if err != nil {
 		logrus.Errorf("FUSE file-system could not be unmounted: %v", err)
 		return err
 	}
+
+	// Unset pointers for GC purposes.
+	s.container = nil
+	s.server = nil
+	s.root = nil
+	s.service = nil
 
 	return nil
 }

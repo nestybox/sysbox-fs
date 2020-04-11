@@ -5,14 +5,14 @@
 package domain
 
 type FuseServerServiceIface interface {
-	CreateFuseServer(mp string) error
+	CreateFuseServer(cntr ContainerIface) error
 	DestroyFuseServer(mp string) error
 	SetContainerService(css ContainerStateService)
 	DestroyFuseService()
 }
 
 type FuseServerIface interface {
-	Init() error
+	Create() error
 	Run() error
 	Destroy() error
 	MountPoint() string

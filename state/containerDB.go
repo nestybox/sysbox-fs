@@ -77,6 +77,7 @@ func (css *containerStateService) ContainerCreate(
 		procRoPaths:   procRoPaths,
 		procMaskPaths: procMaskPaths,
 		specPaths:     make(map[string]struct{}),
+		service:       css,
 	}
 
 	return newcntr
@@ -96,7 +97,7 @@ func (css *containerStateService) ContainerPreRegister(id string) error {
 	css.idTable[cntr.id] = cntr
 
 	// Create dedicated fuse-server for each sys container.
-	err := css.fss.CreateFuseServer(id)
+	err := css.fss.CreateFuseServer(cntr)
 	if err != nil {
 		css.Unlock()
 		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container ID %v", id)
@@ -113,21 +114,24 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 
 	cntr := c.(*container)
 
-	// Ensure that new container's id is not already present.
-	if _, ok := css.idTable[cntr.id]; !ok {
+	// Ensure that container's id is already present (pregistration completed).
+	currCntr, ok := css.idTable[cntr.id]
+	if !ok {
 		css.Unlock()
-		logrus.Errorf("Container registration error: container ID %v not present", cntr.id)
-		return errors.New("Container ID not found")
+		logrus.Errorf("Container registration error: container ID %v not present",
+			cntr.id)
+		return errors.New("Container not found")
 	}
 
-	// Initialize initProc.
-	cntr.initProc = css.prs.ProcessCreate(
-		cntr.initPid,
-		cntr.uidFirst,
-		cntr.gidFirst,
-	)
+	// Update existing container with received attributes.
+	if err := currCntr.update(cntr); err != nil {
+		css.Unlock()
+		logrus.Errorf("Container registration error: container ID %v not updated",
+			cntr.id)
+		return errors.New("Container not updated")
+	}
 
-	usernsInode := cntr.InitProc().UserNsInode()
+	usernsInode := currCntr.InitProc().UserNsInode()
 	if usernsInode == 0 {
 		logrus.Errorf("Container registration error: container ID %v with invalid user-ns",
 			cntr.id)
@@ -142,8 +146,7 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 		return errors.New("Container with userns-inode already present")
 	}
 
-	css.idTable[cntr.id] = cntr
-	css.usernsTable[usernsInode] = cntr
+	css.usernsTable[usernsInode] = currCntr
 	css.Unlock()
 
 	logrus.Info(cntr.String())
@@ -293,4 +296,8 @@ func (css *containerStateService) ContainerLookupByProcess(p domain.ProcessIface
 	}
 
 	return cntr
+}
+
+func (css *containerStateService) ProcessService() domain.ProcessService {
+	return css.prs
 }

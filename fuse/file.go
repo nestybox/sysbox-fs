@@ -80,14 +80,12 @@ func (f *File) Getattr(
 	// Use the attributes obtained during Lookup()
 	resp.Attr = *f.attr
 
-	// Override the uid & gid attributes with the requester'ss user-ns root uid & gid
-	uid, gid, err := f.getUsernsRootUid(req.Pid, req.Uid, req.Gid)
-	if err != nil {
-		return err
-	}
-
-	resp.Attr.Uid = uid
-	resp.Attr.Gid = gid
+	// Override the uid & gid attributes with the requester'ss user-ns root uid
+	// & gid. In the future we should return the requester's user-ns root uid &
+	// gid instead; this will help us to support "unshare -U -m --mount-proc"
+	// inside a sys container.
+	resp.Attr.Uid = f.server.container.UID()
+	resp.Attr.Gid = f.server.container.GID()
 
 	return nil
 }
@@ -112,10 +110,11 @@ func (f *File) Open(
 	}
 
 	request := &domain.HandlerRequest{
-		ID:  uint64(req.ID),
-		Pid: req.Pid,
-		Uid: req.Uid,
-		Gid: req.Gid,
+		ID:        uint64(req.ID),
+		Pid:       req.Pid,
+		Uid:       req.Uid,
+		Gid:       req.Gid,
+		Container: f.server.container,
 	}
 
 	// Handler execution.
@@ -190,12 +189,13 @@ func (f *File) Read(
 	}
 
 	request := &domain.HandlerRequest{
-		ID:     uint64(req.ID),
-		Pid:    req.Pid,
-		Uid:    req.Uid,
-		Gid:    req.Gid,
-		Offset: req.Offset,
-		Data:   resp.Data,
+		ID:        uint64(req.ID),
+		Pid:       req.Pid,
+		Uid:       req.Uid,
+		Gid:       req.Gid,
+		Offset:    req.Offset,
+		Data:      resp.Data,
+		Container: f.server.container,
 	}
 
 	// Handler execution.
@@ -233,11 +233,12 @@ func (f *File) Write(
 	}
 
 	request := &domain.HandlerRequest{
-		ID:   uint64(req.ID),
-		Pid:  req.Pid,
-		Uid:  req.Uid,
-		Gid:  req.Gid,
-		Data: req.Data,
+		ID:        uint64(req.ID),
+		Pid:       req.Pid,
+		Uid:       req.Uid,
+		Gid:       req.Gid,
+		Data:      req.Data,
+		Container: f.server.container,
 	}
 
 	// Handler execution.

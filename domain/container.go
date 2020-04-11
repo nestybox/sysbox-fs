@@ -27,6 +27,7 @@ type ContainerIface interface {
 	//
 	// Setters
 	//
+	//Update(cntr ContainerIface) error
 	SetData(path string, name string, data string)
 }
 
@@ -60,4 +61,5 @@ type ContainerStateService interface {
 	ContainerLookupById(id string) ContainerIface
 	ContainerLookupByInode(usernsInode Inode) ContainerIface
 	ContainerLookupByProcess(process ProcessIface) ContainerIface
+	ProcessService() ProcessService
 }
