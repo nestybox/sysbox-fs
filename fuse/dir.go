@@ -68,6 +68,26 @@ func (d *Dir) Lookup(
 
 	path := filepath.Join(d.path, req.Name)
 
+	d.File.server.RLock()
+	node, ok := d.server.nodeDB[path]
+	if ok == true {
+		d.server.RUnlock()
+
+		// The uid & gid attributes must be obtained from the request.
+		uid, gid, err := d.getUsernsRootUid(req.Pid, req.Uid, req.Gid)
+		if err != nil {
+			return nil, err
+		}
+
+		var f fs.Node
+
+		f.(*File).attr.Uid = uid
+		f.(*File).attr.Gid = gid
+
+		return *node, nil
+	}
+	d.server.RUnlock()
+
 	// Upon arrival of lookup() request we must construct a temporary ionode
 	// that reflects the path of the element that needs to be looked up.
 	newIOnode := d.server.service.ios.NewIOnode(req.Name, path, 0)
@@ -100,13 +120,12 @@ func (d *Dir) Lookup(
 	// Adjust response to carry the proper dentry-cache-timeout value.
 	resp.EntryValid = time.Duration(DentryCacheTimeout) * time.Minute
 
-	// Override the uid & gid attributes with the root uid & gid in the requester's
-	// user-ns.
+	// Override the uid & gid attributes with the root uid & gid in the
+	// requester's user-ns.
 	uid, gid, err := d.getUsernsRootUid(req.Pid, req.Uid, req.Gid)
 	if err != nil {
 		return nil, err
 	}
-
 	attr.Uid = uid
 	attr.Gid = gid
 
@@ -118,6 +137,11 @@ func (d *Dir) Lookup(
 	} else {
 		newNode = NewFile(req.Name, path, &attr, d.File.server)
 	}
+
+	// Insert new fs node into nodeDB.
+	d.server.Lock()
+	d.server.nodeDB[path] = &newNode
+	d.server.Unlock()
 
 	return newNode, nil
 }
@@ -194,6 +218,11 @@ func (d *Dir) Create(
 
 	var newNode fs.Node
 	newNode = NewFile(req.Name, path, &attr, d.File.server)
+
+	// Insert new fs node into nodeDB.
+	d.server.Lock()
+	d.server.nodeDB[path] = &newNode
+	d.server.Unlock()
 
 	return newNode, newNode, nil
 }

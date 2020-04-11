@@ -279,6 +279,15 @@ func (f *File) Setattr(
 func (f *File) Forget() {
 
 	logrus.Debugf("Requested Forget() operation for entry %v", f.path)
+
+	f.server.Lock()
+	defer f.server.Unlock()
+
+	if _, ok := f.server.nodeDB[f.path]; !ok {
+		return
+	}
+
+	delete(f.server.nodeDB, f.path)
 }
 
 //
