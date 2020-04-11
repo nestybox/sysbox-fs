@@ -234,11 +234,6 @@ func (d *Dir) Create(
 	d.server.nodeDB[path] = &newNode
 	d.server.Unlock()
 
-	// Insert new fs node into nodeDB.
-	d.File.service.Lock()
-	d.File.service.nodeDB[path] = &newNode
-	d.File.service.Unlock()
-
 	return newNode, newNode, nil
 }
 
