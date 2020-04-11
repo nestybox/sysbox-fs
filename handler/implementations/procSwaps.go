@@ -92,15 +92,9 @@ func (h *ProcSwapsHandler) Read(
 
 	name := n.Name()
 	path := n.Path()
+	cntr := req.Container
 
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, 0, 0)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
+	// Ensure operation is generated from within a registered sys container.
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)",
 			req.Pid)

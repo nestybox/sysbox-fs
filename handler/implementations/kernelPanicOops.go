@@ -106,15 +106,9 @@ func (h *KernelPanicOopsHandler) Read(
 
 	name := n.Name()
 	path := n.Path()
+	cntr := req.Container
 
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, 0, 0)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
+	// Ensure operation is generated from within a registered sys container.
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)",
 			req.Pid)
@@ -157,6 +151,14 @@ func (h *KernelPanicOopsHandler) Write(
 
 	name := n.Name()
 	path := n.Path()
+	cntr := req.Container
+
+	// Ensure operation is generated from within a registered sys container.
+	if cntr == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return 0, errors.New("Container not found")
+	}
 
 	newVal := strings.TrimSpace(string(req.Data))
 	newValInt, err := strconv.Atoi(newVal)
@@ -168,20 +170,6 @@ func (h *KernelPanicOopsHandler) Write(
 	// supported values.
 	if newValInt < 0 || newValInt > 1 {
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
-	}
-
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, 0, 0)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered in sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
 	}
 
 	// Store the new value within the container struct.

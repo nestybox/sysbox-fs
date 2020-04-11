@@ -105,15 +105,9 @@ func (h *VsConnReuseModeHandler) Read(
 
 	name := n.Name()
 	path := n.Path()
+	cntr := req.Container
 
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, 0, 0)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered with sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
+	// Ensure operation is generated from within a registered sys container.
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)",
 			req.Pid)
@@ -148,26 +142,20 @@ func (h *VsConnReuseModeHandler) Write(
 
 	name := n.Name()
 	path := n.Path()
+	cntr := req.Container
+
+	// Ensure operation is generated from within a registered sys container.
+	if cntr == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return 0, errors.New("Container not found")
+	}
 
 	newVal := strings.TrimSpace(string(req.Data))
 	newValInt, err := strconv.Atoi(newVal)
 	if err != nil {
 		logrus.Errorf("Unexpected error: %v", err)
 		return 0, err
-	}
-
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, 0, 0)
-
-	// Identify the container holding the process represented by this pid. This
-	// action can only succeed if the associated container has been previously
-	// registered with sysbox-fs.
-	css := h.Service.StateService()
-	cntr := css.ContainerLookupByProcess(process)
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
 	}
 
 	if err := h.pushFile(n, cntr, newValInt); err != nil {
