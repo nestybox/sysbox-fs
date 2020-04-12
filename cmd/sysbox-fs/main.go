@@ -239,7 +239,7 @@ func main() {
 			syscall.SIGQUIT)
 		go exitHandler(exitChan, fuseServerService)
 
-		logrus.Info("Initializing sysbox-fs ipc service ...")
+		logrus.Info("Initiating sysbox-fs engine ...")
 
 		if err := ipcService.Init(); err != nil {
 			logrus.Panic(err)
