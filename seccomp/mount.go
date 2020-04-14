@@ -3,11 +3,11 @@ package seccomp
 import (
 	"fmt"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -17,51 +17,91 @@ type mountSyscallInfo struct {
 	*domain.MountSyscallPayload // mount-syscall specific details
 }
 
-// MountSyscall processing wrapper instruction.
+// Mount syscall processing wrapper instruction.
 func (m *mountSyscallInfo) process() (*sysResponse, error) {
 
-	if m.FsType == "nfs" {
-		return m.processNfsMount()
+	mh := m.tracer.mountHelper
+
+	// Handle requests that create a new mountpoint for filesystems managed by sysbox-fs
+	if mh.isNewMount(m.Flags) {
+		switch m.FsType {
+		case "proc":
+			logrus.Debugf("Processing new procfs mount: %v", m)
+			return m.processProcMount()
+		case "sysfs":
+			logrus.Debugf("Processing new sysfs mount: %v", m)
+			return m.processSysMount()
+		case "nfs":
+			logrus.Debugf("Processing new nfs mount: %v", m)
+			return m.processNfsMount()
+		}
 	}
 
-	if m.Flags&^sysboxProcSkipMountFlags == m.Flags {
-		if m.FsType == "proc" {
-			return m.processProcMount()
-		} else if m.FsType == "sysfs" {
-			return m.processSysMount()
-		}
+	// Mount moves are handled by the kernel
+	if mh.isMove(m.Flags) {
 		return m.tracer.createContinueResponse(m.reqId), nil
 	}
 
-	// Handle bind-mount requests.
-	if m.Flags&unix.MS_BIND == unix.MS_BIND {
+	// Handle remount requests on filesystems managed by sysbox-fs
+	if mh.isRemount(m.Flags) {
 
-		// If dealing with a 'pure' bind-mount request (no 'remount' flag),
-		// determine if the operation needs to be disregarded to avoid duplicated
-		// mount entries. This would happen for all the elements that are implicitly
-		// mounted as part of procMount() and sysMount() execution. Notice that to
-		// narrow down the number of skip instructions, we make use of the
-		// "source==target" and "source==/dev/null" filters as these ones match the
-		// signature of the resources sysbox-fs emulates.
-		if m.Flags&unix.MS_REMOUNT != unix.MS_REMOUNT {
-			if (m.Source == m.Target || m.Source == "/dev/null") &&
-				m.tracer.mountHelper.isSysboxfsMount(m.pid, m.cntr, m.Target, &m.CurFlags) {
-				return m.tracer.createSuccessResponse(m.reqId), nil
-			}
-		} else {
-			if m.tracer.mountHelper.isSysboxfsMount(m.pid, m.cntr, m.Target, &m.CurFlags) {
-				return m.processReMount()
-			}
+		mi, err := NewMountInfo(mh, m.cntr, m.pid)
+		if err != nil {
+			return nil, err
 		}
+
+		if mi.IsSysboxfsBaseMount(m.Target) || mi.IsSysboxfsSubmount(m.Target) {
+			return m.processRemount(mi)
+		}
+
+		// No action by sysbox-fs
+		return m.tracer.createContinueResponse(m.reqId), nil
 	}
 
+	// Handle bind-mount requests on filesystems managed by sysbox-fs.
+	if mh.isBind(m.Flags) {
+
+		mi, err := NewMountInfo(mh, m.cntr, m.pid)
+		if err != nil {
+			return nil, err
+		}
+
+		// Ignore binds-to-self requests on sysbox-fs managed submounts (these are already
+		// bind-mounts, so we want to avoid the redundant bind mount for cosmetic purposes).
+		if m.Source == m.Target && mi.IsSysboxfsSubmount(m.Target) {
+			logrus.Debugf("Ignoring bind-to-self request of sysbox-fs managed submount at %s", m.Target)
+			return m.tracer.createSuccessResponse(m.reqId), nil
+		}
+
+		// Ignore /dev/null bind mounts on sysbox-fs managed submounts which are already
+		// bind-mounted to /dev/null (i.e., masked)
+		if m.Source == "/dev/null" && mi.IsSysboxfsMaskedSubmount(m.Target) {
+			logrus.Debugf("Ignoring /dev/null bind request over sysbox-fs masked submount at %s", m.Target)
+			return m.tracer.createSuccessResponse(m.reqId), nil
+		}
+
+		// Process bind-mounts whose source is a sysbox-fs base mount (as we want the
+		// submounts to also be bind-mounted at the target).
+		if m.Source != m.Target && mi.IsSysboxfsBaseMount(m.Source) {
+			return m.processBindMount(mi)
+		}
+
+		// No action by sysbox-fs
+		return m.tracer.createContinueResponse(m.reqId), nil
+	}
+
+	// Hanlde propagation type changes on filesystems managed by sysbox-fs (no action required; let
+	// the kernel handle mount propagation changes).
+	if mh.hasPropagationFlag(m.Flags) {
+		return m.tracer.createContinueResponse(m.reqId), nil
+	}
+
+	// No action by sysbox-fs otherwise
 	return m.tracer.createContinueResponse(m.reqId), nil
 }
 
-// Method handles "/proc" mount syscall requests. As part of this function, we
-// also bind-mount all the procfs emulated resources into the mount target
-// requested by the user. Our goal here is to extend sysbox-fs' virtualization
-// capabilities to L2 app containers and/or L1 chroot'ed environments.
+// Method handles procfs mount syscall requests. As part of this function, we
+// also create submounts under procfs (to expose, hide, or emulate resources).
 func (m *mountSyscallInfo) processProcMount() (*sysResponse, error) {
 
 	// Create instructions payload.
@@ -181,9 +221,8 @@ func (m *mountSyscallInfo) createProcPayload() *[]*domain.MountSyscallPayload {
 	return &payload
 }
 
-// Method handles "/sys" mount syscall requests. As part of this function, we
-// also bind-mount all the sysfs emulated resources into the mount target
-// requested by the user.
+// Method handles sysfs mount syscall requests. As part of this function, we
+// also create submounts under sysfs (to expose, hide, or emulate resources).
 func (m *mountSyscallInfo) processSysMount() (*sysResponse, error) {
 
 	// Create instruction's payload.
@@ -267,64 +306,9 @@ func (m *mountSyscallInfo) createSysPayload() *[]*domain.MountSyscallPayload {
 	return &payload
 }
 
-// Method handles remount syscall requests within procfs and sysfs node hierarchy.
-func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
-
-	// Adjust mount-flags to incorporate (or eliminate) 'read-only' flag based on
-	// the mount requirements, as well as the existing kernel flags.
-	if m.Flags&unix.MS_RDONLY == unix.MS_RDONLY {
-		m.Flags = m.CurFlags | unix.MS_RDONLY | unix.MS_BIND | unix.MS_REMOUNT
-	} else {
-		m.Flags = (m.CurFlags &^ unix.MS_RDONLY) | unix.MS_BIND | unix.MS_REMOUNT
-	}
-
-	// Create instruction's payload.
-	payload := m.createReMountPayload()
-	if payload == nil {
-		return nil, fmt.Errorf("Could not construct ReMount payload")
-	}
-
-	// Create nsenter-event envelope.
-	nss := m.tracer.sms.nss
-	event := nss.NewEvent(
-		m.syscallCtx.pid,
-		&domain.AllNSs,
-		&domain.NSenterMessage{
-			Type:    domain.MountSyscallRequest,
-			Payload: payload,
-		},
-		nil,
-	)
-
-	// Launch nsenter-event.
-	err := nss.SendRequestEvent(event)
-	if err != nil {
-		return nil, err
-	}
-
-	// Obtain nsenter-event response.
-	responseMsg := nss.ReceiveResponseEvent(event)
-	if responseMsg.Type == domain.ErrorResponse {
-		resp := m.tracer.createErrorResponse(
-			m.reqId,
-			responseMsg.Payload.(fuse.IOerror).Code)
-		return resp, nil
-	}
-
-	return m.tracer.createSuccessResponse(m.reqId), nil
-}
-
-// Build instructions payload required for remount operations.
-func (m *mountSyscallInfo) createReMountPayload() *[]*domain.MountSyscallPayload {
-
-	var payload []*domain.MountSyscallPayload
-
-	// Payload instruction for re-mount request.
-	payload = append(payload, m.MountSyscallPayload)
-
-	return &payload
-}
-
+// Method handles "nfs" mount syscall requests. Sysbox-fs does not manage nfs mounts
+// per-se, but only "proxies" the nfs mount syscall. It does this in order to enable nfs
+// to be mounted from within a (non init) user-ns.
 func (m *mountSyscallInfo) processNfsMount() (*sysResponse, error) {
 
 	// Create instruction's payload.
@@ -333,12 +317,11 @@ func (m *mountSyscallInfo) processNfsMount() (*sysResponse, error) {
 		return nil, fmt.Errorf("Could not construct nfsMount payload")
 	}
 
-	// Create nsenter-event envelope; in order to perform an nfs mount, we must not enter
-	// the container's user namespace.
+	// Create nsenter-event envelope
 	nss := m.tracer.sms.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
-		&domain.AllNSs,
+		&domain.AllNSsButUser,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,
@@ -375,11 +358,192 @@ func (m *mountSyscallInfo) createNfsMountPayload() *[]*domain.MountSyscallPayloa
 	return &payload
 }
 
-func (m *mountSyscallInfo) string() string {
+func (m *mountSyscallInfo) processRemount(mi *mountInfo) (*sysResponse, error) {
 
-	result := "source: " + m.Source + " target: " + m.Target +
-		" fstype: " + m.FsType + " flags: " +
-		strconv.FormatUint(m.Flags, 10) + " data: " + m.Data
+	// Create instruction's payload.
+	payload := m.createRemountPayload(mi)
+	if payload == nil {
+		return nil, fmt.Errorf("Could not construct ReMount payload")
+	}
 
-	return result
+	// Create nsenter-event envelope.
+	nss := m.tracer.sms.nss
+	event := nss.NewEvent(
+		m.syscallCtx.pid,
+		&domain.AllNSsButUser,
+		&domain.NSenterMessage{
+			Type:    domain.MountSyscallRequest,
+			Payload: payload,
+		},
+		nil,
+	)
+
+	// Launch nsenter-event.
+	err := nss.SendRequestEvent(event)
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		resp := m.tracer.createErrorResponse(
+			m.reqId,
+			responseMsg.Payload.(fuse.IOerror).Code)
+		return resp, nil
+	}
+
+	return m.tracer.createSuccessResponse(m.reqId), nil
+}
+
+// Build instructions payload required for remount operations.
+func (m *mountSyscallInfo) createRemountPayload(mi *mountInfo) *[]*domain.MountSyscallPayload {
+	var payload []*domain.MountSyscallPayload
+
+	mh := m.tracer.mountHelper
+
+	// A procfs mount inside a sys container is a combination of a base proc mount plus
+	// sysbox-fs submounts. If the remount is done on the base mount, its effect is also
+	// applied to the submounts. If the remount is on a submount, its effect is limited to
+	// that submount.
+
+	submounts := []string{}
+
+	if mi.IsSysboxfsBaseMount(m.Target) {
+		submounts = mi.GetSysboxfsSubMounts(m.Target)
+	} else {
+		submounts = append(submounts, m.Target)
+	}
+
+	for _, subm := range submounts {
+		submInfo := mi.GetInfo(subm)
+
+		perMountFlags := mh.stringToFlags(submInfo.Opts)
+		perFsFlags := mh.stringToFlags(submInfo.VfsOpts)
+		submFlags := perMountFlags | perFsFlags
+
+		// Pass the remount flags to the submounts
+		submFlags |= unix.MS_REMOUNT
+
+		if m.Flags&unix.MS_BIND == unix.MS_BIND {
+			submFlags |= unix.MS_BIND
+		}
+
+		// We only propagate changes to the MS_RDONLY flag to the submounts. In the
+		// future we could propagate other flags too.
+		//
+		// For MS_RDONLY:
+		//
+		// When set, we apply the read-only flag on all submounts.
+		// When cleared, we apply the read-write flag on all submounts which are not
+		// mounted as read-only in the container's /proc
+
+		if m.Flags&unix.MS_RDONLY == unix.MS_RDONLY {
+			submFlags |= unix.MS_RDONLY
+		} else {
+			if !mi.IsSysboxfsRoSubmount(subm) {
+				submFlags = submFlags &^ unix.MS_RDONLY
+			}
+		}
+
+		// Leave the filesystem options (aka data) unchanged; note that since mountinfo
+		// provides them mixed with flags, we must filter the options out.
+		submOpts := mh.filterFsFlags(submInfo.VfsOpts)
+
+		newelem := &domain.MountSyscallPayload{
+			Source: "",
+			Target: subm,
+			FsType: "",
+			Flags:  submFlags,
+			Data:   submOpts,
+		}
+		payload = append(payload, newelem)
+	}
+
+	if mi.IsSysboxfsBaseMount(m.Target) {
+		payload = append(payload, m.MountSyscallPayload)
+	}
+
+	return &payload
+}
+
+// Method handles bind-mount requests whose source is a mountpoint managed by sysbox-fs.
+func (m *mountSyscallInfo) processBindMount(mi *mountInfo) (*sysResponse, error) {
+
+	// Create instruction's payload.
+	payload := m.createBindMountPayload(mi)
+	if payload == nil {
+		return nil, fmt.Errorf("Could not construct ReMount payload")
+	}
+
+	// Create nsenter-event envelope.
+	nss := m.tracer.sms.nss
+	event := nss.NewEvent(
+		m.syscallCtx.pid,
+		&domain.AllNSs,
+		&domain.NSenterMessage{
+			Type:    domain.MountSyscallRequest,
+			Payload: payload,
+		},
+		nil,
+	)
+
+	// Launch nsenter-event.
+	err := nss.SendRequestEvent(event)
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		resp := m.tracer.createErrorResponse(
+			m.reqId,
+			responseMsg.Payload.(fuse.IOerror).Code)
+		return resp, nil
+	}
+
+	return m.tracer.createSuccessResponse(m.reqId), nil
+}
+
+// Build instructions payload required for bind-mount operations.
+func (m *mountSyscallInfo) createBindMountPayload(mi *mountInfo) *[]*domain.MountSyscallPayload {
+	var payload []*domain.MountSyscallPayload
+
+	// A procfs mount inside a sys container is a combination of a base proc mount plus
+	// sysbox-fs submounts. If the bind-mount is done on the base mount, its effect is also
+	// applied to the submounts.
+
+	payload = append(payload, m.MountSyscallPayload)
+
+	// If the bind-mount is recursive, then the kernel will do the remounting of the
+	// submounts. No need for us to do anything.
+	if m.Flags&unix.MS_REC == unix.MS_REC {
+		return &payload
+	}
+
+	// If the bind-mount is not recursive, then we do the bind-mount of the sysbox-fs
+	// managed submounts explicitly.
+	submounts := mi.GetSysboxfsSubMounts(m.Source)
+
+	for _, subm := range submounts {
+		relTarget := strings.TrimPrefix(subm, m.Source)
+		subTarget := filepath.Join(m.Target, relTarget)
+
+		newelem := &domain.MountSyscallPayload{
+			Source: subm,
+			Target: subTarget,
+			FsType: "",
+			Flags:  m.Flags,
+			Data:   "",
+		}
+		payload = append(payload, newelem)
+	}
+
+	return &payload
+}
+
+func (m *mountSyscallInfo) String() string {
+	return fmt.Sprintf("source: %s, target = %s, fstype = %s, flags = %#x, data = %s",
+		m.Source, m.Target, m.FsType, m.Flags, m.Data)
 }

@@ -258,6 +258,9 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 		if err != nil {
 			logrus.Warnf("Unable to process seccomp-notification request (%v) on fd %d pid %d",
 				err, fd, pid)
+
+			// XXX: we should return a response, as otherwise we will hang the caller.
+
 			continue
 		}
 
@@ -371,7 +374,7 @@ func (t *syscallTracer) processMount(
 		},
 	}
 
-	logrus.Debugf(mount.string())
+	logrus.Debug(mount)
 
 	// As per man's capabilities(7), cap_sys_admin capability is required for
 	// mount operations. Otherwise, return here and let kernel handle the mount
@@ -429,7 +432,7 @@ func (t *syscallTracer) processUmount(
 		},
 	}
 
-	logrus.Debugf(umount.string())
+	logrus.Debug(umount)
 
 	// As per man's capabilities(7), cap_sys_admin capability is required for
 	// umount operations. Otherwise, return here and let kernel handle the mount

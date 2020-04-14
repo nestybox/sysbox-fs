@@ -38,6 +38,15 @@ var AllNSsButMount = []NStype{
 	string(NStypeUts),
 }
 
+var AllNSsButUser = []NStype{
+	string(NStypeMount),
+	string(NStypePid),
+	string(NStypeNet),
+	string(NStypeIpc),
+	string(NStypeCgroup),
+	string(NStypeUts),
+}
+
 //
 // NSenterEvent types. Define all possible messages that can be handled
 // by nsenterEvent class.
@@ -142,13 +151,11 @@ type ReadDirPayload struct {
 }
 
 type MountSyscallPayload struct {
-	Source   string `json:"source"`
-	Target   string `json:"target"`
-	FsType   string `json:"fstype"`
-	Flags    uint64 `json:"flags"`
-	Data     string `json:"data"`
-	CurFlags uint64 `json:"-"`
-	CurData  string `json:"-"`
+	Source string `json:"source"`
+	Target string `json:"target"`
+	FsType string `json:"fstype"`
+	Flags  uint64 `json:"flags"`
+	Data   string `json:"data"`
 }
 
 type UmountSyscallPayload struct {

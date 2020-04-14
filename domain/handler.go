@@ -11,6 +11,8 @@ import (
 
 type HandlerType int
 
+// These constants define the way in which sysbox-fs sets up resources under filesystems
+// that it emulates (e.g., procfs or sysfs).
 const (
 	// Node entries that need to be replaced for proper emulation.
 	// Example: "/proc/sys/kernel/panic"
@@ -20,7 +22,7 @@ const (
 	// Example: "/proc/sys/net/netfilter/nf_conntrack_max"
 	NODE_ADITION = 0x2
 
-	// True mount nodes. Sysbox-fs supports only two so far: "/proc" and "/sys".
+	// Base mount nodes. Sysbox-fs supports only two so far: "/proc" and "/sys".
 	NODE_MOUNT = 0x4
 
 	// Node entries that need to be bind-mounted for proper emulation. Notice
@@ -32,6 +34,9 @@ const (
 	// Node entries that need to be propagated to L2 containers or L1 chrooted
 	// environments. These are typically a subset of BINDMOUNT ones.
 	// Example: "/proc/uptime"
+	//
+	// NOTE: these are only needed because sysbox-fs has handlers that are currently just
+	// place-holders. Otherwise propagate would be equal to bindmount.
 	NODE_PROPAGATE = 0x10
 )
 

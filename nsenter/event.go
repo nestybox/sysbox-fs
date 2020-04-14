@@ -629,9 +629,14 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 	}
 
 	if err != nil {
-		// Revert previously executed mount instructions.
+		// Unmount previously executed mount instructions (unless it's a remount)
+		//
+		// TODO: ideally we would revert remounts too, but to do this we need information
+		// that we don't have at this stage.
 		for j := i - 1; j >= 0; j-- {
-			_ = unix.Unmount(payload[j].Target, 0)
+			if payload[j].Flags&unix.MS_REMOUNT != unix.MS_REMOUNT {
+				_ = unix.Unmount(payload[j].Target, 0)
+			}
 		}
 
 		return nil
@@ -672,22 +677,10 @@ func (e *NSenterEvent) processUmountSyscallRequest() error {
 		}
 	}
 
-	// If an error is found, notice that we will not revert the changes we could
-	// have made thus far. In order to do that (remount), we need information
-	// that we don't have at this stage (mount-source, mount-flags, etc). Will
-	// leave this 'unwind' logic commented out for now.
+	// TODO: If an error is found, notice that we will not revert the changes we could have
+	// made thus far. In order to do that (i.e., mount again), we need information that we
+	// don't have at this stage (mount-source, mount-flags, etc).
 	if err != nil {
-		// Revert previously executed umount instructions.
-		// for j := i - 1; j >= 0; j-- {
-		// 	_ = unix.Mount(
-		// 		mountInfoArray[j].Source,
-		// 		mountInfoArray[j].Target,
-		// 		mountInfoArray[j].FsType,
-		// 		uintptr(mountInfoArray[j].Flags),
-		// 		mountInfoArray[j].Data,
-		// 	)
-		// }
-
 		return nil
 	}
 

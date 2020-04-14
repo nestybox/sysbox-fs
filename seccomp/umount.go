@@ -2,13 +2,11 @@ package seccomp
 
 import (
 	"fmt"
-	"path/filepath"
-	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
+	"github.com/sirupsen/logrus"
 )
 
 type umountSyscallInfo struct {
@@ -19,49 +17,80 @@ type umountSyscallInfo struct {
 // MountSyscall processing wrapper instruction.
 func (u *umountSyscallInfo) process() (*sysResponse, error) {
 
-	// Obtain the fstype associated to this mount target as per sysbox-fs
-	// mount-type classification.
-	fsType, err :=
-		u.tracer.mountHelper.sysboxfsMountType(u.pid, u.cntr, u.Target, nil)
+	// A procfs mount inside the container is a combination of a base procfs mount plus
+	// sysbox-fs submounts, and we want the procfs mount to act as one whole rather than a
+	// collection of mounts (i.e., just like a regular procfs mount on a host). Thus,
+	// unmounts that occur on the base procfs mount are accepted (we unmount the submounts
+	// first and then the base mount). On the other hand, unmounts that target only the
+	// sysbox-fs submounts are ignored. The reason we ignore them as opposed to returning
+	// an error message is that we also ignore bind-to-self mounts on submounts (see
+	// handling of bind-to-self submounts in mount.go); thus, returning an error message
+	// would cause the sequence "mount --bind submount submount && umount submount" to fail
+	// on the second command.
+	//
+	// Same applies to sysfs mounts.
+
+	mh := u.tracer.mountHelper
+
+	mi, err := NewMountInfo(mh, u.cntr, u.pid)
 	if err != nil {
+		return nil, err
+	}
+
+	if mi.IsSysboxfsBaseMount(u.Target) {
+
+		// Special case: disallow unmounting of /proc; we must do this because we use /proc
+		// as the source of other procfs mounts within the container (i.e., if a new procfs
+		// is mounted at /some/path/inside/container/proc, we bind-mount /proc/uptime to
+		// /some/path/inside/container/proc/uptime). This restriction should be fine because
+		// unmounting /proc inside the container is not a useful thing to do anyways. Same
+		// rationale applies to "/sys".
+		if u.Target == "/proc" || u.Target == "/sys" {
+			resp := u.tracer.createErrorResponse(u.reqId, syscall.EBUSY)
+			return resp, nil
+		}
+
+		// If under the base mount there are any submounts *not* managed by sysbox-fs, fail
+		// the unmount with EBUSY (such submounts must be explicitly unmounted prior
+		// to unmounting the base mount).
+		if mi.HasNonSysboxfsSubmount(u.Target) {
+			resp := u.tracer.createErrorResponse(u.reqId, syscall.EBUSY)
+			return resp, nil
+		}
+
+		// Process the unmount
+		info := mi.GetInfo(u.Target)
+
+		switch info.Fstype {
+		case "proc":
+			// Sysbox-fs emulates all new procfs mounts inside the container by mounting the
+			// kernel's procfs and the mounting sysbox-fs on portions of procfs (e.g.,
+			// proc/sys, proc/uptime, etc.)
+			logrus.Debugf("Processing procfs unmount: %v", u)
+			return u.processUmount(mi)
+		case "sysfs":
+			// For sysfs we do something similar to procfs
+			logrus.Debugf("Processing sysfs unmount: %v", u)
+			return u.processUmount(mi)
+		}
+
+		// Not a mount we manage, have the kernel do the unmount.
 		return u.tracer.createContinueResponse(u.reqId), nil
+
+	} else if mi.IsSysboxfsSubmount(u.Target) {
+		logrus.Debugf("Ignoring unmount of sysbox-fs managed submount at %s", u.Target)
+		return u.tracer.createSuccessResponse(u.reqId), nil
 	}
 
-	u.FsType = uint8(fsType)
-
-	switch fsType {
-
-	case PROCFS_MOUNT:
-		return u.processProcUmount()
-
-	case SYSFS_MOUNT:
-		return u.processSysUmount()
-
-	case REAL_PROCFS_MOUNT:
-		return u.tracer.createErrorResponse(u.reqId, syscall.EINVAL), nil
-
-	case BIND_MOUNT:
-		return u.tracer.createSuccessResponse(u.reqId), nil
-
-	case SPEC_MOUNT:
-		return u.tracer.createSuccessResponse(u.reqId), nil
-
-	case INVALID_MOUNT:
-		return u.tracer.createErrorResponse(u.reqId, syscall.EINVAL), nil
-	}
-
+	// Not a mount we manage, have the kernel do the unmount.
 	return u.tracer.createContinueResponse(u.reqId), nil
 }
 
-// Method handles "/proc" umount syscall requests. As part of this function, we
-// also unmount all the procfs emulated resources.
-func (u *umountSyscallInfo) processProcUmount() (*sysResponse, error) {
+// Method handles umount syscall requests on sysbox-fs managed base mounts.
+func (u *umountSyscallInfo) processUmount(mi *mountInfo) (*sysResponse, error) {
 
 	// Create instructions payload.
-	payload := u.createProcPayload()
-	if payload == nil {
-		return nil, fmt.Errorf("Could not construct procUmount payload")
-	}
+	payload := u.createUmountPayload(mi)
 
 	// Create nsenter-event envelope.
 	nss := u.tracer.sms.nss
@@ -94,126 +123,35 @@ func (u *umountSyscallInfo) processProcUmount() (*sysResponse, error) {
 	return u.tracer.createSuccessResponse(u.reqId), nil
 }
 
-// Build instructions payload required to unmount "/proc" subtree.
-func (u *umountSyscallInfo) createProcPayload() *[]*domain.UmountSyscallPayload {
+// Build instructions payload required to unmount a sysbox-fs base mount (and any submounts under it)
+func (u *umountSyscallInfo) createUmountPayload(mi *mountInfo) *[]*domain.UmountSyscallPayload {
 
 	var payload []*domain.UmountSyscallPayload
 
-	// Sysbox-fs "/proc" bind-mounts.
-	procBindMounts := u.tracer.mountHelper.procMounts
-	for _, v := range procBindMounts {
-		relPath := strings.TrimPrefix(v, "/proc")
+	submounts := []string{}
 
+	if mi.IsSysboxfsBaseMount(u.Target) {
+		submounts = mi.GetSysboxfsSubMounts(u.Target)
+	} else {
+		submounts = append(submounts, u.Target)
+	}
+
+	for _, subm := range submounts {
+		info := mi.GetInfo(subm)
 		newelem := &domain.UmountSyscallPayload{
-			Target: filepath.Join(u.Target, relPath),
-			Flags:  0,
+			Target: info.Mountpoint,
+			Flags:  u.Flags,
 		}
 		payload = append(payload, newelem)
 	}
 
-	// Container-specific read-only paths.
-	procRoPaths := u.cntr.ProcRoPaths()
-	for _, v := range procRoPaths {
-		if !fileExists(v) {
-			continue
-		}
-		relPath := strings.TrimPrefix(v, "/proc")
-
-		newelem := &domain.UmountSyscallPayload{
-			Target: filepath.Join(u.Target, relPath),
-			Flags:  0,
-		}
-		payload = append(payload, newelem)
+	if mi.IsSysboxfsBaseMount(u.Target) {
+		payload = append(payload, u.UmountSyscallPayload)
 	}
-
-	// Container-specific masked paths.
-	procMaskPaths := u.cntr.ProcMaskPaths()
-	for _, v := range procMaskPaths {
-		if !fileExists(v) {
-			continue
-		}
-		relPath := strings.TrimPrefix(v, "/proc")
-
-		newelem := &domain.UmountSyscallPayload{
-			Target: filepath.Join(u.Target, relPath),
-			Flags:  0,
-		}
-		payload = append(payload, newelem)
-	}
-
-	// Payload instruction for original "/proc" umount request.
-	payload = append(payload, u.UmountSyscallPayload)
 
 	return &payload
 }
 
-// Method handles "/sys" unmount syscall requests. As part of this function, we
-// also unmount all the sysfs emulated resources.
-func (u *umountSyscallInfo) processSysUmount() (*sysResponse, error) {
-
-	// Create instructions payload.
-	payload := u.createSysPayload()
-	if payload == nil {
-		return nil, fmt.Errorf("Could not construct sysUmount payload")
-	}
-
-	// Create nsenter-event envelope.
-	nss := u.tracer.sms.nss
-	event := nss.NewEvent(
-		u.syscallCtx.pid,
-		&domain.AllNSs,
-		&domain.NSenterMessage{
-			Type:    domain.UmountSyscallRequest,
-			Payload: payload,
-		},
-		nil,
-	)
-
-	// Launch nsenter-event.
-	err := nss.SendRequestEvent(event)
-	if err != nil {
-		return nil, err
-	}
-
-	// Obtain nsenter-event response.
-	responseMsg := nss.ReceiveResponseEvent(event)
-	if responseMsg.Type == domain.ErrorResponse {
-		resp := u.tracer.createErrorResponse(
-			u.reqId,
-			responseMsg.Payload.(fuse.IOerror).Code)
-
-		return resp, nil
-	}
-
-	return u.tracer.createSuccessResponse(u.reqId), nil
-}
-
-// Build instructions payload required to unmount "/sys" subtree.
-func (u *umountSyscallInfo) createSysPayload() *[]*domain.UmountSyscallPayload {
-
-	var payload []*domain.UmountSyscallPayload
-
-	// Sysbox-fs "/sys" bind-mounts.
-	sysBindMounts := u.tracer.mountHelper.sysMounts
-	for _, v := range sysBindMounts {
-		relPath := strings.TrimPrefix(v, "/sys")
-
-		newelem := &domain.UmountSyscallPayload{
-			Target: filepath.Join(u.Target, relPath),
-			Flags:  0,
-		}
-		payload = append(payload, newelem)
-	}
-
-	// Payload instruction for original "/sys" umount request.
-	payload = append(payload, u.UmountSyscallPayload)
-
-	return &payload
-}
-
-func (u *umountSyscallInfo) string() string {
-
-	result := "target: " + u.Target + " flags: " + strconv.FormatUint(u.Flags, 10)
-
-	return result
+func (u *umountSyscallInfo) String() string {
+	return fmt.Sprintf("target = %s, flags = %#x", u.Target, u.Flags)
 }
