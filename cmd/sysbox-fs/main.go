@@ -23,6 +23,7 @@ import (
 	"github.com/nestybox/sysbox-fs/state"
 	"github.com/nestybox/sysbox-fs/sysio"
 
+	"github.com/pkg/profile"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
@@ -47,7 +48,10 @@ var (
 //
 // sysbox-fs exit handler goroutine.
 //
-func exitHandler(signalChan chan os.Signal, fss domain.FuseServerServiceIface) {
+func exitHandler(
+	signalChan chan os.Signal,
+	fss domain.FuseServerServiceIface,
+	profile interface{ Stop() }) {
 
 	s := <-signalChan
 	logrus.Warnf("Caught OS signal: %s", s)
@@ -55,11 +59,57 @@ func exitHandler(signalChan chan os.Signal, fss domain.FuseServerServiceIface) {
 	// Destroy fuse-service and inner fuse-servers.
 	fss.DestroyFuseService()
 
+	// Stop cpu/mem profiling tasks.
+	if profile != nil {
+		profile.Stop()
+	}
+
 	// Deferring exit() to allow FUSE to dump unnmount() logs
 	time.Sleep(2)
 
 	logrus.Info("Exiting.")
 	os.Exit(0)
+}
+
+// Run cpu / memory profiling collection.
+func runProfiler(ctx *cli.Context) (interface{ Stop() }, error) {
+
+	var prof interface{ Stop() }
+
+	cpuProfOn := ctx.Bool("cpu-profiling")
+	memProfOn := ctx.Bool("memory-profiling")
+
+	// Cpu and Memory profiling options seem to be mutually exclused in pprof.
+	if cpuProfOn && memProfOn {
+		return nil, fmt.Errorf("Unsupported parameter combination: cpu and memory profiling")
+	}
+
+	// Typical / non-profiling case.
+	if !(cpuProfOn || memProfOn) {
+		return nil, nil
+	}
+
+	// Notice that 'NoShutdownHook' option is passed to profiler constructor to
+	// avoid this one reacting to 'sigterm' signal arrival. IOW, we want
+	// sysbox-fs signal handler to be the one stopping all profiling tasks.
+
+	if cpuProfOn {
+		prof = profile.Start(
+			profile.CPUProfile,
+			profile.ProfilePath("."),
+			profile.NoShutdownHook,
+		)
+	}
+
+	if memProfOn {
+		prof = profile.Start(
+			profile.MemProfile,
+			profile.ProfilePath("."),
+			profile.NoShutdownHook,
+		)
+	}
+
+	return prof, nil
 }
 
 //
@@ -91,6 +141,16 @@ func main() {
 		cli.BoolFlag{
 			Name:  "ignore-handler-errors",
 			Usage: "ignore errors during procfs / sysfs node interactions (testing purposes)",
+		},
+		cli.BoolFlag{
+			Name:   "cpu-profiling",
+			Usage:  "enable cpu-profiling data collection",
+			Hidden: true,
+		},
+		cli.BoolFlag{
+			Name:   "memory-profiling",
+			Usage:  "enable memory-profiling data collection",
+			Hidden: true,
 		},
 	}
 
@@ -188,7 +248,7 @@ func main() {
 
 		var handlerService = handler.NewHandlerService(
 			handler.DefaultHandlers,
-			nil, // to be filled in during containerStateService initialziation
+			nil, // to be filled in during containerStateService initialization
 			nsenterService,
 			processService,
 			ioService,
@@ -224,8 +284,11 @@ func main() {
 			logrus.Fatal("IpcService initialization error. Exiting ...")
 		}
 
-		// TODO: Consider adding sync.Workgroups to ensure that all goroutines
-		// are done with their in-flight tasks before exit()ing.
+		// If requested, launch cpu/mem profiling collection.
+		profile, err := runProfiler(ctx)
+		if err != nil {
+			logrus.Fatal(err)
+		}
 
 		// Launch exit handler (performs proper cleanup of sysbox-fs upon
 		// receiving termination signals).
@@ -237,7 +300,10 @@ func main() {
 			syscall.SIGTERM,
 			syscall.SIGSEGV,
 			syscall.SIGQUIT)
-		go exitHandler(exitChan, fuseServerService)
+		go exitHandler(exitChan, fuseServerService, profile)
+
+		// TODO: Consider adding sync.Workgroups to ensure that all goroutines
+		// are done with their in-fly tasks before exit()ing.
 
 		logrus.Info("Initiating sysbox-fs engine ...")
 
