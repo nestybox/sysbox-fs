@@ -139,8 +139,9 @@ func main() {
 			Usage: "log categories to include (debug, info, warning, error, fatal)",
 		},
 		cli.BoolFlag{
-			Name:  "ignore-handler-errors",
-			Usage: "ignore errors during procfs / sysfs node interactions (testing purposes)",
+			Name:   "ignore-handler-errors",
+			Usage:  "ignore errors during procfs / sysfs node interactions (testing purposes)",
+			Hidden: true,
 		},
 		cli.BoolFlag{
 			Name:   "cpu-profiling",
