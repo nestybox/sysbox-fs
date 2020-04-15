@@ -123,13 +123,6 @@ func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error 
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
 			Payload: &domain.OpenFilePayload{
-				Header: domain.NSenterMsgHeader{
-					Pid:            req.Pid,
-					Uid:            0,
-					Gid:            0,
-					CapDacRead:     false,
-					CapDacOverride: false,
-				},
 				File:  n.Path(),
 				Flags: strconv.Itoa(n.OpenFlags()),
 				Mode:  strconv.Itoa(int(n.OpenMode())),
@@ -285,13 +278,6 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 		&domain.NSenterMessage{
 			Type: domain.ReadDirRequest,
 			Payload: &domain.ReadDirPayload{
-				Header: domain.NSenterMsgHeader{
-					Pid:            req.Pid,
-					Uid:            0,
-					Gid:            0,
-					CapDacRead:     false,
-					CapDacOverride: false,
-				},
 				Dir: n.Path(),
 			},
 		},
@@ -354,13 +340,6 @@ func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) err
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
 			Payload: &domain.OpenFilePayload{
-				Header: domain.NSenterMsgHeader{
-					Pid:            req.Pid,
-					Uid:            0,
-					Gid:            0,
-					CapDacRead:     false,
-					CapDacOverride: false,
-				},
 				File:  n.Path(),
 				Flags: strconv.Itoa(n.OpenFlags()),
 				Mode:  strconv.Itoa(int(n.OpenMode())),

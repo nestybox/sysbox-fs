@@ -103,10 +103,9 @@ type LookupPayload struct {
 }
 
 type OpenFilePayload struct {
-	Header NSenterMsgHeader
-	File   string `json:"file"`
-	Flags  string `json:"flags"`
-	Mode   string `json:"mode"`
+	File  string `json:"file"`
+	Flags string `json:"flags"`
+	Mode  string `json:"mode"`
 }
 
 type ReadFilePayload struct {
@@ -120,12 +119,10 @@ type WriteFilePayload struct {
 }
 
 type ReadDirPayload struct {
-	Header NSenterMsgHeader
-	Dir    string `json:"dir"`
+	Dir string `json:"dir"`
 }
 
 type MountSyscallPayload struct {
-	Header   NSenterMsgHeader
 	Source   string `json:"source"`
 	Target   string `json:"target"`
 	FsType   string `json:"fstype"`
@@ -136,7 +133,6 @@ type MountSyscallPayload struct {
 }
 
 type UmountSyscallPayload struct {
-	Header NSenterMsgHeader
 	Target string `json:"target"`
 	FsType uint8  `json:"-"`
 	Flags  uint64 `json:"flags"`
