@@ -19,6 +19,25 @@ const (
 	NStypeMount  NStype = "mnt"
 )
 
+var AllNSs = []NStype{
+	string(NStypeUser),
+	string(NStypePid),
+	string(NStypeNet),
+	string(NStypeMount),
+	string(NStypeIpc),
+	string(NStypeCgroup),
+	string(NStypeUts),
+}
+
+var AllNSsButMount = []NStype{
+	string(NStypeUser),
+	string(NStypePid),
+	string(NStypeNet),
+	string(NStypeIpc),
+	string(NStypeCgroup),
+	string(NStypeUts),
+}
+
 //
 // NSenterEvent types. Define all possible messages that can be handled
 // by nsenterEvent class.
@@ -51,7 +70,7 @@ const (
 type NSenterService interface {
 	NewEvent(
 		pid uint32,
-		ns []NStype,
+		ns *[]NStype,
 		req *NSenterMessage,
 		res *NSenterMessage) NSenterEventIface
 

@@ -65,7 +65,7 @@ type NSenterEvent struct {
 	Pid uint32 `json:"pid"`
 
 	// namespace-types to attach to.
-	Namespace []domain.NStype `json:"namespace"`
+	Namespace *[]domain.NStype `json:"namespace"`
 
 	// Request message to be sent.
 	ReqMsg *domain.NSenterMessage `json:"request"`
@@ -273,7 +273,7 @@ func (e *NSenterEvent) namespacePaths() []string {
 	// Note: e.Namespace is assumed to be ordered such that if userns is present, it's
 	// always first.
 
-	for _, nstype := range e.Namespace {
+	for _, nstype := range *(e.Namespace) {
 		path := filepath.Join(
 			nstype,
 			":/proc/",

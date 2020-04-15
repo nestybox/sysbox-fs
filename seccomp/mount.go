@@ -74,15 +74,7 @@ func (m *mountSyscallInfo) processProcMount() (*sysResponse, error) {
 	nss := m.tracer.sms.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeMount),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSs,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,
@@ -204,15 +196,7 @@ func (m *mountSyscallInfo) processSysMount() (*sysResponse, error) {
 	nss := m.tracer.sms.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeMount),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSs,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,
@@ -304,15 +288,7 @@ func (m *mountSyscallInfo) processReMount() (*sysResponse, error) {
 	nss := m.tracer.sms.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeMount),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSs,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,
@@ -362,14 +338,7 @@ func (m *mountSyscallInfo) processNfsMount() (*sysResponse, error) {
 	nss := m.tracer.sms.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
-		[]domain.NStype{
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeMount),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSs,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,

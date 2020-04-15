@@ -67,15 +67,7 @@ func (u *umountSyscallInfo) processProcUmount() (*sysResponse, error) {
 	nss := u.tracer.sms.nss
 	event := nss.NewEvent(
 		u.syscallCtx.pid,
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeMount),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSs,
 		&domain.NSenterMessage{
 			Type:    domain.UmountSyscallRequest,
 			Payload: payload,
@@ -169,15 +161,7 @@ func (u *umountSyscallInfo) processSysUmount() (*sysResponse, error) {
 	nss := u.tracer.sms.nss
 	event := nss.NewEvent(
 		u.syscallCtx.pid,
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeMount),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSs,
 		&domain.NSenterMessage{
 			Type:    domain.UmountSyscallRequest,
 			Payload: payload,

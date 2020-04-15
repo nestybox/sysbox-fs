@@ -22,7 +22,7 @@ func NewNSenterService(prs domain.ProcessService) domain.NSenterService {
 
 func (s *nsenterService) NewEvent(
 	pid uint32,
-	ns []domain.NStype,
+	ns *[]domain.NStype,
 	req *domain.NSenterMessage,
 	res *domain.NSenterMessage) domain.NSenterEventIface {
 

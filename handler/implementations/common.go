@@ -44,14 +44,7 @@ func (h *CommonHandler) Lookup(n domain.IOnode, req *domain.HandlerRequest) (os.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSsButMount,
 		&domain.NSenterMessage{
 			Type: domain.LookupRequest,
 			Payload: &domain.LookupPayload{
@@ -112,14 +105,7 @@ func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error 
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSsButMount,
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
 			Payload: &domain.OpenFilePayload{
@@ -267,14 +253,7 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSsButMount,
 		&domain.NSenterMessage{
 			Type: domain.ReadDirRequest,
 			Payload: &domain.ReadDirPayload{
@@ -329,14 +308,7 @@ func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) err
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSsButMount,
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
 			Payload: &domain.OpenFilePayload{
@@ -426,14 +398,7 @@ func (h *CommonHandler) fetchFile(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		process.Pid(),
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSsButMount,
 		&domain.NSenterMessage{
 			Type: domain.ReadFileRequest,
 			Payload: &domain.ReadFilePayload{
@@ -471,14 +436,7 @@ func (h *CommonHandler) pushFile(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		process.Pid(),
-		[]domain.NStype{
-			string(domain.NStypeUser),
-			string(domain.NStypePid),
-			string(domain.NStypeNet),
-			string(domain.NStypeIpc),
-			string(domain.NStypeCgroup),
-			string(domain.NStypeUts),
-		},
+		&domain.AllNSsButMount,
 		&domain.NSenterMessage{
 			Type: domain.WriteFileRequest,
 			Payload: &domain.WriteFilePayload{
