@@ -149,6 +149,20 @@ var DefaultHandlers = []domain.HandlerIface{
 		Enabled:   true,
 		Cacheable: false,
 	},
+	&implementations.FsProtectHardLinksHandler{
+		Name:      "fsProtectHardLinks",
+		Path:      "/proc/sys/fs/protected_hardlinks",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.FsProtectSymLinksHandler{
+		Name:      "fsProtectSymLinks",
+		Path:      "/proc/sys/fs/protected_symlinks",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
 	//
 	// /proc/sys/kernel handlers
 	//
