@@ -82,8 +82,10 @@ func (fss *FuseServerService) CreateFuseServer(cntr domain.ContainerIface) error
 		return errors.New("FuseServer initialization error")
 	}
 
-	// Launch fuse-server in a separate goroutine.
+	// Launch fuse-server in a separate goroutine and wait for 'ack' before
+	// moving on.
 	go srv.Run()
+	srv.InitWait()
 
 	// Store newly created fuse-server.
 	fss.Lock()

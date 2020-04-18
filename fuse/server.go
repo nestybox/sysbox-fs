@@ -29,6 +29,7 @@ type fuseServer struct {
 	server       *fs.Server            // bazil-fuse server instance
 	nodeDB       map[string]*fs.Node   // map to store all fs nodes, e.g. "/proc/uptime" -> File
 	root         *Dir                  // root node of fuse fs -- "/" by default
+	initDone     chan bool             // sync-up channel to alert about fuse-server's init-completion
 	service      *FuseServerService    // backpointer to parent service
 }
 
@@ -72,14 +73,14 @@ func (s *fuseServer) Create() error {
 	} else {
 		attr = fuse.Attr{}
 	}
-
 	attr.Mode = os.ModeDir | os.FileMode(int(0600))
-
-	// Unused right now.
-	s.nodeDB = make(map[string]*fs.Node)
 
 	// Build sysbox-fs top-most directory (root).
 	s.root = NewDir(s.path, s.path, &attr, s)
+
+	// Initialize pending members.
+	s.nodeDB = make(map[string]*fs.Node)
+	s.initDone = make(chan bool)
 
 	return nil
 }
@@ -125,7 +126,11 @@ func (s *fuseServer) Run() error {
 		return errors.New("FUSE file-system could not be created")
 	}
 
-	logrus.Info("Initiating sysbox-fs main-loop...")
+	// At this point we are done with fuse-server initialization, so let's
+	// caller know about it.
+	s.initDone <- true
+
+	// Launch fuse-server's main-loop to handle incoming requests.
 	if err := s.server.Serve(s); err != nil {
 		logrus.Panic(err)
 		return err
@@ -166,6 +171,12 @@ func (s *fuseServer) Destroy() error {
 func (s *fuseServer) Root() (fs.Node, error) {
 
 	return s.root, nil
+}
+
+// Ensure that fuse-server initialization is completed before moving on
+// with sys container's pre-registration sequence.
+func (s *fuseServer) InitWait() {
+	<-s.initDone
 }
 
 func (s *fuseServer) MountPoint() string {
