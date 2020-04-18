@@ -166,6 +166,13 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /proc/sys/kernel handlers
 	//
+	&implementations.KernelKptrRestrictHandler{
+		Name:      "kernelKptrRestrict",
+		Path:      "/proc/sys/kernel/kptr_restrict",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
 	&implementations.KernelNgroupsMaxHandler{
 		Name:      "kernelNgroupsMax",
 		Path:      "/proc/sys/kernel/ngroups_max",
@@ -192,6 +199,37 @@ var DefaultHandlers = []domain.HandlerIface{
 		Path:      "/proc/sys/kernel/panic_on_oops",
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.KernelPrintkHandler{
+		Name:      "kernelPrintk",
+		Path:      "/proc/sys/kernel/printk",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.KernelSysrqHandler{
+		Name:      "kernelSysrq",
+		Path:      "/proc/sys/kernel/sysrq",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.KernelYamaPtraceScopeHandler{
+		Name:      "kernelYamaPtraceScope",
+		Path:      "/proc/sys/kernel/yama/ptrace_scope",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	//
+	// /proc/sys/net/core handlers
+	//
+	&implementations.CoreDefaultQdiscHandler{
+		Name:      "coreDefaultQdisc",
+		Path:      "/proc/sys/net/core/default_qdisc",
+		Type:      domain.NODE_ADITION,
+		Enabled:   false,
 		Cacheable: true,
 	},
 	//
@@ -241,6 +279,13 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.VmOvercommitMemHandler{
 		Name:      "vmOvercommitMem",
 		Path:      "/proc/sys/vm/overcommit_memory",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.VmMmapMinAddrHandler{
+		Name:      "vmMmapMinAddr",
+		Path:      "/proc/sys/vm/mmap_min_addr",
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
