@@ -229,7 +229,7 @@ var DefaultHandlers = []domain.HandlerIface{
 		Name:      "coreDefaultQdisc",
 		Path:      "/proc/sys/net/core/default_qdisc",
 		Type:      domain.NODE_ADITION,
-		Enabled:   false,
+		Enabled:   true,
 		Cacheable: true,
 	},
 	//
