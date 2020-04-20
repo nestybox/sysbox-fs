@@ -368,7 +368,7 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, req *domain.HandlerRe
 		// only considering NODE_ADITION resources (i.e. resources not returned
 		// by container) for further processing in this routine (e.g.
 		// "/proc/sys/net/netfilter/nf_conntrack_max").
-		if handler.GetType()&domain.NODE_ADITION != domain.NODE_ADITION {
+		if handler.GetType() != domain.NODE_ADITION {
 			continue
 		}
 
