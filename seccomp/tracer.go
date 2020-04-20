@@ -152,14 +152,15 @@ func (t *syscallTracer) start() error {
 }
 
 // Method keeps track of all the 'tracee' processes served by a syscall tracer.
-// From a functional standpoint, this routine acts a garbage-collector for this
-// class. Note that no concurrency management is needed here as this method
-// runs within its own execution context.
+// From a functional standpoint, this routine acts as a garbage-collector for
+// this class. Note that no concurrency management is needed here as this
+// method runs within its own execution context.
 func (t *syscallTracer) sessionsMonitor() error {
 
 	// seccompSession DB to store 'tracees' relevant information.
 	var seccompSessionMap = make(map[uint32]seccompSession)
 
+	// Launch pidmonitor task at 100ms sampling rate.
 	pm, err := pidmonitor.New(&pidmonitor.Cfg{100})
 	if err != nil {
 		logrus.Error("Could not initialize pidMonitor logic")
@@ -323,7 +324,7 @@ func (t *syscallTracer) process(
 
 	if err != nil {
 		logrus.Warnf("Error during syscall \"%v\" processing (%v)", syscall, err)
-		return nil, err
+		return t.createErrorResponse(req.Id, err), nil
 	}
 
 	// TOCTOU check.
