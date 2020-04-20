@@ -1,5 +1,5 @@
 //
-// Copyright: (C) 2019 Nestybox Inc.  All rights reserved.
+// Copyright: (C) 2020 Nestybox Inc.  All rights reserved.
 //
 
 package implementations
@@ -19,20 +19,17 @@ import (
 )
 
 //
-// /proc/sys/net/netfilter/nf_conntrack_max handler
+// /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_close_wait handler
 //
-// Documentation: This value defines the maximum size of a netfilter connection
-// tracking table. This table keeps a record of all live connections and
-// deletes them when a connection is closed. By default, the size of this table
-// is 65,536 bytes. While for most of the nodes, this is perfectly fine, for
-// high-volume connection servers, such as DNS or web server, this table may
-// become full quickly.
+// Documentation: This value defines the maximum amount of time (in secs) that
+// a network element will wait, after closing its tcp-connection-end (FIN already
+// send), for its peer to also close his side of the connection (FIN not sent yet).
 //
 // During write() operations, the new value will be only pushed down to the host
 // FS if this one is higher than the existing figure.
 //
 
-type NfConntrackMaxHandler struct {
+type NfConntrackTcpTimeoutCWaitHandler struct {
 	Name      string
 	Path      string
 	Type      domain.HandlerType
@@ -41,7 +38,7 @@ type NfConntrackMaxHandler struct {
 	Service   domain.HandlerService
 }
 
-func (h *NfConntrackMaxHandler) Lookup(
+func (h *NfConntrackTcpTimeoutCWaitHandler) Lookup(
 	n domain.IOnode,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -50,7 +47,7 @@ func (h *NfConntrackMaxHandler) Lookup(
 	return n.Stat()
 }
 
-func (h *NfConntrackMaxHandler) Getattr(
+func (h *NfConntrackTcpTimeoutCWaitHandler) Getattr(
 	n domain.IOnode,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -59,7 +56,7 @@ func (h *NfConntrackMaxHandler) Getattr(
 	return nil, nil
 }
 
-func (h *NfConntrackMaxHandler) Open(
+func (h *NfConntrackTcpTimeoutCWaitHandler) Open(
 	n domain.IOnode,
 	req *domain.HandlerRequest) error {
 
@@ -85,7 +82,7 @@ func (h *NfConntrackMaxHandler) Open(
 	return nil
 }
 
-func (h *NfConntrackMaxHandler) Close(n domain.IOnode) error {
+func (h *NfConntrackTcpTimeoutCWaitHandler) Close(n domain.IOnode) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -97,7 +94,7 @@ func (h *NfConntrackMaxHandler) Close(n domain.IOnode) error {
 	return nil
 }
 
-func (h *NfConntrackMaxHandler) Read(
+func (h *NfConntrackTcpTimeoutCWaitHandler) Read(
 	n domain.IOnode,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -140,7 +137,7 @@ func (h *NfConntrackMaxHandler) Read(
 	return copyResultBuffer(req.Data, []byte(data))
 }
 
-func (h *NfConntrackMaxHandler) Write(
+func (h *NfConntrackTcpTimeoutCWaitHandler) Write(
 	n domain.IOnode,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -204,14 +201,14 @@ func (h *NfConntrackMaxHandler) Write(
 	return len(req.Data), nil
 }
 
-func (h *NfConntrackMaxHandler) ReadDirAll(
+func (h *NfConntrackTcpTimeoutCWaitHandler) ReadDirAll(
 	n domain.IOnode,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
-func (h *NfConntrackMaxHandler) fetchFile(
+func (h *NfConntrackTcpTimeoutCWaitHandler) fetchFile(
 	n domain.IOnode,
 	c domain.ContainerIface) (string, error) {
 
@@ -232,7 +229,7 @@ func (h *NfConntrackMaxHandler) fetchFile(
 	return curHostMax, nil
 }
 
-func (h *NfConntrackMaxHandler) pushFile(n domain.IOnode, c domain.ContainerIface,
+func (h *NfConntrackTcpTimeoutCWaitHandler) pushFile(n domain.IOnode, c domain.ContainerIface,
 	newMaxInt int) error {
 
 	curHostMax, err := n.ReadLine()
@@ -270,30 +267,30 @@ func (h *NfConntrackMaxHandler) pushFile(n domain.IOnode, c domain.ContainerIfac
 	return nil
 }
 
-func (h *NfConntrackMaxHandler) GetName() string {
+func (h *NfConntrackTcpTimeoutCWaitHandler) GetName() string {
 	return h.Name
 }
 
-func (h *NfConntrackMaxHandler) GetPath() string {
+func (h *NfConntrackTcpTimeoutCWaitHandler) GetPath() string {
 	return h.Path
 }
 
-func (h *NfConntrackMaxHandler) GetEnabled() bool {
+func (h *NfConntrackTcpTimeoutCWaitHandler) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *NfConntrackMaxHandler) GetType() domain.HandlerType {
+func (h *NfConntrackTcpTimeoutCWaitHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *NfConntrackMaxHandler) GetService() domain.HandlerService {
+func (h *NfConntrackTcpTimeoutCWaitHandler) GetService() domain.HandlerService {
 	return h.Service
 }
 
-func (h *NfConntrackMaxHandler) SetEnabled(val bool) {
+func (h *NfConntrackTcpTimeoutCWaitHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *NfConntrackMaxHandler) SetService(hs domain.HandlerService) {
+func (h *NfConntrackTcpTimeoutCWaitHandler) SetService(hs domain.HandlerService) {
 	h.Service = hs
 }

@@ -216,7 +216,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) fetchFile(
 	n domain.IOnode,
 	c domain.ContainerIface) (string, error) {
 
-	// Read from host FS to extract the existing nf_conntrack_max value.
+	// Read from host FS to extract the existing  value.
 	curHostMax, err := n.ReadLine()
 	if err != nil && err != io.EOF {
 		logrus.Errorf("Could not read from file %v", h.Path)

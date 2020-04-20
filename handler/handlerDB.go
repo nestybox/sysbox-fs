@@ -249,6 +249,13 @@ var DefaultHandlers = []domain.HandlerIface{
 		Enabled:   true,
 		Cacheable: true,
 	},
+	&implementations.NfConntrackTcpTimeoutCWaitHandler{
+		Name:      "nfConntrackTcpTimeoutCWait",
+		Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_close_wait",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
 	//
 	// /proc/sys/net/ipv4/vs handlers
 	//
