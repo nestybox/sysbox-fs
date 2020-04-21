@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -67,13 +66,15 @@ func newMountHelper(hdb map[string]domain.HandlerIface) *mountHelper {
 	// https://github.com/torvalds/linux/blob/master/include/linux/mount.h
 	//
 	info.flagsMap = map[string]uint64{
-		"ro":         unix.MS_RDONLY,     // Read-only file-system
-		"nodev":      unix.MS_NODEV,      // Will not interpret character or block special devices
-		"noexec":     unix.MS_NOEXEC,     // Will not allow execution of any binaries
-		"nosuid":     unix.MS_NOSUID,     // Will not allow set-user/group-identifier
-		"noatime":    unix.MS_NOATIME,    // Will not update the file access-time when reading from a file
-		"nodiratime": unix.MS_NODIRATIME, // Will not update the directory access time
-		"relatime":   unix.MS_RELATIME,   // Updates inode access-times relative to modify time
+		"ro":          unix.MS_RDONLY,      // Read-only file-system
+		"nodev":       unix.MS_NODEV,       // Will not interpret character or block special devices
+		"noexec":      unix.MS_NOEXEC,      // Will not allow execution of any binaries
+		"nosuid":      unix.MS_NOSUID,      // Will not allow set-user/group-identifier
+		"noatime":     unix.MS_NOATIME,     // Will not update the file access-time when reading from a file
+		"nodiratime":  unix.MS_NODIRATIME,  // Will not update the directory access time
+		"relatime":    unix.MS_RELATIME,    // Updates inode access-times relative to modify time
+		"strictatime": unix.MS_STRICTATIME, // Always update last access time
+		"sync":        unix.MS_SYNCHRONOUS, // Make writes synchronous
 	}
 
 	return info
@@ -118,7 +119,6 @@ func (m *mountHelper) stringToFlags(s string) uint64 {
 		}
 		val, ok := m.flagsMap[v]
 		if !ok {
-			logrus.Warnf("Unsupported mount flag option %s", v)
 			continue
 		}
 
