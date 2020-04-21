@@ -275,20 +275,34 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 		return nil, responseMsg.Payload.(error)
 	}
 
+	var osFileEntries = make([]os.FileInfo, 0)
+
+	// Obtain FileEntries corresponding to emulated resources that could
+	// potentially live in this folder. These are resources that may not be
+	// present in sys-container's fs, so we must take them into account to
+	// return a complete ReadDirAll() response.
+	osEmulatedFileEntries := h.EmulatedFilesInfo(n, req)
+	if osEmulatedFileEntries != nil {
+		for _, v := range *osEmulatedFileEntries {
+			osFileEntries = append(osFileEntries, *v)
+		}
+	}
+
 	// Transform event-response payload into a FileInfo slice. Notice that to
 	// convert []T1 struct to a []T2 one, we must iterate through each element
 	// and do the conversion one element at a time.
 	dirEntries := responseMsg.Payload.([]domain.FileInfo)
-	osFileEntries := make([]os.FileInfo, len(dirEntries))
-	for i, v := range dirEntries {
-		osFileEntries[i] = v
+	for _, v := range dirEntries {
+		// Skip nodes that overlap with emulated resources already included in
+		// the result buffer.
+		if osEmulatedFileEntries != nil {
+			if _, ok := (*osEmulatedFileEntries)[v.Name()]; ok {
+				continue
+			}
+		}
+
+		osFileEntries = append(osFileEntries, v)
 	}
-
-	// Obtain FileEntries corresponding to emulated resources that could
-	// potentially live in this folder.
-	osEmulatedFileEntries := h.EmulatedFilesInfo(n, req)
-
-	osFileEntries = append(osFileEntries, osEmulatedFileEntries...)
 
 	return osFileEntries, nil
 }
@@ -336,14 +350,20 @@ func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) err
 }
 
 // Auxiliary routine to aid during ReadDirAll() execution.
-func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, req *domain.HandlerRequest) []os.FileInfo {
+func (h *CommonHandler) EmulatedFilesInfo(
+	n domain.IOnode,
+	req *domain.HandlerRequest) *map[string]*os.FileInfo {
 
 	var emulatedResources []string
-	var emulatedFilesInfo []os.FileInfo
 
 	// Obtain a list of all the emulated resources falling within the current
 	// directory.
 	emulatedResources = h.Service.DirHandlerEntries(n.Path())
+	if len(emulatedResources) == 0 {
+		return nil
+	}
+
+	var emulatedFilesInfo = make(map[string]*os.FileInfo)
 
 	// For every emulated resource, invoke its Lookup() handler to obtain
 	// the information required to satisfy this ongoing readDirAll()
@@ -357,21 +377,6 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, req *domain.HandlerRe
 			return nil
 		}
 
-		// Skip emulated resources that are mere 'substitutions' of an already
-		// existing entry returned by the backend (container). A typical example
-		// where this is seen: "/proc/sys/fs/binfmt_misc" folder. Notice that
-		// this folder requires a handler to list nil file contents during
-		// ReadDirAll() execution. As a consequence, this folder would be
-		// displayed twice when executing ReadDirAll() for "/proc/sys/fs" folder:
-		// 1) as a response of ReadDirAll() from container backend, and 2) as
-		// execution of this function. Hence, to avoid double output, we are
-		// only considering NODE_ADITION resources (i.e. resources not returned
-		// by container) for further processing in this routine (e.g.
-		// "/proc/sys/net/netfilter/nf_conntrack_max").
-		if handler.GetType() != domain.NODE_ADITION {
-			continue
-		}
-
 		// Create temporary ionode to represent handler-path.
 		ios := h.Service.IOService()
 		newIOnode := ios.NewIOnode("", handlerPath, 0)
@@ -382,10 +387,10 @@ func (h *CommonHandler) EmulatedFilesInfo(n domain.IOnode, req *domain.HandlerRe
 			return nil
 		}
 
-		emulatedFilesInfo = append(emulatedFilesInfo, info)
+		emulatedFilesInfo[info.Name()] = &info
 	}
 
-	return emulatedFilesInfo
+	return &emulatedFilesInfo
 }
 
 // Auxiliary method to fetch the content of any given file within a container.
