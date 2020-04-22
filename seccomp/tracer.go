@@ -12,7 +12,7 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
 	"github.com/nestybox/sysbox/lib/pidmonitor"
-	libseccomp "github.com/seccomp/libseccomp-golang"
+	libseccomp "github.com/nestybox/libseccomp-golang"
 
 	"github.com/sirupsen/logrus"
 )
