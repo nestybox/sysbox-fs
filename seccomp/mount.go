@@ -425,9 +425,13 @@ func (m *mountSyscallInfo) createRemountPayload(mi *mountInfo) *[]*domain.MountS
 		// Pass the remount flags to the submounts
 		submFlags |= unix.MS_REMOUNT
 
-		if m.Flags&unix.MS_BIND == unix.MS_BIND {
-			submFlags |= unix.MS_BIND
-		}
+		// The submounts must always be remounted with "MS_BIND" to
+		// ensure that only the submounts are affected. Otherwise, the
+		// remount effect applies at the sysbox-fs fuse level, causing
+		// weird behavior (e.g., remounting /proc as read-only would
+		// cause all sysbox-fs managed submounts under /sys to become
+		// read-only too!).
+		submFlags |= unix.MS_BIND
 
 		// We only propagate changes to the MS_RDONLY flag to the submounts. In the
 		// future we could propagate other flags too.
