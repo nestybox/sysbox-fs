@@ -24,13 +24,19 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 
 	// Handle requests that create a new mountpoint for filesystems managed by sysbox-fs
 	if mh.isNewMount(m.Flags) {
+
+		mi, err := NewMountInfo(mh, m.cntr, m.pid)
+		if err != nil {
+			return nil, err
+		}
+
 		switch m.FsType {
 		case "proc":
 			logrus.Debugf("Processing new procfs mount: %v", m)
-			return m.processProcMount()
+			return m.processProcMount(mi)
 		case "sysfs":
 			logrus.Debugf("Processing new sysfs mount: %v", m)
-			return m.processSysMount()
+			return m.processSysMount(mi)
 		case "nfs":
 			logrus.Debugf("Processing new nfs mount: %v", m)
 			return m.processNfsMount()
@@ -102,10 +108,10 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 
 // Method handles procfs mount syscall requests. As part of this function, we
 // also create submounts under procfs (to expose, hide, or emulate resources).
-func (m *mountSyscallInfo) processProcMount() (*sysResponse, error) {
+func (m *mountSyscallInfo) processProcMount(mi *mountInfo) (*sysResponse, error) {
 
 	// Create instructions payload.
-	payload := m.createProcPayload()
+	payload := m.createProcPayload(mi)
 	if payload == nil {
 		return nil, fmt.Errorf("Could not construct procMount payload")
 	}
@@ -141,12 +147,22 @@ func (m *mountSyscallInfo) processProcMount() (*sysResponse, error) {
 }
 
 // Build instructions payload required to mount "/proc" subtree.
-func (m *mountSyscallInfo) createProcPayload() *[]*domain.MountSyscallPayload {
+func (m *mountSyscallInfo) createProcPayload(mi *mountInfo) *[]*domain.MountSyscallPayload {
 
 	var payload []*domain.MountSyscallPayload
 
 	// Payload instruction for original "/proc" mount request.
 	payload = append(payload, m.MountSyscallPayload)
+
+	// If procfs has a read-only attribute at super-block level, we must
+	// also apply this to the new mountpoint (otherwise we will get a
+	// permission denied from the kernel when doing the mount).
+	mh := m.tracer.mountHelper
+	procInfo := mi.GetInfo("/proc")
+	vfsFlags := mh.stringToFlags(procInfo.VfsOpts)
+	if vfsFlags&unix.MS_RDONLY == unix.MS_RDONLY {
+		payload[0].Flags |= unix.MS_RDONLY
+	}
 
 	// Sysbox-fs "/proc" bind-mounts.
 	procBindMounts := m.tracer.mountHelper.procMounts
@@ -223,10 +239,10 @@ func (m *mountSyscallInfo) createProcPayload() *[]*domain.MountSyscallPayload {
 
 // Method handles sysfs mount syscall requests. As part of this function, we
 // also create submounts under sysfs (to expose, hide, or emulate resources).
-func (m *mountSyscallInfo) processSysMount() (*sysResponse, error) {
+func (m *mountSyscallInfo) processSysMount(mi *mountInfo) (*sysResponse, error) {
 
 	// Create instruction's payload.
-	payload := m.createSysPayload()
+	payload := m.createSysPayload(mi)
 	if payload == nil {
 		return nil, fmt.Errorf("Could not construct sysfsMount payload")
 	}
@@ -262,12 +278,22 @@ func (m *mountSyscallInfo) processSysMount() (*sysResponse, error) {
 }
 
 // Build instructions payload required to mount "/sys" subtree.
-func (m *mountSyscallInfo) createSysPayload() *[]*domain.MountSyscallPayload {
+func (m *mountSyscallInfo) createSysPayload(mi *mountInfo) *[]*domain.MountSyscallPayload {
 
 	var payload []*domain.MountSyscallPayload
 
 	// Payload instruction for original "/sys" mount request.
 	payload = append(payload, m.MountSyscallPayload)
+
+	// If sysfs has a read-only attribute at super-block level, we must
+	// also apply this to the new mountpoint (otherwise we will get a
+	// permission denied from the kernel when doing the mount).
+	mh := m.tracer.mountHelper
+	procInfo := mi.GetInfo("/sys")
+	vfsFlags := mh.stringToFlags(procInfo.VfsOpts)
+	if vfsFlags&unix.MS_RDONLY == unix.MS_RDONLY {
+		payload[0].Flags |= unix.MS_RDONLY
+	}
 
 	// Sysbox-fs "/sys" bind-mounts.
 	sysBindMounts := m.tracer.mountHelper.sysMounts

@@ -129,7 +129,7 @@ func (m *mountHelper) stringToFlags(s string) uint64 {
 }
 
 // filterFsFlags takes filesystem options as extracted from /proc/pid/mountinfo, filters
-// out options correspoding to mount flags, and returns options corresponding to
+// out options corresponding to mount flags, and returns options corresponding to
 // filesystem-specific mount data.
 func (m *mountHelper) filterFsFlags(fsOpts string) string {
 
