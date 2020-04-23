@@ -9,6 +9,7 @@ require (
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox/lib/pidmonitor v0.0.0-00010101000000-000000000000
 	github.com/pkg/profile v1.4.0
+	github.com/seccomp/libseccomp-golang v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/afero v1.2.2
 	github.com/stretchr/objx v0.2.0 // indirect

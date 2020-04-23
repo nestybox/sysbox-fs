@@ -107,17 +107,16 @@ func (m *mountHelper) hasPropagationFlag(flags uint64) bool {
 
 // stringToFlags converts string-based mount flags (as extracted from
 // /proc/pid/mountinfo), into their corresponding numerical values.
-func (m *mountHelper) stringToFlags(s string) uint64 {
+//func (m *mountHelper) stringToFlags(s string) uint64 {
+func (m *mountHelper) stringToFlags(s map[string]string) uint64 {
 	var flags uint64
 
-	fields := strings.Split(s, ",")
-
-	for _, v := range fields {
+	for k, _ := range s {
 		// Skip read-write option as it shows up in per-mount and per-vfs options.
-		if v == "rw" {
+		if k == "rw" {
 			continue
 		}
-		val, ok := m.flagsMap[v]
+		val, ok := m.flagsMap[k]
 		if !ok {
 			continue
 		}
@@ -131,12 +130,12 @@ func (m *mountHelper) stringToFlags(s string) uint64 {
 // filterFsFlags takes filesystem options as extracted from /proc/pid/mountinfo, filters
 // out options corresponding to mount flags, and returns options corresponding to
 // filesystem-specific mount data.
-func (m *mountHelper) filterFsFlags(fsOpts string) string {
+//func (m *mountHelper) filterFsFlags(fsOpts string) string {
+func (m *mountHelper) filterFsFlags(fsOpts map[string]string) string {
 
-	fields := strings.Split(fsOpts, ",")
 	opts := []string{}
 
-	for _, v := range fields {
+	for _, v := range fsOpts {
 		_, ok := m.flagsMap[v]
 		if !ok && v != "rw" {
 			opts = append(opts, v)
