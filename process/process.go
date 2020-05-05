@@ -549,12 +549,11 @@ func intSliceContains(a []int, x uint32) bool {
 // Collects the namespace inodes of the given process
 func getNsInodes(pid uint32) (map[string]domain.Inode, error) {
 
-	// collect the process' namespace inodes
-	nsList := []string{"user", "mnt", "ipc", "cgroup", "net", "pid", "uts"}
 	nsInodes := make(map[string]domain.Inode)
 	pidStr := strconv.FormatUint(uint64(pid), 10)
 
-	for _, ns := range nsList {
+	// Iterate through all namespaces to collect the process' namespace inodes.
+	for _, ns := range domain.AllNSs {
 		nsPath := filepath.Join("/proc", pidStr, "ns", ns)
 
 		// In unit-testing scenarios we will extract the nsInode value from the
@@ -576,7 +575,7 @@ func getNsInodes(pid uint32) (map[string]domain.Inode, error) {
 
 		info, err := os.Stat(nsPath)
 		if err != nil {
-			logrus.Errorf("No process %s ns file found for pid:", ns, pid)
+			logrus.Errorf("No process %s-ns file found for pid %d", ns, pid)
 			return nil, err
 		}
 
