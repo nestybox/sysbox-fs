@@ -5,12 +5,12 @@
 package ipc
 
 import (
-	"errors"
-
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	grpc "github.com/nestybox/sysbox-ipc/sysboxFsGrpc"
+	grpcCodes "google.golang.org/grpc/codes"
+	grpcStatus "google.golang.org/grpc/status"
 )
 
 type ipcService struct {
@@ -52,10 +52,6 @@ func (s *ipcService) Init() error {
 
 func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 
-	if data == nil {
-		return errors.New("Invalid input parameters")
-	}
-
 	logrus.Infof("Container pre-registration message received for id: %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
@@ -65,16 +61,13 @@ func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Infof("Container pre-registration successfully completed for id: %s", data.Id)
+	logrus.Infof("Container pre-registration successfully completed for id: %s",
+		data.Id)
 
 	return nil
 }
 
 func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
-
-	if data == nil {
-		return errors.New("Invalid input parameters")
-	}
 
 	logrus.Infof("Container registration message received for id: %s", data.Id)
 
@@ -99,16 +92,13 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Infof("Container registration successfully completed for id: %s", data.Id)
+	logrus.Infof("Container registration successfully completed for id: %s",
+		data.Id)
 
 	return nil
 }
 
 func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
-
-	if data == nil {
-		return errors.New("Invalid input parameters")
-	}
 
 	logrus.Infof("Container unregistration message received for id: %s", data.Id)
 
@@ -117,7 +107,11 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 	// Identify the container being unregistered.
 	cntr := ipcService.css.ContainerLookupById(data.Id)
 	if cntr == nil {
-		return nil
+		return grpcStatus.Errorf(
+			grpcCodes.NotFound,
+			"Container %s not found",
+			data.Id,
+		)
 	}
 
 	err := ipcService.css.ContainerUnregister(cntr)
@@ -125,16 +119,13 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Infof("Container unregistration successfully completed for id: %s", data.Id)
+	logrus.Infof("Container unregistration successfully completed for id: %s",
+		data.Id)
 
 	return nil
 }
 
 func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
-
-	if data == nil {
-		return errors.New("Invalid input parameters")
-	}
 
 	logrus.Infof("Container update message received for id: %s", data.Id)
 

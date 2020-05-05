@@ -5,11 +5,12 @@
 package state
 
 import (
-	"errors"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	grpcCodes "google.golang.org/grpc/codes"
+	grpcStatus "google.golang.org/grpc/status"
 
 	"github.com/nestybox/sysbox-fs/domain"
 )
@@ -89,8 +90,13 @@ func (css *containerStateService) ContainerPreRegister(id string) error {
 	// Ensure that new container's id is not already present.
 	if _, ok := css.idTable[id]; ok {
 		css.Unlock()
-		logrus.Errorf("Container pre-registration error: container ID %v already present", id)
-		return errors.New("Container ID already present")
+		logrus.Errorf("Container pre-registration error: container %s already present",
+			id)
+		return grpcStatus.Errorf(
+			grpcCodes.AlreadyExists,
+			"Container %s already pre-registered",
+			id,
+		)
 	}
 
 	cntr := &container{id: id}
@@ -100,8 +106,13 @@ func (css *containerStateService) ContainerPreRegister(id string) error {
 	err := css.fss.CreateFuseServer(cntr)
 	if err != nil {
 		css.Unlock()
-		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container ID %v", id)
-		return errors.New("Unable to initialize fuseServer")
+		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container %s",
+			id)
+		return grpcStatus.Errorf(
+			grpcCodes.Internal,
+			"Initialization error for container-id %s",
+			id,
+		)
 	}
 
 	css.Unlock()
@@ -118,32 +129,48 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 	currCntr, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
-		logrus.Errorf("Container registration error: container ID %v not present",
+		logrus.Errorf("Container registration error: container %s not present",
 			cntr.id)
-		return errors.New("Container not found")
+		return grpcStatus.Errorf(
+			grpcCodes.NotFound,
+			"Container %s not found",
+			cntr.id,
+		)
 	}
 
 	// Update existing container with received attributes.
 	if err := currCntr.update(cntr); err != nil {
 		css.Unlock()
-		logrus.Errorf("Container registration error: container ID %v not updated",
+		logrus.Errorf("Container registration error: container %s not updated",
 			cntr.id)
-		return errors.New("Container not updated")
+		return grpcStatus.Errorf(
+			grpcCodes.Internal,
+			"Container %s not updated",
+			cntr.id,
+		)
 	}
 
 	usernsInode := currCntr.InitProc().UserNsInode()
 	if usernsInode == 0 {
-		logrus.Errorf("Container registration error: container ID %v with invalid user-ns",
+		logrus.Errorf("Container registration error: container %s with invalid user-ns",
 			cntr.id)
-		return errors.New("Container with invalid userns-inode")
+		return grpcStatus.Errorf(
+			grpcCodes.NotFound,
+			"Container %s missing valid userns inode",
+			cntr.id,
+		)
 	}
 
 	// Ensure that new container's init process userns inode is not already registered.
 	if _, ok := css.usernsTable[usernsInode]; ok {
 		css.Unlock()
-		logrus.Errorf("Container addition error: container with userns-inode %v already present",
-			usernsInode)
-		return errors.New("Container with userns-inode already present")
+		logrus.Errorf("Container addition error: container %s with userns-inode %s already present",
+			cntr.id, usernsInode)
+		return grpcStatus.Errorf(
+			grpcCodes.AlreadyExists,
+			"Container %s with userns inode already present",
+			cntr.id,
+		)
 	}
 
 	css.usernsTable[usernsInode] = currCntr
@@ -164,8 +191,12 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	currCntr, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
-		logrus.Errorf("Container update failure: container ID %v not found", cntr.id)
-		return errors.New("Container ID not found")
+		logrus.Errorf("Container update failure: container %v not found", cntr.id)
+		return grpcStatus.Errorf(
+			grpcCodes.NotFound,
+			"Container %s not found",
+			cntr.id,
+		)
 	}
 
 	// Update the existing container-state struct with the one being received.
@@ -189,31 +220,48 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	currCntrIdTable, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
-		logrus.Errorf("Container unregistration failure: container ID %v not found ", cntr.id)
-		return errors.New("Container ID not found")
+		logrus.Errorf("Container unregistration failure: container %s not found ",
+			cntr.id)
+		return grpcStatus.Errorf(
+			grpcCodes.NotFound,
+			"Container %s not found",
+			cntr.id,
+		)
 	}
 
 	usernsInode := cntr.InitProc().UserNsInode()
 	currCntrUsernsTable, ok := css.usernsTable[usernsInode]
 	if !ok {
 		css.Unlock()
-		logrus.Errorf("Container deletion error: could not find container with user-inode %v",
-			usernsInode)
-		return errors.New("Container with userns-inode already present")
+		logrus.Errorf("Container deletion error: could not find container %s with userns-inode %s",
+			cntr.id, usernsInode)
+		return grpcStatus.Errorf(
+			grpcCodes.NotFound,
+			"Container %s missing valid userns inode",
+			cntr.id,
+		)
 	}
 
 	if currCntrIdTable != currCntrUsernsTable {
 		css.Unlock()
-		return errors.New("Container corrupted information")
+		return grpcStatus.Errorf(
+			grpcCodes.Internal,
+			"Container %s with corrupted information",
+			cntr.id,
+		)
 	}
 
 	// Create dedicated fuse-server for each sys container.
 	err := css.fss.DestroyFuseServer(cntr.id)
 	if err != nil {
 		css.Unlock()
-		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container ID %v",
+		logrus.Errorf("Container unregistration error: unable to destroy fuseServer for container %s",
 			cntr.id)
-		return errors.New("Unable to initialize fuseServer")
+		return grpcStatus.Errorf(
+			grpcCodes.Internal,
+			"Container %s unable to destroy fuse-server",
+			cntr.id,
+		)
 	}
 
 	delete(css.idTable, cntr.id)
@@ -300,4 +348,11 @@ func (css *containerStateService) ContainerLookupByProcess(p domain.ProcessIface
 
 func (css *containerStateService) ProcessService() domain.ProcessService {
 	return css.prs
+}
+
+func (css *containerStateService) ContainerDBSize() int {
+	css.RLock()
+	defer css.RUnlock()
+
+	return len(css.idTable)
 }
