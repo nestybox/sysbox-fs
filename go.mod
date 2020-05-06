@@ -25,12 +25,14 @@ replace github.com/nestybox/sysbox-ipc => ../sysbox-ipc
 
 replace github.com/nestybox/sysbox-runc => ../sysbox-runc
 
-replace github.com/opencontainers/runc => ./../sysbox-runc
-
-replace bazil.org/fuse => ./bazil
+replace github.com/nestybox/sysbox/utils => ../lib/utils
 
 replace github.com/nestybox/libseccomp-golang => ../lib/seccomp-golang
 
 replace github.com/nestybox/sysbox/lib/pidmonitor => ../lib/pidmonitor
+
+replace github.com/opencontainers/runc => ./../sysbox-runc
+
+replace bazil.org/fuse => ./bazil
 
 replace github.com/godbus/dbus => github.com/godbus/dbus/v5 v5.0.3
