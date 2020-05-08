@@ -27,7 +27,6 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
-	"github.com/nestybox/sysbox-fs/process"
 	"github.com/nestybox/sysbox-runc/libcontainer"
 )
 
@@ -57,9 +56,6 @@ type pid struct {
 // message exchanges.
 //
 type NSenterEvent struct {
-
-	// Parent NSenterEvent Service (used for capability handling)
-	prs domain.ProcessService
 
 	// Pid on behalf of which we are doing the nsenter event
 	Pid uint32 `json:"pid"`
@@ -882,8 +878,7 @@ func Init() (err error) {
 	// specific env vars.
 	os.Clearenv()
 
-	var processService = process.NewProcessService()
-	var event = NSenterEvent{prs: processService}
+	var event = NSenterEvent{}
 
 	// Process incoming request.
 	err = event.processRequest(pipe)

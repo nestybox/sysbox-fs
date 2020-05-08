@@ -9,13 +9,11 @@ import (
 )
 
 type nsenterService struct {
-	prs    domain.ProcessService // for process class interactions (capabilities)
 	reaper *zombieReaper
 }
 
-func NewNSenterService(prs domain.ProcessService) domain.NSenterService {
+func NewNSenterService() domain.NSenterService {
 	return &nsenterService{
-		prs:    prs,
 		reaper: newZombieReaper(),
 	}
 }

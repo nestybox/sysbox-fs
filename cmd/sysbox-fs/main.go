@@ -243,7 +243,7 @@ func main() {
 
 		var processService = process.NewProcessService()
 
-		var nsenterService = nsenter.NewNSenterService(processService)
+		var nsenterService = nsenter.NewNSenterService()
 
 		var ioService = sysio.NewIOService(sysio.IOFileService)
 
