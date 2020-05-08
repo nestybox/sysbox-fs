@@ -4,7 +4,9 @@
 
 package domain
 
-import "reflect"
+import (
+	"reflect"
+)
 
 const (
 	SymlinkMax = 40
@@ -22,8 +24,7 @@ type ProcessIface interface {
 	Pid() uint32
 	Uid() uint32
 	Gid() uint32
-	SetCapability(which CapType, what ...Cap)
-	IsCapabilitySet(which CapType, what Cap) bool
+	IsAdminCapabilitySet() bool
 	NsInodes() (map[string]Inode, error)
 	UserNsInode() Inode
 	UserNsInodeParent() (Inode, error)

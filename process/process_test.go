@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	cap "github.com/nestybox/sysbox/lib/capability"
 )
 
 func TestCheckPermOwner(t *testing.T) {
@@ -167,7 +168,7 @@ func TestCheckPermCapDacOverride(t *testing.T) {
 		gid:  800,
 	}
 
-	p.SetCapability(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE)
+	p.setCapability(cap.EFFECTIVE, cap.CAP_DAC_OVERRIDE)
 
 	mode := domain.R_OK | domain.W_OK | domain.X_OK
 	ok, err := p.checkPerm(filename, mode)
@@ -219,7 +220,7 @@ func TestCheckPermCapDacReadSearch(t *testing.T) {
 		gid:  800,
 	}
 
-	p.SetCapability(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH)
+	p.setCapability(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH)
 
 	mode := domain.R_OK
 	ok, err := p.checkPerm(filename, mode)

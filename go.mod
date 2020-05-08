@@ -7,9 +7,9 @@ require (
 	github.com/nestybox/libseccomp-golang v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-ipc v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
+	github.com/nestybox/sysbox/lib/capability v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox/lib/pidmonitor v0.0.0-00010101000000-000000000000
 	github.com/pkg/profile v1.4.0
-	github.com/seccomp/libseccomp-golang v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/afero v1.2.2
 	github.com/stretchr/objx v0.2.0 // indirect
@@ -18,7 +18,6 @@ require (
 	github.com/vishvananda/netlink v1.0.0
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
 	google.golang.org/grpc v1.21.0
-	gopkg.in/hlandau/service.v1 v1.0.7
 )
 
 replace github.com/nestybox/sysbox-ipc => ../sysbox-ipc
@@ -30,6 +29,8 @@ replace github.com/nestybox/sysbox/utils => ../lib/utils
 replace github.com/nestybox/libseccomp-golang => ../lib/seccomp-golang
 
 replace github.com/nestybox/sysbox/lib/pidmonitor => ../lib/pidmonitor
+
+replace github.com/nestybox/sysbox/lib/capability => ../lib/capability
 
 replace github.com/opencontainers/runc => ./../sysbox-runc
 

@@ -16,7 +16,7 @@ import (
 	"unsafe"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	cap "github.com/nestybox/sysbox-fs/process/capability"
+	cap "github.com/nestybox/sysbox/lib/capability"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
@@ -55,10 +55,6 @@ type process struct {
 	nsInodes map[string]domain.Inode // process namespace inodes
 }
 
-//
-// Public methods
-//
-
 func (p *process) Pid() uint32 {
 	return p.pid
 }
@@ -71,8 +67,12 @@ func (p *process) Gid() uint32 {
 	return p.gid
 }
 
+func (p *process) IsAdminCapabilitySet() bool {
+	return p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN)
+}
+
 // Simple wrapper method to set capability values.
-func (p *process) SetCapability(which domain.CapType, what ...domain.Cap) {
+func (p *process) setCapability(which cap.CapType, what ...cap.Cap) {
 
 	if p.cap == nil {
 		if err := p.initCapability(); err != nil {
@@ -85,8 +85,8 @@ func (p *process) SetCapability(which domain.CapType, what ...domain.Cap) {
 	}
 }
 
-// Simple wrapper method to determine capability presence.
-func (p *process) IsCapabilitySet(which domain.CapType, what domain.Cap) bool {
+// Simple wrapper method to determine capability settings.
+func (p *process) isCapabilitySet(which cap.CapType, what cap.Cap) bool {
 
 	if p.cap == nil {
 		if err := p.initCapability(); err != nil {
@@ -485,8 +485,8 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 	}
 
 	// capability checks
-	if p.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_OVERRIDE) {
-		// Per capabilities(7): CAP_DAC_OVERRIDE bypasses file read, write,
+	if p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_DAC_OVERRIDE) {
+		// Per capabilitis(7): CAP_DAC_OVERRIDE bypasses file read, write,
 		// and execute permission checks.
 		//
 		// Per The Linux Programming Interface, 15.4.3: A process with the
@@ -507,7 +507,7 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 		}
 	}
 
-	if p.IsCapabilitySet(domain.EFFECTIVE, domain.CAP_DAC_READ_SEARCH) {
+	if p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH) {
 		// Per capabilities(7): CAP_DAC_READ_SEARCH bypasses file read permission
 		// checks and directory read and execute permission checks
 		if fi.IsDir() && (aMode&domain.W_OK != domain.W_OK) {
