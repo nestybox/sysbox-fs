@@ -24,11 +24,11 @@ type ProcLoadavgHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *ProcLoadavgHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -37,7 +37,7 @@ func (h *ProcLoadavgHandler) Lookup(
 }
 
 func (h *ProcLoadavgHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -46,7 +46,7 @@ func (h *ProcLoadavgHandler) Getattr(
 }
 
 func (h *ProcLoadavgHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
@@ -64,7 +64,7 @@ func (h *ProcLoadavgHandler) Open(
 	return nil
 }
 
-func (h *ProcLoadavgHandler) Close(n domain.IOnode) error {
+func (h *ProcLoadavgHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -77,7 +77,7 @@ func (h *ProcLoadavgHandler) Close(n domain.IOnode) error {
 }
 
 func (h *ProcLoadavgHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -95,7 +95,7 @@ func (h *ProcLoadavgHandler) Read(
 }
 
 func (h *ProcLoadavgHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -104,7 +104,7 @@ func (h *ProcLoadavgHandler) Write(
 }
 
 func (h *ProcLoadavgHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -126,7 +126,7 @@ func (h *ProcLoadavgHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcLoadavgHandler) GetService() domain.HandlerService {
+func (h *ProcLoadavgHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -134,6 +134,6 @@ func (h *ProcLoadavgHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcLoadavgHandler) SetService(hs domain.HandlerService) {
+func (h *ProcLoadavgHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

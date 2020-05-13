@@ -41,11 +41,11 @@ type FsProtectSymLinksHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *FsProtectSymLinksHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -54,7 +54,7 @@ func (h *FsProtectSymLinksHandler) Lookup(
 }
 
 func (h *FsProtectSymLinksHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -63,7 +63,7 @@ func (h *FsProtectSymLinksHandler) Getattr(
 }
 
 func (h *FsProtectSymLinksHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -81,7 +81,7 @@ func (h *FsProtectSymLinksHandler) Open(
 	return nil
 }
 
-func (h *FsProtectSymLinksHandler) Close(n domain.IOnode) error {
+func (h *FsProtectSymLinksHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -94,7 +94,7 @@ func (h *FsProtectSymLinksHandler) Close(n domain.IOnode) error {
 }
 
 func (h *FsProtectSymLinksHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -145,7 +145,7 @@ func (h *FsProtectSymLinksHandler) Read(
 }
 
 func (h *FsProtectSymLinksHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -180,7 +180,7 @@ func (h *FsProtectSymLinksHandler) Write(
 }
 
 func (h *FsProtectSymLinksHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -202,7 +202,7 @@ func (h *FsProtectSymLinksHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *FsProtectSymLinksHandler) GetService() domain.HandlerService {
+func (h *FsProtectSymLinksHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -210,6 +210,6 @@ func (h *FsProtectSymLinksHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *FsProtectSymLinksHandler) SetService(hs domain.HandlerService) {
+func (h *FsProtectSymLinksHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

@@ -866,7 +866,7 @@ func TestNfConntrackMaxHandler_GetService(t *testing.T) {
 	tests := []struct {
 		name string
 		h    *implementations.NfConntrackMaxHandler
-		want domain.HandlerService
+		want domain.HandlerServiceIface
 	}{
 		// TODO: Add test cases.
 	}
@@ -899,7 +899,7 @@ func TestNfConntrackMaxHandler_SetEnabled(t *testing.T) {
 
 func TestNfConntrackMaxHandler_SetService(t *testing.T) {
 	type args struct {
-		hs domain.HandlerService
+		hs domain.HandlerServiceIface
 	}
 	tests := []struct {
 		name string

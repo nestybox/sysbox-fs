@@ -32,11 +32,11 @@ type VsExpireQuiescentTemplateHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *VsExpireQuiescentTemplateHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -45,7 +45,7 @@ func (h *VsExpireQuiescentTemplateHandler) Lookup(
 }
 
 func (h *VsExpireQuiescentTemplateHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -54,7 +54,7 @@ func (h *VsExpireQuiescentTemplateHandler) Getattr(
 }
 
 func (h *VsExpireQuiescentTemplateHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -79,7 +79,7 @@ func (h *VsExpireQuiescentTemplateHandler) Open(
 	return nil
 }
 
-func (h *VsExpireQuiescentTemplateHandler) Close(n domain.IOnode) error {
+func (h *VsExpireQuiescentTemplateHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -92,7 +92,7 @@ func (h *VsExpireQuiescentTemplateHandler) Close(n domain.IOnode) error {
 }
 
 func (h *VsExpireQuiescentTemplateHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -135,7 +135,7 @@ func (h *VsExpireQuiescentTemplateHandler) Read(
 }
 
 func (h *VsExpireQuiescentTemplateHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -166,14 +166,14 @@ func (h *VsExpireQuiescentTemplateHandler) Write(
 }
 
 func (h *VsExpireQuiescentTemplateHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
 func (h *VsExpireQuiescentTemplateHandler) fetchFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	c domain.ContainerIface) (string, error) {
 
 	// Read from kernel to extract the existing expire_quiescent_template value.
@@ -194,7 +194,7 @@ func (h *VsExpireQuiescentTemplateHandler) fetchFile(
 }
 
 func (h *VsExpireQuiescentTemplateHandler) pushFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	c domain.ContainerIface, newValInt int) error {
 
 	// Rewinding file offset back to its start point.
@@ -231,7 +231,7 @@ func (h *VsExpireQuiescentTemplateHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *VsExpireQuiescentTemplateHandler) GetService() domain.HandlerService {
+func (h *VsExpireQuiescentTemplateHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -239,6 +239,6 @@ func (h *VsExpireQuiescentTemplateHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *VsExpireQuiescentTemplateHandler) SetService(hs domain.HandlerService) {
+func (h *VsExpireQuiescentTemplateHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

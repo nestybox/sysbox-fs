@@ -35,18 +35,18 @@ var monitoredSyscalls = []string{
 // Seccomp's syscall-monitoring/trapping service struct. External packages
 // will solely rely on this struct for their syscall-monitoring demands.
 type SyscallMonitorService struct {
-	nss    domain.NSenterService        // for nsenter functionality requirements
-	css    domain.ContainerStateService // for container-state interactions
-	hns    domain.HandlerService        // for handlerDB interactions
-	prs    domain.ProcessService        // for process class interactions
-	tracer *syscallTracer               // pointer to actual syscall-tracer instance
+	nss    domain.NSenterServiceIface        // for nsenter functionality requirements
+	css    domain.ContainerStateServiceIface // for container-state interactions
+	hns    domain.HandlerServiceIface        // for handlerDB interactions
+	prs    domain.ProcessServiceIface        // for process class interactions
+	tracer *syscallTracer                    // pointer to actual syscall-tracer instance
 }
 
 func NewSyscallMonitorService(
-	nss domain.NSenterService,
-	css domain.ContainerStateService,
-	hns domain.HandlerService,
-	prs domain.ProcessService) *SyscallMonitorService {
+	nss domain.NSenterServiceIface,
+	css domain.ContainerStateServiceIface,
+	hns domain.HandlerServiceIface,
+	prs domain.ProcessServiceIface) *SyscallMonitorService {
 
 	svc := &SyscallMonitorService{
 		nss: nss,

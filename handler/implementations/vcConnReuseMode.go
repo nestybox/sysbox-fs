@@ -32,11 +32,11 @@ type VsConnReuseModeHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *VsConnReuseModeHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -45,7 +45,7 @@ func (h *VsConnReuseModeHandler) Lookup(
 }
 
 func (h *VsConnReuseModeHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -54,7 +54,7 @@ func (h *VsConnReuseModeHandler) Getattr(
 }
 
 func (h *VsConnReuseModeHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -79,7 +79,7 @@ func (h *VsConnReuseModeHandler) Open(
 	return nil
 }
 
-func (h *VsConnReuseModeHandler) Close(n domain.IOnode) error {
+func (h *VsConnReuseModeHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -92,7 +92,7 @@ func (h *VsConnReuseModeHandler) Close(n domain.IOnode) error {
 }
 
 func (h *VsConnReuseModeHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -135,7 +135,7 @@ func (h *VsConnReuseModeHandler) Read(
 }
 
 func (h *VsConnReuseModeHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -166,14 +166,14 @@ func (h *VsConnReuseModeHandler) Write(
 }
 
 func (h *VsConnReuseModeHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
 func (h *VsConnReuseModeHandler) fetchFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	c domain.ContainerIface) (string, error) {
 
 	// Read from kernel to extract the existing conn_reuse_mode value.
@@ -194,7 +194,7 @@ func (h *VsConnReuseModeHandler) fetchFile(
 }
 
 func (h *VsConnReuseModeHandler) pushFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	c domain.ContainerIface,
 	newValInt int) error {
 
@@ -232,7 +232,7 @@ func (h *VsConnReuseModeHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *VsConnReuseModeHandler) GetService() domain.HandlerService {
+func (h *VsConnReuseModeHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -240,6 +240,6 @@ func (h *VsConnReuseModeHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *VsConnReuseModeHandler) SetService(hs domain.HandlerService) {
+func (h *VsConnReuseModeHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

@@ -30,16 +30,16 @@ type containerStateService struct {
 	fss domain.FuseServerServiceIface
 
 	// Pointer to the service providing process-handling capabilities.
-	prs domain.ProcessService
+	prs domain.ProcessServiceIface
 
 	// Pointer to the service providing file-system I/O capabilities.
-	ios domain.IOService
+	ios domain.IOServiceIface
 }
 
 func NewContainerStateService(
 	fss domain.FuseServerServiceIface,
-	prs domain.ProcessService,
-	ios domain.IOService) domain.ContainerStateService {
+	prs domain.ProcessServiceIface,
+	ios domain.IOServiceIface) domain.ContainerStateServiceIface {
 
 	newCss := &containerStateService{
 		idTable:     make(map[string]*container),
@@ -346,7 +346,7 @@ func (css *containerStateService) ContainerLookupByProcess(p domain.ProcessIface
 	return cntr
 }
 
-func (css *containerStateService) ProcessService() domain.ProcessService {
+func (css *containerStateService) ProcessService() domain.ProcessServiceIface {
 	return css.prs
 }
 

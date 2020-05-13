@@ -31,7 +31,7 @@ type ProcessIface interface {
 	PathAccess(path string, accessFlags AccessMode) error
 }
 
-type ProcessService interface {
+type ProcessServiceIface interface {
 	ProcessCreate(pid uint32, uid uint32, gid uint32) ProcessIface
 }
 

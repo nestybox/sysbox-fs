@@ -39,11 +39,11 @@ type NfConntrackTcpTimeoutEstHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *NfConntrackTcpTimeoutEstHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -52,7 +52,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) Lookup(
 }
 
 func (h *NfConntrackTcpTimeoutEstHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -61,7 +61,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) Getattr(
 }
 
 func (h *NfConntrackTcpTimeoutEstHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -86,7 +86,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) Open(
 	return nil
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) Close(n domain.IOnode) error {
+func (h *NfConntrackTcpTimeoutEstHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -99,7 +99,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) Close(n domain.IOnode) error {
 }
 
 func (h *NfConntrackTcpTimeoutEstHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -142,7 +142,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) Read(
 }
 
 func (h *NfConntrackTcpTimeoutEstHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -206,14 +206,14 @@ func (h *NfConntrackTcpTimeoutEstHandler) Write(
 }
 
 func (h *NfConntrackTcpTimeoutEstHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
 func (h *NfConntrackTcpTimeoutEstHandler) fetchFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	c domain.ContainerIface) (string, error) {
 
 	// Read from host FS to extract the existing  value.
@@ -233,7 +233,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) fetchFile(
 	return curHostMax, nil
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) pushFile(n domain.IOnode, c domain.ContainerIface,
+func (h *NfConntrackTcpTimeoutEstHandler) pushFile(n domain.IOnodeIface, c domain.ContainerIface,
 	newMaxInt int) error {
 
 	curHostMax, err := n.ReadLine()
@@ -287,7 +287,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) GetService() domain.HandlerService {
+func (h *NfConntrackTcpTimeoutEstHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -295,6 +295,6 @@ func (h *NfConntrackTcpTimeoutEstHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) SetService(hs domain.HandlerService) {
+func (h *NfConntrackTcpTimeoutEstHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

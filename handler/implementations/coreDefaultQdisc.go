@@ -51,11 +51,11 @@ type CoreDefaultQdiscHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *CoreDefaultQdiscHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -64,7 +64,7 @@ func (h *CoreDefaultQdiscHandler) Lookup(
 }
 
 func (h *CoreDefaultQdiscHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -73,7 +73,7 @@ func (h *CoreDefaultQdiscHandler) Getattr(
 }
 
 func (h *CoreDefaultQdiscHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -91,7 +91,7 @@ func (h *CoreDefaultQdiscHandler) Open(
 	return nil
 }
 
-func (h *CoreDefaultQdiscHandler) Close(n domain.IOnode) error {
+func (h *CoreDefaultQdiscHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -104,7 +104,7 @@ func (h *CoreDefaultQdiscHandler) Close(n domain.IOnode) error {
 }
 
 func (h *CoreDefaultQdiscHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -148,7 +148,7 @@ func (h *CoreDefaultQdiscHandler) Read(
 }
 
 func (h *CoreDefaultQdiscHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -183,7 +183,7 @@ func (h *CoreDefaultQdiscHandler) Write(
 }
 
 func (h *CoreDefaultQdiscHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -205,7 +205,7 @@ func (h *CoreDefaultQdiscHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *CoreDefaultQdiscHandler) GetService() domain.HandlerService {
+func (h *CoreDefaultQdiscHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -213,6 +213,6 @@ func (h *CoreDefaultQdiscHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *CoreDefaultQdiscHandler) SetService(hs domain.HandlerService) {
+func (h *CoreDefaultQdiscHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

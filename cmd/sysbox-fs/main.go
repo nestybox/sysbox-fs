@@ -259,7 +259,8 @@ func main() {
 		var fuseServerService = fuse.NewFuseServerService(
 			ctx.GlobalString("mountpoint"),
 			ioService,
-			handlerService)
+			handlerService,
+		)
 
 		var containerStateService = state.NewContainerStateService(
 			fuseServerService,
@@ -280,7 +281,8 @@ func main() {
 		var ipcService = ipc.NewIpcService(
 			containerStateService,
 			processService,
-			ioService)
+			ioService,
+		)
 		if ipcService == nil {
 			logrus.Fatal("IpcService initialization error. Exiting ...")
 		}

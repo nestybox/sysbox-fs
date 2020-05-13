@@ -27,7 +27,7 @@ var AppFs = afero.NewOsFs()
 
 type processService struct{}
 
-func NewProcessService() domain.ProcessService {
+func NewProcessService() domain.ProcessServiceIface {
 	return &processService{}
 }
 

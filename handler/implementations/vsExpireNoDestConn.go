@@ -32,11 +32,11 @@ type VsExpireNoDestConnHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *VsExpireNoDestConnHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -45,7 +45,7 @@ func (h *VsExpireNoDestConnHandler) Lookup(
 }
 
 func (h *VsExpireNoDestConnHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -54,7 +54,7 @@ func (h *VsExpireNoDestConnHandler) Getattr(
 }
 
 func (h *VsExpireNoDestConnHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -79,7 +79,7 @@ func (h *VsExpireNoDestConnHandler) Open(
 	return nil
 }
 
-func (h *VsExpireNoDestConnHandler) Close(n domain.IOnode) error {
+func (h *VsExpireNoDestConnHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -92,7 +92,7 @@ func (h *VsExpireNoDestConnHandler) Close(n domain.IOnode) error {
 }
 
 func (h *VsExpireNoDestConnHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -135,7 +135,7 @@ func (h *VsExpireNoDestConnHandler) Read(
 }
 
 func (h *VsExpireNoDestConnHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -166,14 +166,14 @@ func (h *VsExpireNoDestConnHandler) Write(
 }
 
 func (h *VsExpireNoDestConnHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
 func (h *VsExpireNoDestConnHandler) fetchFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	c domain.ContainerIface) (string, error) {
 
 	// Read from kernel to extract the existing expire_nodest_conn value.
@@ -194,7 +194,7 @@ func (h *VsExpireNoDestConnHandler) fetchFile(
 }
 
 func (h *VsExpireNoDestConnHandler) pushFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	c domain.ContainerIface, newValInt int) error {
 
 	// Rewinding file offset back to its start point.
@@ -231,7 +231,7 @@ func (h *VsExpireNoDestConnHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *VsExpireNoDestConnHandler) GetService() domain.HandlerService {
+func (h *VsExpireNoDestConnHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -239,6 +239,6 @@ func (h *VsExpireNoDestConnHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *VsExpireNoDestConnHandler) SetService(hs domain.HandlerService) {
+func (h *VsExpireNoDestConnHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

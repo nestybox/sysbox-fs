@@ -1376,7 +1376,7 @@ func TestCommonHandler_GetService(t *testing.T) {
 	tests := []struct {
 		name string
 		h    *implementations.CommonHandler
-		want domain.HandlerService
+		want domain.HandlerServiceIface
 	}{
 		{"1", h, hds},
 	}
@@ -1457,7 +1457,7 @@ func TestCommonHandler_SetService(t *testing.T) {
 	// Test-case definitions.
 	//
 	type args struct {
-		hs domain.HandlerService
+		hs domain.HandlerServiceIface
 	}
 	tests := []struct {
 		name string

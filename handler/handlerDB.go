@@ -364,16 +364,16 @@ type handlerService struct {
 	dirHandlerMap map[string][]string
 
 	// Pointer to the service providing container-state storage functionality.
-	css domain.ContainerStateService
+	css domain.ContainerStateServiceIface
 
 	// Pointer to the service providing nsenter (rexec) capabilities.
-	nss domain.NSenterService
+	nss domain.NSenterServiceIface
 
 	// Pointer to the service providing process-handling functionality.
-	prs domain.ProcessService
+	prs domain.ProcessServiceIface
 
 	// Pointer to the service providing file-system I/O capabilities.
-	ios domain.IOService
+	ios domain.IOServiceIface
 
 	// Represents the user-namespace inode of the host's true-root.
 	hostUserNsInode domain.Inode
@@ -386,11 +386,11 @@ type handlerService struct {
 // HandlerService constructor.
 func NewHandlerService(
 	hs []domain.HandlerIface,
-	css domain.ContainerStateService,
-	nss domain.NSenterService,
-	prs domain.ProcessService,
-	ios domain.IOService,
-	ignoreErrors bool) domain.HandlerService {
+	css domain.ContainerStateServiceIface,
+	nss domain.NSenterServiceIface,
+	prs domain.ProcessServiceIface,
+	ios domain.IOServiceIface,
+	ignoreErrors bool) domain.HandlerServiceIface {
 
 	newhs := &handlerService{
 		handlerDB:     make(map[string]domain.HandlerIface),
@@ -497,7 +497,8 @@ func (hs *handlerService) UnregisterHandler(h domain.HandlerIface) error {
 	return nil
 }
 
-func (hs *handlerService) LookupHandler(i domain.IOnode) (domain.HandlerIface, bool) {
+func (hs *handlerService) LookupHandler(
+	i domain.IOnodeIface) (domain.HandlerIface, bool) {
 
 	hs.RLock()
 	defer hs.RUnlock()
@@ -582,23 +583,23 @@ func (hs *handlerService) HandlerDB() map[string]domain.HandlerIface {
 	return hs.handlerDB
 }
 
-func (hs *handlerService) StateService() domain.ContainerStateService {
+func (hs *handlerService) StateService() domain.ContainerStateServiceIface {
 	return hs.css
 }
 
-func (hs *handlerService) SetStateService(css domain.ContainerStateService) {
+func (hs *handlerService) SetStateService(css domain.ContainerStateServiceIface) {
 	hs.css = css
 }
 
-func (hs *handlerService) NSenterService() domain.NSenterService {
+func (hs *handlerService) NSenterService() domain.NSenterServiceIface {
 	return hs.nss
 }
 
-func (hs *handlerService) ProcessService() domain.ProcessService {
+func (hs *handlerService) ProcessService() domain.ProcessServiceIface {
 	return hs.prs
 }
 
-func (hs *handlerService) IOService() domain.IOService {
+func (hs *handlerService) IOService() domain.IOServiceIface {
 	return hs.ios
 }
 

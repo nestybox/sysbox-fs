@@ -12,7 +12,7 @@ type nsenterService struct {
 	reaper *zombieReaper
 }
 
-func NewNSenterService() domain.NSenterService {
+func NewNSenterService() domain.NSenterServiceIface {
 	return &nsenterService{
 		reaper: newZombieReaper(),
 	}

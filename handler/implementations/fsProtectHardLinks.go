@@ -43,11 +43,11 @@ type FsProtectHardLinksHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *FsProtectHardLinksHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -56,7 +56,7 @@ func (h *FsProtectHardLinksHandler) Lookup(
 }
 
 func (h *FsProtectHardLinksHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -65,7 +65,7 @@ func (h *FsProtectHardLinksHandler) Getattr(
 }
 
 func (h *FsProtectHardLinksHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -83,7 +83,7 @@ func (h *FsProtectHardLinksHandler) Open(
 	return nil
 }
 
-func (h *FsProtectHardLinksHandler) Close(n domain.IOnode) error {
+func (h *FsProtectHardLinksHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -96,7 +96,7 @@ func (h *FsProtectHardLinksHandler) Close(n domain.IOnode) error {
 }
 
 func (h *FsProtectHardLinksHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -147,7 +147,7 @@ func (h *FsProtectHardLinksHandler) Read(
 }
 
 func (h *FsProtectHardLinksHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -182,7 +182,7 @@ func (h *FsProtectHardLinksHandler) Write(
 }
 
 func (h *FsProtectHardLinksHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -204,7 +204,7 @@ func (h *FsProtectHardLinksHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *FsProtectHardLinksHandler) GetService() domain.HandlerService {
+func (h *FsProtectHardLinksHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -212,6 +212,6 @@ func (h *FsProtectHardLinksHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *FsProtectHardLinksHandler) SetService(hs domain.HandlerService) {
+func (h *FsProtectHardLinksHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

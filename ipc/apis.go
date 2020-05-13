@@ -15,15 +15,15 @@ import (
 
 type ipcService struct {
 	grpcServer *grpc.Server
-	css        domain.ContainerStateService
-	prs        domain.ProcessService
-	ios        domain.IOService
+	css        domain.ContainerStateServiceIface
+	prs        domain.ProcessServiceIface
+	ios        domain.IOServiceIface
 }
 
 func NewIpcService(
-	css domain.ContainerStateService,
-	prs domain.ProcessService,
-	ios domain.IOService) domain.IpcService {
+	css domain.ContainerStateServiceIface,
+	prs domain.ProcessServiceIface,
+	ios domain.IOServiceIface) domain.IpcServiceIface {
 
 	// Instantiate a grpcServer for inter-process communication.
 	newService := new(ipcService)

@@ -26,11 +26,11 @@ type SysHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *SysHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -39,7 +39,7 @@ func (h *SysHandler) Lookup(
 }
 
 func (h *SysHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -48,7 +48,7 @@ func (h *SysHandler) Getattr(
 }
 
 func (h *SysHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
@@ -56,7 +56,7 @@ func (h *SysHandler) Open(
 	return nil
 }
 
-func (h *SysHandler) Close(n domain.IOnode) error {
+func (h *SysHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -64,7 +64,7 @@ func (h *SysHandler) Close(n domain.IOnode) error {
 }
 
 func (h *SysHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -73,7 +73,7 @@ func (h *SysHandler) Read(
 }
 
 func (h *SysHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -82,7 +82,7 @@ func (h *SysHandler) Write(
 }
 
 func (h *SysHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -104,7 +104,7 @@ func (h *SysHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *SysHandler) GetService() domain.HandlerService {
+func (h *SysHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -112,6 +112,6 @@ func (h *SysHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *SysHandler) SetService(hs domain.HandlerService) {
+func (h *SysHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

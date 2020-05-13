@@ -24,11 +24,11 @@ type ProcMeminfoHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *ProcMeminfoHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -37,7 +37,7 @@ func (h *ProcMeminfoHandler) Lookup(
 }
 
 func (h *ProcMeminfoHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -46,7 +46,7 @@ func (h *ProcMeminfoHandler) Getattr(
 }
 
 func (h *ProcMeminfoHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
@@ -64,7 +64,7 @@ func (h *ProcMeminfoHandler) Open(
 	return nil
 }
 
-func (h *ProcMeminfoHandler) Close(n domain.IOnode) error {
+func (h *ProcMeminfoHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -77,7 +77,7 @@ func (h *ProcMeminfoHandler) Close(n domain.IOnode) error {
 }
 
 func (h *ProcMeminfoHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -95,14 +95,14 @@ func (h *ProcMeminfoHandler) Read(
 }
 
 func (h *ProcMeminfoHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	return 0, nil
 }
 
 func (h *ProcMeminfoHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -124,7 +124,7 @@ func (h *ProcMeminfoHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcMeminfoHandler) GetService() domain.HandlerService {
+func (h *ProcMeminfoHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -132,6 +132,6 @@ func (h *ProcMeminfoHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcMeminfoHandler) SetService(hs domain.HandlerService) {
+func (h *ProcMeminfoHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

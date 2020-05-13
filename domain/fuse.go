@@ -7,7 +7,7 @@ package domain
 type FuseServerServiceIface interface {
 	CreateFuseServer(cntr ContainerIface) error
 	DestroyFuseServer(mp string) error
-	SetContainerService(css ContainerStateService)
+	SetContainerService(css ContainerStateServiceIface)
 	DestroyFuseService()
 }
 

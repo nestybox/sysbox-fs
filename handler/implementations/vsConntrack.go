@@ -32,11 +32,11 @@ type VsConntrackHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *VsConntrackHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -45,7 +45,7 @@ func (h *VsConntrackHandler) Lookup(
 }
 
 func (h *VsConntrackHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -54,7 +54,7 @@ func (h *VsConntrackHandler) Getattr(
 }
 
 func (h *VsConntrackHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -79,7 +79,7 @@ func (h *VsConntrackHandler) Open(
 	return nil
 }
 
-func (h *VsConntrackHandler) Close(n domain.IOnode) error {
+func (h *VsConntrackHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -92,7 +92,7 @@ func (h *VsConntrackHandler) Close(n domain.IOnode) error {
 }
 
 func (h *VsConntrackHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -135,7 +135,7 @@ func (h *VsConntrackHandler) Read(
 }
 
 func (h *VsConntrackHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -166,14 +166,14 @@ func (h *VsConntrackHandler) Write(
 }
 
 func (h *VsConntrackHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
 func (h *VsConntrackHandler) fetchFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	c domain.ContainerIface) (string, error) {
 
 	// Read from kernel to extract the existing conntrack value.
@@ -194,7 +194,7 @@ func (h *VsConntrackHandler) fetchFile(
 }
 
 func (h *VsConntrackHandler) pushFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	c domain.ContainerIface, newValInt int) error {
 
 	// Rewinding file offset back to its start point.
@@ -231,7 +231,7 @@ func (h *VsConntrackHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *VsConntrackHandler) GetService() domain.HandlerService {
+func (h *VsConntrackHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -239,6 +239,6 @@ func (h *VsConntrackHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *VsConntrackHandler) SetService(hs domain.HandlerService) {
+func (h *VsConntrackHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

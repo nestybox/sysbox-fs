@@ -18,7 +18,7 @@ const (
 	IOBufferService
 )
 
-func NewIOService(t IOServiceType) domain.IOService {
+func NewIOService(t IOServiceType) domain.IOServiceIface {
 
 	switch t {
 

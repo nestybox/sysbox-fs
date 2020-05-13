@@ -60,11 +60,11 @@ type KernelKptrRestrictHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *KernelKptrRestrictHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -73,7 +73,7 @@ func (h *KernelKptrRestrictHandler) Lookup(
 }
 
 func (h *KernelKptrRestrictHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -82,7 +82,7 @@ func (h *KernelKptrRestrictHandler) Getattr(
 }
 
 func (h *KernelKptrRestrictHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -100,7 +100,7 @@ func (h *KernelKptrRestrictHandler) Open(
 	return nil
 }
 
-func (h *KernelKptrRestrictHandler) Close(n domain.IOnode) error {
+func (h *KernelKptrRestrictHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -113,7 +113,7 @@ func (h *KernelKptrRestrictHandler) Close(n domain.IOnode) error {
 }
 
 func (h *KernelKptrRestrictHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -164,7 +164,7 @@ func (h *KernelKptrRestrictHandler) Read(
 }
 
 func (h *KernelKptrRestrictHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -199,7 +199,7 @@ func (h *KernelKptrRestrictHandler) Write(
 }
 
 func (h *KernelKptrRestrictHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -221,7 +221,7 @@ func (h *KernelKptrRestrictHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *KernelKptrRestrictHandler) GetService() domain.HandlerService {
+func (h *KernelKptrRestrictHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -229,6 +229,6 @@ func (h *KernelKptrRestrictHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *KernelKptrRestrictHandler) SetService(hs domain.HandlerService) {
+func (h *KernelKptrRestrictHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

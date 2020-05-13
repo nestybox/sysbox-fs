@@ -21,7 +21,7 @@ type Inode = uint64
 //    during UT efforts.
 //
 
-type IOnode interface {
+type IOnodeIface interface {
 	Open() error
 	Read(p []byte) (n int, err error)
 	Write(p []byte) (n int, err error)
@@ -43,17 +43,17 @@ type IOnode interface {
 	SetOpenMode(mode os.FileMode)
 }
 
-type IOService interface {
-	NewIOnode(n string, p string, attr os.FileMode) IOnode
-	OpenNode(i IOnode) error
-	ReadNode(i IOnode, p []byte) (int, error)
-	WriteNode(i IOnode, p []byte) (int, error)
-	CloseNode(i IOnode) error
-	ReadAtNode(i IOnode, p []byte, off int64) (int, error)
-	ReadDirAllNode(i IOnode) ([]os.FileInfo, error)
-	ReadFileNode(i IOnode) ([]byte, error)
-	ReadLineNode(i IOnode) (string, error)
-	StatNode(i IOnode) (os.FileInfo, error)
-	SeekResetNode(i IOnode) (int64, error)
-	PathNode(i IOnode) string
+type IOServiceIface interface {
+	NewIOnode(n string, p string, attr os.FileMode) IOnodeIface
+	OpenNode(i IOnodeIface) error
+	ReadNode(i IOnodeIface, p []byte) (int, error)
+	WriteNode(i IOnodeIface, p []byte) (int, error)
+	CloseNode(i IOnodeIface) error
+	ReadAtNode(i IOnodeIface, p []byte, off int64) (int, error)
+	ReadDirAllNode(i IOnodeIface) ([]os.FileInfo, error)
+	ReadFileNode(i IOnodeIface) ([]byte, error)
+	ReadLineNode(i IOnodeIface) (string, error)
+	StatNode(i IOnodeIface) (os.FileInfo, error)
+	SeekResetNode(i IOnodeIface) (int64, error)
+	PathNode(i IOnodeIface) string
 }

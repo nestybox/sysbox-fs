@@ -76,7 +76,7 @@ const (
 // communication channel between sysbox-fs 'master' and sysbox-fs 'child'
 // entities. See more details further below.
 //
-type NSenterService interface {
+type NSenterServiceIface interface {
 	NewEvent(
 		pid uint32,
 		ns *[]NStype,

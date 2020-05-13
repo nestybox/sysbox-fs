@@ -24,11 +24,11 @@ type ProcCpuinfoHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *ProcCpuinfoHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -37,7 +37,7 @@ func (h *ProcCpuinfoHandler) Lookup(
 }
 
 func (h *ProcCpuinfoHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -46,7 +46,7 @@ func (h *ProcCpuinfoHandler) Getattr(
 }
 
 func (h *ProcCpuinfoHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
@@ -64,7 +64,7 @@ func (h *ProcCpuinfoHandler) Open(
 	return nil
 }
 
-func (h *ProcCpuinfoHandler) Close(n domain.IOnode) error {
+func (h *ProcCpuinfoHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -77,7 +77,7 @@ func (h *ProcCpuinfoHandler) Close(n domain.IOnode) error {
 }
 
 func (h *ProcCpuinfoHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -95,7 +95,7 @@ func (h *ProcCpuinfoHandler) Read(
 }
 
 func (h *ProcCpuinfoHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -104,7 +104,7 @@ func (h *ProcCpuinfoHandler) Write(
 }
 
 func (h *ProcCpuinfoHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -126,7 +126,7 @@ func (h *ProcCpuinfoHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcCpuinfoHandler) GetService() domain.HandlerService {
+func (h *ProcCpuinfoHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -134,6 +134,6 @@ func (h *ProcCpuinfoHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcCpuinfoHandler) SetService(hs domain.HandlerService) {
+func (h *ProcCpuinfoHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

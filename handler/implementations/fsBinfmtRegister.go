@@ -23,11 +23,11 @@ type FsBinfmtRegisterHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *FsBinfmtRegisterHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -36,7 +36,7 @@ func (h *FsBinfmtRegisterHandler) Lookup(
 }
 
 func (h *FsBinfmtRegisterHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -45,7 +45,7 @@ func (h *FsBinfmtRegisterHandler) Getattr(
 }
 
 func (h *FsBinfmtRegisterHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
@@ -53,7 +53,7 @@ func (h *FsBinfmtRegisterHandler) Open(
 	return nil
 }
 
-func (h *FsBinfmtRegisterHandler) Close(node domain.IOnode) error {
+func (h *FsBinfmtRegisterHandler) Close(node domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -61,7 +61,7 @@ func (h *FsBinfmtRegisterHandler) Close(node domain.IOnode) error {
 }
 
 func (h *FsBinfmtRegisterHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -70,7 +70,7 @@ func (h *FsBinfmtRegisterHandler) Read(
 }
 
 func (h *FsBinfmtRegisterHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -79,7 +79,7 @@ func (h *FsBinfmtRegisterHandler) Write(
 }
 
 func (h *FsBinfmtRegisterHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	logrus.Debugf("Executing %v ReadDirAll() method", h.Name)
@@ -103,7 +103,7 @@ func (h *FsBinfmtRegisterHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *FsBinfmtRegisterHandler) GetService() domain.HandlerService {
+func (h *FsBinfmtRegisterHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -111,6 +111,6 @@ func (h *FsBinfmtRegisterHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *FsBinfmtRegisterHandler) SetService(hs domain.HandlerService) {
+func (h *FsBinfmtRegisterHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

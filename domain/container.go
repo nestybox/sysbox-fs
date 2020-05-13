@@ -42,7 +42,7 @@ type StateData = map[string]string
 // ContainerStateService interface defines the APIs that sysbox-fs components
 // must utilize to interact with the sysbox-fs state-storage backend.
 //
-type ContainerStateService interface {
+type ContainerStateServiceIface interface {
 	ContainerCreate(
 		id string,
 		pid uint32,
@@ -61,6 +61,6 @@ type ContainerStateService interface {
 	ContainerLookupById(id string) ContainerIface
 	ContainerLookupByInode(usernsInode Inode) ContainerIface
 	ContainerLookupByProcess(process ProcessIface) ContainerIface
-	ProcessService() ProcessService
+	ProcessService() ProcessServiceIface
 	ContainerDBSize() int
 }

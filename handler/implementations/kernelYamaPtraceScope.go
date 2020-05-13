@@ -87,11 +87,11 @@ type KernelYamaPtraceScopeHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *KernelYamaPtraceScopeHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -100,7 +100,7 @@ func (h *KernelYamaPtraceScopeHandler) Lookup(
 }
 
 func (h *KernelYamaPtraceScopeHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -109,7 +109,7 @@ func (h *KernelYamaPtraceScopeHandler) Getattr(
 }
 
 func (h *KernelYamaPtraceScopeHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -127,7 +127,7 @@ func (h *KernelYamaPtraceScopeHandler) Open(
 	return nil
 }
 
-func (h *KernelYamaPtraceScopeHandler) Close(n domain.IOnode) error {
+func (h *KernelYamaPtraceScopeHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -140,7 +140,7 @@ func (h *KernelYamaPtraceScopeHandler) Close(n domain.IOnode) error {
 }
 
 func (h *KernelYamaPtraceScopeHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -191,7 +191,7 @@ func (h *KernelYamaPtraceScopeHandler) Read(
 }
 
 func (h *KernelYamaPtraceScopeHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -226,7 +226,7 @@ func (h *KernelYamaPtraceScopeHandler) Write(
 }
 
 func (h *KernelYamaPtraceScopeHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -248,7 +248,7 @@ func (h *KernelYamaPtraceScopeHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *KernelYamaPtraceScopeHandler) GetService() domain.HandlerService {
+func (h *KernelYamaPtraceScopeHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -256,6 +256,6 @@ func (h *KernelYamaPtraceScopeHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *KernelYamaPtraceScopeHandler) SetService(hs domain.HandlerService) {
+func (h *KernelYamaPtraceScopeHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

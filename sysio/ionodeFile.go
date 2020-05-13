@@ -15,12 +15,12 @@ import (
 	"github.com/spf13/afero"
 )
 
-//
+// For unit-testing purposes.
 var AppFs = afero.NewOsFs()
 
-// Ensure IOnodeFile implements IOnode's interface.
-var _ domain.IOnode = (*IOnodeFile)(nil)
-var _ domain.IOService = (*ioFileService)(nil)
+// Ensure IOnodeFile implements IOnode's interfaces.
+var _ domain.IOServiceIface = (*ioFileService)(nil)
+var _ domain.IOnodeIface = (*IOnodeFile)(nil)
 
 //
 // I/O Service providing FS interaction capabilities.
@@ -30,7 +30,7 @@ type ioFileService struct{}
 func (s *ioFileService) NewIOnode(
 	n string,
 	p string,
-	mode os.FileMode) domain.IOnode {
+	mode os.FileMode) domain.IOnodeIface {
 	newFile := &IOnodeFile{
 		name: n,
 		path: p,
@@ -40,47 +40,47 @@ func (s *ioFileService) NewIOnode(
 	return newFile
 }
 
-func (s *ioFileService) OpenNode(i domain.IOnode) error {
+func (s *ioFileService) OpenNode(i domain.IOnodeIface) error {
 	return i.Open()
 }
 
-func (s *ioFileService) ReadNode(i domain.IOnode, p []byte) (int, error) {
+func (s *ioFileService) ReadNode(i domain.IOnodeIface, p []byte) (int, error) {
 	return i.Read(p)
 }
 
-func (s *ioFileService) WriteNode(i domain.IOnode, p []byte) (int, error) {
+func (s *ioFileService) WriteNode(i domain.IOnodeIface, p []byte) (int, error) {
 	return i.Write(p)
 }
 
-func (s *ioFileService) CloseNode(i domain.IOnode) error {
+func (s *ioFileService) CloseNode(i domain.IOnodeIface) error {
 	return i.Close()
 }
 
-func (s *ioFileService) ReadAtNode(i domain.IOnode, p []byte, off int64) (int, error) {
+func (s *ioFileService) ReadAtNode(i domain.IOnodeIface, p []byte, off int64) (int, error) {
 	return i.ReadAt(p, off)
 }
 
-func (s *ioFileService) ReadDirAllNode(i domain.IOnode) ([]os.FileInfo, error) {
+func (s *ioFileService) ReadDirAllNode(i domain.IOnodeIface) ([]os.FileInfo, error) {
 	return i.ReadDirAll()
 }
 
-func (s *ioFileService) ReadFileNode(i domain.IOnode) ([]byte, error) {
+func (s *ioFileService) ReadFileNode(i domain.IOnodeIface) ([]byte, error) {
 	return i.ReadFile()
 }
 
-func (s *ioFileService) ReadLineNode(i domain.IOnode) (string, error) {
+func (s *ioFileService) ReadLineNode(i domain.IOnodeIface) (string, error) {
 	return i.ReadLine()
 }
 
-func (s *ioFileService) StatNode(i domain.IOnode) (os.FileInfo, error) {
+func (s *ioFileService) StatNode(i domain.IOnodeIface) (os.FileInfo, error) {
 	return i.Stat()
 }
 
-func (s *ioFileService) SeekResetNode(i domain.IOnode) (int64, error) {
+func (s *ioFileService) SeekResetNode(i domain.IOnodeIface) (int64, error) {
 	return i.SeekReset()
 }
 
-func (s *ioFileService) PathNode(i domain.IOnode) string {
+func (s *ioFileService) PathNode(i domain.IOnodeIface) string {
 	return i.Path()
 }
 

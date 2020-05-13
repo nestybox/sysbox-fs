@@ -25,14 +25,14 @@ type ProcSwapsHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 // /proc/swaps static header
 var swapsHeader = "Filename                                Type            Size    Used    Priority"
 
 func (h *ProcSwapsHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -41,7 +41,7 @@ func (h *ProcSwapsHandler) Lookup(
 }
 
 func (h *ProcSwapsHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -50,7 +50,7 @@ func (h *ProcSwapsHandler) Getattr(
 }
 
 func (h *ProcSwapsHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
@@ -68,7 +68,7 @@ func (h *ProcSwapsHandler) Open(
 	return nil
 }
 
-func (h *ProcSwapsHandler) Close(n domain.IOnode) error {
+func (h *ProcSwapsHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -81,7 +81,7 @@ func (h *ProcSwapsHandler) Close(n domain.IOnode) error {
 }
 
 func (h *ProcSwapsHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -126,14 +126,14 @@ func (h *ProcSwapsHandler) Read(
 }
 
 func (h *ProcSwapsHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	return 0, nil
 }
 
 func (h *ProcSwapsHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -155,7 +155,7 @@ func (h *ProcSwapsHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcSwapsHandler) GetService() domain.HandlerService {
+func (h *ProcSwapsHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -163,6 +163,6 @@ func (h *ProcSwapsHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcSwapsHandler) SetService(hs domain.HandlerService) {
+func (h *ProcSwapsHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

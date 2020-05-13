@@ -31,7 +31,7 @@ type File struct {
 	attr *fuse.Attr
 
 	// I/O abstraction to represent each file/dir.
-	ionode domain.IOnode
+	ionode domain.IOnodeIface
 
 	// Pointer to parent fuseService hosting this file/dir.
 	server *fuseServer

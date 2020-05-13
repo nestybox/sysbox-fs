@@ -40,11 +40,11 @@ type KernelPanicOopsHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *KernelPanicOopsHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -53,7 +53,7 @@ func (h *KernelPanicOopsHandler) Lookup(
 }
 
 func (h *KernelPanicOopsHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -62,7 +62,7 @@ func (h *KernelPanicOopsHandler) Getattr(
 }
 
 func (h *KernelPanicOopsHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -80,7 +80,7 @@ func (h *KernelPanicOopsHandler) Open(
 	return nil
 }
 
-func (h *KernelPanicOopsHandler) Close(n domain.IOnode) error {
+func (h *KernelPanicOopsHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -93,7 +93,7 @@ func (h *KernelPanicOopsHandler) Close(n domain.IOnode) error {
 }
 
 func (h *KernelPanicOopsHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -144,7 +144,7 @@ func (h *KernelPanicOopsHandler) Read(
 }
 
 func (h *KernelPanicOopsHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -179,7 +179,7 @@ func (h *KernelPanicOopsHandler) Write(
 }
 
 func (h *KernelPanicOopsHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -201,7 +201,7 @@ func (h *KernelPanicOopsHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *KernelPanicOopsHandler) GetService() domain.HandlerService {
+func (h *KernelPanicOopsHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -209,6 +209,6 @@ func (h *KernelPanicOopsHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *KernelPanicOopsHandler) SetService(hs domain.HandlerService) {
+func (h *KernelPanicOopsHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

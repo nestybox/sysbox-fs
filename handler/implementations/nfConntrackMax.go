@@ -38,11 +38,11 @@ type NfConntrackMaxHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *NfConntrackMaxHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -51,7 +51,7 @@ func (h *NfConntrackMaxHandler) Lookup(
 }
 
 func (h *NfConntrackMaxHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -60,7 +60,7 @@ func (h *NfConntrackMaxHandler) Getattr(
 }
 
 func (h *NfConntrackMaxHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -85,7 +85,7 @@ func (h *NfConntrackMaxHandler) Open(
 	return nil
 }
 
-func (h *NfConntrackMaxHandler) Close(n domain.IOnode) error {
+func (h *NfConntrackMaxHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -98,7 +98,7 @@ func (h *NfConntrackMaxHandler) Close(n domain.IOnode) error {
 }
 
 func (h *NfConntrackMaxHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -141,7 +141,7 @@ func (h *NfConntrackMaxHandler) Read(
 }
 
 func (h *NfConntrackMaxHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -205,14 +205,14 @@ func (h *NfConntrackMaxHandler) Write(
 }
 
 func (h *NfConntrackMaxHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
 func (h *NfConntrackMaxHandler) fetchFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	c domain.ContainerIface) (string, error) {
 
 	// Read from host FS to extract the existing value.
@@ -232,7 +232,7 @@ func (h *NfConntrackMaxHandler) fetchFile(
 	return curHostMax, nil
 }
 
-func (h *NfConntrackMaxHandler) pushFile(n domain.IOnode, c domain.ContainerIface,
+func (h *NfConntrackMaxHandler) pushFile(n domain.IOnodeIface, c domain.ContainerIface,
 	newMaxInt int) error {
 
 	curHostMax, err := n.ReadLine()
@@ -286,7 +286,7 @@ func (h *NfConntrackMaxHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *NfConntrackMaxHandler) GetService() domain.HandlerService {
+func (h *NfConntrackMaxHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -294,6 +294,6 @@ func (h *NfConntrackMaxHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *NfConntrackMaxHandler) SetService(hs domain.HandlerService) {
+func (h *NfConntrackMaxHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

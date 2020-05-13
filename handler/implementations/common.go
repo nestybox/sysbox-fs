@@ -26,10 +26,12 @@ type CommonHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
-func (h *CommonHandler) Lookup(n domain.IOnode, req *domain.HandlerRequest) (os.FileInfo, error) {
+func (h *CommonHandler) Lookup(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
@@ -71,7 +73,9 @@ func (h *CommonHandler) Lookup(n domain.IOnode, req *domain.HandlerRequest) (os.
 	return info, nil
 }
 
-func (h *CommonHandler) Getattr(n domain.IOnode, req *domain.HandlerRequest) (*syscall.Stat_t, error) {
+func (h *CommonHandler) Getattr(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
@@ -90,7 +94,9 @@ func (h *CommonHandler) Getattr(n domain.IOnode, req *domain.HandlerRequest) (*s
 	return stat, nil
 }
 
-func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error {
+func (h *CommonHandler) Open(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
@@ -132,14 +138,16 @@ func (h *CommonHandler) Open(n domain.IOnode, req *domain.HandlerRequest) error 
 	return nil
 }
 
-func (h *CommonHandler) Close(node domain.IOnode) error {
+func (h *CommonHandler) Close(node domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *CommonHandler) Read(n domain.IOnode, req *domain.HandlerRequest) (int, error) {
+func (h *CommonHandler) Read(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
@@ -201,7 +209,9 @@ func (h *CommonHandler) Read(n domain.IOnode, req *domain.HandlerRequest) (int, 
 	return copyResultBuffer(req.Data, []byte(data))
 }
 
-func (h *CommonHandler) Write(n domain.IOnode, req *domain.HandlerRequest) (int, error) {
+func (h *CommonHandler) Write(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing Write() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
@@ -238,7 +248,9 @@ func (h *CommonHandler) Write(n domain.IOnode, req *domain.HandlerRequest) (int,
 	return len(req.Data), nil
 }
 
-func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) ([]os.FileInfo, error) {
+func (h *CommonHandler) ReadDirAll(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
@@ -307,7 +319,9 @@ func (h *CommonHandler) ReadDirAll(n domain.IOnode, req *domain.HandlerRequest) 
 	return osFileEntries, nil
 }
 
-func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) error {
+func (h *CommonHandler) Setattr(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing Setattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
@@ -351,7 +365,7 @@ func (h *CommonHandler) Setattr(n domain.IOnode, req *domain.HandlerRequest) err
 
 // Auxiliary routine to aid during ReadDirAll() execution.
 func (h *CommonHandler) EmulatedFilesInfo(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) *map[string]*os.FileInfo {
 
 	var emulatedResources []string
@@ -395,7 +409,7 @@ func (h *CommonHandler) EmulatedFilesInfo(
 
 // Auxiliary method to fetch the content of any given file within a container.
 func (h *CommonHandler) fetchFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	process domain.ProcessIface) (string, error) {
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
@@ -432,7 +446,7 @@ func (h *CommonHandler) fetchFile(
 
 // Auxiliary method to inject content into any given file within a container.
 func (h *CommonHandler) pushFile(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	process domain.ProcessIface,
 	s string) error {
 
@@ -483,7 +497,7 @@ func (h *CommonHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *CommonHandler) GetService() domain.HandlerService {
+func (h *CommonHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -491,6 +505,6 @@ func (h *CommonHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *CommonHandler) SetService(hs domain.HandlerService) {
+func (h *CommonHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

@@ -24,11 +24,11 @@ type ProcStatHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *ProcStatHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -37,7 +37,7 @@ func (h *ProcStatHandler) Lookup(
 }
 
 func (h *ProcStatHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -46,7 +46,7 @@ func (h *ProcStatHandler) Getattr(
 }
 
 func (h *ProcStatHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
@@ -64,7 +64,7 @@ func (h *ProcStatHandler) Open(
 	return nil
 }
 
-func (h *ProcStatHandler) Close(n domain.IOnode) error {
+func (h *ProcStatHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -77,7 +77,7 @@ func (h *ProcStatHandler) Close(n domain.IOnode) error {
 }
 
 func (h *ProcStatHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -95,14 +95,14 @@ func (h *ProcStatHandler) Read(
 }
 
 func (h *ProcStatHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	return 0, nil
 }
 
 func (h *ProcStatHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -124,7 +124,7 @@ func (h *ProcStatHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcStatHandler) GetService() domain.HandlerService {
+func (h *ProcStatHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -132,6 +132,6 @@ func (h *ProcStatHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcStatHandler) SetService(hs domain.HandlerService) {
+func (h *ProcStatHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

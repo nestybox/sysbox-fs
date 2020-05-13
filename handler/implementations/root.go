@@ -30,11 +30,11 @@ type RootHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *RootHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -43,7 +43,7 @@ func (h *RootHandler) Lookup(
 }
 
 func (h *RootHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -52,7 +52,7 @@ func (h *RootHandler) Getattr(
 }
 
 func (h *RootHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
@@ -60,7 +60,7 @@ func (h *RootHandler) Open(
 	return nil
 }
 
-func (h *RootHandler) Close(node domain.IOnode) error {
+func (h *RootHandler) Close(node domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -68,7 +68,7 @@ func (h *RootHandler) Close(node domain.IOnode) error {
 }
 
 func (h *RootHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -77,7 +77,7 @@ func (h *RootHandler) Read(
 }
 
 func (h *RootHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -86,7 +86,7 @@ func (h *RootHandler) Write(
 }
 
 func (h *RootHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	logrus.Debugf("Executing %v ReadDirAll() method", h.Name)
@@ -110,7 +110,7 @@ func (h *RootHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *RootHandler) GetService() domain.HandlerService {
+func (h *RootHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -118,6 +118,6 @@ func (h *RootHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *RootHandler) SetService(hs domain.HandlerService) {
+func (h *RootHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

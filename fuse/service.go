@@ -17,19 +17,19 @@ import (
 )
 
 type FuseServerService struct {
-	sync.RWMutex                        // servers map protection
-	path         string                 // fs path to emulate -- "/" by default
-	mountPoint   string                 // base mountpoint -- "/var/lib/sysboxfs" by default
-	serversMap   map[string]*fuseServer // tracks created fuse-servers
-	ios          domain.IOService       // i/o service pointer
-	hds          domain.HandlerService  // handler service pointer
+	sync.RWMutex                            // servers map protection
+	path         string                     // fs path to emulate -- "/" by default
+	mountPoint   string                     // base mountpoint -- "/var/lib/sysboxfs" by default
+	serversMap   map[string]*fuseServer     // tracks created fuse-servers
+	ios          domain.IOServiceIface      // i/o service pointer
+	hds          domain.HandlerServiceIface // handler service pointer
 }
 
 // FuseServerService constructor.
 func NewFuseServerService(
 	mp string,
-	ios domain.IOService,
-	hds domain.HandlerService) *FuseServerService {
+	ios domain.IOServiceIface,
+	hds domain.HandlerServiceIface) *FuseServerService {
 
 	newServerService := &FuseServerService{
 		serversMap: make(map[string]*fuseServer),
@@ -132,7 +132,8 @@ func (fss *FuseServerService) DestroyFuseServer(cntrId string) error {
 	return nil
 }
 
-func (fss *FuseServerService) SetContainerService(css domain.ContainerStateService) {
+func (fss *FuseServerService) SetContainerService(
+	css domain.ContainerStateServiceIface) {
 
 	fss.hds.SetStateService(css)
 }

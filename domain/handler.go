@@ -54,19 +54,19 @@ type Handler struct {
 	Path    string
 	Type    HandlerType
 	Enabled bool
-	Service HandlerService
+	Service HandlerServiceIface
 	HandlerIface
 }
 
 type HandlerIface interface {
 	// FS operations.
-	Open(node IOnode, req *HandlerRequest) error
-	Close(node IOnode) error
-	Lookup(n IOnode, req *HandlerRequest) (os.FileInfo, error)
-	Getattr(n IOnode, req *HandlerRequest) (*syscall.Stat_t, error)
-	Read(node IOnode, req *HandlerRequest) (int, error)
-	Write(node IOnode, req *HandlerRequest) (int, error)
-	ReadDirAll(node IOnode, req *HandlerRequest) ([]os.FileInfo, error)
+	Open(node IOnodeIface, req *HandlerRequest) error
+	Close(node IOnodeIface) error
+	Lookup(n IOnodeIface, req *HandlerRequest) (os.FileInfo, error)
+	Getattr(n IOnodeIface, req *HandlerRequest) (*syscall.Stat_t, error)
+	Read(node IOnodeIface, req *HandlerRequest) (int, error)
+	Write(node IOnodeIface, req *HandlerRequest) (int, error)
+	ReadDirAll(node IOnodeIface, req *HandlerRequest) ([]os.FileInfo, error)
 
 	// getters/setters.
 	GetName() string
@@ -74,14 +74,14 @@ type HandlerIface interface {
 	GetType() HandlerType
 	GetEnabled() bool
 	SetEnabled(val bool)
-	GetService() HandlerService
-	SetService(hs HandlerService)
+	GetService() HandlerServiceIface
+	SetService(hs HandlerServiceIface)
 }
 
-type HandlerService interface {
+type HandlerServiceIface interface {
 	RegisterHandler(h HandlerIface) error
 	UnregisterHandler(h HandlerIface) error
-	LookupHandler(i IOnode) (HandlerIface, bool)
+	LookupHandler(i IOnodeIface) (HandlerIface, bool)
 	FindHandler(s string) (HandlerIface, bool)
 	EnableHandler(h HandlerIface) error
 	DisableHandler(h HandlerIface) error
@@ -89,11 +89,11 @@ type HandlerService interface {
 
 	// getters/setter
 	HandlerDB() map[string]HandlerIface
-	StateService() ContainerStateService
-	SetStateService(css ContainerStateService)
-	ProcessService() ProcessService
-	NSenterService() NSenterService
-	IOService() IOService
+	StateService() ContainerStateServiceIface
+	SetStateService(css ContainerStateServiceIface)
+	ProcessService() ProcessServiceIface
+	NSenterService() NSenterServiceIface
+	IOService() IOServiceIface
 	IgnoreErrors() bool
 
 	// Auxiliar methods.

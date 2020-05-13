@@ -40,11 +40,11 @@ type KernelNgroupsMaxHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *KernelNgroupsMaxHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -53,7 +53,7 @@ func (h *KernelNgroupsMaxHandler) Lookup(
 }
 
 func (h *KernelNgroupsMaxHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -62,7 +62,7 @@ func (h *KernelNgroupsMaxHandler) Getattr(
 }
 
 func (h *KernelNgroupsMaxHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -80,7 +80,7 @@ func (h *KernelNgroupsMaxHandler) Open(
 	return nil
 }
 
-func (h *KernelNgroupsMaxHandler) Close(n domain.IOnode) error {
+func (h *KernelNgroupsMaxHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -93,7 +93,7 @@ func (h *KernelNgroupsMaxHandler) Close(n domain.IOnode) error {
 }
 
 func (h *KernelNgroupsMaxHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -144,7 +144,7 @@ func (h *KernelNgroupsMaxHandler) Read(
 }
 
 func (h *KernelNgroupsMaxHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -153,7 +153,7 @@ func (h *KernelNgroupsMaxHandler) Write(
 }
 
 func (h *KernelNgroupsMaxHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -175,7 +175,7 @@ func (h *KernelNgroupsMaxHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *KernelNgroupsMaxHandler) GetService() domain.HandlerService {
+func (h *KernelNgroupsMaxHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -183,6 +183,6 @@ func (h *KernelNgroupsMaxHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *KernelNgroupsMaxHandler) SetService(hs domain.HandlerService) {
+func (h *KernelNgroupsMaxHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

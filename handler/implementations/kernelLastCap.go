@@ -30,11 +30,11 @@ type KernelLastCapHandler struct {
 	Type      domain.HandlerType
 	Enabled   bool
 	Cacheable bool
-	Service   domain.HandlerService
+	Service   domain.HandlerServiceIface
 }
 
 func (h *KernelLastCapHandler) Lookup(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
@@ -43,7 +43,7 @@ func (h *KernelLastCapHandler) Lookup(
 }
 
 func (h *KernelLastCapHandler) Getattr(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
 	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
@@ -52,7 +52,7 @@ func (h *KernelLastCapHandler) Getattr(
 }
 
 func (h *KernelLastCapHandler) Open(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
@@ -70,7 +70,7 @@ func (h *KernelLastCapHandler) Open(
 	return nil
 }
 
-func (h *KernelLastCapHandler) Close(n domain.IOnode) error {
+func (h *KernelLastCapHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -83,7 +83,7 @@ func (h *KernelLastCapHandler) Close(n domain.IOnode) error {
 }
 
 func (h *KernelLastCapHandler) Read(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
@@ -134,7 +134,7 @@ func (h *KernelLastCapHandler) Read(
 }
 
 func (h *KernelLastCapHandler) Write(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
@@ -143,7 +143,7 @@ func (h *KernelLastCapHandler) Write(
 }
 
 func (h *KernelLastCapHandler) ReadDirAll(
-	n domain.IOnode,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
@@ -165,7 +165,7 @@ func (h *KernelLastCapHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *KernelLastCapHandler) GetService() domain.HandlerService {
+func (h *KernelLastCapHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
@@ -173,6 +173,6 @@ func (h *KernelLastCapHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *KernelLastCapHandler) SetService(hs domain.HandlerService) {
+func (h *KernelLastCapHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

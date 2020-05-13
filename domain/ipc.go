@@ -4,6 +4,6 @@
 
 package domain
 
-type IpcService interface {
+type IpcServiceIface interface {
 	Init() error
 }
