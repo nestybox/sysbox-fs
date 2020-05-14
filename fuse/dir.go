@@ -89,10 +89,14 @@ func (d *Dir) Lookup(
 			return nil, err
 		}
 
-		var f fs.Node
-
-		f.(*File).attr.Uid = uid
-		f.(*File).attr.Gid = gid
+		// Identify node type and overwrite uid & gid values.
+		if file, ok := (*node).(*File); ok {
+			file.attr.Uid = uid
+			file.attr.Gid = gid
+		} else if dir, ok := (*node).(*Dir); ok {
+			dir.attr.Uid = uid
+			dir.attr.Gid = gid
+		}
 
 		return *node, nil
 	}

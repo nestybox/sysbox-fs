@@ -80,10 +80,12 @@ func (f *File) Getattr(
 	// Use the attributes obtained during Lookup()
 	resp.Attr = *f.attr
 
-	// Override the uid & gid attributes with the requester'ss user-ns root uid
-	// & gid. In the future we should return the requester's user-ns root uid &
-	// gid instead; this will help us to support "unshare -U -m --mount-proc"
-	// inside a sys container.
+	// Override the uid & gid attributes with the user-ns' root uid & gid of the
+	// sys container under which the request is received. In the future we should
+	// return the requester's user-ns root uid & gid instead, which could differ
+	// from the sys container's one if request is originated from an L2 container.
+	// Also, this will help us to support "unshare -U -m --mount-proc" inside a
+	// sys container.
 	resp.Attr.Uid = f.server.container.UID()
 	resp.Attr.Gid = f.server.container.GID()
 
