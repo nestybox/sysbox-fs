@@ -164,7 +164,7 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 	// Ensure that new container's init process userns inode is not already registered.
 	if _, ok := css.usernsTable[usernsInode]; ok {
 		css.Unlock()
-		logrus.Errorf("Container addition error: container %s with userns-inode %s already present",
+		logrus.Errorf("Container addition error: container %s with userns-inode %d already present",
 			cntr.id, usernsInode)
 		return grpcStatus.Errorf(
 			grpcCodes.AlreadyExists,
@@ -233,7 +233,7 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	currCntrUsernsTable, ok := css.usernsTable[usernsInode]
 	if !ok {
 		css.Unlock()
-		logrus.Errorf("Container deletion error: could not find container %s with userns-inode %s",
+		logrus.Errorf("Container deletion error: could not find container %s with userns-inode %d",
 			cntr.id, usernsInode)
 		return grpcStatus.Errorf(
 			grpcCodes.NotFound,
@@ -244,6 +244,8 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 
 	if currCntrIdTable != currCntrUsernsTable {
 		css.Unlock()
+		logrus.Errorf("Container deletion error: container %s with inconsistent usernsTable entry",
+			cntr.id)
 		return grpcStatus.Errorf(
 			grpcCodes.Internal,
 			"Container %s with corrupted information",
@@ -251,7 +253,7 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 		)
 	}
 
-	// Create dedicated fuse-server for each sys container.
+	// Destroy fuse-server associated to this sys container.
 	err := css.fss.DestroyFuseServer(cntr.id)
 	if err != nil {
 		css.Unlock()
@@ -259,7 +261,7 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 			cntr.id)
 		return grpcStatus.Errorf(
 			grpcCodes.Internal,
-			"Container %s unable to destroy fuse-server",
+			"Container %s unable to destroy associated fuse-server",
 			cntr.id,
 		)
 	}

@@ -28,6 +28,7 @@ type ProcessIface interface {
 	NsInodes() (map[string]Inode, error)
 	UserNsInode() Inode
 	UserNsInodeParent() (Inode, error)
+	CreateNsInodes(Inode) error
 	PathAccess(path string, accessFlags AccessMode) error
 }
 

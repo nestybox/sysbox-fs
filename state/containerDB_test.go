@@ -1,98 +1,196 @@
 //
-// Copyright: (C) 2019 Nestybox Inc.  All rights reserved.
+// Copyright: (C) 2019-2020 Nestybox Inc.  All rights reserved.
 //
 
 package state
 
 import (
+	"io/ioutil"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
+	"github.com/nestybox/sysbox-fs/handler"
+	"github.com/nestybox/sysbox-fs/nsenter"
+	"github.com/nestybox/sysbox-fs/process"
+	"github.com/nestybox/sysbox-fs/sysio"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/afero"
 )
 
-func TestNewContainerStateService(t *testing.T) {
+var fuseServerService domain.FuseServerServiceIface
+var ioService domain.IOServiceIface
+var processService domain.ProcessServiceIface
+var nsenterService domain.NSenterServiceIface
+var handlerService domain.HandlerServiceIface
 
-	var expectedResult = &containerStateService{}
+func TestMain(m *testing.M) {
+
+	// Disable log generation during UT.
+	logrus.SetOutput(ioutil.Discard)
+
+	// Initialize sysbox-fs' required services.
+
+	processService = process.NewProcessService()
+
+	nsenterService = nsenter.NewNSenterService()
+
+	ioService = sysio.NewIOService(sysio.IOFileService)
+
+	handlerService = handler.NewHandlerService(
+		handler.DefaultHandlers,
+		nil,
+		nsenterService,
+		processService,
+		ioService,
+		false,
+	)
+
+	fuseServerService = fuse.NewFuseServerService(
+		"/var/lib/sysboxfs",
+		ioService,
+		handlerService,
+	)
+
+	m.Run()
+}
+
+func TestNewContainerStateService(t *testing.T) {
+	type args struct {
+		fss domain.FuseServerServiceIface
+		prs domain.ProcessServiceIface
+		ios domain.IOServiceIface
+	}
+	a1 := args{
+		fss: fuseServerService,
+		prs: processService,
+		ios: ioService,
+	}
+
+	var expectedResult = &containerStateService{
+		idTable:     make(map[string]*container),
+		usernsTable: make(map[domain.Inode]*container),
+		fss:         a1.fss,
+		prs:         a1.prs,
+		ios:         a1.ios,
+	}
 
 	tests := []struct {
 		name string
-		want domain.ContainerStateService
+		args args
+		want domain.ContainerStateServiceIface
 	}{
-		{"1", expectedResult},
+		{"1", a1, expectedResult},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewContainerStateService()
-			if !reflect.DeepEqual(got, tt.want) {
-				//t.Errorf("NewContainerStateService() = %v, want %v", got, tt.want)
+			if got := NewContainerStateService(
+				tt.args.fss,
+				tt.args.prs,
+				tt.args.ios); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewContainerStateService() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 func Test_containerStateService_ContainerCreate(t *testing.T) {
-	type args struct {
-		id       string
-		initpid  uint32
-		hostname string
-		inode    domain.Inode
-		ctime    time.Time
-		uidFirst uint32
-		uidSize  uint32
-		gidFirst uint32
-		gidSize  uint32
+
+	type fields struct {
+		idTable     map[string]*container
+		usernsTable map[domain.Inode]*container
+		fss         domain.FuseServerServiceIface
+		prs         domain.ProcessServiceIface
+		ios         domain.IOServiceIface
 	}
 
-	var css *containerStateService
+	var f1 = fields{
+		idTable:     make(map[string]*container),
+		usernsTable: make(map[domain.Inode]*container),
+		fss:         fuseServerService,
+		prs:         processService,
+		ios:         ioService,
+	}
 
-	var cs = &container{
-		id:       "1",
-		initPid:  1001,
-		hostname: "syscont",
-		pidInode: 123456,
-		ctime:    time.Time{},
-		uidFirst: 1,
-		uidSize:  65535,
-		gidFirst: 1,
-		gidSize:  65535,
+	css := &containerStateService{
+		idTable:     f1.idTable,
+		usernsTable: f1.usernsTable,
+		fss:         f1.fss,
+		prs:         f1.prs,
+		ios:         f1.ios,
+	}
+	type args struct {
+		id            string
+		initPid       uint32
+		ctime         time.Time
+		uidFirst      uint32
+		uidSize       uint32
+		gidFirst      uint32
+		gidSize       uint32
+		procRoPaths   []string
+		procMaskPaths []string
+	}
+
+	// Manually create a container to compare with.
+	var c1 = &container{
+		id:            "1",
+		initPid:       1001,
+		ctime:         time.Time{},
+		uidFirst:      1,
+		uidSize:       65535,
+		gidFirst:      1,
+		gidSize:       65535,
+		procRoPaths:   nil,
+		procMaskPaths: nil,
+		specPaths:     make(map[string]struct{}),
+		dataStore:     nil,
+		initProc:      nil,
+		service:       css,
 	}
 
 	tests := []struct {
-		name string
-		css  *containerStateService
-		args args
-		want domain.ContainerIface
+		name   string
+		fields fields
+		args   args
+		want   domain.ContainerIface
 	}{
-		// Create a new container and verify that it fully match the arguments
-		// originally passed.
-		{"1", css, args{
-			cs.id,
-			cs.initPid,
-			cs.hostname,
-			cs.pidInode,
-			cs.ctime,
-			cs.uidFirst,
-			cs.uidSize,
-			cs.gidFirst,
-			cs.gidSize,
-		}, cs},
+		//
+		// Testcase 1: Compare previously create container with a new one to be
+		// built through the container's constructor method. They should fully
+		// match.
+		//
+		{"1", f1, args{
+			c1.id,
+			c1.initPid,
+			c1.ctime,
+			c1.uidFirst,
+			c1.uidSize,
+			c1.gidFirst,
+			c1.gidSize,
+			nil,
+			nil,
+		}, c1},
 	}
 
+	//
+	// Testcase executions.
+	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.css.ContainerCreate(
+			if got := css.ContainerCreate(
 				tt.args.id,
-				tt.args.initpid,
-				tt.args.hostname,
-				tt.args.inode,
+				tt.args.initPid,
 				tt.args.ctime,
 				tt.args.uidFirst,
 				tt.args.uidSize,
 				tt.args.gidFirst,
-				tt.args.gidSize); !reflect.DeepEqual(got, tt.want) {
+				tt.args.gidSize,
+				tt.args.procRoPaths,
+				tt.args.procMaskPaths); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("containerStateService.ContainerCreate() = %v, want %v",
 					got, tt.want)
 			}
@@ -100,121 +198,332 @@ func Test_containerStateService_ContainerCreate(t *testing.T) {
 	}
 }
 
-func Test_containerStateService_ContainerAdd(t *testing.T) {
+func Test_containerStateService_ContainerPreRegister(t *testing.T) {
+
+	type fields struct {
+		idTable     map[string]*container
+		usernsTable map[domain.Inode]*container
+		fss         domain.FuseServerServiceIface
+		prs         domain.ProcessServiceIface
+		ios         domain.IOServiceIface
+	}
+
+	var f1 = fields{
+		idTable:     make(map[string]*container),
+		usernsTable: make(map[domain.Inode]*container),
+		fss:         fuseServerService,
+		prs:         processService,
+		ios:         ioService,
+	}
+
+	var c2 = &container{
+		id: "c2",
+	}
+
+	type args struct {
+		id string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+		prepare func()
+	}{
+		{
+			//
+			// Test-case 1: Pre-register a new container.
+			//
+			name:    "1",
+			fields:  f1,
+			args:    args{"c1"},
+			wantErr: false,
+			prepare: func() {},
+		},
+		{
+			//
+			// Test-case 2: Pre-register an already-present container (with
+			// matching container ID). Error expected.
+			//
+			name:    "2",
+			fields:  f1,
+			args:    args{"c2"},
+			wantErr: true,
+			prepare: func() {
+				f1.idTable[c2.id] = c2
+			},
+		},
+	}
+
+	//
+	// Testcase executions.
+	//
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			css := &containerStateService{
+				idTable:     tt.fields.idTable,
+				usernsTable: tt.fields.usernsTable,
+				fss:         tt.fields.fss,
+				prs:         tt.fields.prs,
+				ios:         tt.fields.ios,
+			}
+
+			// Prepare the mocks.
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			if err := css.ContainerPreRegister(tt.args.id); (err != nil) != tt.wantErr {
+				t.Errorf("containerStateService.ContainerPreRegister() error = %v, wantErr %v",
+					err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func Test_containerStateService_ContainerRegister(t *testing.T) {
+
+	type fields struct {
+		RWMutex     sync.RWMutex
+		idTable     map[string]*container
+		usernsTable map[domain.Inode]*container
+		fss         domain.FuseServerServiceIface
+		prs         domain.ProcessServiceIface
+		ios         domain.IOServiceIface
+	}
+
+	var f1 = fields{
+		idTable:     make(map[string]*container),
+		usernsTable: make(map[domain.Inode]*container),
+		fss:         fuseServerService,
+		prs:         processService,
+		ios:         ioService,
+	}
+
+	var c1 = &container{
+		id:       "c1",
+		initProc: f1.prs.ProcessCreate(1001, 0, 0),
+	}
+
+	var c2 = &container{
+		id: "c2",
+	}
+
+	var c3 = &container{
+		id:       "c3",
+		initProc: f1.prs.ProcessCreate(3003, 0, 0),
+	}
+
+	var c4 = &container{
+		id:       "c4",
+		initProc: f1.prs.ProcessCreate(4004, 0, 0),
+	}
+
 	type args struct {
 		c domain.ContainerIface
 	}
 
-	var cs1 = &container{
-		id:       "cs1",
-		pidInode: 1111111,
-	}
-
-	var cs2 = &container{
-		id: "cs2",
-	}
-
-	var cs3 = &container{
-		id:       "cs3",
-		pidInode: 333333,
-	}
-
-	var css = &containerStateService{
-		idTable: map[string]domain.Inode{
-			"cs2": 222222,
-		},
-		pidTable: map[domain.Inode]*container{
-			222222: cs2,
-			333333: cs3,
-		},
-	}
-
 	tests := []struct {
 		name    string
-		css     *containerStateService
+		fields  fields
 		args    args
 		wantErr bool
+		prepare func()
 	}{
-		// Register a new/non-existing container.
-		{"1", css, args{cs1}, false},
+		{
+			//
+			// Test-case 1: Register a pre-registered container with valid
+			// user-ns.
+			//
+			name:    "1",
+			fields:  f1,
+			args:    args{c1},
+			wantErr: false,
+			prepare: func() {
 
-		// Register an already-present container (with matching container ID).
-		// Error expected.
-		{"2", css, args{cs2}, true},
+				c1.InitProc().CreateNsInodes(123456)
 
-		// Register an already-present container (with matching container
-		// pidNsInode). Error expected.
-		{"3", css, args{cs3}, true},
+				f1.idTable[c1.id] = c1
+			},
+		},
+		{
+			//
+			// Test-case 2: Register a non-pre-registered container. Error
+			// expected.
+			//
+			name:    "2",
+			fields:  f1,
+			args:    args{c2},
+			wantErr: true,
+			prepare: func() {},
+		},
+		{
+			//
+			// Test-case 3: Register a pre-registered container with missing
+			// user-ns inode (i.e. missing /proc/pid/ns/<namespaces>). Error
+			// expected.
+			//
+			name:    "3",
+			fields:  f1,
+			args:    args{c3},
+			wantErr: true,
+			prepare: func() {
+
+				f1.idTable[c3.id] = c3
+			},
+		},
+		{
+			//
+			// Test-case 4: Register a pre-registered container with an existing
+			// user-ns inode (i.e. /proc/pid/ns/<namespaces>). However, this inode
+			// value is present in usernsTable by the time the registration begins,
+			// which is an unexpected error, as it indicates "overlapping"
+			// condition. Error expected.
+			//
+			name:    "4",
+			fields:  f1,
+			args:    args{c4},
+			wantErr: true,
+			prepare: func() {
+
+				c4.InitProc().CreateNsInodes(123456)
+				inode, _ := c4.InitProc().UserNsInode()
+
+				f1.idTable[c4.id] = c4
+				f1.usernsTable[inode] = c4 // <-- unexpected instruction during registration
+
+			},
+		},
 	}
 
+	//
+	// Testcase executions.
+	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.css.ContainerAdd(tt.args.c); (err != nil) != tt.wantErr {
-				t.Errorf("containerStateService.ContainerAdd() error = %v, wantErr %v",
-					err, tt.wantErr)
+			css := &containerStateService{
+				RWMutex:     tt.fields.RWMutex,
+				idTable:     tt.fields.idTable,
+				usernsTable: tt.fields.usernsTable,
+				fss:         tt.fields.fss,
+				prs:         tt.fields.prs,
+				ios:         tt.fields.ios,
 			}
 
-			// Verify that containers were properly added.
-			if cntr := tt.css.ContainerLookupById(tt.args.c.ID()); cntr == nil {
-				if !tt.wantErr {
-					t.Errorf("Unexpected result during execution of testcase %v", tt.name)
-				}
+			// Initialize memory-based mock FS.
+			sysio.AppFs = afero.NewMemMapFs()
+
+			// Prepare the mocks.
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			if err := css.ContainerRegister(tt.args.c); (err != nil) != tt.wantErr {
+				t.Errorf("containerStateService.ContainerRegister() error = %v, wantErr %v",
+					err, tt.wantErr)
 			}
 		})
 	}
 }
 
 func Test_containerStateService_ContainerUpdate(t *testing.T) {
+	type fields struct {
+		RWMutex     sync.RWMutex
+		idTable     map[string]*container
+		usernsTable map[domain.Inode]*container
+		fss         domain.FuseServerServiceIface
+		prs         domain.ProcessServiceIface
+		ios         domain.IOServiceIface
+	}
+
+	var f1 = fields{
+		idTable:     make(map[string]*container),
+		usernsTable: make(map[domain.Inode]*container),
+		fss:         fuseServerService,
+		prs:         processService,
+		ios:         ioService,
+	}
+
+	var c1 = &container{
+		id:       "c1",
+		initProc: f1.prs.ProcessCreate(1001, 0, 0),
+	}
+	f1.idTable[c1.id] = c1
+
+	var c2 = &container{
+		id:       "c2",
+		initProc: f1.prs.ProcessCreate(2002, 0, 0),
+	}
+
 	type args struct {
 		c domain.ContainerIface
 	}
-
-	var cs1 = &container{
-		id:       "cs1",
-		pidInode: 1111111,
-	}
-
-	var cs2 = &container{
-		id: "cs2",
-	}
-
-	var cs3 = &container{
-		id:       "cs3",
-		pidInode: 333333,
-	}
-
-	var css = &containerStateService{
-		idTable: map[string]domain.Inode{
-			"cs1": 111111,
-			"cs3": 333333,
-		},
-		pidTable: map[domain.Inode]*container{
-			111111: cs1,
-			222222: cs2,
-		},
-	}
-
 	tests := []struct {
 		name    string
-		css     *containerStateService
+		fields  fields
 		args    args
 		wantErr bool
+		prepare func()
 	}{
-		// Update a valid/existing container.
-		{"1", css, args{cs1}, false},
+		{
+			//
+			// Test-case 1: Update a properly registered container.
+			//
+			name:    "1",
+			fields:  f1,
+			args:    args{c1},
+			wantErr: false,
+			prepare: func() {
 
-		// Update a container whose container-ID is not present in the idTable.
-		// Error expected.
-		{"2", css, args{cs2}, true},
+				c1.InitProc().CreateNsInodes(123456)
+				inode, _ := c1.InitProc().UserNsInode()
 
-		// Update a container whose podNsInode is not present in the pidTable.
-		// Error expected.
-		{"3", css, args{cs3}, true},
+				f1.idTable[c1.id] = c1
+				f1.usernsTable[inode] = c1
+			},
+		},
+		{
+			//
+			// Test-case 2: Update a container whose container-ID is not present
+			// in the idTable. Error expected.
+			//
+			name:    "2",
+			fields:  f1,
+			args:    args{c2},
+			wantErr: true,
+			prepare: func() {
+
+				c2.InitProc().CreateNsInodes(123456)
+				inode, _ := c2.InitProc().UserNsInode()
+
+				f1.usernsTable[inode] = c2
+			},
+		},
 	}
 
+	//
+	// Testcase executions.
+	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.css.ContainerUpdate(tt.args.c); (err != nil) != tt.wantErr {
+			css := &containerStateService{
+				RWMutex:     tt.fields.RWMutex,
+				idTable:     tt.fields.idTable,
+				usernsTable: tt.fields.usernsTable,
+				fss:         tt.fields.fss,
+				prs:         tt.fields.prs,
+				ios:         tt.fields.ios,
+			}
+
+			// Initialize memory-based mock FS.
+			sysio.AppFs = afero.NewMemMapFs()
+
+			// Prepare the mocks.
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			if err := css.ContainerUpdate(tt.args.c); (err != nil) != tt.wantErr {
 				t.Errorf("containerStateService.ContainerUpdate() error = %v, wantErr %v",
 					err, tt.wantErr)
 			}
@@ -222,113 +531,212 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 	}
 }
 
-func Test_containerStateService_ContainerDelete(t *testing.T) {
+func Test_containerStateService_ContainerUnregister(t *testing.T) {
+	type fields struct {
+		RWMutex     sync.RWMutex
+		idTable     map[string]*container
+		usernsTable map[domain.Inode]*container
+		fss         domain.FuseServerServiceIface
+		prs         domain.ProcessServiceIface
+		ios         domain.IOServiceIface
+	}
+
+	var f1 = fields{
+		idTable:     make(map[string]*container),
+		usernsTable: make(map[domain.Inode]*container),
+		fss:         fuseServerService,
+		prs:         processService,
+		ios:         ioService,
+	}
+
+	var c1 = &container{
+		id:       "c1",
+		initProc: f1.prs.ProcessCreate(1001, 0, 0),
+	}
+
+	var c2 = &container{
+		id:       "c2",
+		initProc: f1.prs.ProcessCreate(2002, 0, 0),
+	}
+
+	var c3 = &container{
+		id:       "c3",
+		initProc: f1.prs.ProcessCreate(3003, 0, 0),
+	}
+
+	var c4 = &container{
+		id:       "c4",
+		initProc: f1.prs.ProcessCreate(4004, 0, 0),
+	}
+
 	type args struct {
 		c domain.ContainerIface
 	}
-
-	var cs1 = &container{
-		id:       "cs1",
-		pidInode: 1111111,
-	}
-
-	var cs2 = &container{
-		id: "cs2",
-	}
-
-	var cs3 = &container{
-		id:       "cs3",
-		pidInode: 333333,
-	}
-
-	var css = &containerStateService{
-		idTable: map[string]domain.Inode{
-			"cs1": 111111,
-			"cs3": 333333,
-		},
-		pidTable: map[domain.Inode]*container{
-			111111: cs1,
-			222222: cs2,
-		},
-	}
-
 	tests := []struct {
 		name    string
-		css     *containerStateService
+		fields  fields
 		args    args
 		wantErr bool
+		prepare func()
 	}{
-		// Delete a valid/existing container.
-		{"1", css, args{cs1}, false},
+		{
+			//
+			// Test-case 1: Unregister a valid (properly registered) container.
+			//
+			name:    "1",
+			fields:  f1,
+			args:    args{c1},
+			wantErr: false,
+			prepare: func() {
 
-		// Delete a container with invalid/missing ID. Error expected.
-		{"2", css, args{cs2}, true},
+				c1.InitProc().CreateNsInodes(123456)
+				inode, _ := c1.InitProc().UserNsInode()
 
-		// Delete a container with invalid/missing pidNsInode. Error expected.
-		{"3", css, args{cs3}, true},
+				f1.idTable[c1.id] = c1
+				f1.usernsTable[inode] = c1
+			},
+		},
+		{
+			//
+			// Test-case 2: Unregister a container with an id not present in
+			// idTable. Error expected.
+			//
+			name:    "2",
+			fields:  f1,
+			args:    args{c2},
+			wantErr: true,
+			prepare: func() {
+
+				c2.initProc.CreateNsInodes(123456)
+				inode, _ := c2.InitProc().UserNsInode()
+
+				f1.usernsTable[inode] = c2
+			},
+		},
+		{
+			//
+			// Test-case 3: Unregister a container with valid ID but with missing
+			// user-ns. Error expected.
+			//
+			name:    "3",
+			fields:  f1,
+			args:    args{c3},
+			wantErr: true,
+			prepare: func() {
+
+				f1.idTable[c3.id] = c3
+			},
+		},
+		{
+			//
+			// Test-case 4: Unregister a container with valid ID and present
+			// (but not valid) user-ns entry. Error expected.
+			//
+			name:    "4",
+			fields:  f1,
+			args:    args{c4},
+			wantErr: true,
+			prepare: func() {
+
+				c4.InitProc().CreateNsInodes(123456)
+				inode, _ := c4.InitProc().UserNsInode()
+
+				f1.idTable[c4.id] = c4
+
+				// Artificial error to exercise all code paths -- can't happen
+				// w/o a memory corruption bug or alike, under no other
+				//circumstance this would be ever reproduced.
+				f1.usernsTable[inode] = c3 // <-- see we're pointing to c3 and not c4
+			},
+		},
 	}
 
+	//
+	// Testcase executions.
+	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.css.ContainerDelete(tt.args.c); (err != nil) != tt.wantErr {
-				t.Errorf("containerStateService.ContainerDelete() error = %v, wantErr %v",
-					err, tt.wantErr)
+			css := &containerStateService{
+				RWMutex:     tt.fields.RWMutex,
+				idTable:     tt.fields.idTable,
+				usernsTable: tt.fields.usernsTable,
+				fss:         tt.fields.fss,
+				prs:         tt.fields.prs,
+				ios:         tt.fields.ios,
 			}
 
-			// Verify that containers are properly deleted.
-			if cntr := tt.css.ContainerLookupById(tt.args.c.ID()); cntr != nil {
-				t.Errorf("Unexpected result during execution of testcase %v", tt.name)
+			// Initialize memory-based mock FS.
+			sysio.AppFs = afero.NewMemMapFs()
+
+			// Prepare the mocks.
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			if err := css.ContainerUnregister(tt.args.c); (err != nil) != tt.wantErr {
+				t.Errorf("containerStateService.ContainerUnregister() error = %v, wantErr %v",
+					err, tt.wantErr)
 			}
 		})
 	}
 }
 
 func Test_containerStateService_ContainerLookupById(t *testing.T) {
+	type fields struct {
+		RWMutex     sync.RWMutex
+		idTable     map[string]*container
+		usernsTable map[domain.Inode]*container
+		fss         domain.FuseServerServiceIface
+		prs         domain.ProcessServiceIface
+		ios         domain.IOServiceIface
+	}
+
+	var f1 = fields{
+		idTable:     make(map[string]*container),
+		usernsTable: make(map[domain.Inode]*container),
+		fss:         fuseServerService,
+		prs:         processService,
+		ios:         ioService,
+	}
+
+	var c1 = &container{
+		id: "c1",
+	}
+	f1.idTable[c1.id] = c1
+
 	type args struct {
 		id string
 	}
 
-	var cs1 = &container{
-		id:       "cs1",
-		pidInode: 1111111,
-	}
-
-	var cs2 = &container{
-		id: "cs2",
-	}
-
-	var css = &containerStateService{
-		idTable: map[string]domain.Inode{
-			"cs1": 111111,
-			"cs3": 333333,
-		},
-		pidTable: map[domain.Inode]*container{
-			111111: cs1,
-			222222: cs2,
-		},
-	}
-
 	tests := []struct {
-		name string
-		css  *containerStateService
-		args args
-		want domain.ContainerIface
+		name   string
+		fields fields
+		args   args
+		want   domain.ContainerIface
 	}{
 		// Lookup a valid/existing container.
-		{"1", css, args{"cs1"}, cs1},
+		{"1", f1, args{"c1"}, c1},
 
 		// Lookup a container with no matching entry in the idTable.
 		// Error expected.
-		{"2", css, args{"cs2"}, nil},
-
-		// Lookup a container with no matching entry in the pidTable.
-		// Error expected.
-		{"3", css, args{"cs3"}, nil},
+		{"2", f1, args{"c2"}, nil},
 	}
 
+	//
+	// Testcase executions.
+	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.css.ContainerLookupById(tt.args.id); !reflect.DeepEqual(got, tt.want) {
+			css := &containerStateService{
+				RWMutex:     tt.fields.RWMutex,
+				idTable:     tt.fields.idTable,
+				usernsTable: tt.fields.usernsTable,
+				fss:         tt.fields.fss,
+				prs:         tt.fields.prs,
+				ios:         tt.fields.ios,
+			}
+
+			if got := css.ContainerLookupById(tt.args.id); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("containerStateService.ContainerLookupById() = %v, want %v",
 					got, tt.want)
 			}
@@ -337,52 +745,223 @@ func Test_containerStateService_ContainerLookupById(t *testing.T) {
 }
 
 func Test_containerStateService_ContainerLookupByInode(t *testing.T) {
+	type fields struct {
+		RWMutex     sync.RWMutex
+		idTable     map[string]*container
+		usernsTable map[domain.Inode]*container
+		fss         domain.FuseServerServiceIface
+		prs         domain.ProcessServiceIface
+		ios         domain.IOServiceIface
+	}
+
+	var f1 = fields{
+		idTable:     make(map[string]*container),
+		usernsTable: make(map[domain.Inode]*container),
+		fss:         fuseServerService,
+		prs:         processService,
+		ios:         ioService,
+	}
+
+	var c1 = &container{
+		id:       "c1",
+		initProc: f1.prs.ProcessCreate(1001, 0, 0),
+	}
+
+	var c2 = &container{
+		id: "c2",
+	}
+
+	var c3 = &container{
+		id:       "c3",
+		initProc: f1.prs.ProcessCreate(3003, 0, 0),
+	}
+
 	type args struct {
-		pidInode domain.Inode
-	}
-
-	var cs1 = &container{
-		id:       "cs1",
-		pidInode: 1111111,
-	}
-
-	var cs2 = &container{
-		id: "cs2",
-	}
-
-	var css = &containerStateService{
-		idTable: map[string]domain.Inode{
-			"cs1": 111111,
-			"cs3": 333333,
-		},
-		pidTable: map[domain.Inode]*container{
-			111111: cs1,
-			222222: cs2,
-		},
+		usernsInode domain.Inode
 	}
 
 	tests := []struct {
-		name string
-		css  *containerStateService
-		args args
-		want domain.ContainerIface
+		name    string
+		fields  fields
+		args    args
+		want    domain.ContainerIface
+		prepare func()
 	}{
-		// Lookup a valid/existing container.
-		{"1", css, args{111111}, cs1},
+		{
+			//
+			// Test-case 1: Lookup a valid/registed container.
+			//
+			name:   "1",
+			fields: f1,
+			args:   args{123456},
+			want:   c1,
+			prepare: func() {
 
-		// Lookup a container with no matching entry in the pidTable.
-		// Error expected.
-		{"2", css, args{222222}, nil},
+				c1.InitProc().CreateNsInodes(123456)
+				inode, _ := c1.InitProc().UserNsInode()
 
-		// Lookup a container with no matching entry in the pidTable.
-		// Error expected.
-		{"3", css, args{333333}, nil},
+				f1.idTable[c1.id] = c1
+				f1.usernsTable[inode] = c1
+			},
+		},
+		{
+			//
+			// Test-case 2: Lookup a container with no matching entry in the
+			// usernsTable. Error expected.
+			//
+			name:   "2",
+			fields: f1,
+			args:   args{1234567}, // see that is a new inode -- diff from testcase #1
+			want:   nil,
+			prepare: func() {
+
+				f1.idTable[c2.id] = c2
+			},
+		},
+		{
+			//
+			// Test-case 3: Lookup a container with no matching entry in the
+			// idTable. Error expected.
+			//
+			name:   "3",
+			fields: f1,
+			args:   args{123456},
+			want:   nil,
+			prepare: func() {
+
+				c3.InitProc().CreateNsInodes(123456)
+				inode, _ := c3.InitProc().UserNsInode()
+
+				f1.usernsTable[inode] = c3
+			},
+		},
 	}
 
+	//
+	// Testcase executions.
+	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.css.ContainerLookupByInode(tt.args.pidInode); !reflect.DeepEqual(got, tt.want) {
+			css := &containerStateService{
+				RWMutex:     tt.fields.RWMutex,
+				idTable:     tt.fields.idTable,
+				usernsTable: tt.fields.usernsTable,
+				fss:         tt.fields.fss,
+				prs:         tt.fields.prs,
+				ios:         tt.fields.ios,
+			}
+
+			// Initialize memory-based mock FS.
+			sysio.AppFs = afero.NewMemMapFs()
+
+			// Prepare the mocks.
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			if got := css.ContainerLookupByInode(tt.args.usernsInode); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("containerStateService.ContainerLookupByInode() = %v, want %v",
+					got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_containerStateService_ContainerLookupByProcess(t *testing.T) {
+	type fields struct {
+		RWMutex     sync.RWMutex
+		idTable     map[string]*container
+		usernsTable map[domain.Inode]*container
+		fss         domain.FuseServerServiceIface
+		prs         domain.ProcessServiceIface
+		ios         domain.IOServiceIface
+	}
+
+	var f1 = fields{
+		idTable:     make(map[string]*container),
+		usernsTable: make(map[domain.Inode]*container),
+		fss:         fuseServerService,
+		prs:         processService,
+		ios:         ioService,
+	}
+
+	var c1 = &container{
+		id:       "c1",
+		initProc: f1.prs.ProcessCreate(1001, 0, 0),
+	}
+
+	var c2 = &container{
+		id:       "c2",
+		initProc: f1.prs.ProcessCreate(2002, 0, 0),
+	}
+
+	type args struct {
+		p domain.ProcessIface
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    domain.ContainerIface
+		prepare func()
+	}{
+		{
+			//
+			// Test-case 1: Lookup a valid/registed container.
+			//
+			name:   "1",
+			fields: f1,
+			args:   args{c1.InitProc()},
+			want:   c1,
+			prepare: func() {
+
+				c1.InitProc().CreateNsInodes(123456)
+				inode, _ := c1.InitProc().UserNsInode()
+
+				f1.idTable[c1.id] = c1
+				f1.usernsTable[inode] = c1
+			},
+		},
+		{
+			//
+			// Test-case 2: Lookup a container with no matching entry in the
+			// usernsTable. Error expected.
+			//
+			name:   "2",
+			fields: f1,
+			args:   args{c2.InitProc()},
+			want:   nil,
+			prepare: func() {
+
+				f1.idTable[c2.id] = c2
+			},
+		},
+	}
+
+	//
+	// Testcase executions.
+	//
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			css := &containerStateService{
+				RWMutex:     tt.fields.RWMutex,
+				idTable:     tt.fields.idTable,
+				usernsTable: tt.fields.usernsTable,
+				fss:         tt.fields.fss,
+				prs:         tt.fields.prs,
+				ios:         tt.fields.ios,
+			}
+
+			// Initialize memory-based mock FS.
+			sysio.AppFs = afero.NewMemMapFs()
+
+			// Prepare the mocks.
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			if got := css.ContainerLookupByProcess(tt.args.p); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("containerStateService.ContainerLookupByProcess() = %v, want %v",
 					got, tt.want)
 			}
 		})

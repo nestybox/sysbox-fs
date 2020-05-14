@@ -5,24 +5,14 @@
 package state
 
 import (
-	"io/ioutil"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestMain(m *testing.M) {
-
-	// Disable log generation during UT.
-	logrus.SetOutput(ioutil.Discard)
-
-	m.Run()
-}
 
 func Test_container_ID(t *testing.T) {
 
@@ -86,37 +76,6 @@ func Test_container_InitPid(t *testing.T) {
 	}
 }
 
-func Test_container_Hostname(t *testing.T) {
-
-	var cs1 = &container{
-		hostname: "syscont",
-	}
-
-	var cs2 = &container{
-		hostname: "",
-	}
-
-	tests := []struct {
-		name string
-		c    *container
-		want string
-	}{
-		// Regular case.
-		{"1", cs1, "syscont"},
-
-		// Lame testcase -- of course it works.
-		{"2", cs2, ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.c.Hostname(); got != tt.want {
-				t.Errorf("container.Hostname() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func Test_container_Ctime(t *testing.T) {
 
 	var cs1 = &container{
@@ -143,37 +102,6 @@ func Test_container_Ctime(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.c.Ctime(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("container.Ctime() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_container_PidInode(t *testing.T) {
-
-	var cs1 = &container{
-		pidInode: 111111,
-	}
-
-	var cs2 = &container{
-		pidInode: 0,
-	}
-
-	tests := []struct {
-		name string
-		c    *container
-		want domain.Inode
-	}{
-		// Regular case.
-		{"1", cs1, 111111},
-
-		// Lame testcase -- of course it works.
-		{"2", cs2, 0},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.c.PidInode(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("container.PidInode() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -231,19 +159,15 @@ func Test_container_Data(t *testing.T) {
 func Test_container_String(t *testing.T) {
 
 	var cs = &container{
-		id:       "1",
-		initPid:  1001,
-		hostname: "syscont",
-		pidInode: 123456,
-		ctime:    time.Time{},
+		id:      "1",
+		initPid: 1001,
+		ctime:   time.Time{},
 	}
 
 	var expectedResult = `
 		 id: 1
 		 initPid: 1001
-		 hostname: syscont
 		 ctime: 0001-01-01 00:00:00 +0000 UTC
-		 pidNsInode: 123456
 		 UID: 0
 		 GID: 0`
 
@@ -335,5 +259,58 @@ func Test_container_SetData(t *testing.T) {
 		}
 
 		assert.Equal(t, tt.args.data, data, "data fields are not matching")
+	}
+}
+
+func Test_container_update(t *testing.T) {
+	type fields struct {
+		RWMutex       sync.RWMutex
+		id            string
+		initPid       uint32
+		ctime         time.Time
+		uidFirst      uint32
+		uidSize       uint32
+		gidFirst      uint32
+		gidSize       uint32
+		procRoPaths   []string
+		procMaskPaths []string
+		specPaths     map[string]struct{}
+		dataStore     domain.StateDataMap
+		initProc      domain.ProcessIface
+		service       domain.ContainerStateServiceIface
+	}
+	type args struct {
+		src *container
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &container{
+				RWMutex:       tt.fields.RWMutex,
+				id:            tt.fields.id,
+				initPid:       tt.fields.initPid,
+				ctime:         tt.fields.ctime,
+				uidFirst:      tt.fields.uidFirst,
+				uidSize:       tt.fields.uidSize,
+				gidFirst:      tt.fields.gidFirst,
+				gidSize:       tt.fields.gidSize,
+				procRoPaths:   tt.fields.procRoPaths,
+				procMaskPaths: tt.fields.procMaskPaths,
+				specPaths:     tt.fields.specPaths,
+				dataStore:     tt.fields.dataStore,
+				initProc:      tt.fields.initProc,
+				service:       tt.fields.service,
+			}
+			if err := c.update(tt.args.src); (err != nil) != tt.wantErr {
+				t.Errorf("container.update() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
