@@ -241,11 +241,11 @@ func main() {
 
 		// Initialize sysbox-fs' services.
 
-		var processService = process.NewProcessService()
-
 		var nsenterService = nsenter.NewNSenterService()
 
 		var ioService = sysio.NewIOService(sysio.IOFileService)
+
+		var processService = process.NewProcessService()
 
 		var handlerService = handler.NewHandlerService(
 			handler.DefaultHandlers,

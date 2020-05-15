@@ -413,7 +413,12 @@ func NewHandlerService(
 	// emulated resource paths, and the parent directory hosting them.
 	newhs.createDirHandlerMap()
 
-	newhs.hostUserNsInode = newhs.FindUserNsInode(uint32(os.Getpid()))
+	// Obtain user-ns inode corresponding to the host fs (root user-ns).
+	hostUserNsInode, err := newhs.FindUserNsInode(uint32(os.Getpid()))
+	if err != nil {
+		return nil
+	}
+	newhs.hostUserNsInode = hostUserNsInode
 
 	return newhs
 }
@@ -615,7 +620,13 @@ func (hs *handlerService) HostUserNsInode() domain.Inode {
 	return hs.hostUserNsInode
 }
 
-func (hs *handlerService) FindUserNsInode(pid uint32) domain.Inode {
+func (hs *handlerService) FindUserNsInode(pid uint32) (domain.Inode, error) {
 	process := hs.prs.ProcessCreate(pid, 0, 0)
-	return process.UserNsInode()
+
+	userNsInode, err := process.UserNsInode()
+	if err != nil {
+		return 0, err
+	}
+
+	return userNsInode, nil
 }

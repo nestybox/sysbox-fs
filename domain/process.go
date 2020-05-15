@@ -26,7 +26,7 @@ type ProcessIface interface {
 	Gid() uint32
 	IsAdminCapabilitySet() bool
 	NsInodes() (map[string]Inode, error)
-	UserNsInode() Inode
+	UserNsInode() (Inode, error)
 	UserNsInodeParent() (Inode, error)
 	CreateNsInodes(Inode) error
 	PathAccess(path string, accessFlags AccessMode) error

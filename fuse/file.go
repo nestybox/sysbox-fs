@@ -317,8 +317,8 @@ func (f *File) ModTime() time.Time {
 // with the given request.
 func (f *File) getUsernsRootUid(reqPid, reqUid, reqGid uint32) (uint32, uint32, error) {
 
-	usernsInode := f.server.service.hds.FindUserNsInode(reqPid)
-	if usernsInode == 0 {
+	usernsInode, err := f.server.service.hds.FindUserNsInode(reqPid)
+	if err != nil {
 		return 0, 0, errors.New("Could not identify userNsInode")
 	}
 

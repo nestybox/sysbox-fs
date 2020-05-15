@@ -98,5 +98,5 @@ type HandlerServiceIface interface {
 
 	// Auxiliar methods.
 	HostUserNsInode() Inode
-	FindUserNsInode(pid uint32) Inode
+	FindUserNsInode(pid uint32) (Inode, error)
 }

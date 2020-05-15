@@ -130,16 +130,18 @@ func (p *process) NsInodes() (map[string]domain.Inode, error) {
 	return p.nsInodes, nil
 }
 
-func (p *process) UserNsInode() domain.Inode {
+func (p *process) UserNsInode() (domain.Inode, error) {
 	nsInodes, err := p.NsInodes()
 	if err != nil {
-		return domain.Inode(0)
+		return 0, err
 	}
+
 	userns, found := nsInodes["user"]
 	if !found {
-		return domain.Inode(0)
+		return 0, fmt.Errorf("userns not found")
 	}
-	return userns
+
+	return userns, nil
 }
 
 func (p *process) UserNsInodeParent() (domain.Inode, error) {
@@ -147,7 +149,12 @@ func (p *process) UserNsInodeParent() (domain.Inode, error) {
 	// ioctl to retrieve the parent namespace.
 	const NS_GET_PARENT = 0xb702
 
-	usernsPath := filepath.Join("/proc", strconv.FormatUint(uint64(p.pid), 10), "ns", "user")
+	usernsPath := filepath.Join(
+		"/proc",
+		strconv.FormatUint(uint64(p.pid), 10),
+		"ns",
+		"user",
+	)
 
 	// Open /proc/<pid>/ns/user to obtain a file-desc to refer to.
 	childNsFd, err := os.Open(usernsPath)
@@ -224,6 +231,7 @@ func (p *process) GetNsInodes() (map[string]domain.Inode, error) {
 func (p *process) CreateNsInodes(inode domain.Inode) error {
 
 	pidStr := strconv.FormatUint(uint64(p.pid), 10)
+	inodeStr := strconv.FormatUint(uint64(inode), 10)
 
 	// Iterate through all namespaces to collect the process' namespace inodes.
 	for _, ns := range domain.AllNSs {
@@ -235,7 +243,8 @@ func (p *process) CreateNsInodes(inode domain.Inode) error {
 		//_, ok := AppFs.(*afero.MemMapFs)
 		//_, ok := fs.(*afero.MemMapFs)
 		//if ok {
-		err := afero.WriteFile(sysio.AppFs, nsPath, []byte(string(inode)), 0644)
+		//err := afero.WriteFile(sysio.AppFs, nsPath, []byte(string(inode)), 0644)
+		err := afero.WriteFile(sysio.AppFs, nsPath, []byte(inodeStr), 0644)
 		if err != nil {
 			return err
 		}
