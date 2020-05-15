@@ -250,7 +250,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 
 			logrus.Warnf("Unexpected error during NotifReceive() execution (%v) on fd %d pid %d",
 				err, fd, pid)
-			continue
+			break
 		}
 
 		// Process the incoming syscall and obtain response for seccomp-tracee.
@@ -267,7 +267,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 
 			logrus.Warnf("Unexpected error during NotifRespond() execution (%v) on fd %d pid %d",
 				err, fd, pid)
-			continue
+			break
 		}
 	}
 
