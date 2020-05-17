@@ -50,7 +50,9 @@ func NewContainerStateService(
 	}
 
 	// Set backpointer to service parent.
-	newCss.fss.SetContainerService(newCss)
+	if newCss.fss != nil {
+		newCss.fss.SetContainerService(newCss)
+	}
 
 	return newCss
 }
@@ -326,7 +328,6 @@ func (css *containerStateService) ContainerLookupByProcess(
 	p domain.ProcessIface) domain.ContainerIface {
 
 	// Identify the userNsInode corresponding to this process.
-	//usernsInode := p.UserNsInode()
 	usernsInode, err := p.UserNsInode()
 	if err != nil {
 		logrus.Errorf("Could not find a user-namespace for pid %d", p.Pid())

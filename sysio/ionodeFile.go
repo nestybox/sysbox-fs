@@ -10,13 +10,17 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
+	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 )
 
 // For unit-testing purposes.
-var AppFs = afero.NewOsFs()
+// var appFs afero.Fs
+//= afero.NewOsFs()
 
 // Ensure IOnodeFile implements IOnode's interfaces.
 var _ domain.IOServiceIface = (*ioFileService)(nil)
@@ -25,7 +29,25 @@ var _ domain.IOnodeIface = (*IOnodeFile)(nil)
 //
 // I/O Service providing FS interaction capabilities.
 //
-type ioFileService struct{}
+type ioFileService struct {
+	fsType domain.IOServiceType
+	appFs  afero.Fs
+}
+
+func newIOFileService(fsType domain.IOServiceType) domain.IOServiceIface {
+
+	var fs = &ioFileService{}
+
+	if fsType == domain.IOMemFileService {
+		fs.appFs = afero.NewMemMapFs()
+		fs.fsType = domain.IOMemFileService
+	} else {
+		fs.appFs = afero.NewOsFs()
+		fs.fsType = domain.IOOsFileService
+	}
+
+	return fs
+}
 
 func (s *ioFileService) NewIOnode(
 	n string,
@@ -35,9 +57,20 @@ func (s *ioFileService) NewIOnode(
 		name: n,
 		path: p,
 		mode: mode,
+		fss:  s,
 	}
 
 	return newFile
+}
+
+// Eliminate all nodes from a previously created file-system. Utilized mainly
+// for unit-testing purposes (i.e. afero.MemFs).
+func (s *ioFileService) RemoveAllIOnodes() error {
+	if err := s.appFs.RemoveAll("/"); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *ioFileService) OpenNode(i domain.IOnodeIface) error {
@@ -84,6 +117,10 @@ func (s *ioFileService) PathNode(i domain.IOnodeIface) string {
 	return i.Path()
 }
 
+func (i *ioFileService) GetServiceType() domain.IOServiceType {
+	return i.fsType
+}
+
 //
 // IOnode class specialization for FS interaction.
 //
@@ -93,11 +130,12 @@ type IOnodeFile struct {
 	flags int
 	mode  os.FileMode
 	file  afero.File
+	fss   *ioFileService
 }
 
 func (i *IOnodeFile) Open() error {
 
-	file, err := AppFs.OpenFile(i.path, i.flags, i.mode)
+	file, err := i.fss.appFs.OpenFile(i.path, i.flags, i.mode)
 	if err != nil {
 		return err
 	}
@@ -145,7 +183,7 @@ func (i *IOnodeFile) ReadAt(p []byte, off int64) (n int, err error) {
 }
 
 func (i *IOnodeFile) ReadDirAll() ([]os.FileInfo, error) {
-	return afero.ReadDir(AppFs, i.path)
+	return afero.ReadDir(i.fss.appFs, i.path)
 }
 
 func (i *IOnodeFile) ReadFile() ([]byte, error) {
@@ -155,9 +193,8 @@ func (i *IOnodeFile) ReadFile() ([]byte, error) {
 		err     error
 	)
 
-	_, ok := AppFs.(*afero.MemMapFs)
-	if ok {
-		content, err = afero.ReadFile(AppFs, i.path)
+	if i.fss.fsType == domain.IOMemFileService {
+		content, err = afero.ReadFile(i.fss.appFs, i.path)
 		if err != nil {
 			return nil, err
 		}
@@ -176,7 +213,7 @@ func (i *IOnodeFile) ReadLine() (string, error) {
 	var res string
 
 	// Open file and return empty string if an error is received.
-	inFile, err := AppFs.Open(i.path)
+	inFile, err := i.fss.appFs.Open(i.path)
 	if err != nil {
 		return res, err
 	}
@@ -191,8 +228,87 @@ func (i *IOnodeFile) ReadLine() (string, error) {
 	return res, nil
 }
 
+func (i *IOnodeFile) WriteFile(p []byte) error {
+
+	if i.fss.fsType == domain.IOMemFileService {
+		err := afero.WriteFile(i.fss.appFs, i.path, p, 0644)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	return ioutil.WriteFile(i.path, p, 0)
+}
+
+func (i *IOnodeFile) Mkdir() error {
+	return i.fss.appFs.Mkdir(i.path, i.mode)
+}
+
+func (i *IOnodeFile) MkdirAll() error {
+	return i.fss.appFs.MkdirAll(i.path, i.mode)
+}
+
+// Collects the namespace inodes of the passed /proc/pid/ns/<namespace> file.
+func (i *IOnodeFile) GetNsInode() (domain.Inode, error) {
+
+	// In unit-testing scenarios we will extract the nsInode value from the
+	// file content itself. This is a direct consequence of afero-fs lacking
+	// Sys() api support.
+	if i.fss.fsType == domain.IOMemFileService {
+		content, err := afero.ReadFile(i.fss.appFs, i.path)
+		if err != nil {
+			return 0, err
+		}
+
+		nsInode, err := strconv.ParseUint(string(content), 10, 64)
+		if err != nil {
+			return 0, err
+		}
+
+		return nsInode, nil
+	}
+
+	info, err := os.Stat(i.path)
+	if err != nil {
+		logrus.Errorf("No namespace file found %s", i.path)
+		return 0, err
+	}
+
+	stat := info.Sys().(*syscall.Stat_t)
+
+	return stat.Ino, nil
+}
+
+// 	sysio.AppFs.(*afero.MemMapFs)
+// 	if ok {
+// 		content, err := afero.ReadFile(sysio.AppFs, nsPath)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		nsInode, err := strconv.ParseUint(string(content), 10, 64)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		nsInodes[ns] = nsInode
+// 		continue
+// 	}
+
+// 	info, err := os.Stat(nsPath)
+// 	if err != nil {
+// 		logrus.Errorf("No process %s-ns file found for pid %d", ns, p.pid)
+// 		return nil, err
+// 	}
+
+// 	stat := info.Sys().(*syscall.Stat_t)
+// 	nsInodes[ns] = stat.Ino
+// }
+
+// return ioutil.Discard
+
 func (i *IOnodeFile) Stat() (os.FileInfo, error) {
-	return AppFs.Stat(i.path)
+	return i.fss.appFs.Stat(i.path)
 }
 
 func (i *IOnodeFile) SeekReset() (int64, error) {

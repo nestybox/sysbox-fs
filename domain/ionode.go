@@ -21,30 +21,18 @@ type Inode = uint64
 //    during UT efforts.
 //
 
-type IOnodeIface interface {
-	Open() error
-	Read(p []byte) (n int, err error)
-	Write(p []byte) (n int, err error)
-	Close() error
-	ReadAt(p []byte, off int64) (n int, err error)
-	ReadDirAll() ([]os.FileInfo, error)
-	ReadFile() ([]byte, error)
-	ReadLine() (string, error)
-	Stat() (os.FileInfo, error)
-	SeekReset() (int64, error)
-	//
-	// Required getters/setters.
-	//
-	Name() string
-	Path() string
-	OpenFlags() int
-	OpenMode() os.FileMode
-	SetOpenFlags(flags int)
-	SetOpenMode(mode os.FileMode)
-}
+type IOServiceType = int
+
+const (
+	Unknown          IOServiceType = iota
+	IOOsFileService                // production / regular purposes
+	IOMemFileService               // unit-testing purposes
+	IOBufferService
+)
 
 type IOServiceIface interface {
 	NewIOnode(n string, p string, attr os.FileMode) IOnodeIface
+	RemoveAllIOnodes() error
 	OpenNode(i IOnodeIface) error
 	ReadNode(i IOnodeIface, p []byte) (int, error)
 	WriteNode(i IOnodeIface, p []byte) (int, error)
@@ -56,4 +44,31 @@ type IOServiceIface interface {
 	StatNode(i IOnodeIface) (os.FileInfo, error)
 	SeekResetNode(i IOnodeIface) (int64, error)
 	PathNode(i IOnodeIface) string
+	GetServiceType() IOServiceType
+}
+
+type IOnodeIface interface {
+	Open() error
+	Read(p []byte) (n int, err error)
+	Write(p []byte) (n int, err error)
+	Close() error
+	ReadAt(p []byte, off int64) (n int, err error)
+	ReadDirAll() ([]os.FileInfo, error)
+	ReadFile() ([]byte, error)
+	ReadLine() (string, error)
+	WriteFile(p []byte) error
+	Mkdir() error
+	MkdirAll() error
+	Stat() (os.FileInfo, error)
+	SeekReset() (int64, error)
+	//
+	// Required getters/setters.
+	//
+	Name() string
+	Path() string
+	OpenFlags() int
+	OpenMode() os.FileMode
+	GetNsInode() (Inode, error)
+	SetOpenFlags(flags int)
+	SetOpenMode(mode os.FileMode)
 }

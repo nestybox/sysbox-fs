@@ -243,9 +243,9 @@ func main() {
 
 		var nsenterService = nsenter.NewNSenterService()
 
-		var ioService = sysio.NewIOService(sysio.IOFileService)
+		var ioService = sysio.NewIOService(domain.IOOsFileService)
 
-		var processService = process.NewProcessService()
+		var processService = process.NewProcessService(ioService)
 
 		var handlerService = handler.NewHandlerService(
 			handler.DefaultHandlers,

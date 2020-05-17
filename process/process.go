@@ -16,20 +16,19 @@ import (
 	"unsafe"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-fs/sysio"
 	cap "github.com/nestybox/sysbox/lib/capability"
 
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/afero"
 	"golang.org/x/sys/unix"
 )
 
 //var AppFs = afero.NewOsFs()
 
-type processService struct{}
+type processService struct {
+	ios domain.IOServiceIface
+}
 
-func NewProcessService() domain.ProcessServiceIface {
-	return &processService{}
+func NewProcessService(ios domain.IOServiceIface) domain.ProcessServiceIface {
+	return &processService{ios: ios}
 }
 
 func (ps *processService) ProcessCreate(
@@ -41,6 +40,7 @@ func (ps *processService) ProcessCreate(
 		pid: pid,
 		uid: uid,
 		gid: gid,
+		ps:  ps,
 	}
 }
 
@@ -54,6 +54,7 @@ type process struct {
 	cap      cap.Capabilities        // process capabilities
 	status   map[string]string       // process status fields
 	nsInodes map[string]domain.Inode // process namespace inodes
+	ps       *processService         // pointer to parent processService
 }
 
 func (p *process) Pid() uint32 {
@@ -196,38 +197,20 @@ func (p *process) GetNsInodes() (map[string]domain.Inode, error) {
 	for _, ns := range domain.AllNSs {
 		nsPath := filepath.Join("/proc", pidStr, "ns", ns)
 
-		// In unit-testing scenarios we will extract the nsInode value from the
-		// file content itself. This is a direct consequence of afero-fs lacking
-		// Sys() api support.
-		//_, ok := AppFs.(*afero.MemMapFs)
-		_, ok := sysio.AppFs.(*afero.MemMapFs)
-		if ok {
-			content, err := afero.ReadFile(sysio.AppFs, nsPath)
-			if err != nil {
-				return nil, err
-			}
-			nsInode, err := strconv.ParseUint(string(content), 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			nsInodes[ns] = nsInode
-			continue
-		}
-
-		info, err := os.Stat(nsPath)
+		fnode := p.ps.ios.NewIOnode("", nsPath, 0)
+		nsInode, err := fnode.GetNsInode()
 		if err != nil {
-			logrus.Errorf("No process %s-ns file found for pid %d", ns, p.pid)
 			return nil, err
 		}
 
-		stat := info.Sys().(*syscall.Stat_t)
-		nsInodes[ns] = stat.Ino
+		nsInodes[ns] = nsInode
 	}
 
 	return nsInodes, nil
 }
 
-// Exclusively utilized for unit-testing purposes.
+// Exclusively utilized when dealing with memory file-systems during unit-testing.
+// NsInodes are automatically created by kernel in regular scenarios.
 func (p *process) CreateNsInodes(inode domain.Inode) error {
 
 	pidStr := strconv.FormatUint(uint64(p.pid), 10)
@@ -237,14 +220,8 @@ func (p *process) CreateNsInodes(inode domain.Inode) error {
 	for _, ns := range domain.AllNSs {
 		nsPath := filepath.Join("/proc", pidStr, "ns", ns)
 
-		// In unit-testing scenarios we will extract the nsInode value from the
-		// file content itself. This is a direct consequence of afero-fs lacking
-		// Sys() api support.
-		//_, ok := AppFs.(*afero.MemMapFs)
-		//_, ok := fs.(*afero.MemMapFs)
-		//if ok {
-		//err := afero.WriteFile(sysio.AppFs, nsPath, []byte(string(inode)), 0644)
-		err := afero.WriteFile(sysio.AppFs, nsPath, []byte(inodeStr), 0644)
+		fnode := p.ps.ios.NewIOnode("", nsPath, 0)
+		err := fnode.WriteFile([]byte(inodeStr))
 		if err != nil {
 			return err
 		}
