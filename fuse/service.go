@@ -66,7 +66,8 @@ func (fss *FuseServerService) CreateFuseServer(cntr domain.ContainerIface) error
 
 	// Create required mountpoint in host file-system.
 	cntrMountpoint := filepath.Join(fss.mountPoint, cntrId)
-	if err := os.MkdirAll(cntrMountpoint, 0600); err != nil {
+	mountpointIOnode := fss.ios.NewIOnode("", cntrMountpoint, 0600)
+	if err := mountpointIOnode.MkdirAll(); err != nil {
 		return errors.New("FuseServer with invalid mountpoint")
 	}
 

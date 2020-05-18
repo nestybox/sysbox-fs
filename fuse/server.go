@@ -14,10 +14,8 @@ import (
 	"bazil.org/fuse/fs"
 	_ "bazil.org/fuse/fs/fstestutil"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/afero"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-fs/sysio"
 )
 
 // FuseServer class in charge of running/hosting sysbox-fs' FUSE server features.
@@ -67,11 +65,10 @@ func (s *fuseServer) Create() error {
 	// Creating a first node corresponding to the root (dir) element in
 	// sysbox-fs.
 	var attr fuse.Attr
-	_, ok := sysio.AppFs.(*afero.OsFs)
-	if ok {
-		attr = statToAttr(pathInfo.Sys().(*syscall.Stat_t))
-	} else {
+	if s.service.ios.GetServiceType() == domain.IOMemFileService {
 		attr = fuse.Attr{}
+	} else {
+		attr = statToAttr(pathInfo.Sys().(*syscall.Stat_t))
 	}
 	attr.Mode = os.ModeDir | os.FileMode(int(0600))
 
