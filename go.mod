@@ -15,6 +15,7 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.5.1
 	github.com/urfave/cli v1.20.0
+	github.com/vektra/mockery v1.1.2 // indirect
 	github.com/vishvananda/netlink v1.0.0
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
 	google.golang.org/grpc v1.21.0
