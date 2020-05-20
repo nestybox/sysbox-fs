@@ -163,3 +163,8 @@ func (_m *ContainerStateServiceIface) ProcessService() domain.ProcessServiceIfac
 
 	return r0
 }
+
+// Setup provides a mock function with given fields: fss, prs, ios
+func (_m *ContainerStateServiceIface) Setup(fss domain.FuseServerServiceIface, prs domain.ProcessServiceIface, ios domain.IOServiceIface) {
+	_m.Called(fss, prs, ios)
+}

@@ -234,6 +234,11 @@ func (_m *HandlerServiceIface) SetStateService(css domain.ContainerStateServiceI
 	_m.Called(css)
 }
 
+// Setup provides a mock function with given fields: hdlrs, ignoreErrors, css, nss, prs, ios
+func (_m *HandlerServiceIface) Setup(hdlrs []domain.HandlerIface, ignoreErrors bool, css domain.ContainerStateServiceIface, nss domain.NSenterServiceIface, prs domain.ProcessServiceIface, ios domain.IOServiceIface) {
+	_m.Called(hdlrs, ignoreErrors, css, nss, prs, ios)
+}
+
 // StateService provides a mock function with given fields:
 func (_m *HandlerServiceIface) StateService() domain.ContainerStateServiceIface {
 	ret := _m.Called()

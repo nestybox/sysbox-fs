@@ -158,6 +158,25 @@ func (_m *ContainerIface) SetData(path string, name string, data string) {
 	_m.Called(path, name, data)
 }
 
+// SetInitProc provides a mock function with given fields: pid, uid, gid
+func (_m *ContainerIface) SetInitProc(pid uint32, uid uint32, gid uint32) error {
+	ret := _m.Called(pid, uid, gid)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(uint32, uint32, uint32) error); ok {
+		r0 = rf(pid, uid, gid)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SetService provides a mock function with given fields: css
+func (_m *ContainerIface) SetService(css domain.ContainerStateServiceIface) {
+	_m.Called(css)
+}
+
 // String provides a mock function with given fields:
 func (_m *ContainerIface) String() string {
 	ret := _m.Called()
