@@ -5,95 +5,97 @@
 package state
 
 import (
-	"io/ioutil"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-fs/fuse"
-	"github.com/nestybox/sysbox-fs/handler"
-	"github.com/nestybox/sysbox-fs/nsenter"
+	"github.com/nestybox/sysbox-fs/mocks"
 	"github.com/nestybox/sysbox-fs/process"
 	"github.com/nestybox/sysbox-fs/sysio"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/afero"
 )
 
-var fuseServerService domain.FuseServerServiceIface
-var ioService domain.IOServiceIface
-var processService domain.ProcessServiceIface
-var nsenterService domain.NSenterServiceIface
-var handlerService domain.HandlerServiceIface
+// Sysbox-fs global services for all state's pkg unit-tests.
+var ios domain.IOServiceIface
+var prs domain.ProcessServiceIface
+var nss *mocks.NSenterServiceIface
+var fss *mocks.FuseServerServiceIface
+var hds *mocks.HandlerServiceIface
 
 func TestMain(m *testing.M) {
 
 	// Disable log generation during UT.
-	logrus.SetOutput(ioutil.Discard)
+	//logrus.SetOutput(ioutil.Discard)
 
-	// Initialize sysbox-fs' required services.
+	//
+	// Test-cases common settings.
+	//
+	//
+	ios = sysio.NewIOService(domain.IOMemFileService)
+	prs = process.NewProcessService()
+	nss = &mocks.NSenterServiceIface{}
+	hds = &mocks.HandlerServiceIface{}
+	fss = &mocks.FuseServerServiceIface{}
 
-	processService = process.NewProcessService()
+	prs.Setup(ios)
 
-	nsenterService = nsenter.NewNSenterService()
-
-	ioService = sysio.NewIOService(sysio.IOFileService)
-
-	handlerService = handler.NewHandlerService(
-		handler.DefaultHandlers,
-		nil,
-		nsenterService,
-		processService,
-		ioService,
-		false,
-	)
-
-	fuseServerService = fuse.NewFuseServerService(
-		"/var/lib/sysboxfs",
-		ioService,
-		handlerService,
-	)
-
+	// Run test-suite.
 	m.Run()
 }
 
-func TestNewContainerStateService(t *testing.T) {
+func Test_containerStateService_Setup(t *testing.T) {
+	type fields struct {
+		RWMutex     sync.RWMutex
+		idTable     map[string]*container
+		usernsTable map[domain.Inode]*container
+		fss         domain.FuseServerServiceIface
+		prs         domain.ProcessServiceIface
+		ios         domain.IOServiceIface
+	}
+
+	var f1 = fields{
+		idTable:     make(map[string]*container),
+		usernsTable: make(map[domain.Inode]*container),
+		fss:         fss,
+		prs:         prs,
+		ios:         ios,
+	}
+
 	type args struct {
 		fss domain.FuseServerServiceIface
 		prs domain.ProcessServiceIface
 		ios domain.IOServiceIface
 	}
-	a1 := args{
-		fss: fuseServerService,
-		prs: processService,
-		ios: ioService,
-	}
 
-	var expectedResult = &containerStateService{
-		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode]*container),
-		fss:         a1.fss,
-		prs:         a1.prs,
-		ios:         a1.ios,
+	a1 := args{
+		fss: fss,
+		prs: prs,
+		ios: ios,
 	}
 
 	tests := []struct {
-		name string
-		args args
-		want domain.ContainerStateServiceIface
+		name   string
+		fields fields
+		args   args
 	}{
-		{"1", a1, expectedResult},
+		{"1", f1, a1},
 	}
 
+	//
+	// Testcase executions.
+	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewContainerStateService(
-				tt.args.fss,
-				tt.args.prs,
-				tt.args.ios); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewContainerStateService() = %v, want %v", got, tt.want)
+			css := &containerStateService{
+				RWMutex:     tt.fields.RWMutex,
+				idTable:     tt.fields.idTable,
+				usernsTable: tt.fields.usernsTable,
+				fss:         tt.fields.fss,
+				prs:         tt.fields.prs,
+				ios:         tt.fields.ios,
 			}
+			css.Setup(tt.args.fss, tt.args.prs, tt.args.ios)
 		})
 	}
 }
@@ -111,9 +113,9 @@ func Test_containerStateService_ContainerCreate(t *testing.T) {
 	var f1 = fields{
 		idTable:     make(map[string]*container),
 		usernsTable: make(map[domain.Inode]*container),
-		fss:         fuseServerService,
-		prs:         processService,
-		ios:         ioService,
+		fss:         fss,
+		prs:         prs,
+		ios:         ios,
 	}
 
 	css := &containerStateService{
@@ -211,9 +213,13 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 	var f1 = fields{
 		idTable:     make(map[string]*container),
 		usernsTable: make(map[domain.Inode]*container),
-		fss:         fuseServerService,
-		prs:         processService,
-		ios:         ioService,
+		fss:         fss,
+		prs:         prs,
+		ios:         ios,
+	}
+
+	var c1 = &container{
+		id: "c1",
 	}
 
 	var c2 = &container{
@@ -228,7 +234,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 		fields  fields
 		args    args
 		wantErr bool
-		prepare func()
+		prepare func(css domain.ContainerStateServiceIface)
 	}{
 		{
 			//
@@ -238,7 +244,11 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 			fields:  f1,
 			args:    args{"c1"},
 			wantErr: false,
-			prepare: func() {},
+			prepare: func(css domain.ContainerStateServiceIface) {
+
+				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
+					"CreateFuseServer", c1).Return(nil)
+			},
 		},
 		{
 			//
@@ -249,8 +259,11 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 			fields:  f1,
 			args:    args{"c2"},
 			wantErr: true,
-			prepare: func() {
+			prepare: func(css domain.ContainerStateServiceIface) {
+
 				f1.idTable[c2.id] = c2
+				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
+					"CreateFuseServer", c2).Return(nil)
 			},
 		},
 	}
@@ -270,7 +283,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
-				tt.prepare()
+				tt.prepare(css)
 			}
 
 			if err := css.ContainerPreRegister(tt.args.id); (err != nil) != tt.wantErr {
@@ -295,9 +308,9 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 	var f1 = fields{
 		idTable:     make(map[string]*container),
 		usernsTable: make(map[domain.Inode]*container),
-		fss:         fuseServerService,
-		prs:         processService,
-		ios:         ioService,
+		fss:         fss,
+		prs:         prs,
+		ios:         ios,
 	}
 
 	var c1 = &container{
@@ -411,7 +424,8 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			}
 
 			// Initialize memory-based mock FS.
-			sysio.AppFs = afero.NewMemMapFs()
+			//sysio.AppFs = afero.NewMemMapFs()
+			css.ios.RemoveAllIOnodes()
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
@@ -439,9 +453,9 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 	var f1 = fields{
 		idTable:     make(map[string]*container),
 		usernsTable: make(map[domain.Inode]*container),
-		fss:         fuseServerService,
-		prs:         processService,
-		ios:         ioService,
+		fss:         fss,
+		prs:         prs,
+		ios:         ios,
 	}
 
 	var c1 = &container{
@@ -516,7 +530,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 			}
 
 			// Initialize memory-based mock FS.
-			sysio.AppFs = afero.NewMemMapFs()
+			css.ios.RemoveAllIOnodes()
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
@@ -544,9 +558,9 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 	var f1 = fields{
 		idTable:     make(map[string]*container),
 		usernsTable: make(map[domain.Inode]*container),
-		fss:         fuseServerService,
-		prs:         processService,
-		ios:         ioService,
+		fss:         fss,
+		prs:         prs,
+		ios:         ios,
 	}
 
 	var c1 = &container{
@@ -577,7 +591,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 		fields  fields
 		args    args
 		wantErr bool
-		prepare func()
+		prepare func(css domain.ContainerStateServiceIface)
 	}{
 		{
 			//
@@ -587,13 +601,16 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			fields:  f1,
 			args:    args{c1},
 			wantErr: false,
-			prepare: func() {
+			prepare: func(css domain.ContainerStateServiceIface) {
 
 				c1.InitProc().CreateNsInodes(123456)
 				inode, _ := c1.InitProc().UserNsInode()
 
 				f1.idTable[c1.id] = c1
 				f1.usernsTable[inode] = c1
+
+				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
+					"DestroyFuseServer", c1.id).Return(nil)
 			},
 		},
 		{
@@ -605,7 +622,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			fields:  f1,
 			args:    args{c2},
 			wantErr: true,
-			prepare: func() {
+			prepare: func(css domain.ContainerStateServiceIface) {
 
 				c2.initProc.CreateNsInodes(123456)
 				inode, _ := c2.InitProc().UserNsInode()
@@ -622,7 +639,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			fields:  f1,
 			args:    args{c3},
 			wantErr: true,
-			prepare: func() {
+			prepare: func(css domain.ContainerStateServiceIface) {
 
 				f1.idTable[c3.id] = c3
 			},
@@ -636,7 +653,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			fields:  f1,
 			args:    args{c4},
 			wantErr: true,
-			prepare: func() {
+			prepare: func(css domain.ContainerStateServiceIface) {
 
 				c4.InitProc().CreateNsInodes(123456)
 				inode, _ := c4.InitProc().UserNsInode()
@@ -666,11 +683,11 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			}
 
 			// Initialize memory-based mock FS.
-			sysio.AppFs = afero.NewMemMapFs()
+			css.ios.RemoveAllIOnodes()
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
-				tt.prepare()
+				tt.prepare(css)
 			}
 
 			if err := css.ContainerUnregister(tt.args.c); (err != nil) != tt.wantErr {
@@ -694,9 +711,9 @@ func Test_containerStateService_ContainerLookupById(t *testing.T) {
 	var f1 = fields{
 		idTable:     make(map[string]*container),
 		usernsTable: make(map[domain.Inode]*container),
-		fss:         fuseServerService,
-		prs:         processService,
-		ios:         ioService,
+		fss:         fss,
+		prs:         prs,
+		ios:         ios,
 	}
 
 	var c1 = &container{
@@ -757,9 +774,9 @@ func Test_containerStateService_ContainerLookupByInode(t *testing.T) {
 	var f1 = fields{
 		idTable:     make(map[string]*container),
 		usernsTable: make(map[domain.Inode]*container),
-		fss:         fuseServerService,
-		prs:         processService,
-		ios:         ioService,
+		fss:         fss,
+		prs:         prs,
+		ios:         ios,
 	}
 
 	var c1 = &container{
@@ -852,7 +869,7 @@ func Test_containerStateService_ContainerLookupByInode(t *testing.T) {
 			}
 
 			// Initialize memory-based mock FS.
-			sysio.AppFs = afero.NewMemMapFs()
+			css.ios.RemoveAllIOnodes()
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
@@ -880,9 +897,9 @@ func Test_containerStateService_ContainerLookupByProcess(t *testing.T) {
 	var f1 = fields{
 		idTable:     make(map[string]*container),
 		usernsTable: make(map[domain.Inode]*container),
-		fss:         fuseServerService,
-		prs:         processService,
-		ios:         ioService,
+		fss:         fss,
+		prs:         prs,
+		ios:         ios,
 	}
 
 	var c1 = &container{
@@ -953,7 +970,7 @@ func Test_containerStateService_ContainerLookupByProcess(t *testing.T) {
 			}
 
 			// Initialize memory-based mock FS.
-			sysio.AppFs = afero.NewMemMapFs()
+			css.ios.RemoveAllIOnodes()
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
