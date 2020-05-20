@@ -252,7 +252,8 @@ func (h *CommonHandler) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler", req.ID, h.Name)
+	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
+		req.ID, h.Name)
 
 	// Ensure operation is generated from within a registered sys container.
 	if req.Container == nil {

@@ -29,6 +29,8 @@ type ContainerIface interface {
 	//
 	//Update(cntr ContainerIface) error
 	SetData(path string, name string, data string)
+	SetInitProc(pid, uid, gid uint32) error
+	SetService(css ContainerStateServiceIface)
 }
 
 //

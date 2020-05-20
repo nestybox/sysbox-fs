@@ -5,6 +5,7 @@
 package state
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -201,4 +202,24 @@ func (c *container) SetData(path string, name string, data string) {
 	}
 
 	c.dataStore[path][name] = data
+}
+
+// Exclusively utilized for unit-testing purposes.
+func (c *container) SetInitProc(pid, uid, gid uint32) error {
+	if c.service == nil {
+		return fmt.Errorf("No css service identified")
+	}
+
+	if c.service.ProcessService() == nil {
+		return fmt.Errorf("No pts service identified")
+	}
+
+	c.initProc = c.service.ProcessService().ProcessCreate(pid, uid, gid)
+
+	return nil
+}
+
+// Exclusively utilized for unit-testing purposes.
+func (c *container) SetService(css domain.ContainerStateServiceIface) {
+	c.service = css
 }
