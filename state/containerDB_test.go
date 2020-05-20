@@ -5,6 +5,7 @@
 package state
 
 import (
+	"io/ioutil"
 	"reflect"
 	"sync"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/nestybox/sysbox-fs/mocks"
 	"github.com/nestybox/sysbox-fs/process"
 	"github.com/nestybox/sysbox-fs/sysio"
+	"github.com/sirupsen/logrus"
 )
 
 // Sysbox-fs global services for all state's pkg unit-tests.
@@ -26,7 +28,7 @@ var hds *mocks.HandlerServiceIface
 func TestMain(m *testing.M) {
 
 	// Disable log generation during UT.
-	//logrus.SetOutput(ioutil.Discard)
+	logrus.SetOutput(ioutil.Discard)
 
 	//
 	// Test-cases common settings.

@@ -279,17 +279,47 @@ func Test_container_update(t *testing.T) {
 		initProc      domain.ProcessIface
 		service       domain.ContainerStateServiceIface
 	}
+	f1 := fields{}
+
+	// Create local css as it's required by cntr.update() method.
+	css := &containerStateService{
+		idTable:     nil,
+		usernsTable: nil,
+		fss:         fss,
+		prs:         prs,
+		ios:         ios,
+	}
+
 	type args struct {
 		src *container
 	}
+	a1 := args{
+		src: &container{
+			id:            "1",
+			initPid:       1001,
+			ctime:         time.Time{},
+			uidFirst:      1,
+			uidSize:       65535,
+			gidFirst:      1,
+			gidSize:       65535,
+			procRoPaths:   nil,
+			procMaskPaths: nil,
+			specPaths:     make(map[string]struct{}),
+			dataStore:     nil,
+			initProc:      nil,
+			service:       css,
+		},
+	}
+
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{"1", f1, a1, false},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &container{
@@ -308,9 +338,19 @@ func Test_container_update(t *testing.T) {
 				initProc:      tt.fields.initProc,
 				service:       tt.fields.service,
 			}
+
 			if err := c.update(tt.args.src); (err != nil) != tt.wantErr {
-				t.Errorf("container.update() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("container.update() error = %v, wantErr %v",
+					err, tt.wantErr)
 			}
+
+			assert.Equal(t, c.initPid, tt.args.src.initPid)
+			assert.Equal(t, c.ctime, tt.args.src.ctime)
+			assert.NotEqual(t, c.initProc, tt.args.src.initProc)
+			assert.Equal(t, c.uidFirst, tt.args.src.uidFirst)
+			assert.Equal(t, c.uidSize, tt.args.src.uidSize)
+			assert.Equal(t, c.gidFirst, tt.args.src.gidFirst)
+			assert.Equal(t, c.gidSize, tt.args.src.gidSize)
 		})
 	}
 }
