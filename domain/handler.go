@@ -79,6 +79,14 @@ type HandlerIface interface {
 }
 
 type HandlerServiceIface interface {
+	Setup(
+		hdlrs []HandlerIface,
+		ignoreErrors bool,
+		css ContainerStateServiceIface,
+		nss NSenterServiceIface,
+		prs ProcessServiceIface,
+		ios IOServiceIface)
+
 	RegisterHandler(h HandlerIface) error
 	UnregisterHandler(h HandlerIface) error
 	LookupHandler(i IOnodeIface) (HandlerIface, bool)

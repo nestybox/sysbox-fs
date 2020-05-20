@@ -27,8 +27,12 @@ type processService struct {
 	ios domain.IOServiceIface
 }
 
-func NewProcessService(ios domain.IOServiceIface) domain.ProcessServiceIface {
-	return &processService{ios: ios}
+func NewProcessService() domain.ProcessServiceIface {
+	return &processService{}
+}
+
+func (ps *processService) Setup(ios domain.IOServiceIface) {
+	ps.ios = ios
 }
 
 func (ps *processService) ProcessCreate(

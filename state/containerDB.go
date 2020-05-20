@@ -36,25 +36,24 @@ type containerStateService struct {
 	ios domain.IOServiceIface
 }
 
-func NewContainerStateService(
-	fss domain.FuseServerServiceIface,
-	prs domain.ProcessServiceIface,
-	ios domain.IOServiceIface) domain.ContainerStateServiceIface {
+func NewContainerStateService() domain.ContainerStateServiceIface {
 
 	newCss := &containerStateService{
 		idTable:     make(map[string]*container),
 		usernsTable: make(map[domain.Inode]*container),
-		fss:         fss,
-		prs:         prs,
-		ios:         ios,
-	}
-
-	// Set backpointer to service parent.
-	if newCss.fss != nil {
-		newCss.fss.SetContainerService(newCss)
 	}
 
 	return newCss
+}
+
+func (css *containerStateService) Setup(
+	fss domain.FuseServerServiceIface,
+	prs domain.ProcessServiceIface,
+	ios domain.IOServiceIface) {
+
+	css.fss = fss
+	css.prs = prs
+	css.ios = ios
 }
 
 func (css *containerStateService) ContainerCreate(

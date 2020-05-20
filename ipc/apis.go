@@ -20,18 +20,23 @@ type ipcService struct {
 	ios        domain.IOServiceIface
 }
 
-func NewIpcService(
+func NewIpcService() domain.IpcServiceIface {
+
+	return &ipcService{}
+}
+
+func (ips *ipcService) Setup(
 	css domain.ContainerStateServiceIface,
 	prs domain.ProcessServiceIface,
-	ios domain.IOServiceIface) domain.IpcServiceIface {
+	ios domain.IOServiceIface) {
+
+	ips.css = css
+	ips.prs = prs
+	ips.ios = ios
 
 	// Instantiate a grpcServer for inter-process communication.
-	newService := new(ipcService)
-	newService.css = css
-	newService.prs = prs
-	newService.ios = ios
-	newService.grpcServer = grpc.NewServer(
-		newService,
+	ips.grpcServer = grpc.NewServer(
+		ips,
 		&grpc.CallbacksMap{
 			grpc.ContainerPreRegisterMessage: ContainerPreRegister,
 			grpc.ContainerRegisterMessage:    ContainerRegister,
@@ -39,15 +44,10 @@ func NewIpcService(
 			grpc.ContainerUpdateMessage:      ContainerUpdate,
 		},
 	)
-	if newService == nil {
-		return nil
-	}
-
-	return newService
 }
 
-func (s *ipcService) Init() error {
-	return s.grpcServer.Init()
+func (ips *ipcService) Init() error {
+	return ips.grpcServer.Init()
 }
 
 func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {

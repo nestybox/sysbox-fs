@@ -33,6 +33,7 @@ type ProcessIface interface {
 }
 
 type ProcessServiceIface interface {
+	Setup(ios IOServiceIface)
 	ProcessCreate(pid uint32, uid uint32, gid uint32) ProcessIface
 }
 

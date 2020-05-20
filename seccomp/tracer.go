@@ -37,33 +37,34 @@ var monitoredSyscalls = []string{
 type SyscallMonitorService struct {
 	nss    domain.NSenterServiceIface        // for nsenter functionality requirements
 	css    domain.ContainerStateServiceIface // for container-state interactions
-	hns    domain.HandlerServiceIface        // for handlerDB interactions
+	hds    domain.HandlerServiceIface        // for handlerDB interactions
 	prs    domain.ProcessServiceIface        // for process class interactions
 	tracer *syscallTracer                    // pointer to actual syscall-tracer instance
 }
 
-func NewSyscallMonitorService(
+func NewSyscallMonitorService() *SyscallMonitorService {
+	return &SyscallMonitorService{}
+}
+
+func (scs *SyscallMonitorService) Setup(
 	nss domain.NSenterServiceIface,
 	css domain.ContainerStateServiceIface,
-	hns domain.HandlerServiceIface,
-	prs domain.ProcessServiceIface) *SyscallMonitorService {
+	hds domain.HandlerServiceIface,
+	prs domain.ProcessServiceIface) {
 
-	svc := &SyscallMonitorService{
-		nss: nss,
-		css: css,
-		hns: hns,
-		prs: prs,
-	}
+	scs.nss = nss
+	scs.css = css
+	scs.hds = hds
+	scs.prs = prs
 
 	// Allocate a new syscall-tracer.
-	svc.tracer = newSyscallTracer(svc)
+	scs.tracer = newSyscallTracer(scs)
 
 	// Initialize and launch the syscall-tracer.
-	if err := svc.tracer.start(); err != nil {
-		return nil
+	if err := scs.tracer.start(); err != nil {
+		logrus.Fatal("syscallMonitorService initialization error (%v). Exiting ...",
+			err)
 	}
-
-	return svc
 }
 
 // SeccompSession holds state associated to every seccomp tracee session.
@@ -104,7 +105,7 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 
 	// Populate bind-mounts hashmap. Note that handlers are not operating at
 	// this point, so there's no need to acquire locks for this operation.
-	handlerDB := sms.hns.HandlerDB()
+	handlerDB := sms.hds.HandlerDB()
 	if handlerDB == nil {
 		logrus.Warnf("Seccomp-tracer initialization error: missing handlerDB")
 		return nil

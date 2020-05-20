@@ -5,9 +5,14 @@
 package domain
 
 type FuseServerServiceIface interface {
+	Setup(
+		mp string,
+		css ContainerStateServiceIface,
+		ios IOServiceIface,
+		hds HandlerServiceIface)
+
 	CreateFuseServer(cntr ContainerIface) error
 	DestroyFuseServer(mp string) error
-	SetContainerService(css ContainerStateServiceIface)
 	DestroyFuseService()
 }
 

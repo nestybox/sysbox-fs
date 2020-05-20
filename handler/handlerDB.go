@@ -384,43 +384,47 @@ type handlerService struct {
 }
 
 // HandlerService constructor.
-func NewHandlerService(
-	hs []domain.HandlerIface,
-	css domain.ContainerStateServiceIface,
-	nss domain.NSenterServiceIface,
-	prs domain.ProcessServiceIface,
-	ios domain.IOServiceIface,
-	ignoreErrors bool) domain.HandlerServiceIface {
+func NewHandlerService() domain.HandlerServiceIface {
 
 	newhs := &handlerService{
 		handlerDB:     make(map[string]domain.HandlerIface),
 		dirHandlerMap: make(map[string][]string),
-		css:           css,
-		nss:           nss,
-		prs:           prs,
-		ios:           ios,
-		ignoreErrors:  ignoreErrors,
 	}
 
+	return newhs
+}
+
+func (hs *handlerService) Setup(
+	hdlrs []domain.HandlerIface,
+	ignoreErrors bool,
+	css domain.ContainerStateServiceIface,
+	nss domain.NSenterServiceIface,
+	prs domain.ProcessServiceIface,
+	ios domain.IOServiceIface) {
+
+	hs.css = css
+	hs.nss = nss
+	hs.prs = prs
+	hs.ios = ios
+	hs.ignoreErrors = ignoreErrors
+
 	// Register all handlers declared as 'enabled'.
-	for _, h := range hs {
+	for _, h := range hdlrs {
 		if h.GetEnabled() {
-			newhs.RegisterHandler(h)
+			hs.RegisterHandler(h)
 		}
 	}
 
 	// Create a directory-handler map to keep track of the association between
 	// emulated resource paths, and the parent directory hosting them.
-	newhs.createDirHandlerMap()
+	hs.createDirHandlerMap()
 
 	// Obtain user-ns inode corresponding to the host fs (root user-ns).
-	hostUserNsInode, err := newhs.FindUserNsInode(uint32(os.Getpid()))
+	hostUserNsInode, err := hs.FindUserNsInode(uint32(os.Getpid()))
 	if err != nil {
-		return nil
+		logrus.Fatalf("Invalid init user-namespace found")
 	}
-	newhs.hostUserNsInode = hostUserNsInode
-
-	return newhs
+	hs.hostUserNsInode = hostUserNsInode
 }
 
 func (hs *handlerService) createDirHandlerMap() {

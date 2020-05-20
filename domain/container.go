@@ -45,6 +45,11 @@ type StateData = map[string]string
 // must utilize to interact with the sysbox-fs state-storage backend.
 //
 type ContainerStateServiceIface interface {
+	Setup(
+		fss FuseServerServiceIface,
+		prs ProcessServiceIface,
+		ios IOServiceIface)
+
 	ContainerCreate(
 		id string,
 		pid uint32,

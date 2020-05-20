@@ -17,28 +17,35 @@ import (
 )
 
 type FuseServerService struct {
-	sync.RWMutex                            // servers map protection
-	path         string                     // fs path to emulate -- "/" by default
-	mountPoint   string                     // base mountpoint -- "/var/lib/sysboxfs" by default
-	serversMap   map[string]*fuseServer     // tracks created fuse-servers
-	ios          domain.IOServiceIface      // i/o service pointer
-	hds          domain.HandlerServiceIface // handler service pointer
+	sync.RWMutex                                   // servers map protection
+	path         string                            // fs path to emulate -- "/" by default
+	mountPoint   string                            // base mountpoint -- "/var/lib/sysboxfs" by default
+	serversMap   map[string]*fuseServer            // tracks created fuse-servers
+	css          domain.ContainerStateServiceIface // containerState service pointer
+	ios          domain.IOServiceIface             // i/o service pointer
+	hds          domain.HandlerServiceIface        // handler service pointer
 }
 
 // FuseServerService constructor.
-func NewFuseServerService(
-	mp string,
-	ios domain.IOServiceIface,
-	hds domain.HandlerServiceIface) *FuseServerService {
+func NewFuseServerService() *FuseServerService {
 
 	newServerService := &FuseServerService{
 		serversMap: make(map[string]*fuseServer),
-		mountPoint: mp,
-		ios:        ios,
-		hds:        hds,
 	}
 
 	return newServerService
+}
+
+func (fss *FuseServerService) Setup(
+	mp string,
+	css domain.ContainerStateServiceIface,
+	ios domain.IOServiceIface,
+	hds domain.HandlerServiceIface) {
+
+	fss.mountPoint = mp
+	fss.css = css
+	fss.ios = ios
+	fss.hds = hds
 }
 
 // FuseServerService destructor.
@@ -131,10 +138,4 @@ func (fss *FuseServerService) DestroyFuseServer(cntrId string) error {
 	fss.Unlock()
 
 	return nil
-}
-
-func (fss *FuseServerService) SetContainerService(
-	css domain.ContainerStateServiceIface) {
-
-	fss.hds.SetStateService(css)
 }

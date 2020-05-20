@@ -239,53 +239,53 @@ func main() {
 	// sysbox-fs main-loop execution.
 	app.Action = func(ctx *cli.Context) error {
 
-		// Initialize sysbox-fs' services.
-
+		// Construct sysbox-fs services.
 		var nsenterService = nsenter.NewNSenterService()
-
 		var ioService = sysio.NewIOService(domain.IOOsFileService)
+		var processService = process.NewProcessService()
+		var handlerService = handler.NewHandlerService()
+		var fuseServerService = fuse.NewFuseServerService()
+		var containerStateService = state.NewContainerStateService()
+		var syscallMonitorService = seccomp.NewSyscallMonitorService()
+		var ipcService = ipc.NewIpcService()
 
-		var processService = process.NewProcessService(ioService)
+		// Setup sysbox-fs services.
+		processService.Setup(ioService)
 
-		var handlerService = handler.NewHandlerService(
+		handlerService.Setup(
 			handler.DefaultHandlers,
-			nil, // to be filled in during containerStateService initialization
+			ctx.Bool("ignore-handler-errors"),
+			containerStateService,
 			nsenterService,
 			processService,
 			ioService,
-			ctx.Bool("ignore-handler-errors"),
 		)
 
-		var fuseServerService = fuse.NewFuseServerService(
+		fuseServerService.Setup(
 			ctx.GlobalString("mountpoint"),
+			containerStateService,
 			ioService,
 			handlerService,
 		)
 
-		var containerStateService = state.NewContainerStateService(
+		containerStateService.Setup(
 			fuseServerService,
 			processService,
 			ioService,
 		)
 
-		var syscallMonitorService = seccomp.NewSyscallMonitorService(
+		syscallMonitorService.Setup(
 			nsenterService,
 			containerStateService,
 			handlerService,
 			processService,
 		)
-		if syscallMonitorService == nil {
-			logrus.Fatal("syscallMonitorService initialization error. Exiting ...")
-		}
 
-		var ipcService = ipc.NewIpcService(
+		ipcService.Setup(
 			containerStateService,
 			processService,
 			ioService,
 		)
-		if ipcService == nil {
-			logrus.Fatal("IpcService initialization error. Exiting ...")
-		}
 
 		// If requested, launch cpu/mem profiling collection.
 		profile, err := runProfiler(ctx)
