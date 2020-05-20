@@ -68,6 +68,7 @@ type ContainerStateServiceIface interface {
 	ContainerLookupById(id string) ContainerIface
 	ContainerLookupByInode(usernsInode Inode) ContainerIface
 	ContainerLookupByProcess(process ProcessIface) ContainerIface
+	FuseServerService() FuseServerServiceIface
 	ProcessService() ProcessServiceIface
 	ContainerDBSize() int
 }

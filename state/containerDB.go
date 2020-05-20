@@ -364,6 +364,10 @@ func (css *containerStateService) ContainerLookupByProcess(
 	return cntr
 }
 
+func (css *containerStateService) FuseServerService() domain.FuseServerServiceIface {
+	return css.fss
+}
+
 func (css *containerStateService) ProcessService() domain.ProcessServiceIface {
 	return css.prs
 }

@@ -41,10 +41,13 @@ func TestMain(m *testing.M) {
 	//
 	//
 	ios = sysio.NewIOService(domain.IOMemFileService)
-	prs = process.NewProcessService(ios)
+	prs = process.NewProcessService()
 	nss = &mocks.NSenterServiceIface{}
 	hds = &mocks.HandlerServiceIface{}
-	css = state.NewContainerStateService(nil, prs, ios)
+	css = state.NewContainerStateService()
+
+	prs.Setup(ios)
+	css.Setup(nil, prs, ios)
 
 	// HandlerService's common mocking instructions.
 	hds.On("NSenterService").Return(nss)
