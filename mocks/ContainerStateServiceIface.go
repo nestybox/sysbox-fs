@@ -148,6 +148,22 @@ func (_m *ContainerStateServiceIface) ContainerUpdate(c domain.ContainerIface) e
 	return r0
 }
 
+// FuseServerService provides a mock function with given fields:
+func (_m *ContainerStateServiceIface) FuseServerService() domain.FuseServerServiceIface {
+	ret := _m.Called()
+
+	var r0 domain.FuseServerServiceIface
+	if rf, ok := ret.Get(0).(func() domain.FuseServerServiceIface); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(domain.FuseServerServiceIface)
+		}
+	}
+
+	return r0
+}
+
 // ProcessService provides a mock function with given fields:
 func (_m *ContainerStateServiceIface) ProcessService() domain.ProcessServiceIface {
 	ret := _m.Called()

@@ -426,7 +426,6 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			}
 
 			// Initialize memory-based mock FS.
-			//sysio.AppFs = afero.NewMemMapFs()
 			css.ios.RemoveAllIOnodes()
 
 			// Prepare the mocks.

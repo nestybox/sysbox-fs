@@ -21,7 +21,6 @@ type ipcService struct {
 }
 
 func NewIpcService() domain.IpcServiceIface {
-
 	return &ipcService{}
 }
 

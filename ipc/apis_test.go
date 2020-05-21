@@ -1,99 +1,154 @@
 //
-// Copyright: (C) 2019 Nestybox Inc.  All rights reserved.
+// Copyright: (C) 2019-2020 Nestybox Inc.  All rights reserved.
 //
 
-package ipc_test
+package ipc
 
 import (
+	"errors"
 	"io/ioutil"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/afero"
-
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-fs/ipc"
+	"github.com/nestybox/sysbox-fs/mocks"
 	"github.com/nestybox/sysbox-fs/state"
-	"github.com/nestybox/sysbox-fs/sysio"
-	"github.com/nestybox/sysbox-ipc/sysboxFsGrpc"
+	grpc "github.com/nestybox/sysbox-ipc/sysboxFsGrpc"
+	"github.com/sirupsen/logrus"
 )
+
+// Sysbox-fs global services for all state's pkg unit-tests.
+var css *mocks.ContainerStateServiceIface
 
 func TestMain(m *testing.M) {
 
 	// Disable log generation during UT.
 	logrus.SetOutput(ioutil.Discard)
 
+	//
+	// Test-cases common settings.
+	//
+	css = &mocks.ContainerStateServiceIface{}
+	css.On("Setup", nil, nil, nil).Return(nil)
+
+	// Run test-suite.
 	m.Run()
 }
 
 func TestNewIpcService(t *testing.T) {
-	type args struct {
-		css domain.ContainerStateService
-		ios domain.IOService
-	}
 	tests := []struct {
 		name string
-		args args
-		want domain.IpcService
+		want domain.IpcServiceIface
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ipc.NewIpcService(tt.args.css, tt.args.ios); !reflect.DeepEqual(got, tt.want) {
+			if got := NewIpcService(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewIpcService() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-/*
-func Test_ipcService_Init(t *testing.T) {
-	tests := []struct {
-		name string
-		s    *ipc.ipcService
-	}{
-		// TODO: Add test cases.
-
+func Test_ipcService_Setup(t *testing.T) {
+	type fields struct {
+		grpcServer *grpc.Server
+		css        domain.ContainerStateServiceIface
+		prs        domain.ProcessServiceIface
+		ios        domain.IOServiceIface
 	}
+
+	var f1 = fields{
+		grpcServer: nil,
+		css:        css,
+		prs:        nil,
+		ios:        nil,
+	}
+
+	type args struct {
+		css domain.ContainerStateServiceIface
+		prs domain.ProcessServiceIface
+		ios domain.IOServiceIface
+	}
+	var a1 = args{
+		css: css,
+		prs: nil,
+		ios: nil,
+	}
+
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+	}{
+		{"1", f1, a1},
+	}
+
+	//
+	// Testcase executions.
+	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.s.Init()
+			ips := &ipcService{
+				grpcServer: tt.fields.grpcServer,
+				css:        tt.fields.css,
+				prs:        tt.fields.prs,
+				ios:        tt.fields.ios,
+			}
+
+			ips.Setup(tt.args.css, tt.args.prs, tt.args.ios)
 		})
 	}
 }
-*/
 
-func TestContainerRegister(t *testing.T) {
-
-	//
-	// Test-cases common attributes.
-	//
-	var css = state.NewContainerStateService()
-	var ios = sysio.NewIOService(sysio.IOFileService)
-
-	var ipcs = ipc.NewIpcService(css, ios)
-
-	// ContainerData objects received from external (ipc/grpc) module.
-	cdata1 := &sysboxFsGrpc.ContainerData{
-		Id:      "cntr-1",
-		InitPid: 1001,
+func Test_ipcService_Init(t *testing.T) {
+	type fields struct {
+		grpcServer *grpc.Server
+		css        domain.ContainerStateServiceIface
+		prs        domain.ProcessServiceIface
+		ios        domain.IOServiceIface
 	}
-
-	cdata2 := &sysboxFsGrpc.ContainerData{
-		Id:      "cntr-2",
-		InitPid: 1002,
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		// TODO: Add test cases.
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ips := &ipcService{
+				grpcServer: tt.fields.grpcServer,
+				css:        tt.fields.css,
+				prs:        tt.fields.prs,
+				ios:        tt.fields.ios,
+			}
+			if err := ips.Init(); (err != nil) != tt.wantErr {
+				t.Errorf("ipcService.Init() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
 
-	//
-	// Test-case definitions.
-	//
+func TestContainerPreRegister(t *testing.T) {
 	type args struct {
 		ctx  interface{}
-		data *sysboxFsGrpc.ContainerData
+		data *grpc.ContainerData
 	}
+
+	var a1 = args{
+		ctx: &ipcService{
+			css: css,
+			prs: nil,
+			ios: nil,
+		},
+		data: &grpc.ContainerData{
+			Id: "c1",
+		},
+	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -102,43 +157,26 @@ func TestContainerRegister(t *testing.T) {
 	}{
 		{
 			//
-			// Test-case 1: Proper registration request. No errors expected.
+			// Test-case 1: Proper pre-registration request. No errors expected.
 			//
 			name:    "1",
-			args:    args{ipcs, cdata1},
+			args:    a1,
 			wantErr: false,
 			prepare: func() {
-
-				// Create proc entry in mem-based FS.
-				afero.WriteFile(sysio.AppFs, "/proc/1001/ns/pid", []byte("123456"), 0644)
+				css.On("ContainerPreRegister", a1.data.Id).Return(nil)
 			},
 		},
 		{
 			//
-			// Test-case 2: Missing pid-ns-inode for the pid associated to the
-			//              incoming request. IOW, no pid-ns is found for this
-			//              container. Error expected.
+			// Test-case 2: Verify proper behavior during css' pre-registration
+			// error.
 			//
 			name:    "2",
-			args:    args{ipcs, cdata2},
+			args:    a1,
 			wantErr: true,
 			prepare: func() {
-
-				// Create proc entry in mem-based FS.
-				afero.WriteFile(sysio.AppFs, "/proc/1001/ns/pid", []byte("123456"), 0644)
-			},
-		},
-		{
-			//
-			// Test-case 3: Add previously-inserted container.Error expected.
-			//
-			name:    "3",
-			args:    args{ipcs, cdata1},
-			wantErr: true,
-			prepare: func() {
-
-				// Create proc entry in mem-based FS.
-				afero.WriteFile(sysio.AppFs, "/proc/1001/ns/pid", []byte("123456"), 0644)
+				css.On("ContainerPreRegister", a1.data.Id).Return(
+					errors.New("Container pre-registration error: container %s already present"))
 			},
 		},
 	}
@@ -149,57 +187,151 @@ func TestContainerRegister(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			// Initialize memory-based mock FS.
-			sysio.AppFs = afero.NewMemMapFs()
+			// Reset mock expectations from previous iterations.
+			css.ExpectedCalls = nil
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
 				tt.prepare()
 			}
 
-			err := ipc.ContainerRegister(tt.args.ctx, tt.args.data)
-			if (err != nil) != tt.wantErr {
+			if err := ContainerPreRegister(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
+				t.Errorf("ContainerPreRegister() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			// Ensure that mocks were properly invoked.
+			css.AssertExpectations(t)
+		})
+	}
+}
+
+func TestContainerRegister(t *testing.T) {
+	type args struct {
+		ctx  interface{}
+		data *grpc.ContainerData
+	}
+
+	var c1 domain.ContainerIface
+
+	var a1 = args{
+		ctx: &ipcService{
+			css: css,
+			prs: nil,
+			ios: nil,
+		},
+		data: &grpc.ContainerData{
+			Id: "c1",
+		},
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		prepare func()
+	}{
+		{
+			//
+			// Test-case 1: Proper pre-registration request. No errors expected.
+			//
+			name:    "1",
+			args:    a1,
+			wantErr: false,
+			prepare: func() {
+				css.On("ContainerCreate",
+					a1.data.Id,
+					uint32(a1.data.InitPid),
+					a1.data.Ctime,
+					uint32(a1.data.UidFirst),
+					uint32(a1.data.UidSize),
+					uint32(a1.data.GidFirst),
+					uint32(a1.data.GidSize),
+					a1.data.ProcRoPaths,
+					a1.data.ProcMaskPaths).Return(c1)
+
+				css.On("ContainerRegister", c1).Return(nil)
+			},
+		},
+		{
+			//
+			// Test-case 2: Verify proper behavior during css' pre-registration
+			// error.
+			//
+			name:    "2",
+			args:    a1,
+			wantErr: true,
+			prepare: func() {
+
+				css.On("ContainerCreate",
+					a1.data.Id,
+					uint32(a1.data.InitPid),
+					a1.data.Ctime,
+					uint32(a1.data.UidFirst),
+					uint32(a1.data.UidSize),
+					uint32(a1.data.GidFirst),
+					uint32(a1.data.GidSize),
+					a1.data.ProcRoPaths,
+					a1.data.ProcMaskPaths).Return(c1)
+
+				css.On("ContainerRegister", c1).Return(
+					errors.New("registration error found"))
+			},
+		},
+	}
+
+	//
+	// Testcase executions.
+	//
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			// Reset mock expectations from previous iterations.
+			css.ExpectedCalls = nil
+
+			// Prepare the mocks.
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+
+			if err := ContainerRegister(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
 				t.Errorf("ContainerRegister() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			// Ensure that container has been added to state-DB.
-			if err == nil {
-				if cntr := css.ContainerLookupById(tt.args.data.Id); cntr == nil {
-					t.Errorf("ContainerRegister() error: unexpected container absence")
-				}
-			}
+			// Ensure that mocks were properly invoked.
+			css.AssertExpectations(t)
 		})
 	}
 }
 
 func TestContainerUnregister(t *testing.T) {
-
-	//
-	// Test-cases common attributes.
-	//
-	var css = state.NewContainerStateService()
-	var ios = sysio.NewIOService(sysio.IOFileService)
-
-	var ipcs = ipc.NewIpcService(css, ios)
-
-	// ContainerData objects being added to state-DB prior to test execution.
-	cdata1 := &sysboxFsGrpc.ContainerData{
-		Id:      "cntr-1",
-		InitPid: 1001,
-	}
-	cdata2 := &sysboxFsGrpc.ContainerData{
-		Id:      "cntr-2",
-		InitPid: 1002,
-	}
-	ipc.ContainerRegister(ipcs, cdata1)
-
-	//
-	// Test-case definitions.
-	//
 	type args struct {
 		ctx  interface{}
-		data *sysboxFsGrpc.ContainerData
+		data *grpc.ContainerData
 	}
+
+	var c1 = state.NewContainerStateService().ContainerCreate(
+		"c1",
+		1001,
+		time.Time{},
+		231072,
+		65535,
+		231072,
+		65535,
+		nil,
+		nil,
+	)
+
+	var a1 = args{
+		ctx: &ipcService{
+			css: css,
+			prs: nil,
+			ios: nil,
+		},
+		data: &grpc.ContainerData{
+			Id: "c1",
+		},
+	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -208,44 +340,27 @@ func TestContainerUnregister(t *testing.T) {
 	}{
 		{
 			//
-			// Test-case 1: Proper unregistration request. No errors expected.
+			// Test-case 1: Proper pre-registration request. No errors expected.
 			//
 			name:    "1",
-			args:    args{ipcs, cdata1},
+			args:    a1,
 			wantErr: false,
 			prepare: func() {
 
-				// Create proc entry in mem-based FS.
-				afero.WriteFile(sysio.AppFs, "/proc/1001/ns/pid", []byte("123456"), 0644)
+				css.On("ContainerLookupById", a1.data.Id).Return(c1)
+				css.On("ContainerUnregister", c1).Return(nil)
 			},
 		},
 		{
 			//
-			// Test-case 2: Missing pid-ns-inode for the pid associated to the
-			//              incoming request. IOW, no pid-ns is found for this
-			//              container. Error expected.
+			// Test-case 2: Verify proper behavior during css' pre-registration
+			// error.
 			//
 			name:    "2",
-			args:    args{ipcs, cdata2},
+			args:    a1,
 			wantErr: true,
 			prepare: func() {
-
-				// Create proc entry in mem-based FS.
-				afero.WriteFile(sysio.AppFs, "/proc/1001/ns/pid", []byte("123456"), 0644)
-			},
-		},
-		{
-			//
-			// Test-case 3: Unregister a previously-eliminated container.
-			// Error expected.
-			//
-			name:    "3",
-			args:    args{ipcs, cdata1},
-			wantErr: true,
-			prepare: func() {
-
-				// Create proc entry in mem-based FS.
-				afero.WriteFile(sysio.AppFs, "/proc/1001/ns/pid", []byte("123456"), 0644)
+				css.On("ContainerLookupById", a1.data.Id).Return(nil)
 			},
 		},
 	}
@@ -256,61 +371,43 @@ func TestContainerUnregister(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			// Initialize memory-based mock FS.
-			sysio.AppFs = afero.NewMemMapFs()
+			// Reset mock expectations from previous iterations.
+			css.ExpectedCalls = nil
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
 				tt.prepare()
 			}
 
-			if err := ipc.ContainerUnregister(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
+			if err := ContainerUnregister(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
 				t.Errorf("ContainerUnregister() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			// Ensure that container has been eliminated from state-DB.
-			if cntr := css.ContainerLookupById(tt.args.data.Id); cntr != nil {
-				t.Errorf("ContainerUnregister() error: unexpected container found")
-			}
+			// Ensure that mocks were properly invoked.
+			css.AssertExpectations(t)
 		})
 	}
 }
 
 func TestContainerUpdate(t *testing.T) {
-
-	//
-	// Test-cases common attributes.
-	//
-	var css = state.NewContainerStateService()
-	var ios = sysio.NewIOService(sysio.IOFileService)
-
-	var ipcs = ipc.NewIpcService(css, ios)
-
-	// ContainerData object being added to state-DB prior to test execution.
-	cdata1 := &sysboxFsGrpc.ContainerData{
-		Id:      "cntr-1",
-		InitPid: 1001,
-	}
-	ipc.ContainerRegister(ipcs, cdata1)
-
-	// ContainerData objects to be utilized to generate updates.
-	cdata1Update := &sysboxFsGrpc.ContainerData{
-		Id:      "cntr-1",
-		InitPid: 1001,
-		Ctime:   time.Date(2019, 05, 11, 00, 00, 00, 651387237, time.UTC),
-	}
-	cdata2Update := &sysboxFsGrpc.ContainerData{
-		Id:      "cntr-2",
-		InitPid: 1002,
-	}
-
-	//
-	// Test-case definitions.
-	//
 	type args struct {
 		ctx  interface{}
-		data *sysboxFsGrpc.ContainerData
+		data *grpc.ContainerData
 	}
+
+	var c1 domain.ContainerIface
+
+	var a1 = args{
+		ctx: &ipcService{
+			css: css,
+			prs: nil,
+			ios: nil,
+		},
+		data: &grpc.ContainerData{
+			Id: "c1",
+		},
+	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -319,44 +416,50 @@ func TestContainerUpdate(t *testing.T) {
 	}{
 		{
 			//
-			// Test-case 1: Proper update request. No errors expected.
+			// Test-case 1: Proper pre-registration request. No errors expected.
 			//
 			name:    "1",
-			args:    args{ipcs, cdata1Update},
+			args:    a1,
 			wantErr: false,
 			prepare: func() {
 
-				// Create proc entry in mem-based FS.
-				afero.WriteFile(sysio.AppFs, "/proc/1001/ns/pid", []byte("123456"), 0644)
+				css.On("ContainerCreate",
+					a1.data.Id,
+					uint32(a1.data.InitPid),
+					a1.data.Ctime,
+					uint32(a1.data.UidFirst),
+					uint32(a1.data.UidSize),
+					uint32(a1.data.GidFirst),
+					uint32(a1.data.GidSize),
+					a1.data.ProcRoPaths,
+					a1.data.ProcMaskPaths).Return(c1)
+
+				css.On("ContainerUpdate", c1).Return(nil)
 			},
 		},
 		{
 			//
-			// Test-case 2: Missing pid-ns-inode for the pid associated to the
-			//              incoming request. IOW, no pid-ns is found for this
-			//              container. Error expected.
+			// Test-case 2: Verify proper behavior during css' pre-registration
+			// error.
 			//
 			name:    "2",
-			args:    args{ipcs, cdata2Update},
+			args:    a1,
 			wantErr: true,
 			prepare: func() {
 
-				// Create proc entry in mem-based FS.
-				afero.WriteFile(sysio.AppFs, "/proc/1001/ns/pid", []byte("123456"), 0644)
-			},
-		},
-		{
-			//
-			// Test-case 3: Update previously-inserted container.
-			// Error expected.
-			//
-			name:    "3",
-			args:    args{ipcs, cdata1Update},
-			wantErr: false,
-			prepare: func() {
+				css.On("ContainerCreate",
+					a1.data.Id,
+					uint32(a1.data.InitPid),
+					a1.data.Ctime,
+					uint32(a1.data.UidFirst),
+					uint32(a1.data.UidSize),
+					uint32(a1.data.GidFirst),
+					uint32(a1.data.GidSize),
+					a1.data.ProcRoPaths,
+					a1.data.ProcMaskPaths).Return(c1)
 
-				// Create proc entry in mem-based FS.
-				afero.WriteFile(sysio.AppFs, "/proc/1001/ns/pid", []byte("123456"), 0644)
+				css.On("ContainerUpdate", c1).Return(
+					errors.New("registration error found"))
 			},
 		},
 	}
@@ -367,29 +470,20 @@ func TestContainerUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			// Initialize memory-based mock FS.
-			sysio.AppFs = afero.NewMemMapFs()
+			// Reset mock expectations from previous iterations.
+			css.ExpectedCalls = nil
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
 				tt.prepare()
 			}
 
-			err := ipc.ContainerUpdate(tt.args.ctx, tt.args.data)
-			if (err != nil) != tt.wantErr {
+			if err := ContainerUpdate(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
 				t.Errorf("ContainerUpdate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			// Ensure that container has been updated in state-DB.
-			if err == nil {
-				if cntr := css.ContainerLookupById(tt.args.data.Id); cntr == nil {
-					if tt.args.data.Id != cntr.ID() ||
-						uint32(tt.args.data.InitPid) != cntr.InitPid() ||
-						tt.args.data.Ctime != cntr.Ctime() {
-						t.Errorf("ContainerUpdate() error: unexpected container attribute")
-					}
-				}
-			}
+			// Ensure that mocks were properly invoked.
+			css.AssertExpectations(t)
 		})
 	}
 }
