@@ -2,7 +2,7 @@
 // Copyright: (C) 2019-2020 Nestybox Inc.  All rights reserved.
 //
 
-package ipc
+package ipc_test
 
 import (
 	"errors"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/ipc"
 	"github.com/nestybox/sysbox-fs/mocks"
 	"github.com/nestybox/sysbox-fs/state"
 	grpc "github.com/nestybox/sysbox-ipc/sysboxFsGrpc"
@@ -45,7 +46,7 @@ func TestNewIpcService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewIpcService(); !reflect.DeepEqual(got, tt.want) {
+			if got := ipc.NewIpcService(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewIpcService() = %v, want %v", got, tt.want)
 			}
 		})
@@ -91,13 +92,7 @@ func Test_ipcService_Setup(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ips := &ipcService{
-				grpcServer: tt.fields.grpcServer,
-				css:        tt.fields.css,
-				prs:        tt.fields.prs,
-				ios:        tt.fields.ios,
-			}
-
+			ips := ipc.NewIpcService()
 			ips.Setup(tt.args.css, tt.args.prs, tt.args.ios)
 		})
 	}
@@ -119,12 +114,7 @@ func Test_ipcService_Init(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ips := &ipcService{
-				grpcServer: tt.fields.grpcServer,
-				css:        tt.fields.css,
-				prs:        tt.fields.prs,
-				ios:        tt.fields.ios,
-			}
+			ips := ipc.NewIpcService()
 			if err := ips.Init(); (err != nil) != tt.wantErr {
 				t.Errorf("ipcService.Init() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -138,12 +128,11 @@ func TestContainerPreRegister(t *testing.T) {
 		data *grpc.ContainerData
 	}
 
+	var ctx = ipc.NewIpcService()
+	ctx.Setup(css, nil, nil)
+
 	var a1 = args{
-		ctx: &ipcService{
-			css: css,
-			prs: nil,
-			ios: nil,
-		},
+		ctx: ctx,
 		data: &grpc.ContainerData{
 			Id: "c1",
 		},
@@ -195,7 +184,7 @@ func TestContainerPreRegister(t *testing.T) {
 				tt.prepare()
 			}
 
-			if err := ContainerPreRegister(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
+			if err := ipc.ContainerPreRegister(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
 				t.Errorf("ContainerPreRegister() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -213,12 +202,11 @@ func TestContainerRegister(t *testing.T) {
 
 	var c1 domain.ContainerIface
 
+	var ctx = ipc.NewIpcService()
+	ctx.Setup(css, nil, nil)
+
 	var a1 = args{
-		ctx: &ipcService{
-			css: css,
-			prs: nil,
-			ios: nil,
-		},
+		ctx: ctx,
 		data: &grpc.ContainerData{
 			Id: "c1",
 		},
@@ -293,7 +281,7 @@ func TestContainerRegister(t *testing.T) {
 				tt.prepare()
 			}
 
-			if err := ContainerRegister(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
+			if err := ipc.ContainerRegister(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
 				t.Errorf("ContainerRegister() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -321,12 +309,11 @@ func TestContainerUnregister(t *testing.T) {
 		nil,
 	)
 
+	var ctx = ipc.NewIpcService()
+	ctx.Setup(css, nil, nil)
+
 	var a1 = args{
-		ctx: &ipcService{
-			css: css,
-			prs: nil,
-			ios: nil,
-		},
+		ctx: ctx,
 		data: &grpc.ContainerData{
 			Id: "c1",
 		},
@@ -379,7 +366,7 @@ func TestContainerUnregister(t *testing.T) {
 				tt.prepare()
 			}
 
-			if err := ContainerUnregister(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
+			if err := ipc.ContainerUnregister(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
 				t.Errorf("ContainerUnregister() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -397,12 +384,11 @@ func TestContainerUpdate(t *testing.T) {
 
 	var c1 domain.ContainerIface
 
+	var ctx = ipc.NewIpcService()
+	ctx.Setup(css, nil, nil)
+
 	var a1 = args{
-		ctx: &ipcService{
-			css: css,
-			prs: nil,
-			ios: nil,
-		},
+		ctx: ctx,
 		data: &grpc.ContainerData{
 			Id: "c1",
 		},
@@ -478,7 +464,7 @@ func TestContainerUpdate(t *testing.T) {
 				tt.prepare()
 			}
 
-			if err := ContainerUpdate(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
+			if err := ipc.ContainerUpdate(tt.args.ctx, tt.args.data); (err != nil) != tt.wantErr {
 				t.Errorf("ContainerUpdate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
