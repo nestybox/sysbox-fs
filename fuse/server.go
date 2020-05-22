@@ -1,5 +1,5 @@
 //
-// Copyright: (C) 2019 Nestybox Inc.  All rights reserved.
+// Copyright: (C) 2019-2020 Nestybox Inc.  All rights reserved.
 //
 
 package fuse
@@ -12,6 +12,7 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+
 	_ "bazil.org/fuse/fs/fstestutil"
 	"github.com/sirupsen/logrus"
 
@@ -29,6 +30,22 @@ type fuseServer struct {
 	root         *Dir                  // root node of fuse fs -- "/" by default
 	initDone     chan bool             // sync-up channel to alert about fuse-server's init-completion
 	service      *FuseServerService    // backpointer to parent service
+}
+
+func NewFuseServer(
+	path string,
+	mountpoint string,
+	container domain.ContainerIface,
+	service *FuseServerService) domain.FuseServerIface {
+
+	srv := &fuseServer{
+		path:       path,
+		mountPoint: mountpoint,
+		container:  container,
+		service:    service,
+	}
+
+	return srv
 }
 
 func (s *fuseServer) Create() error {
@@ -50,7 +67,8 @@ func (s *fuseServer) Create() error {
 	mountPointIOnode := s.service.ios.NewIOnode(
 		s.mountPoint,
 		s.mountPoint,
-		os.ModeDir)
+		0600,
+	)
 	_, err = mountPointIOnode.Stat()
 	if err != nil {
 		if os.IsNotExist(err) {

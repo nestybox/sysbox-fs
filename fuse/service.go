@@ -42,10 +42,10 @@ func (fss *FuseServerService) Setup(
 	ios domain.IOServiceIface,
 	hds domain.HandlerServiceIface) {
 
-	fss.mountPoint = mp
 	fss.css = css
 	fss.ios = ios
 	fss.hds = hds
+	fss.mountPoint = mp
 }
 
 // FuseServerService destructor.
@@ -78,12 +78,12 @@ func (fss *FuseServerService) CreateFuseServer(cntr domain.ContainerIface) error
 		return errors.New("FuseServer with invalid mountpoint")
 	}
 
-	srv := &fuseServer{
-		path:       "/",
-		mountPoint: cntrMountpoint,
-		container:  cntr,
-		service:    fss,
-	}
+	srv := NewFuseServer(
+		"/",
+		cntrMountpoint,
+		cntr,
+		fss,
+	)
 
 	// Create new fuse-server.
 	if err := srv.Create(); err != nil {
@@ -97,7 +97,7 @@ func (fss *FuseServerService) CreateFuseServer(cntr domain.ContainerIface) error
 
 	// Store newly created fuse-server.
 	fss.Lock()
-	fss.serversMap[cntrId] = srv
+	fss.serversMap[cntrId] = srv.(*fuseServer)
 	fss.Unlock()
 
 	return nil

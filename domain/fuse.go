@@ -22,4 +22,5 @@ type FuseServerIface interface {
 	Destroy() error
 	MountPoint() string
 	Unmount()
+	InitWait()
 }
