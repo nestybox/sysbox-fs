@@ -374,7 +374,7 @@ func (e *NSenterEvent) SendRequest() error {
 	// go runtime.
 	process, err := os.FindProcess(pid.Pid)
 	if err != nil {
-		logrus.Warnf("Error finding grand-child pid %s: %s", pid.Pid, err)
+		logrus.Warnf("Error finding grand-child pid %d: %s", pid.Pid, err)
 		return err
 	}
 	cmd.Process = process

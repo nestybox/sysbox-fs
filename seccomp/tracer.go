@@ -62,7 +62,7 @@ func (scs *SyscallMonitorService) Setup(
 
 	// Initialize and launch the syscall-tracer.
 	if err := scs.tracer.start(); err != nil {
-		logrus.Fatal("syscallMonitorService initialization error (%v). Exiting ...",
+		logrus.Fatalf("syscallMonitorService initialization error (%v). Exiting ...",
 			err)
 	}
 }
