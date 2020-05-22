@@ -1,5 +1,5 @@
 //
-// Copyright: (C) 2019 Nestybox Inc.  All rights reserved.
+// Copyright: (C) 2019-2020 Nestybox Inc.  All rights reserved.
 //
 
 package sysio
@@ -17,10 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 )
-
-// For unit-testing purposes.
-// var appFs afero.Fs
-//= afero.NewOsFs()
 
 // Ensure IOnodeFile implements IOnode's interfaces.
 var _ domain.IOServiceIface = (*ioFileService)(nil)
@@ -63,16 +59,6 @@ func (s *ioFileService) NewIOnode(
 	return newFile
 }
 
-// Eliminate all nodes from a previously created file-system. Utilized mainly
-// for unit-testing purposes (i.e. afero.MemFs).
-func (s *ioFileService) RemoveAllIOnodes() error {
-	if err := s.appFs.RemoveAll("/"); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (s *ioFileService) OpenNode(i domain.IOnodeIface) error {
 	return i.Open()
 }
@@ -111,6 +97,16 @@ func (s *ioFileService) StatNode(i domain.IOnodeIface) (os.FileInfo, error) {
 
 func (s *ioFileService) SeekResetNode(i domain.IOnodeIface) (int64, error) {
 	return i.SeekReset()
+}
+
+// Eliminate all nodes from a previously created file-system. Utilized exclusively
+// for unit-testing purposes (i.e. afero.MemFs).
+func (s *ioFileService) RemoveAllIOnodes() error {
+	if err := s.appFs.RemoveAll("/"); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *ioFileService) PathNode(i domain.IOnodeIface) string {
@@ -239,7 +235,7 @@ func (i *IOnodeFile) WriteFile(p []byte) error {
 		return nil
 	}
 
-	return ioutil.WriteFile(i.path, p, 0)
+	return ioutil.WriteFile(i.path, p, i.mode)
 }
 
 func (i *IOnodeFile) Mkdir() error {
@@ -281,32 +277,6 @@ func (i *IOnodeFile) GetNsInode() (domain.Inode, error) {
 	return stat.Ino, nil
 }
 
-// 	sysio.AppFs.(*afero.MemMapFs)
-// 	if ok {
-// 		content, err := afero.ReadFile(sysio.AppFs, nsPath)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		nsInode, err := strconv.ParseUint(string(content), 10, 64)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		nsInodes[ns] = nsInode
-// 		continue
-// 	}
-
-// 	info, err := os.Stat(nsPath)
-// 	if err != nil {
-// 		logrus.Errorf("No process %s-ns file found for pid %d", ns, p.pid)
-// 		return nil, err
-// 	}
-
-// 	stat := info.Sys().(*syscall.Stat_t)
-// 	nsInodes[ns] = stat.Ino
-// }
-
-// return ioutil.Discard
-
 func (i *IOnodeFile) Stat() (os.FileInfo, error) {
 	return i.fss.appFs.Stat(i.path)
 }
@@ -318,6 +288,26 @@ func (i *IOnodeFile) SeekReset() (int64, error) {
 	}
 
 	return i.file.Seek(io.SeekStart, 0)
+}
+
+// Eliminate a node from a previously created file-system. Utilized exclusively
+// for unit-testing purposes (i.e. afero.MemFs).
+func (i *IOnodeFile) Remove() error {
+	if err := i.fss.appFs.Remove(i.path); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Eliminate all nodes under the path indicated by the given ionode. Utilized
+// exclusively for unit-testing purposes (i.e. afero.MemFs).
+func (i *IOnodeFile) RemoveAll() error {
+	if err := i.fss.appFs.RemoveAll(i.path); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (i *IOnodeFile) Name() string {

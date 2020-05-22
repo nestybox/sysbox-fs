@@ -32,7 +32,6 @@ const (
 
 type IOServiceIface interface {
 	NewIOnode(n string, p string, attr os.FileMode) IOnodeIface
-	RemoveAllIOnodes() error
 	OpenNode(i IOnodeIface) error
 	ReadNode(i IOnodeIface, p []byte) (int, error)
 	WriteNode(i IOnodeIface, p []byte) (int, error)
@@ -43,6 +42,7 @@ type IOServiceIface interface {
 	ReadLineNode(i IOnodeIface) (string, error)
 	StatNode(i IOnodeIface) (os.FileInfo, error)
 	SeekResetNode(i IOnodeIface) (int64, error)
+	RemoveAllIOnodes() error
 	PathNode(i IOnodeIface) string
 	GetServiceType() IOServiceType
 }
@@ -61,6 +61,8 @@ type IOnodeIface interface {
 	MkdirAll() error
 	Stat() (os.FileInfo, error)
 	SeekReset() (int64, error)
+	Remove() error
+	RemoveAll() error
 	//
 	// Required getters/setters.
 	//
