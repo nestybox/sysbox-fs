@@ -7,6 +7,7 @@ require (
 	github.com/nestybox/libseccomp-golang v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-ipc v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
+	github.com/nestybox/sysbox/dockerUtils v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox/lib/capability v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox/lib/pidmonitor v0.0.0-00010101000000-000000000000
 	github.com/pkg/profile v1.4.0
@@ -26,6 +27,8 @@ replace github.com/nestybox/sysbox-ipc => ../sysbox-ipc
 replace github.com/nestybox/sysbox-runc => ../sysbox-runc
 
 replace github.com/nestybox/sysbox/utils => ../lib/utils
+
+replace github.com/nestybox/sysbox/dockerUtils => ../lib/dockerUtils
 
 replace github.com/nestybox/libseccomp-golang => ../lib/seccomp-golang
 
