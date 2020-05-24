@@ -32,8 +32,10 @@ import (
 const (
 	usage = `sysbox-fs file-system
 
-sysbox-fs is a daemon that provides enhanced file-system capabilities to
-sysbox-runc component.
+sysbox-fs is a daemon that emulates portions of the system container's
+file system (e.g., procfs, sysfs). It's purpose is to make the
+system container closely resemble a virtual host while ensuring
+proper isolation.
 `
 )
 
