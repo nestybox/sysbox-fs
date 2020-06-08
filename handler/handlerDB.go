@@ -288,6 +288,16 @@ var DefaultHandlers = []domain.HandlerIface{
 		Cacheable: true,
 	},
 	//
+	// /proc/sys/net/unix handlers
+	//
+	&implementations.MaxDgramQlenHandler{
+		Name:      "maxDgramQlen",
+		Path:      "/proc/sys/net/unix/max_dgram_qlen",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	//
 	// /proc/sys/vm handlers
 	//
 	&implementations.VmOvercommitMemHandler{
