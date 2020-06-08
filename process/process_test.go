@@ -214,10 +214,17 @@ func TestCheckPermCapDacReadSearch(t *testing.T) {
 	}
 
 	p := &process{
+		pid:  uint32(os.Getpid()),
 		root: tmpDir,
 		cwd:  tmpDir,
 		uid:  800,
 		gid:  800,
+	}
+
+	// Init caps explicitly to prevent p.setCapability() below from loading caps for the current process.
+	p.cap, err = cap.NewPid2(int(p.pid))
+	if err != nil {
+		t.Fatalf("failed to allocate capabilities: %v", err)
 	}
 
 	p.setCapability(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH)
@@ -378,15 +385,23 @@ func TestProcPathAccessDirAndFilePerm(t *testing.T) {
 	}
 
 	p = &process{
+		pid:  uint32(os.Getpid()),
 		root: tmpDir,
 		cwd:  cwd,
 		uid:  800,
 		gid:  800,
 	}
 
+	// Initialize the process caps
+	p.cap, err = cap.NewPid2(int(p.pid))
+	if err != nil {
+		t.Fatalf("failed to allocate capabilities: %v", err)
+	}
+
 	if err := p.pathAccess("/some/path/to/a/dir/somefile", 0); err != nil {
 		t.Fatalf("procPathAccess() failed: %v", err)
 	}
+
 	if err := p.pathAccess("/some/path/to/a/dir/somefile", domain.R_OK); err != syscall.EACCES {
 		t.Fatalf("pathAccess() expected to fail with \"%s\" but did not; err = \"%s\"", syscall.EACCES, err)
 	}
@@ -719,8 +734,15 @@ func TestPathAccess(t *testing.T) {
 }
 
 func TestPathAccessPerm(t *testing.T) {
+	var err error
 
 	p := &process{pid: uint32(os.Getpid())}
+
+	// Initialize the process caps
+	p.cap, err = cap.NewPid2(int(p.pid))
+	if err != nil {
+		t.Fatalf("failed to allocate capabilities: %v", err)
+	}
 
 	tmpDir, err := ioutil.TempDir("/tmp", "TestPathres")
 	if err != nil {
