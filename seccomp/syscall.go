@@ -1,3 +1,7 @@
+//
+// Copyright: (C) 2020 Nestybox Inc.  All rights reserved.
+//
+
 package seccomp
 
 import (

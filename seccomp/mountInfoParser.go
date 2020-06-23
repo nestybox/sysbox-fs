@@ -1,5 +1,5 @@
 //
-// Copyright 2020 Nestybox, Inc.
+// Copyright: (C) 2020 Nestybox Inc.  All rights reserved.
 //
 
 //
