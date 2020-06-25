@@ -104,10 +104,10 @@ func (d *Dir) Lookup(
 
 	// Upon arrival of lookup() request we must construct a temporary ionode
 	// that reflects the path of the element that needs to be looked up.
-	newIOnode := d.server.service.ios.NewIOnode(req.Name, path, 0)
+	ionode := d.server.service.ios.NewIOnode(req.Name, path, 0)
 
 	// Lookup the associated handler within handler-DB.
-	handler, ok := d.server.service.hds.LookupHandler(newIOnode)
+	handler, ok := d.server.service.hds.LookupHandler(ionode)
 	if !ok {
 		logrus.Errorf("No supported handler for %v resource", d.path)
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
@@ -122,7 +122,7 @@ func (d *Dir) Lookup(
 	}
 
 	// Handler execution.
-	info, err := handler.Lookup(newIOnode, request)
+	info, err := handler.Lookup(ionode, request)
 	if err != nil {
 		return nil, fuse.ENOENT
 	}
@@ -189,12 +189,12 @@ func (d *Dir) Create(
 	path := filepath.Join(d.path, req.Name)
 
 	// New ionode reflecting the path of the element to be created.
-	newIOnode := d.server.service.ios.NewIOnode(req.Name, path, 0)
-	newIOnode.SetOpenFlags(int(req.Flags))
-	newIOnode.SetOpenMode(req.Mode)
+	ionode := d.server.service.ios.NewIOnode(req.Name, path, 0)
+	ionode.SetOpenFlags(int(req.Flags))
+	ionode.SetOpenMode(req.Mode)
 
 	// Lookup the associated handler within handler-DB.
-	handler, ok := d.server.service.hds.LookupHandler(newIOnode)
+	handler, ok := d.server.service.hds.LookupHandler(ionode)
 	if !ok {
 		logrus.Errorf("No supported handler for %v resource", path)
 		return nil, nil, fmt.Errorf("No supported handler for %v resource", path)
@@ -210,7 +210,7 @@ func (d *Dir) Create(
 
 	// Handler execution. 'Open' handler will create new element if requesting
 	// process has the proper credentials / capabilities.
-	err := handler.Open(newIOnode, request)
+	err := handler.Open(ionode, request)
 	if err != nil && err != io.EOF {
 		logrus.Debugf("Open() error: %v", err)
 		return nil, nil, err
@@ -219,7 +219,7 @@ func (d *Dir) Create(
 
 	// To satisfy Bazil FUSE lib we are expected to return a lookup-response
 	// and an open-response, let's start with the lookup() one.
-	info, err := handler.Lookup(newIOnode, request)
+	info, err := handler.Lookup(ionode, request)
 	if err != nil {
 		return nil, nil, fuse.ENOENT
 	}
@@ -250,8 +250,12 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 
 	logrus.Debugf("Requested ReadDirAll() on directory %v (req ID=%#v)", d.path, uint64(req.ID))
 
+	// New ionode reflecting the path of the element to be created.
+	ionode := d.server.service.ios.NewIOnode(d.name, d.path, 0)
+	ionode.SetOpenFlags(int(req.Flags))
+
 	// Lookup the associated handler within handler-DB.
-	handler, ok := d.server.service.hds.LookupHandler(d.ionode)
+	handler, ok := d.server.service.hds.LookupHandler(ionode)
 	if !ok {
 		logrus.Errorf("No supported handler for %v resource", d.path)
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
@@ -266,7 +270,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 	}
 
 	// Handler execution.
-	files, err := handler.ReadDirAll(d.ionode, request)
+	files, err := handler.ReadDirAll(ionode, request)
 	if err != nil {
 		logrus.Errorf("ReadDirAll() error: %v", err)
 		return nil, fuse.ENOENT

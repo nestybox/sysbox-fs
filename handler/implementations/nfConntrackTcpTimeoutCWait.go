@@ -249,16 +249,9 @@ func (h *NfConntrackTcpTimeoutCWaitHandler) pushFile(n domain.IOnodeIface, c dom
 		return nil
 	}
 
-	// Rewinding file offset back to its start point.
-	_, err = n.SeekReset()
-	if err != nil {
-		logrus.Errorf("Could not reset file offset: %v", err)
-		return err
-	}
-
 	// Push down to host FS the new (larger) value.
 	msg := []byte(strconv.Itoa(newMaxInt))
-	_, err = n.Write(msg)
+	err = n.WriteFile(msg)
 	if err != nil {
 		logrus.Errorf("Could not write to file: %v", err)
 		return err

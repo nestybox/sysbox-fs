@@ -197,16 +197,9 @@ func (h *VsExpireNoDestConnHandler) pushFile(
 	n domain.IOnodeIface,
 	c domain.ContainerIface, newValInt int) error {
 
-	// Rewinding file offset back to its start point.
-	_, err := n.SeekReset()
-	if err != nil {
-		logrus.Errorf("Could not reset file offset: %v", err)
-		return err
-	}
-
 	// Push down to kernel the new value.
 	msg := []byte(strconv.Itoa(newValInt))
-	_, err = n.Write(msg)
+	err := n.WriteFile(msg)
 	if err != nil {
 		logrus.Errorf("Could not write to file: %v", err)
 		return err

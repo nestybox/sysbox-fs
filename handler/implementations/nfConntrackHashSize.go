@@ -239,16 +239,9 @@ func (h *NfConntrackHashSizeHandler) pushFile(n domain.IOnodeIface, c domain.Con
 		return nil
 	}
 
-	// Rewinding file offset back to its start point.
-	_, err = n.SeekReset()
-	if err != nil {
-		logrus.Errorf("Could not reset file offset: %s", err)
-		return err
-	}
-
 	// Push down to host FS the new (larger) value.
 	msg := []byte(strconv.Itoa(newMaxInt))
-	_, err = n.Write(msg)
+	err = n.WriteFile(msg)
 	if err != nil && !h.Service.IgnoreErrors() {
 		logrus.Errorf("Could not write to file: %s", err)
 		return err
