@@ -18,8 +18,9 @@ require (
 	github.com/urfave/cli v1.20.0
 	github.com/vektra/mockery v1.1.2 // indirect
 	github.com/vishvananda/netlink v1.0.0
+	github.com/vishvananda/netns v0.0.0-20200520041808-52d707b772fe // indirect
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
-	google.golang.org/grpc v1.21.0
+	google.golang.org/grpc v1.27.0
 )
 
 replace github.com/nestybox/sysbox-ipc => ../sysbox-ipc
