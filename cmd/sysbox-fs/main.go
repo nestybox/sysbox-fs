@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -55,8 +56,36 @@ func exitHandler(
 	fss domain.FuseServerServiceIface,
 	profile interface{ Stop() }) {
 
+	var printStack = false
+
 	s := <-signalChan
-	logrus.Warnf("Caught OS signal: %s", s)
+
+	logrus.Warnf("sysbox-fs caught signal: %s", s)
+
+	switch s {
+
+	case syscall.SIGABRT:
+		printStack = true
+
+	case syscall.SIGINT:
+		printStack = true
+
+	case syscall.SIGQUIT:
+		printStack = true
+
+	case syscall.SIGSEGV:
+		printStack = true
+
+	case syscall.SIGTERM:
+		printStack = true
+	}
+
+	if printStack {
+		// Buffer size = 1024 x 32, enough to hold every goroutine stack-trace.
+		stacktrace := make([]byte, 32768)
+		length := runtime.Stack(stacktrace, true)
+		logrus.Warnf("\n\n%s\n", string(stacktrace[:length]))
+	}
 
 	// Destroy fuse-service and inner fuse-servers.
 	fss.DestroyFuseService()
