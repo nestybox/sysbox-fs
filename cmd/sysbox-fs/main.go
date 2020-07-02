@@ -75,9 +75,6 @@ func exitHandler(
 
 	case syscall.SIGSEGV:
 		printStack = true
-
-	case syscall.SIGTERM:
-		printStack = true
 	}
 
 	if printStack {
