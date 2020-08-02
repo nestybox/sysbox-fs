@@ -16,7 +16,7 @@ SYSIPC_SRC := $(shell find $(SYSIPC_DIR) 2>&1 | grep -E '.*\.(c|h|go|proto)$$')
 LIBSECCOMP_DIR := ../lib/seccomp-golang
 LIBSECCOMP_SRC := $(shell find $(LIBSECCOMP_DIR) 2>&1 | grep -E '.*\.(go)')
 
-LIBPIDMON_DIR := ../lib/pidmonitor
+LIBPIDMON_DIR := ../sysbox-libs/pidmonitor
 LIBSPIDMON_SRC := $(shell find $(LIBPIDMON_DIR) 2>&1 | grep -E '.*\.(go)')
 
 NSENTER_DIR := ../sysbox-runc/libcontainer/nsenter

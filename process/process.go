@@ -16,7 +16,7 @@ import (
 	"unsafe"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	cap "github.com/nestybox/sysbox/lib/capability"
+	cap "github.com/nestybox/sysbox-libs/capability"
 
 	"golang.org/x/sys/unix"
 )

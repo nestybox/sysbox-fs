@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	cap "github.com/nestybox/sysbox/lib/capability"
+	cap "github.com/nestybox/sysbox-libs/capability"
 )
 
 func TestCheckPermOwner(t *testing.T) {

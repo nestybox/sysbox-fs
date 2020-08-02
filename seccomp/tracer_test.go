@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"testing"
 
-	libseccomp "github.com/nestybox/libseccomp-golang"
+	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
 )
 

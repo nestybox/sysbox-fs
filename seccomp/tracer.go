@@ -13,10 +13,10 @@ import (
 	"strings"
 	"syscall"
 
-	libseccomp "github.com/nestybox/libseccomp-golang"
+	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
 	"github.com/nestybox/sysbox-fs/domain"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
-	"github.com/nestybox/sysbox/lib/pidmonitor"
+	"github.com/nestybox/sysbox-libs/pidmonitor"
 
 	"github.com/sirupsen/logrus"
 )
