@@ -1,6 +1,3 @@
-//
-// Copyright: (C) 2020 Nestybox Inc.  All rights reserved.
-//
 
 //
 // This file provides info about mounts seen by a given process' and whether some of these

@@ -1,6 +1,3 @@
-//
-// Copyright: (C) 2019-2020 Nestybox Inc.  All rights reserved.
-//
 
 package ipc
 
