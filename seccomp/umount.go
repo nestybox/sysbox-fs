@@ -18,6 +18,7 @@ package seccomp
 
 import (
 	"fmt"
+	"path/filepath"
 	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
@@ -63,7 +64,12 @@ func (u *umountSyscallInfo) process() (*sysResponse, error) {
 		// This restriction should be fine because unmounting /proc inside the
 		// container is not a useful thing to do anyways. Same rationale applies
 		// to "/sys".
-		if u.Target == "/proc" || u.Target == "/sys" {
+		//
+		// Also, notice that we want to clearly differentiate the root /proc and
+		// /sys mounts from those that are present within 'chroot'ed contexts. In
+		// the later case we want to allow users to mount (and umount) both /proc
+		// and /sys file-systems.
+		if (u.Target == "/proc" || u.Target == "/sys") && (u.syscallCtx.root == "/") {
 			resp := u.tracer.createErrorResponse(u.reqId, syscall.EBUSY)
 			return resp, nil
 		}
@@ -169,6 +175,15 @@ func (u *umountSyscallInfo) createUmountPayload(
 
 	if mip.IsSysboxfsBaseMount(u.Target) {
 		payload = append(payload, u.UmountSyscallPayload)
+	}
+
+	// Adjust payload attributes attending to the process' root path. This is
+	// needed to properly handle umount instructions generated within chroot'ed
+	// environments.
+	if u.syscallCtx.root != "/" {
+		for i := 0; i < len(payload); i++ {
+			payload[i].Target = filepath.Join(u.syscallCtx.root, payload[i].Target)
+		}
 	}
 
 	return &payload
