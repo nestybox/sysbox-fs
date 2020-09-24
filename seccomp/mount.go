@@ -132,6 +132,11 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 func (m *mountSyscallInfo) processProcMount(
 	mip *mountInfoParser) (*sysResponse, error) {
 
+	// Adjust mount attributes attending to process' root path.
+	if err := m.rootAdjust(); err != nil {
+		return nil, fmt.Errorf("Could not adjust mount attrs as per process' root")
+	}
+
 	// Create instructions payload.
 	payload := m.createProcPayload(mip)
 	if payload == nil {
@@ -181,8 +186,10 @@ func (m *mountSyscallInfo) createProcPayload(
 	// apply this to the new mountpoint (otherwise we will get a permission
 	// denied from the kernel when doing the mount).
 	procInfo := mip.GetInfo("/proc")
-	if _, ok := procInfo.VfsOptions["ro"]; ok == true {
-		payload[0].Flags |= unix.MS_RDONLY
+	if procInfo != nil {
+		if _, ok := procInfo.VfsOptions["ro"]; ok == true {
+			payload[0].Flags |= unix.MS_RDONLY
+		}
 	}
 
 	// Sysbox-fs "/proc" bind-mounts.
@@ -263,6 +270,11 @@ func (m *mountSyscallInfo) createProcPayload(
 func (m *mountSyscallInfo) processSysMount(
 	mip *mountInfoParser) (*sysResponse, error) {
 
+	// Adjust mount attributes attending to process' root path.
+	if err := m.rootAdjust(); err != nil {
+		return nil, fmt.Errorf("Could not adjust mount attrs as per process' root")
+	}
+
 	// Create instruction's payload.
 	payload := m.createSysPayload(mip)
 	if payload == nil {
@@ -312,8 +324,10 @@ func (m *mountSyscallInfo) createSysPayload(
 	// apply this to the new mountpoint (otherwise we will get a permission
 	// denied from the kernel when doing the mount).
 	procInfo := mip.GetInfo("/sys")
-	if _, ok := procInfo.VfsOptions["ro"]; ok == true {
-		payload[0].Flags |= unix.MS_RDONLY
+	if procInfo != nil {
+		if _, ok := procInfo.VfsOptions["ro"]; ok == true {
+			payload[0].Flags |= unix.MS_RDONLY
+		}
 	}
 
 	// Sysbox-fs "/sys" bind-mounts.
@@ -528,6 +542,13 @@ func (m *mountSyscallInfo) createRemountPayload(
 func (m *mountSyscallInfo) processBindMount(
 	mip *mountInfoParser) (*sysResponse, error) {
 
+	// Notice that we are not adjusting mount attributes to deal with chroot'ed
+	// environments in bind-mount cases, as linux kernel does not appear to deal
+	// with this case any different than the non-chroot'ed scenario, meaning that
+	// the bind-mounts within a jail are only visible outside the jail and not
+	// inside the chroot'ed context (i.e. kernel is not taking into account the
+	// process' root attribute).
+
 	// Create instruction's payload.
 	payload := m.createBindMountPayload(mip)
 	if payload == nil {
@@ -604,6 +625,24 @@ func (m *mountSyscallInfo) createBindMountPayload(
 }
 
 func (m *mountSyscallInfo) String() string {
-	return fmt.Sprintf("source: %s, target = %s, fstype = %s, flags = %#x, data = %s",
-		m.Source, m.Target, m.FsType, m.Flags, m.Data)
+	return fmt.Sprintf("source: %s, target = %s, fstype = %s, flags = %#x, data = %s, root = %s, cwd = %s",
+		m.Source, m.Target, m.FsType, m.Flags, m.Data, m.root, m.cwd)
+}
+
+// Method addresses scenarios where the process generating the mount syscall has
+// a 'root' attribute different than default one ("/"). This is typically the case
+// in 'chroot'ed environments. Method's goal is to make all the require adjustments
+// so that sysbox-fs can carry out the mount in the expected context.
+func (m *mountSyscallInfo) rootAdjust() error {
+
+	root := m.syscallCtx.root
+
+	if root == "/" {
+		return nil
+	}
+
+	// 'Target' attribute will always require adjustment in chroot'ed envs.
+	m.Target = filepath.Join(root, m.Target)
+
+	return nil
 }

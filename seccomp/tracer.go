@@ -25,9 +25,9 @@ import (
 	"strings"
 	"syscall"
 
-	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
 	"github.com/nestybox/sysbox-fs/domain"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
+	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
 	"github.com/nestybox/sysbox-libs/pidmonitor"
 
 	"github.com/sirupsen/logrus"
@@ -409,14 +409,16 @@ func (t *syscallTracer) processMount(
 		return t.createErrorResponse(req.Id, err), nil
 	}
 
+	// Collect process attributes required for mount execution.
+	mount.uid = process.Uid()
+	mount.gid = process.Gid()
+	mount.cwd = process.Cwd()
+	mount.root = process.Root()
+
 	// To simplify mount processing logic, convert to absolute path if dealing
 	// with a relative path request.
 	if !filepath.IsAbs(mount.Target) {
-		cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", req.Pid))
-		if err != nil {
-			return nil, err
-		}
-		mount.Target = filepath.Join(cwd, mount.Target)
+		mount.Target = filepath.Join(mount.cwd, mount.Target)
 	}
 
 	// Process mount syscall.
