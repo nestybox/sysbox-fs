@@ -95,6 +95,7 @@ type NSenterServiceIface interface {
 		req *NSenterMessage,
 		res *NSenterMessage) NSenterEventIface
 
+	Setup(prs ProcessServiceIface)
 	SendRequestEvent(e NSenterEventIface) error
 	ReceiveResponseEvent(e NSenterEventIface) *NSenterMessage
 }
@@ -131,11 +132,15 @@ type NSenterMessage struct {
 }
 
 type NSenterMsgHeader struct {
-	Pid            uint32 `json:"pid"`
-	Uid            uint32 `json:"uid"`
-	Gid            uint32 `json:"gid"`
-	CapDacRead     bool   `json:"capDacRead"`
-	CapDacOverride bool   `json:"capDacOverride"`
+	Pid          uint32    `json:"pid"`
+	Uid          uint32    `json:"uid"`
+	Gid          uint32    `json:"gid"`
+	Root         string    `json:"root"`
+	Cwd          string    `json:"cwd"`
+	Capabilities [2]uint32 `json:"capabilities"`
+	// CapSysAdmin    bool     `json:"capAdmin"`
+	// CapDacRead     bool     `json:"capDacRead"`
+	// CapDacOverride bool     `json:"capDacOverride"`
 }
 
 type LookupPayload struct {
@@ -163,15 +168,32 @@ type ReadDirPayload struct {
 }
 
 type MountSyscallPayload struct {
+	Header NSenterMsgHeader
 	Source string `json:"source"`
 	Target string `json:"target"`
 	FsType string `json:"fstype"`
 	Flags  uint64 `json:"flags"`
 	Data   string `json:"data"`
+	FsBlob OverlayfsBlob
 }
 
 type UmountSyscallPayload struct {
+	Header NSenterMsgHeader
 	Target string `json:"target"`
 	FsType uint8  `json:"-"`
 	Flags  uint64 `json:"flags"`
+}
+
+type OverlayfsBlob struct {
+	LowerDir string `json:"-"`
+	UpperDir string `json:"-"`
+	WorkDir  string `json:"workdir"`
+	MergeDir string `json:"-"`
+}
+
+type MknodSyscallPayload struct {
+	Header NSenterMsgHeader
+	Path   string `json:"path"`
+	Mode   uint32 `json:"uint32"`
+	Dev    uint64 `json:"uint64"`
 }

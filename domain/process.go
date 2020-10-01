@@ -36,12 +36,22 @@ type ProcessIface interface {
 	Pid() uint32
 	Uid() uint32
 	Gid() uint32
-	IsAdminCapabilitySet() bool
+	Cwd() string
+	Root() string
+	IsSysAdminCapabilitySet() bool
 	NsInodes() (map[string]Inode, error)
 	UserNsInode() (Inode, error)
 	UserNsInodeParent() (Inode, error)
 	CreateNsInodes(Inode) error
 	PathAccess(path string, accessFlags AccessMode) error
+	GetEffCaps() [2]uint32
+	SetEffCaps(caps [2]uint32)
+	Camouflage(
+		uid uint32,
+		gid uint32,
+		root string,
+		cwd string,
+		caps [2]uint32) error
 }
 
 type ProcessServiceIface interface {

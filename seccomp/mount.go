@@ -54,6 +54,9 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 		case "sysfs":
 			logrus.Debugf("Processing new sysfs mount: %v", m)
 			return m.processSysMount(mip)
+		case "overlay":
+			logrus.Debugf("Processing new overlayfs mount: %v", m)
+			return m.processOverlayMount(mip)
 		case "nfs":
 			logrus.Debugf("Processing new nfs mount: %v", m)
 			return m.processNfsMount(mip)
@@ -367,11 +370,88 @@ func (m *mountSyscallInfo) createSysPayload(
 	return &payload
 }
 
+// Method handles overlayfs mount syscall requests.
+func (m *mountSyscallInfo) processOverlayMount(
+	mip *mountInfoParser) (*sysResponse, error) {
+
+	// Notice that we are not calling rootAdjust() in this case coz the nsexec
+	// process will invoke 'chroot' as part of the Camouflage logic.
+
+	// Create instructions payload.
+	payload := m.createOverlayMountPayload(mip)
+	if payload == nil {
+		return nil, fmt.Errorf("Could not construct overlayMount payload")
+	}
+
+	// Create nsenter-event envelope.
+	nss := m.tracer.sms.nss
+	event := nss.NewEvent(
+		m.syscallCtx.pid,
+		&domain.AllNSsButUser,
+		&domain.NSenterMessage{
+			Type:    domain.MountSyscallRequest,
+			Payload: payload,
+		},
+		nil,
+	)
+
+	// Launch nsenter-event.
+	err := nss.SendRequestEvent(event)
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		resp := m.tracer.createErrorResponse(
+			m.reqId,
+			responseMsg.Payload.(fuse.IOerror).Code)
+		return resp, nil
+	}
+
+	return m.tracer.createSuccessResponse(m.reqId), nil
+}
+
+// Build instructions payload required for overlay-mount operations.
+func (m *mountSyscallInfo) createOverlayMountPayload(
+	mip *mountInfoParser) *[]*domain.MountSyscallPayload {
+
+	var payload []*domain.MountSyscallPayload
+
+	// Create a process struct to represent the process generating the 'mount'
+	// instruction, and extract its capabilities to hand them out to 'nsenter'
+	// logic.
+	process := m.tracer.sms.prs.ProcessCreate(m.pid, 0, 0)
+
+	// Payload instruction for overlayfs mount request.
+	payload = append(payload, m.MountSyscallPayload)
+
+	// Insert appended fields.
+	payload[0].Header = domain.NSenterMsgHeader{
+		Pid:          m.pid,
+		Uid:          m.uid,
+		Gid:          m.gid,
+		Root:         m.root,
+		Cwd:          m.cwd,
+		Capabilities: process.GetEffCaps(),
+	}
+
+	payload[0].FsBlob = m.FsBlob
+
+	return &payload
+}
+
 // Method handles "nfs" mount syscall requests. Sysbox-fs does not manage nfs
 // mounts per-se, but only "proxies" the nfs mount syscall. It does this in
 // order to enable nfs to be mounted from within a (non init) user-ns.
 func (m *mountSyscallInfo) processNfsMount(
 	mip *mountInfoParser) (*sysResponse, error) {
+
+	// Adjust mount attributes attending to process' root path.
+	if err := m.rootAdjust(); err != nil {
+		return nil, fmt.Errorf("Could not adjust mount attrs as per process' root")
+	}
 
 	// Create instruction's payload.
 	payload := m.createNfsMountPayload(mip)

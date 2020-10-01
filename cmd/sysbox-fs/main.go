@@ -292,6 +292,8 @@ func main() {
 		// Setup sysbox-fs services.
 		processService.Setup(ioService)
 
+		nsenterService.Setup(processService)
+
 		handlerService.Setup(
 			handler.DefaultHandlers,
 			ctx.Bool("ignore-handler-errors"),
