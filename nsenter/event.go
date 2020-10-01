@@ -39,6 +39,7 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
+	"github.com/nestybox/sysbox-fs/process"
 	"github.com/nestybox/sysbox-runc/libcontainer"
 )
 
@@ -83,6 +84,9 @@ type NSenterEvent struct {
 
 	// Zombie Reaper (for left-over nsenter child processes)
 	reaper *zombieReaper
+
+	// Backpointer to Nsenter service
+	service *nsenterService
 }
 
 //
@@ -616,6 +620,33 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 
 	payload := e.ReqMsg.Payload.([]domain.MountSyscallPayload)
 
+	if payload[0].FsType == "overlay" {
+		// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
+		// executing this logic.
+		process := e.service.prs.ProcessCreate(0, 0, 0)
+
+		// Extract payload-header from the first element of the payload slice.
+		header := payload[0].Header
+
+		// Adjust 'nsenter' process personality to match the end-user's original
+		// process.
+		if err := process.Camouflage(
+			header.Uid,
+			header.Gid,
+			header.Root,
+			header.Cwd,
+			header.Capabilities); err != nil {
+
+			// Send an error-message response.
+			e.ResMsg = &domain.NSenterMessage{
+				Type:    domain.ErrorResponse,
+				Payload: &fuse.IOerror{RcvError: err},
+			}
+
+			return nil
+		}
+	}
+
 	// Perform mount instructions.
 	for i = 0; i < len(payload); i++ {
 		err = unix.Mount(
@@ -626,18 +657,12 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 			payload[i].Data,
 		)
 		if err != nil {
-			// Create error response msg.
-			e.ResMsg = &domain.NSenterMessage{
-				Type:    domain.ErrorResponse,
-				Payload: &fuse.IOerror{RcvError: err},
-			}
-
 			break
 		}
 	}
 
 	if err != nil {
-		// Unmount previously executed mount instructions (unless it's a remount)
+		// Unmount previously executed mount instructions (unless it's a remount).
 		//
 		// TODO: ideally we would revert remounts too, but to do this we need information
 		// that we don't have at this stage.
@@ -645,6 +670,12 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 			if payload[j].Flags&unix.MS_REMOUNT != unix.MS_REMOUNT {
 				_ = unix.Unmount(payload[j].Target, 0)
 			}
+		}
+
+		// Create error response msg.
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
 		}
 
 		return nil
@@ -890,7 +921,11 @@ func Init() (err error) {
 	// specific env vars.
 	os.Clearenv()
 
-	var event = NSenterEvent{}
+	var nsenterService nsenterService
+	var processService = process.NewProcessService()
+
+	nsenterService.Setup(processService)
+	var event = NSenterEvent{service: &nsenterService}
 
 	// Process incoming request.
 	err = event.processRequest(pipe)

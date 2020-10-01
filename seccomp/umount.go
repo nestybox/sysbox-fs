@@ -92,9 +92,15 @@ func (u *umountSyscallInfo) process() (*sysResponse, error) {
 			// portions of procfs (e.g., proc/sys, proc/uptime, etc.)
 			logrus.Debugf("Processing procfs unmount: %v", u)
 			return u.processUmount(mip)
+
 		case "sysfs":
-			// For sysfs we do something similar to procfs
+			// For sysfs we do something similar to procfs.
 			logrus.Debugf("Processing sysfs unmount: %v", u)
+			return u.processUmount(mip)
+
+		case "overlay":
+			// Handle umounts of overlay fs.
+			logrus.Debugf("Processing overlayfs unmount: %v", u)
 			return u.processUmount(mip)
 		}
 

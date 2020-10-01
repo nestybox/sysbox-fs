@@ -21,6 +21,7 @@ import (
 )
 
 type nsenterService struct {
+	prs    domain.ProcessServiceIface // for process class interactions (capabilities)
 	reaper *zombieReaper
 }
 
@@ -28,6 +29,11 @@ func NewNSenterService() domain.NSenterServiceIface {
 	return &nsenterService{
 		reaper: newZombieReaper(),
 	}
+}
+
+func (s *nsenterService) Setup(prs domain.ProcessServiceIface) {
+
+	s.prs = prs
 }
 
 func (s *nsenterService) NewEvent(
