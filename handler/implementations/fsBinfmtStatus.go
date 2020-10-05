@@ -23,7 +23,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
@@ -44,7 +43,7 @@ func (h *FsBinfmtStatusHandler) Lookup(
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
-	return nil, fuse.IOerror{Code: syscall.ENOENT}
+	return n.Stat()
 }
 
 func (h *FsBinfmtStatusHandler) Getattr(
