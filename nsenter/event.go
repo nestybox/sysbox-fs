@@ -578,7 +578,7 @@ func (e *NSenterEvent) processDirReadRequest() error {
 	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
-			Payload: err.Error(),
+			Payload: &fuse.IOerror{RcvError: err},
 		}
 		return nil
 	}

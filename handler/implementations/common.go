@@ -300,17 +300,18 @@ func (h *CommonHandler) ReadDirAll(
 		return nil, responseMsg.Payload.(error)
 	}
 
-	var osFileEntries = make([]os.FileInfo, 0)
-
 	// Obtain FileEntries corresponding to emulated resources that could
 	// potentially live in this folder. These are resources that may not be
 	// present in sys-container's fs, so we must take them into account to
 	// return a complete ReadDirAll() response.
-	osEmulatedFileEntries := h.EmulatedFilesInfo(n, req)
-	if osEmulatedFileEntries != nil {
-		for _, v := range *osEmulatedFileEntries {
-			osFileEntries = append(osFileEntries, *v)
-		}
+	osEmulatedFileEntries, err := emulatedFilesInfo(h.Service, n, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var osFileEntries = make([]os.FileInfo, 0)
+	for _, v := range osEmulatedFileEntries {
+		osFileEntries = append(osFileEntries, v)
 	}
 
 	// Transform event-response payload into a FileInfo slice. Notice that to
@@ -318,15 +319,10 @@ func (h *CommonHandler) ReadDirAll(
 	// and do the conversion one element at a time.
 	dirEntries := responseMsg.Payload.([]domain.FileInfo)
 	for _, v := range dirEntries {
-		// Skip nodes that overlap with emulated resources already included in
-		// the result buffer.
-		if osEmulatedFileEntries != nil {
-			if _, ok := (*osEmulatedFileEntries)[v.Name()]; ok {
-				continue
-			}
+		// Append nodes that don't overlap with emulated resources
+		if _, ok := osEmulatedFileEntries[v.Name()]; !ok {
+			osFileEntries = append(osFileEntries, v)
 		}
-
-		osFileEntries = append(osFileEntries, v)
 	}
 
 	return osFileEntries, nil
@@ -374,50 +370,6 @@ func (h *CommonHandler) Setattr(
 	}
 
 	return nil
-}
-
-// Auxiliary routine to aid during ReadDirAll() execution.
-func (h *CommonHandler) EmulatedFilesInfo(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) *map[string]*os.FileInfo {
-
-	var emulatedResources []string
-
-	// Obtain a list of all the emulated resources falling within the current
-	// directory.
-	emulatedResources = h.Service.DirHandlerEntries(n.Path())
-	if len(emulatedResources) == 0 {
-		return nil
-	}
-
-	var emulatedFilesInfo = make(map[string]*os.FileInfo)
-
-	// For every emulated resource, invoke its Lookup() handler to obtain
-	// the information required to satisfy this ongoing readDirAll()
-	// instruction.
-	for _, handlerPath := range emulatedResources {
-
-		// Lookup the associated handler within handler-DB.
-		handler, ok := h.Service.FindHandler(handlerPath)
-		if !ok {
-			logrus.Errorf("No supported handler for %v resource", handlerPath)
-			return nil
-		}
-
-		// Create temporary ionode to represent handler-path.
-		ios := h.Service.IOService()
-		newIOnode := ios.NewIOnode("", handlerPath, 0)
-
-		// Handler execution.
-		info, err := handler.Lookup(newIOnode, req)
-		if err != nil {
-			return nil
-		}
-
-		emulatedFilesInfo[info.Name()] = &info
-	}
-
-	return &emulatedFilesInfo
 }
 
 // Auxiliary method to fetch the content of any given file within a container.
