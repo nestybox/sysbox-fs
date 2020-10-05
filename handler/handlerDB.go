@@ -140,6 +140,8 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /proc/sys/fs handlers
 	//
+
+	// TODO: use a common dir handler here ...
 	&implementations.FsBinfmtHandler{
 		Name:      "fsBinfmt",
 		Path:      "/proc/sys/fs/binfmt_misc",
@@ -247,21 +249,21 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /proc/sys/net/netfilter handlers
 	//
-	&implementations.NfConntrackMaxHandler{
+	&implementations.MaxIntBaseHandler{
 		Name:      "nfConntrackMax",
 		Path:      "/proc/sys/net/netfilter/nf_conntrack_max",
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
-	&implementations.NfConntrackTcpTimeoutEstHandler{
+	&implementations.MaxIntBaseHandler{
 		Name:      "nfConntrackTcpTimeoutEst",
 		Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established",
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
-	&implementations.NfConntrackTcpTimeoutCWaitHandler{
+	&implementations.MaxIntBaseHandler{
 		Name:      "nfConntrackTcpTimeoutCWait",
 		Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_close_wait",
 		Type:      domain.NODE_SUBSTITUTION,
@@ -300,9 +302,42 @@ var DefaultHandlers = []domain.HandlerIface{
 		Cacheable: true,
 	},
 	//
+	// /proc/sys/net/ipv4/neigh/default handlers
+	//
+
+	// TODO: use a common dir handler here ...
+	&implementations.NeighDefaultHandler{
+		Name:      "neighDefault",
+		Path:      "/proc/sys/net/ipv4/neigh/default",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.MaxIntBaseHandler{
+		Name:      "neighDefaultGcThresh1",
+		Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh1",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.MaxIntBaseHandler{
+		Name:      "neighDefaultGcThresh2",
+		Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh2",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	&implementations.MaxIntBaseHandler{
+		Name:      "neighDefaultGcThresh3",
+		Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh3",
+		Type:      domain.NODE_SUBSTITUTION,
+		Enabled:   true,
+		Cacheable: true,
+	},
+	//
 	// /proc/sys/net/unix handlers
 	//
-	&implementations.MaxDgramQlenHandler{
+	&implementations.MaxIntBaseHandler{
 		Name:      "maxDgramQlen",
 		Path:      "/proc/sys/net/unix/max_dgram_qlen",
 		Type:      domain.NODE_SUBSTITUTION,
@@ -336,7 +371,7 @@ var DefaultHandlers = []domain.HandlerIface{
 		Enabled:   false,
 		Cacheable: true,
 	},
-	&implementations.NfConntrackHashSizeHandler{
+	&implementations.MaxIntBaseHandler{
 		Name:      "nfConntrackHashSize",
 		Path:      "/sys/module/nf_conntrack/parameters/hashsize",
 		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,

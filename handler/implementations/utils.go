@@ -16,6 +16,12 @@
 
 package implementations
 
+import (
+	"fmt"
+	"os"
+
+	"github.com/nestybox/sysbox-fs/domain"
+)
 
 // copytResultBuffer function copies the obtained 'result' buffer into the 'I/O'
 // buffer supplied by the user, while ensuring that 'I/O' buffer capacity is not
@@ -37,4 +43,53 @@ func copyResultBuffer(ioBuf []byte, result []byte) (int, error) {
 	}
 
 	return length, nil
+}
+
+// EmulatedFilesInfo is a handler aid that finds files within the given
+// directory node that are emulated by sysbox-fs. It returns a map that lists
+// the file's name and it's info.
+func emulatedFilesInfo(hs domain.HandlerServiceIface,
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (map[string]os.FileInfo, error) {
+
+	var emulatedResources []string
+
+	// Obtain a list of all the emulated resources falling within the current
+	// directory.
+	emulatedResources = hs.DirHandlerEntries(n.Path())
+	if len(emulatedResources) == 0 {
+		return nil, nil
+	}
+
+	var emulatedFilesInfo = make(map[string]os.FileInfo)
+
+	// For every emulated resource, invoke its Lookup() handler to obtain
+	// the information required to satisfy this ongoing readDirAll()
+	// instruction.
+	for _, handlerPath := range emulatedResources {
+
+		// Lookup the associated handler within handler-DB.
+		handler, ok := hs.FindHandler(handlerPath)
+		if !ok {
+			return nil, fmt.Errorf("No supported handler for %v resource", handlerPath)
+		}
+
+		// Create temporary ionode to represent handler-path.
+		ios := hs.IOService()
+		newIOnode := ios.NewIOnode("", handlerPath, 0)
+
+		// Handler execution.
+		info, err := handler.Lookup(newIOnode, req)
+		if err != nil {
+			if !hs.IgnoreErrors() {
+				return nil, fmt.Errorf("Lookup for %v failed: %s", handlerPath, err)
+			} else {
+				return nil, nil
+			}
+		}
+
+		emulatedFilesInfo[info.Name()] = info
+	}
+
+	return emulatedFilesInfo, nil
 }

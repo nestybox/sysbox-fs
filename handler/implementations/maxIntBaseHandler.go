@@ -30,22 +30,11 @@ import (
 	"github.com/nestybox/sysbox-fs/fuse"
 )
 
-//
-// /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established handler
-//
-// Documentation: This node only keeps track of the netfilter connections if they
-// live. Dead connections are deleted automatically from the table. This deletion
-// happens based on the set timeout period. The longer the timeout period, the
-// longer the record of the connection will stay in the tracking table. The value
-// of this option is in seconds. By reducing this value, we can keep the tracking
-// table lean which is faster for a high-traffic node. It should be noted here
-// that lowering this value might also break long running idle TCP connections.
-//
-// During write() operations, the new value will be only pushed down to the host
-// FS if this one is higher than the existing figure.
-//
+// This is a base handler for kernel sysctls exposed inside a sys container that
+// consist of a single integer value and where the value written to the host
+// kernel is the max value across sys containers.
 
-type NfConntrackTcpTimeoutEstHandler struct {
+type MaxIntBaseHandler struct {
 	Name      string
 	Path      string
 	Type      domain.HandlerType
@@ -54,7 +43,7 @@ type NfConntrackTcpTimeoutEstHandler struct {
 	Service   domain.HandlerServiceIface
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) Lookup(
+func (h *MaxIntBaseHandler) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -63,7 +52,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) Lookup(
 	return n.Stat()
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) Getattr(
+func (h *MaxIntBaseHandler) Getattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -72,7 +61,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) Getattr(
 	return nil, nil
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) Open(
+func (h *MaxIntBaseHandler) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -98,7 +87,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) Open(
 	return nil
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) Close(n domain.IOnodeIface) error {
+func (h *MaxIntBaseHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -110,7 +99,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) Close(n domain.IOnodeIface) error {
 	return nil
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) Read(
+func (h *MaxIntBaseHandler) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -153,7 +142,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) Read(
 	return copyResultBuffer(req.Data, []byte(data))
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) Write(
+func (h *MaxIntBaseHandler) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -197,16 +186,14 @@ func (h *NfConntrackTcpTimeoutEstHandler) Write(
 	}
 
 	// If new value is lower/equal than the existing one, then let's update this
-	// new value into the container struct and return here. Notice that we cannot
-	// push this (lower-than-current) value into the host FS, as we could be
-	// impacting other sys containers.
+	// new value into the container struct but not push it down to the kernel.
 	if newMaxInt <= curMaxInt {
 		cntr.SetData(path, name, newMax)
 
 		return len(req.Data), nil
 	}
 
-	// Push new value to host FS.
+	// Push new value to the kernel.
 	if err := h.pushFile(n, cntr, newMaxInt); err != nil {
 		return 0, io.EOF
 	}
@@ -217,18 +204,18 @@ func (h *NfConntrackTcpTimeoutEstHandler) Write(
 	return len(req.Data), nil
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) ReadDirAll(
+func (h *MaxIntBaseHandler) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) fetchFile(
+func (h *MaxIntBaseHandler) fetchFile(
 	n domain.IOnodeIface,
 	c domain.ContainerIface) (string, error) {
 
-	// Read from host FS to extract the existing  value.
+	// Read from host FS to extract the existing value.
 	curHostMax, err := n.ReadLine()
 	if err != nil && err != io.EOF {
 		logrus.Errorf("Could not read from file %v", h.Path)
@@ -245,7 +232,7 @@ func (h *NfConntrackTcpTimeoutEstHandler) fetchFile(
 	return curHostMax, nil
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) pushFile(n domain.IOnodeIface, c domain.ContainerIface,
+func (h *MaxIntBaseHandler) pushFile(n domain.IOnodeIface, c domain.ContainerIface,
 	newMaxInt int) error {
 
 	curHostMax, err := n.ReadLine()
@@ -258,48 +245,48 @@ func (h *NfConntrackTcpTimeoutEstHandler) pushFile(n domain.IOnodeIface, c domai
 		return err
 	}
 
-	// If the existing host FS value is larger than the new one to configure,
+	// If the existing host value is larger than the new one to configure,
 	// then let's just return here as we want to keep the largest value
-	// in the host FS.
+	// in the host kernel.
 	if newMaxInt <= curHostMaxInt {
 		return nil
 	}
 
-	// Push down to host FS the new (larger) value.
+	// Push down to host kernel the new (larger) value.
 	msg := []byte(strconv.Itoa(newMaxInt))
 	err = n.WriteFile(msg)
-	if err != nil {
-		logrus.Errorf("Could not write to file: %v", err)
+	if err != nil && !h.Service.IgnoreErrors() {
+		logrus.Errorf("Could not write to file: %s", err)
 		return err
 	}
 
 	return nil
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) GetName() string {
+func (h *MaxIntBaseHandler) GetName() string {
 	return h.Name
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) GetPath() string {
+func (h *MaxIntBaseHandler) GetPath() string {
 	return h.Path
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) GetEnabled() bool {
+func (h *MaxIntBaseHandler) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) GetType() domain.HandlerType {
+func (h *MaxIntBaseHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) GetService() domain.HandlerServiceIface {
+func (h *MaxIntBaseHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) SetEnabled(val bool) {
+func (h *MaxIntBaseHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *NfConntrackTcpTimeoutEstHandler) SetService(hs domain.HandlerServiceIface) {
+func (h *MaxIntBaseHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }
