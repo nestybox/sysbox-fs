@@ -1285,44 +1285,6 @@ func TestCommonHandler_Setattr(t *testing.T) {
 	}
 }
 
-func TestCommonHandler_EmulatedFilesInfo(t *testing.T) {
-	type fields struct {
-		Name      string
-		Path      string
-		Type      domain.HandlerType
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
-	}
-	type args struct {
-		n   domain.IOnodeIface
-		req *domain.HandlerRequest
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   *map[string]*os.FileInfo
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
-			}
-			if got := h.EmulatedFilesInfo(tt.args.n, tt.args.req); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("CommonHandler.EmulatedFilesInfo() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestCommonHandler_GetName(t *testing.T) {
 	type fields struct {
 		Name      string
