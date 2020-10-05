@@ -17,6 +17,7 @@
 package implementations
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 
@@ -50,9 +51,14 @@ func (h *FsBinfmtHandler) Getattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
-	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
+	logrus.Debugf("Executing Getattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	return nil, nil
+	commonHandler, ok := h.Service.FindHandler("commonHandler")
+	if !ok {
+		return nil, fmt.Errorf("No commonHandler found")
+	}
+
+	return commonHandler.Getattr(n, req)
 }
 
 func (h *FsBinfmtHandler) Open(
@@ -93,9 +99,14 @@ func (h *FsBinfmtHandler) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
+	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	return nil, nil
+	commonHandler, ok := h.Service.FindHandler("commonHandler")
+	if !ok {
+		return nil, fmt.Errorf("No commonHandler found")
+	}
+
+	return commonHandler.ReadDirAll(n, req)
 }
 
 func (h *FsBinfmtHandler) GetName() string {
