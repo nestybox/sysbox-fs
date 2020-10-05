@@ -47,7 +47,7 @@ func copyResultBuffer(ioBuf []byte, result []byte) (int, error) {
 
 // EmulatedFilesInfo is a handler aid that finds files within the given
 // directory node that are emulated by sysbox-fs. It returns a map that lists
-// the file's name and it's info.
+// each file's name and it's info.
 func emulatedFilesInfo(hs domain.HandlerServiceIface,
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (map[string]os.FileInfo, error) {
