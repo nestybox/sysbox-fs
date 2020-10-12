@@ -138,9 +138,6 @@ type NSenterMsgHeader struct {
 	Root         string    `json:"root"`
 	Cwd          string    `json:"cwd"`
 	Capabilities [2]uint32 `json:"capabilities"`
-	// CapSysAdmin    bool     `json:"capAdmin"`
-	// CapDacRead     bool     `json:"capDacRead"`
-	// CapDacOverride bool     `json:"capDacOverride"`
 }
 
 type LookupPayload struct {
@@ -174,7 +171,6 @@ type MountSyscallPayload struct {
 	FsType string `json:"fstype"`
 	Flags  uint64 `json:"flags"`
 	Data   string `json:"data"`
-	FsBlob OverlayfsBlob
 }
 
 type UmountSyscallPayload struct {
@@ -182,18 +178,4 @@ type UmountSyscallPayload struct {
 	Target string `json:"target"`
 	FsType uint8  `json:"-"`
 	Flags  uint64 `json:"flags"`
-}
-
-type OverlayfsBlob struct {
-	LowerDir string `json:"-"`
-	UpperDir string `json:"-"`
-	WorkDir  string `json:"workdir"`
-	MergeDir string `json:"-"`
-}
-
-type MknodSyscallPayload struct {
-	Header NSenterMsgHeader
-	Path   string `json:"path"`
-	Mode   uint32 `json:"uint32"`
-	Dev    uint64 `json:"uint64"`
 }

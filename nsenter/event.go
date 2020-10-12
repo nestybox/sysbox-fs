@@ -625,7 +625,8 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 		// executing this logic.
 		process := e.service.prs.ProcessCreate(0, 0, 0)
 
-		// Extract payload-header from the first element of the payload slice.
+		// Extract payload-header from the first element (just one in overlayfs
+		// mounts) of the payload slice .
 		header := payload[0].Header
 
 		// Adjust 'nsenter' process personality to match the end-user's original

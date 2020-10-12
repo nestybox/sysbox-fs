@@ -437,8 +437,6 @@ func (m *mountSyscallInfo) createOverlayMountPayload(
 		Capabilities: process.GetEffCaps(),
 	}
 
-	payload[0].FsBlob = m.FsBlob
-
 	return &payload
 }
 

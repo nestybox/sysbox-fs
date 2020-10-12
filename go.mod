@@ -20,6 +20,7 @@ require (
 	github.com/vishvananda/netlink v1.0.0
 	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
 	google.golang.org/grpc v1.27.0
+	gopkg.in/hlandau/service.v1 v1.0.7
 )
 
 replace github.com/nestybox/sysbox-ipc => ../sysbox-ipc
