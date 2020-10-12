@@ -398,7 +398,7 @@ func (t *syscallTracer) processMount(
 	// mount operations. Otherwise, return here and let kernel handle the mount
 	// instruction.
 	process := t.sms.prs.ProcessCreate(req.Pid, 0, 0)
-	if !(process.IsAdminCapabilitySet()) {
+	if !(process.IsSysAdminCapabilitySet()) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
@@ -458,25 +458,27 @@ func (t *syscallTracer) processUmount(
 	// umount operations. Otherwise, return here and let kernel handle the mount
 	// instruction.
 	process := t.sms.prs.ProcessCreate(req.Pid, 0, 0)
-	if !(process.IsAdminCapabilitySet()) {
+	if !(process.IsSysAdminCapabilitySet()) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	// Resolve mount target and verify that process has the proper rights to
+	// Resolve umount target and verify that process has the proper rights to
 	// access each of the components of the path.
 	err = process.PathAccess(umount.Target, 0)
 	if err != nil {
 		return t.createErrorResponse(req.Id, err), nil
 	}
 
+	// Collect process attributes required for umount execution.
+	umount.uid = process.Uid()
+	umount.gid = process.Gid()
+	umount.cwd = process.Cwd()
+	umount.root = process.Root()
+
 	// To simplify umount processing logic, convert to absolute path if dealing
 	// with a relative path request.
 	if !filepath.IsAbs(umount.Target) {
-		cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", req.Pid))
-		if err != nil {
-			return nil, err
-		}
-		umount.Target = filepath.Join(cwd, umount.Target)
+		umount.Target = filepath.Join(umount.cwd, umount.Target)
 	}
 
 	// Process umount syscall.

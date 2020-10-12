@@ -61,52 +61,72 @@ func (ps *processService) ProcessCreate(
 }
 
 type process struct {
-	pid      uint32                  // process id
-	root     string                  // root dir
-	cwd      string                  // current working dir
-	uid      uint32                  // effective uid
-	gid      uint32                  // effective gid
-	sgid     []int                   // supplementary groups
-	cap      cap.Capabilities        // process capabilities
-	status   map[string]string       // process status fields
-	nsInodes map[string]domain.Inode // process namespace inodes
-	ps       *processService         // pointer to parent processService
+	pid         uint32                  // process id
+	root        string                  // root dir
+	hroot       string                  // root dir from host perspective
+	cwd         string                  // current working dir
+	hcwd        string                  // current working dir from host perspective
+	uid         uint32                  // effective uid
+	gid         uint32                  // effective gid
+	sgid        []int                   // supplementary groups
+	cap         cap.Capabilities        // process capabilities
+	status      map[string]string       // process status fields
+	nsInodes    map[string]domain.Inode // process namespace inodes
+	initialized bool                    // process initialization completed
+	ps          *processService         // pointer to parent processService
 }
 
 func (p *process) Pid() uint32 {
+
+	if !p.initialized {
+		p.getInfo()
+	}
+
 	return p.pid
 }
 
 func (p *process) Uid() uint32 {
+
+	if !p.initialized {
+		p.getInfo()
+	}
+
 	return p.uid
 }
 
 func (p *process) Gid() uint32 {
+
+	if !p.initialized {
+		p.getInfo()
+	}
+
 	return p.gid
 }
 
 func (p *process) Cwd() string {
 
-	cwd, err := os.Readlink(p.cwd)
-	if err != nil {
-		return ""
+	if !p.initialized {
+		p.getInfo()
 	}
 
-	return cwd
+	return p.cwd
 }
 
 func (p *process) Root() string {
 
-	root, err := os.Readlink(p.root)
-	if err != nil {
-		return ""
+	if !p.initialized {
+		p.getInfo()
 	}
 
-	return root
+	return p.root
 }
 
 func (p *process) IsSysAdminCapabilitySet() bool {
 	return p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN)
+}
+
+func (p *process) IsMknodCapabilitySet() bool {
+	return p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_MKNOD)
 }
 
 func (p *process) IsDacReadCapabilitySet() bool {
@@ -192,22 +212,12 @@ func (p *process) Camouflage(
 	cwd string,
 	caps [2]uint32) error {
 
-	if root != "/" {
-		if err := unix.Chroot(root); err != nil {
-			return err
-		}
+	if err := unix.Chdir(cwd); err != nil {
+		return err
 	}
 
-	// If the original process' "cwd" did not match its "root" path, then we
-	// need to chdir into the proper relative path.
-	if cwd != root {
-		relPath := strings.TrimPrefix(cwd, root)
-		if relPath != cwd {
-			err := unix.Chdir(relPath)
-			if err != nil {
-				return err
-			}
-		}
+	if err := unix.Chroot(root); err != nil {
+		return err
 	}
 
 	// Initialize capability struct if not already done.
@@ -239,8 +249,9 @@ func (p *process) Camouflage(
 	//
 	// Notice that during execution of 2) all effective capabilities of the
 	// running process will be reset, which is something that we are looking
-	// after given that 'sysbox-fs nsenter' process by default runs with all
-	// capabilities turned on.
+	// after given that "sysbox-fs nsenter" process runs with all capabilities
+	// turned on. Further below we re-apply only those capabilities that were
+	// present in the original process.
 
 	if err := setxid.Setresgid(-1, int(gid), -1); err != nil {
 		return err
@@ -407,6 +418,10 @@ func (p *process) PathAccess(path string, aMode domain.AccessMode) error {
 // getInfo retrieves info about the process
 func (p *process) getInfo() error {
 
+	if p.initialized {
+		return nil
+	}
+
 	space := regexp.MustCompile(`\s+`)
 
 	fields := []string{"Uid", "Gid", "Groups"}
@@ -466,11 +481,16 @@ func (p *process) getInfo() error {
 	}
 
 	// store all collected attributes
-	p.root = root
-	p.cwd = cwd
+	p.root, _ = os.Readlink(root)
+	p.cwd, _ = os.Readlink(cwd)
+	p.hroot = root
+	p.hcwd = cwd
 	p.uid = uint32(euid)
 	p.gid = uint32(egid)
 	p.sgid = sgid
+
+	// Mark process as fully initialized.
+	p.initialized = true
 
 	return nil
 }
@@ -530,9 +550,9 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 	// Determine the start point.
 	var start string
 	if filepath.IsAbs(path) {
-		start = p.root
+		start = p.hroot
 	} else {
-		start = p.cwd
+		start = p.hcwd
 	}
 
 	// Break up path into it's components; note that repeated "/" results in
@@ -554,8 +574,8 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 
 		if c == ".." {
 			parent := filepath.Dir(cur)
-			if !strings.HasPrefix(parent, p.root) {
-				parent = p.root
+			if !strings.HasPrefix(parent, p.hroot) {
+				parent = p.hroot
 			}
 			cur = parent
 		} else if c != "." {
@@ -571,11 +591,11 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 			return syscall.ENOTDIR
 		}
 
-		// Follow the symlink (unless it's the proc.root); may recurse if
+		// Follow the symlink (unless it's the proc.hroot); may recurse if
 		// symlink points to another symlink and so on; we stop at symlinkMax
 		// recursions (just as the Linux kernel does).
 
-		if symlink && cur != p.root {
+		if symlink && cur != p.hroot {
 			for {
 				if linkCnt >= domain.SymlinkMax {
 					return syscall.ELOOP
@@ -587,17 +607,17 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 				}
 
 				if filepath.IsAbs(link) {
-					cur = filepath.Join(p.root, link)
+					cur = filepath.Join(p.hroot, link)
 				} else {
 					cur = filepath.Join(filepath.Dir(cur), link)
 				}
 
-				// If 'cur' ever matches 'p.root' then there's no need to continue
-				// iterating as we know for sure that 'p.root' is a valid /
+				// If 'cur' ever matches 'p.hroot' then there's no need to continue
+				// iterating as we know for sure that 'p.hroot' is a valid /
 				// non-cyclical path. If we were to continue our iteration, we
-				// would end up dereferencing 'p.root' -- through readlink() --
+				// would end up dereferencing 'p.hroot' -- through readlink() --
 				// which would erroneously points us to "/" in the host fs.
-				if cur == p.root {
+				if cur == p.hroot {
 					break
 				}
 
