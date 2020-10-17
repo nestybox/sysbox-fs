@@ -49,16 +49,12 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 
 		switch m.FsType {
 		case "proc":
-			logrus.Debugf("Processing new procfs mount: %v", m)
 			return m.processProcMount(mip)
 		case "sysfs":
-			logrus.Debugf("Processing new sysfs mount: %v", m)
 			return m.processSysMount(mip)
 		case "overlay":
-			logrus.Debugf("Processing new overlayfs mount: %v", m)
 			return m.processOverlayMount(mip)
 		case "nfs":
-			logrus.Debugf("Processing new nfs mount: %v", m)
 			return m.processNfsMount(mip)
 		}
 	}
@@ -135,10 +131,10 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 func (m *mountSyscallInfo) processProcMount(
 	mip *mountInfoParser) (*sysResponse, error) {
 
+	logrus.Debugf("Processing new procfs mount: %v", m)
+
 	// Adjust mount attributes attending to process' root path.
-	if err := m.rootAdjust(); err != nil {
-		return nil, fmt.Errorf("Could not adjust mount attrs as per process' root")
-	}
+	m.pathAdjust()
 
 	// Create instructions payload.
 	payload := m.createProcPayload(mip)
@@ -273,10 +269,10 @@ func (m *mountSyscallInfo) createProcPayload(
 func (m *mountSyscallInfo) processSysMount(
 	mip *mountInfoParser) (*sysResponse, error) {
 
+	logrus.Debugf("Processing new sysfs mount: %v", m)
+
 	// Adjust mount attributes attending to process' root path.
-	if err := m.rootAdjust(); err != nil {
-		return nil, fmt.Errorf("Could not adjust mount attrs as per process' root")
-	}
+	m.pathAdjust()
 
 	// Create instruction's payload.
 	payload := m.createSysPayload(mip)
@@ -374,8 +370,10 @@ func (m *mountSyscallInfo) createSysPayload(
 func (m *mountSyscallInfo) processOverlayMount(
 	mip *mountInfoParser) (*sysResponse, error) {
 
+	logrus.Debugf("Processing new overlayfs mount: %v", m)
+
 	// Notice that we are not calling rootAdjust() in this case coz the nsexec
-	// process will invoke 'chroot' as part of the Camouflage logic.
+	// process will invoke 'chroot' as part of the personality-adjustment logic.
 
 	// Create instructions payload.
 	payload := m.createOverlayMountPayload(mip)
@@ -446,10 +444,10 @@ func (m *mountSyscallInfo) createOverlayMountPayload(
 func (m *mountSyscallInfo) processNfsMount(
 	mip *mountInfoParser) (*sysResponse, error) {
 
+	logrus.Debugf("Processing new nfs mount: %v", m)
+
 	// Adjust mount attributes attending to process' root path.
-	if err := m.rootAdjust(); err != nil {
-		return nil, fmt.Errorf("Could not adjust mount attrs as per process' root")
-	}
+	m.pathAdjust()
 
 	// Create instruction's payload.
 	payload := m.createNfsMountPayload(mip)
@@ -501,6 +499,11 @@ func (m *mountSyscallInfo) createNfsMountPayload(
 
 func (m *mountSyscallInfo) processRemount(
 	mip *mountInfoParser) (*sysResponse, error) {
+
+	logrus.Debugf("Processing re-mount: %v", m)
+
+	// Adjust mount attributes attending to process' root path.
+	m.pathAdjust()
 
 	// Create instruction's payload.
 	payload := m.createRemountPayload(mip)
@@ -620,12 +623,10 @@ func (m *mountSyscallInfo) createRemountPayload(
 func (m *mountSyscallInfo) processBindMount(
 	mip *mountInfoParser) (*sysResponse, error) {
 
-	// Notice that we are not adjusting mount attributes to deal with chroot'ed
-	// environments in bind-mount cases, as linux kernel does not appear to deal
-	// with this case any different than the non-chroot'ed scenario, meaning that
-	// the bind-mounts within a jail are only visible outside the jail and not
-	// inside the chroot'ed context (i.e. kernel is not taking into account the
-	// process' root attribute).
+	logrus.Debugf("Processing bind mount: %v", m)
+
+	// Adjust mount attributes attending to process' root path.
+	m.pathAdjust()
 
 	// Create instruction's payload.
 	payload := m.createBindMountPayload(mip)
@@ -702,25 +703,33 @@ func (m *mountSyscallInfo) createBindMountPayload(
 	return &payload
 }
 
-func (m *mountSyscallInfo) String() string {
-	return fmt.Sprintf("source: %s, target = %s, fstype = %s, flags = %#x, data = %s, root = %s, cwd = %s",
-		m.Source, m.Target, m.FsType, m.Flags, m.Data, m.root, m.cwd)
-}
-
 // Method addresses scenarios where the process generating the mount syscall has
 // a 'root' attribute different than default one ("/"). This is typically the case
-// in 'chroot'ed environments. Method's goal is to make all the require adjustments
+// in 'chroot'ed environments. Method's goal is to make all the required adjustments
 // so that sysbox-fs can carry out the mount in the expected context.
-func (m *mountSyscallInfo) rootAdjust() error {
+func (m *mountSyscallInfo) pathAdjust() {
 
 	root := m.syscallCtx.root
 
 	if root == "/" {
-		return nil
+		return
 	}
 
 	// 'Target' attribute will always require adjustment in chroot'ed envs.
 	m.Target = filepath.Join(root, m.Target)
 
-	return nil
+	// 'Source' attribute will be adjusted only when referring to a file-system
+	// path.
+	//
+	// Note: Commenting this one out for now. Notice that this logic is only
+	// applicable to chroot scenarios where a bind-mount operation is attempted
+	// over sysbox-fs' managed resources (kinda corner-case scenario).
+	// if m.tracer.mountHelper.isBind(m.Flags) {
+	// 	m.Source = filepath.Join(root, m.Source)
+	// }
+}
+
+func (m *mountSyscallInfo) String() string {
+	return fmt.Sprintf("source: %s, target: %s, fstype: %s, flags: %#x, data: %s, root: %s, cwd: %s",
+		m.Source, m.Target, m.FsType, m.Flags, m.Data, m.root, m.cwd)
 }

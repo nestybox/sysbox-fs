@@ -620,6 +620,10 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 
 	payload := e.ReqMsg.Payload.([]domain.MountSyscallPayload)
 
+	// For overlayfs mounts we adjust 'nsexec' process' personality (i.e.
+	// uid/gid and capabilities) to match the one of the original process
+	// performing the syscall. Our goal is mainly to avoid permission issues
+	// while accessing kernel's created overlayfs components.
 	if payload[0].FsType == "overlay" {
 		// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
 		// executing this logic.
