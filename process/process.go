@@ -33,8 +33,6 @@ import (
 	setxid "gopkg.in/hlandau/service.v1/daemon/setuid"
 )
 
-//var AppFs = afero.NewOsFs()
-
 type processService struct {
 	ios domain.IOServiceIface
 }
@@ -63,7 +61,7 @@ func (ps *processService) ProcessCreate(
 type process struct {
 	pid         uint32                  // process id
 	root        string                  // root dir
-	hroot       string                  // root dir from host perspective
+	procroot    string                  // proc's root soft-link (/proc/<pid>/root)
 	cwd         string                  // current working dir
 	hcwd        string                  // current working dir from host perspective
 	uid         uint32                  // effective uid
@@ -79,7 +77,7 @@ type process struct {
 func (p *process) Pid() uint32 {
 
 	if !p.initialized {
-		p.getInfo()
+		p.init()
 	}
 
 	return p.pid
@@ -88,7 +86,7 @@ func (p *process) Pid() uint32 {
 func (p *process) Uid() uint32 {
 
 	if !p.initialized {
-		p.getInfo()
+		p.init()
 	}
 
 	return p.uid
@@ -97,7 +95,7 @@ func (p *process) Uid() uint32 {
 func (p *process) Gid() uint32 {
 
 	if !p.initialized {
-		p.getInfo()
+		p.init()
 	}
 
 	return p.gid
@@ -106,7 +104,7 @@ func (p *process) Gid() uint32 {
 func (p *process) Cwd() string {
 
 	if !p.initialized {
-		p.getInfo()
+		p.init()
 	}
 
 	return p.cwd
@@ -115,7 +113,7 @@ func (p *process) Cwd() string {
 func (p *process) Root() string {
 
 	if !p.initialized {
-		p.getInfo()
+		p.init()
 	}
 
 	return p.root
@@ -123,18 +121,6 @@ func (p *process) Root() string {
 
 func (p *process) IsSysAdminCapabilitySet() bool {
 	return p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN)
-}
-
-func (p *process) IsMknodCapabilitySet() bool {
-	return p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_MKNOD)
-}
-
-func (p *process) IsDacReadCapabilitySet() bool {
-	return p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH)
-}
-
-func (p *process) IsDacOverrideCapabilitySet() bool {
-	return p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_DAC_OVERRIDE)
 }
 
 func (p *process) GetEffCaps() [2]uint32 {
@@ -201,10 +187,9 @@ func (p *process) initCapability() error {
 	return nil
 }
 
-// Camouflage() method's purpose is to adjust the process personality to another
-// process. The ultimate goal is to be able to utilize a 'proxy' process (such
-// as 'sysbox-fs nsenter') to execute instructions on behalf of the original
-// process.
+// AdjustPersonality() method's purpose is to modify process' main attributes to
+// match those of a secondary process. The main use-case is to allow sysbox-fs'
+// nsexec logic to act on behalf of a user-triggered process.
 func (p *process) Camouflage(
 	uid uint32,
 	gid uint32,
@@ -212,60 +197,44 @@ func (p *process) Camouflage(
 	cwd string,
 	caps [2]uint32) error {
 
-	if err := unix.Chdir(cwd); err != nil {
-		return err
-	}
-
-	if err := unix.Chroot(root); err != nil {
-		return err
-	}
-
-	// Initialize capability struct if not already done.
-	if p.cap == nil {
-		if err := p.initCapability(); err != nil {
+	if cwd != p.Cwd() {
+		if err := unix.Chdir(cwd); err != nil {
 			return err
 		}
 	}
 
-	// If UID corresponds to 'root' user then adjust capabilities of this
-	// running process accordingly.
-	if uid == 0 {
+	if root != p.Root() {
+		if err := unix.Chroot(root); err != nil {
+			return err
+		}
+	}
 
+	if gid != p.Gid() {
+		// Execute setresgid() syscall to set this process' effective gid.
+		if err := setxid.Setresgid(-1, int(gid), -1); err != nil {
+			return err
+		}
+	}
+
+	if uid != p.Uid() {
+		// Execute setresuid() syscall to set this process' effective uid.
+		// Notice that as part of this instruction all effective capabilities of
+		// the running process will be reset, which is something that we are looking
+		// after given that "sysbox-fs nsenter" process runs with all capabilities
+		// turned on. Further below we re-apply only those capabilities that were
+		// present in the original process.
+		if err := setxid.Setresuid(-1, int(uid), -1); err != nil {
+			return err
+		}
+	}
+
+	if caps != p.GetEffCaps() {
 		// Set process' effective capabilities to match those passed by callee.
 		p.cap.SetEffCaps(caps)
 		if err := p.cap.Apply(
 			cap.EFFECTIVE | cap.PERMITTED | cap.INHERITABLE); err != nil {
 			return err
 		}
-
-		return nil
-	}
-
-	// If UID is 'non-root' then we proceed as below:
-	//
-	// 1) Execute setresgid() syscall to set this process' effective gid.
-	// 2) Execute setresuid() syscall to set this process' effective uid.
-	// 3) Adjust capabilities to match original (end-user) process.
-	//
-	// Notice that during execution of 2) all effective capabilities of the
-	// running process will be reset, which is something that we are looking
-	// after given that "sysbox-fs nsenter" process runs with all capabilities
-	// turned on. Further below we re-apply only those capabilities that were
-	// present in the original process.
-
-	if err := setxid.Setresgid(-1, int(gid), -1); err != nil {
-		return err
-	}
-
-	if err := setxid.Setresuid(-1, int(uid), -1); err != nil {
-		return err
-	}
-
-	// Set process' effective capabilities to match those passed by callee.
-	p.cap.SetEffCaps(caps)
-	if err := p.cap.Apply(
-		cap.EFFECTIVE | cap.PERMITTED | cap.INHERITABLE); err != nil {
-		return err
 	}
 
 	return nil
@@ -408,15 +377,15 @@ func (p *process) CreateNsInodes(inode domain.Inode) error {
 
 func (p *process) PathAccess(path string, aMode domain.AccessMode) error {
 
-	if err := p.getInfo(); err != nil {
+	if err := p.init(); err != nil {
 		return err
 	}
 
 	return p.pathAccess(path, aMode)
 }
 
-// getInfo retrieves info about the process
-func (p *process) getInfo() error {
+// init() retrieves info about the process to initialize its main attributes.
+func (p *process) init() error {
 
 	if p.initialized {
 		return nil
@@ -483,7 +452,7 @@ func (p *process) getInfo() error {
 	// store all collected attributes
 	p.root, _ = os.Readlink(root)
 	p.cwd, _ = os.Readlink(cwd)
-	p.hroot = root
+	p.procroot = root
 	p.hcwd = cwd
 	p.uid = uint32(euid)
 	p.gid = uint32(egid)
@@ -550,7 +519,7 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 	// Determine the start point.
 	var start string
 	if filepath.IsAbs(path) {
-		start = p.hroot
+		start = p.procroot
 	} else {
 		start = p.hcwd
 	}
@@ -574,8 +543,8 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 
 		if c == ".." {
 			parent := filepath.Dir(cur)
-			if !strings.HasPrefix(parent, p.hroot) {
-				parent = p.hroot
+			if !strings.HasPrefix(parent, p.procroot) {
+				parent = p.procroot
 			}
 			cur = parent
 		} else if c != "." {
@@ -591,11 +560,11 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 			return syscall.ENOTDIR
 		}
 
-		// Follow the symlink (unless it's the proc.hroot); may recurse if
+		// Follow the symlink (unless it's the proc.procroot); may recurse if
 		// symlink points to another symlink and so on; we stop at symlinkMax
 		// recursions (just as the Linux kernel does).
 
-		if symlink && cur != p.hroot {
+		if symlink && cur != p.procroot {
 			for {
 				if linkCnt >= domain.SymlinkMax {
 					return syscall.ELOOP
@@ -607,17 +576,17 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 				}
 
 				if filepath.IsAbs(link) {
-					cur = filepath.Join(p.hroot, link)
+					cur = filepath.Join(p.procroot, link)
 				} else {
 					cur = filepath.Join(filepath.Dir(cur), link)
 				}
 
-				// If 'cur' ever matches 'p.hroot' then there's no need to continue
-				// iterating as we know for sure that 'p.hroot' is a valid /
+				// If 'cur' ever matches 'p.procroot' then there's no need to continue
+				// iterating as we know for sure that 'p.procroot' is a valid /
 				// non-cyclical path. If we were to continue our iteration, we
-				// would end up dereferencing 'p.hroot' -- through readlink() --
+				// would end up dereferencing 'p.procroot' -- through readlink() --
 				// which would erroneously points us to "/" in the host fs.
-				if cur == p.hroot {
+				if cur == p.procroot {
 					break
 				}
 

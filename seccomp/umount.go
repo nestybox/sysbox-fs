@@ -184,8 +184,8 @@ func (u *umountSyscallInfo) createUmountPayload(
 	}
 
 	// Adjust payload attributes attending to the process' root path. This is
-	// needed to properly handle umount instructions generated within chroot'ed
-	// environments.
+	// needed to properly handle umount instructions generated within chroot
+	// jail environments.
 	if u.syscallCtx.root != "/" {
 		for i := 0; i < len(payload); i++ {
 			payload[i].Target = filepath.Join(u.syscallCtx.root, payload[i].Target)
@@ -196,5 +196,6 @@ func (u *umountSyscallInfo) createUmountPayload(
 }
 
 func (u *umountSyscallInfo) String() string {
-	return fmt.Sprintf("target = %s, flags = %#x", u.Target, u.Flags)
+	return fmt.Sprintf("target: %s, flags: %#x, root: %s, cwd: %s",
+		u.Target, u.Flags, u.root, u.cwd)
 }
