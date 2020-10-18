@@ -61,9 +61,9 @@ func (ps *processService) ProcessCreate(
 type process struct {
 	pid         uint32                  // process id
 	root        string                  // root dir
-	procroot    string                  // proc's root soft-link (/proc/<pid>/root)
+	procroot    string                  // proc's root string (/proc/<pid>/root)
 	cwd         string                  // current working dir
-	hcwd        string                  // current working dir from host perspective
+	proccwd     string                  // proc's cwd string (/proc/<pid>/cwd)
 	uid         uint32                  // effective uid
 	gid         uint32                  // effective gid
 	sgid        []int                   // supplementary groups
@@ -190,7 +190,7 @@ func (p *process) initCapability() error {
 // AdjustPersonality() method's purpose is to modify process' main attributes to
 // match those of a secondary process. The main use-case is to allow sysbox-fs'
 // nsexec logic to act on behalf of a user-triggered process.
-func (p *process) Camouflage(
+func (p *process) AdjustPersonality(
 	uid uint32,
 	gid uint32,
 	root string,
@@ -453,7 +453,7 @@ func (p *process) init() error {
 	p.root, _ = os.Readlink(root)
 	p.cwd, _ = os.Readlink(cwd)
 	p.procroot = root
-	p.hcwd = cwd
+	p.proccwd = cwd
 	p.uid = uint32(euid)
 	p.gid = uint32(egid)
 	p.sgid = sgid
@@ -521,7 +521,7 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 	if filepath.IsAbs(path) {
 		start = p.procroot
 	} else {
-		start = p.hcwd
+		start = p.proccwd
 	}
 
 	// Break up path into it's components; note that repeated "/" results in

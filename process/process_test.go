@@ -293,10 +293,10 @@ func TestProcPathAccess(t *testing.T) {
 	cwd := filepath.Join(tmpDir, "/some/path/to")
 
 	p := &process{
-		root: tmpDir,
-		cwd:  cwd,
-		uid:  uint32(os.Geteuid()),
-		gid:  uint32(os.Getegid()),
+		procroot: tmpDir,
+		proccwd:  cwd,
+		uid:      uint32(os.Geteuid()),
+		gid:      uint32(os.Getegid()),
 	}
 
 	mode := domain.R_OK | domain.W_OK | domain.X_OK
@@ -385,10 +385,10 @@ func TestProcPathAccessDirAndFilePerm(t *testing.T) {
 	cwd := filepath.Join(tmpDir, "/some/path/to")
 
 	p := &process{
-		root: tmpDir,
-		cwd:  cwd,
-		uid:  uint32(os.Geteuid()),
-		gid:  uint32(os.Getegid()),
+		procroot: tmpDir,
+		proccwd:  cwd,
+		uid:      uint32(os.Geteuid()),
+		gid:      uint32(os.Getegid()),
 	}
 
 	if err := p.pathAccess("/some/path/to/a/dir/somefile", 0); err != nil {
@@ -401,11 +401,11 @@ func TestProcPathAccessDirAndFilePerm(t *testing.T) {
 	}
 
 	p = &process{
-		pid:  uint32(os.Getpid()),
-		root: tmpDir,
-		cwd:  cwd,
-		uid:  800,
-		gid:  800,
+		pid:      uint32(os.Getpid()),
+		procroot: tmpDir,
+		proccwd:  cwd,
+		uid:      800,
+		gid:      800,
 	}
 
 	// Initialize the process caps
@@ -442,10 +442,10 @@ func TestProcPathAccessDirAndFilePerm(t *testing.T) {
 	}
 
 	p = &process{
-		root: tmpDir,
-		cwd:  cwd,
-		uid:  uint32(os.Geteuid()),
-		gid:  uint32(os.Getegid()),
+		procroot: tmpDir,
+		proccwd:  cwd,
+		uid:      uint32(os.Geteuid()),
+		gid:      uint32(os.Getegid()),
 	}
 
 	if err := p.pathAccess(
@@ -552,10 +552,10 @@ func TestProcPathAccessSymlink(t *testing.T) {
 	}
 
 	p := &process{
-		root: tmpDir,
-		cwd:  tmpDir,
-		uid:  uint32(os.Geteuid()),
-		gid:  uint32(os.Getegid()),
+		procroot: tmpDir,
+		proccwd:  tmpDir,
+		uid:      uint32(os.Geteuid()),
+		gid:      uint32(os.Getegid()),
 	}
 
 	mode := domain.R_OK | domain.X_OK
@@ -646,10 +646,10 @@ func TestProcPathAccessSymlink(t *testing.T) {
 	}
 
 	p = &process{
-		root: root,
-		cwd:  cwd,
-		uid:  uint32(os.Geteuid()),
-		gid:  uint32(os.Getegid()),
+		procroot: root,
+		proccwd:  cwd,
+		uid:      uint32(os.Geteuid()),
+		gid:      uint32(os.Getegid()),
 	}
 
 	if err := p.pathAccess(".", mode); err != nil {

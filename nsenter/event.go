@@ -635,7 +635,7 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 
 		// Adjust 'nsenter' process personality to match the end-user's original
 		// process.
-		if err := process.Camouflage(
+		if err := process.AdjustPersonality(
 			header.Uid,
 			header.Gid,
 			header.Root,
