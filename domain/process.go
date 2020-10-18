@@ -46,7 +46,7 @@ type ProcessIface interface {
 	PathAccess(path string, accessFlags AccessMode) error
 	GetEffCaps() [2]uint32
 	SetEffCaps(caps [2]uint32)
-	Camouflage(
+	AdjustPersonality(
 		uid uint32,
 		gid uint32,
 		root string,
