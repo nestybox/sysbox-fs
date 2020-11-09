@@ -12,13 +12,13 @@ require (
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
 	github.com/pkg/profile v1.4.0
 	github.com/sirupsen/logrus v1.4.2
-	github.com/spf13/afero v1.2.2
+	github.com/spf13/afero v1.4.1
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.5.1
 	github.com/urfave/cli v1.20.0
 	github.com/vektra/mockery v1.1.2 // indirect
 	github.com/vishvananda/netlink v1.0.0
-	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
+	golang.org/x/sys v0.0.0-20201029080932-201ba4db2418
 	google.golang.org/grpc v1.27.0
 	gopkg.in/hlandau/service.v1 v1.0.7
 )
