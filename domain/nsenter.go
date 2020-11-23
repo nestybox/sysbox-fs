@@ -80,6 +80,8 @@ const (
 	MountSyscallResponse  NSenterMsgType = "mountSyscallResponse"
 	UmountSyscallRequest  NSenterMsgType = "umountSyscallRequest"
 	UmountSyscallResponse NSenterMsgType = "umountSyscallResponse"
+	ChownSyscallRequest   NSenterMsgType = "chownSyscallRequest"
+	ChownSyscallResponse  NSenterMsgType = "chownSyscallResponse"
 	ErrorResponse         NSenterMsgType = "errorResponse"
 )
 
@@ -178,4 +180,10 @@ type UmountSyscallPayload struct {
 	Target string `json:"target"`
 	FsType uint8  `json:"-"`
 	Flags  uint64 `json:"flags"`
+}
+
+type ChownSyscallPayload struct {
+	Target string `json:"target"`
+	Uid    int    `json:"uid"`
+	Gid    int    `json:"gid"`
 }
