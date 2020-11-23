@@ -169,6 +169,38 @@ func (m *mountSyscallInfo) processProcMount(
 		return resp, nil
 	}
 
+	// Chown the proc mount to the requesting process' uid:gid (typically
+	// root:root) as otherwise it will show up as "nobody:nogroup".
+
+	chownPayload := createChownPayload(m.Target, m.uid, m.gid)
+	if chownPayload == nil {
+		return nil, fmt.Errorf("Could not construct proc chown payload")
+	}
+
+	nss = m.tracer.sms.nss
+	event = nss.NewEvent(
+		m.syscallCtx.pid,
+		&domain.AllNSsButUser,
+		&domain.NSenterMessage{
+			Type:    domain.ChownSyscallRequest,
+			Payload: chownPayload,
+		},
+		nil,
+	)
+
+	err = nss.SendRequestEvent(event)
+	if err != nil {
+		return nil, err
+	}
+
+	responseMsg = nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		resp := m.tracer.createErrorResponse(
+			m.reqId,
+			responseMsg.Payload.(fuse.IOerror).Code)
+		return resp, nil
+	}
+
 	return m.tracer.createSuccessResponse(m.reqId), nil
 }
 
@@ -261,6 +293,20 @@ func (m *mountSyscallInfo) createProcPayload(
 		}
 	}
 
+	return &payload
+}
+
+// Helper function to create a chown syscall request
+func createChownPayload(target string, uid, gid uint32) *[]*domain.ChownSyscallPayload {
+	payload := []*domain.ChownSyscallPayload{}
+
+	newElem := &domain.ChownSyscallPayload{
+		Target: target,
+		Uid:    int(uid),
+		Gid:    int(gid),
+	}
+
+	payload = append(payload, newElem)
 	return &payload
 }
 
