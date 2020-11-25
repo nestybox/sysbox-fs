@@ -18,6 +18,8 @@ package domain
 
 import (
 	"reflect"
+
+	cap "github.com/nestybox/sysbox-libs/capability"
 )
 
 const (
@@ -38,6 +40,8 @@ type ProcessIface interface {
 	Gid() uint32
 	Cwd() string
 	Root() string
+	SGid() []uint32
+	IsCapabilitySet(cap.CapType, cap.Cap) bool
 	IsSysAdminCapabilitySet() bool
 	NsInodes() (map[string]Inode, error)
 	UserNsInode() (Inode, error)
@@ -46,6 +50,7 @@ type ProcessIface interface {
 	PathAccess(path string, accessFlags AccessMode) error
 	GetEffCaps() [2]uint32
 	SetEffCaps(caps [2]uint32)
+	GetFd(int32) (string, error)
 	AdjustPersonality(
 		uid uint32,
 		gid uint32,

@@ -66,7 +66,7 @@ type process struct {
 	proccwd     string                  // proc's cwd string (/proc/<pid>/cwd)
 	uid         uint32                  // effective uid
 	gid         uint32                  // effective gid
-	sgid        []int                   // supplementary groups
+	sgid        []uint32                // supplementary groups
 	cap         cap.Capabilities        // process capabilities
 	status      map[string]string       // process status fields
 	nsInodes    map[string]domain.Inode // process namespace inodes
@@ -119,8 +119,17 @@ func (p *process) Root() string {
 	return p.root
 }
 
+func (p *process) SGid() []uint32 {
+
+	if !p.initialized {
+		p.init()
+	}
+
+	return p.sgid
+}
+
 func (p *process) IsSysAdminCapabilitySet() bool {
-	return p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN)
+	return p.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN)
 }
 
 func (p *process) GetEffCaps() [2]uint32 {
@@ -158,7 +167,7 @@ func (p *process) setCapability(which cap.CapType, what ...cap.Cap) {
 }
 
 // Simple wrapper method to determine capability settings.
-func (p *process) isCapabilitySet(which cap.CapType, what cap.Cap) bool {
+func (p *process) IsCapabilitySet(which cap.CapType, what cap.Cap) bool {
 
 	if p.cap == nil {
 		if err := p.initCapability(); err != nil {
@@ -185,6 +194,12 @@ func (p *process) initCapability() error {
 	p.cap = c
 
 	return nil
+}
+
+// GetFd() returns a path to the file associated with a process' file descriptor.
+func (p *process) GetFd(fd int32) (string, error) {
+	fdlink := fmt.Sprintf("/proc/%d/fd/%d", p.pid, fd)
+	return os.Readlink(fdlink)
 }
 
 // AdjustPersonality() method's purpose is to modify process' main attributes to
@@ -423,7 +438,7 @@ func (p *process) init() error {
 	}
 
 	// supplementary groups
-	sgid := []int{}
+	sgid := []uint32{}
 	str = space.ReplaceAllString(p.status["Groups"], " ")
 	str = strings.TrimSpace(str)
 	groups := strings.Split(str, " ")
@@ -435,7 +450,7 @@ func (p *process) init() error {
 		if err != nil {
 			return err
 		}
-		sgid = append(sgid, val)
+		sgid = append(sgid, uint32(val))
 	}
 
 	// process root & cwd
@@ -655,7 +670,7 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 	}
 
 	// group check
-	if fgid == p.gid || intSliceContains(p.sgid, fgid) {
+	if fgid == p.gid || uint32SliceContains(p.sgid, fgid) {
 		perm := uint32((fperm & 0070) >> 3)
 		if mode&perm == mode {
 			return true, nil
@@ -669,7 +684,7 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 	}
 
 	// capability checks
-	if p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_DAC_OVERRIDE) {
+	if p.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_DAC_OVERRIDE) {
 		// Per capabilitis(7): CAP_DAC_OVERRIDE bypasses file read, write,
 		// and execute permission checks.
 		//
@@ -691,7 +706,7 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 		}
 	}
 
-	if p.isCapabilitySet(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH) {
+	if p.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH) {
 		// Per capabilities(7): CAP_DAC_READ_SEARCH bypasses file read permission
 		// checks and directory read and execute permission checks
 		if fi.IsDir() && (aMode&domain.W_OK != domain.W_OK) {
@@ -720,10 +735,10 @@ func isSymlink(path string) (bool, bool, error) {
 	return fi.Mode()&os.ModeSymlink == os.ModeSymlink, fi.IsDir(), nil
 }
 
-// intSliceContains returns true if x is in a
-func intSliceContains(a []int, x uint32) bool {
+// uint32SliceContains returns true if x is in a
+func uint32SliceContains(a []uint32, x uint32) bool {
 	for _, n := range a {
-		if int(x) == n {
+		if x == n {
 			return true
 		}
 	}

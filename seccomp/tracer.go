@@ -46,6 +46,9 @@ var monitoredSyscalls = []string{
 	"reboot",
 	"swapon",
 	"swapoff",
+	"chown",
+	"fchown",
+	"fchownat",
 }
 
 // Seccomp's syscall-monitoring/trapping service struct. External packages
@@ -330,6 +333,15 @@ func (t *syscallTracer) process(
 	case "swapoff":
 		resp, err = t.processSwapoff(req, fd, cntr)
 
+	case "chown":
+		resp, err = t.processChown(req, fd, cntr)
+
+	case "fchown":
+		resp, err = t.processFchown(req, fd, cntr)
+
+	case "fchownat":
+		resp, err = t.processFchownat(req, fd, cntr)
+
 	default:
 		logrus.Warnf("Unsupported syscall notification received (%v) on fd %d pid %d",
 			syscallId, fd, req.Pid)
@@ -394,11 +406,9 @@ func (t *syscallTracer) processMount(
 
 	logrus.Debug(mount)
 
-	// As per man's capabilities(7), cap_sys_admin capability is required for
-	// mount operations. Otherwise, return here and let kernel handle the mount
-	// instruction.
+	// cap_sys_admin capability is required for mount operations.
 	process := t.sms.prs.ProcessCreate(req.Pid, 0, 0)
-	if !(process.IsSysAdminCapabilitySet()) {
+	if !process.IsSysAdminCapabilitySet() {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
@@ -483,6 +493,112 @@ func (t *syscallTracer) processUmount(
 
 	// Process umount syscall.
 	return umount.process()
+}
+
+func (t *syscallTracer) processChown(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface) (*sysResponse, error) {
+
+	argPtrs := []uint64{req.Data.Args[0]}
+	args, err := t.processMemParse(req.Pid, argPtrs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(args) < 1 {
+		return t.createErrorResponse(req.Id, syscall.EINVAL), nil
+	}
+
+	path := args[0]
+	uid := int64(req.Data.Args[1])
+	gid := int64(req.Data.Args[2])
+
+	chown := &chownSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum: int32(req.Data.Syscall),
+			reqId:      req.Id,
+			pid:        req.Pid,
+			cntr:       cntr,
+			tracer:     t,
+		},
+		path:     path,
+		ownerUid: uid,
+		ownerGid: gid,
+	}
+
+	return chown.processChown()
+}
+
+func (t *syscallTracer) processFchown(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface) (*sysResponse, error) {
+
+	// We trap fchown() for the same reason we trap chown() (see processChown()).
+
+	pathFd := int32(req.Data.Args[0])
+	uid := int64(req.Data.Args[1])
+	gid := int64(req.Data.Args[2])
+
+	chown := &chownSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum: int32(req.Data.Syscall),
+			reqId:      req.Id,
+			pid:        req.Pid,
+			cntr:       cntr,
+			tracer:     t,
+		},
+		pathFd:   pathFd,
+		ownerUid: uid,
+		ownerGid: gid,
+	}
+
+	return chown.processChown()
+}
+
+func (t *syscallTracer) processFchownat(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface) (*sysResponse, error) {
+
+	// We trap fchownat() for the same reason we trap chown() (see processChown()).
+
+	// Get the path argument
+	argPtrs := []uint64{req.Data.Args[1]}
+	args, err := t.processMemParse(req.Pid, argPtrs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(args) < 1 {
+		return t.createErrorResponse(req.Id, syscall.EINVAL), nil
+	}
+
+	path := args[0]
+
+	// Get the other args
+	dirFd := int32(req.Data.Args[0])
+	uid := int64(req.Data.Args[2])
+	gid := int64(req.Data.Args[3])
+	flags := int(req.Data.Args[4])
+
+	chown := &chownSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum: int32(req.Data.Syscall),
+			reqId:      req.Id,
+			pid:        req.Pid,
+			cntr:       cntr,
+			tracer:     t,
+		},
+		path:     path,
+		ownerUid: uid,
+		ownerGid: gid,
+		dirFd:    dirFd,
+		flags:    flags,
+	}
+
+	return chown.processFchownat()
 }
 
 func (t *syscallTracer) processReboot(

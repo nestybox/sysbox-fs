@@ -750,7 +750,7 @@ func (e *NSenterEvent) processChownSyscallRequest() error {
 	payload := e.ReqMsg.Payload.([]domain.ChownSyscallPayload)
 
 	for _, p := range payload {
-		if err := unix.Chown(p.Target, p.Uid, p.Gid); err != nil {
+		if err := unix.Chown(p.Target, p.TargetUid, p.TargetGid); err != nil {
 			e.ResMsg = &domain.NSenterMessage{
 				Type:    domain.ErrorResponse,
 				Payload: &fuse.IOerror{RcvError: err},
