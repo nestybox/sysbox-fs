@@ -183,7 +183,7 @@ type UmountSyscallPayload struct {
 }
 
 type ChownSyscallPayload struct {
-	Target string `json:"target"`
-	Uid    int    `json:"uid"`
-	Gid    int    `json:"gid"`
+	Target    string `json:"target"`
+	TargetUid int    `json:"uid"`
+	TargetGid int    `json:"gid"`
 }
