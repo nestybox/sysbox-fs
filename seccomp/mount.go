@@ -171,6 +171,19 @@ func (m *mountSyscallInfo) processProcMount(
 
 	// Chown the proc mount to the requesting process' uid:gid (typically
 	// root:root) as otherwise it will show up as "nobody:nogroup".
+	//
+	// NOTE: for now we skip the chown if the mount is read-only, as otherwise
+	// the chown will fail. This means that read-only mounts of proc will still
+	// show up as "nobody:nouser" inside the sys container (e.g., in inner
+	// containers). Solving this would require that we first mount proc, then
+	// chown, then remount read-only. This would in turn require 3 nsenter
+	// events, because the namespaces that we must enter for each are not the
+	// same (in particular for the chown to succeed, we must not enter the
+	// user-ns of the container).
+
+	if m.Flags&unix.MS_RDONLY == unix.MS_RDONLY {
+		return m.tracer.createSuccessResponse(m.reqId), nil
+	}
 
 	ci := &chownSyscallInfo{
 		path:     m.Target,
