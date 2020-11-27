@@ -102,7 +102,7 @@ func TestCheckPermGroup(t *testing.T) {
 		cwd:  tmpDir,
 		uid:  800,
 		gid:  800,
-		sgid: []int{os.Getegid()},
+		sgid: []uint32{uint32(os.Getegid())},
 	}
 
 	mode = domain.R_OK | domain.W_OK
