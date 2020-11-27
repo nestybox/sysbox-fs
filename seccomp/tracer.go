@@ -256,6 +256,8 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 		// Return here to exit this goroutine in case of error as that
 		// implies that seccomp-fd is not valid anymore.
 		if err := t.pollsrv.StartWaitRead(fd); err != nil {
+			logrus.Debugf("Seccomp-fd i/o error returned (%v). Exiting seccomp-tracer processing on fd %d pid %d",
+				err, fd, pid)
 			return err
 		}
 
@@ -270,7 +272,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 
 			logrus.Warnf("Unexpected error during NotifReceive() execution (%v) on fd %d pid %d",
 				err, fd, pid)
-			break
+			continue
 		}
 
 		// Process the incoming syscall and obtain response for seccomp-tracee.
@@ -287,7 +289,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 
 			logrus.Warnf("Unexpected error during NotifRespond() execution (%v) on fd %d pid %d",
 				err, fd, pid)
-			break
+			continue
 		}
 	}
 
