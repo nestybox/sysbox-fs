@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"runtime"
@@ -220,6 +221,9 @@ func main() {
 
 	// Define 'debug' and 'log' settings.
 	app.Before = func(ctx *cli.Context) error {
+
+		// Random generator seed
+		rand.Seed(time.Now().UnixNano())
 
 		// Create/set the log-file destination.
 		if path := ctx.GlobalString("log"); path != "" {

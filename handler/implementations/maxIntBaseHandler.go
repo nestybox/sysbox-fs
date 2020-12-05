@@ -19,10 +19,12 @@ package implementations
 import (
 	"errors"
 	"io"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -232,32 +234,68 @@ func (h *MaxIntBaseHandler) fetchFile(
 	return curHostMax, nil
 }
 
-func (h *MaxIntBaseHandler) pushFile(n domain.IOnodeIface, c domain.ContainerIface,
+func (h *MaxIntBaseHandler) pushFile(
+	n domain.IOnodeIface,
+	c domain.ContainerIface,
 	newMaxInt int) error {
 
-	curHostMax, err := n.ReadLine()
-	if err != nil && err != io.EOF {
-		return err
-	}
-	curHostMaxInt, err := strconv.Atoi(curHostMax)
-	if err != nil {
-		logrus.Errorf("Unexpected error: %v", err)
-		return err
-	}
+	// Some users may deploy sysbox inside a privileged container, and thus can
+	// have multiple sysbox instances running concurrently on the same host. If
+	// those sysbox instances write conflicting values to a kernel resource that
+	// uses this handler (e.g., a sysctl under /proc/sys), a race condition
+	// arises that could cause the value to be written to not be the max across
+	// all instances.
+	//
+	// To reduce the chance of this ocurring, we use a heuristic in which we
+	// read-after-write to verify the value of the resource is larger or equal to
+	// the one we wrote. If it isn't, it means some other agent on the host wrote
+	// a smaller value to the resource after we wrote to it, so we must retry the
+	// write.
+	//
+	// When retrying, we wait a small but random amount of time to reduce the
+	// chance of hitting the race condition again. And we retry a limited amount
+	// of times.
+	//
+	// Note that this solution works well for resolving race conditions among
+	// sysbox instances, but may not address race conditions with other host
+	// agents that write to the same sysctl. That's because there is no guarantee
+	// that the other host agent will read-after-write and retry as sysbox does.
 
-	// If the existing host value is larger than the new one to configure,
-	// then let's just return here as we want to keep the largest value
-	// in the host kernel.
-	if newMaxInt <= curHostMaxInt {
-		return nil
-	}
+	retries := 5
+	retryDelay := 100 // microsecs
 
-	// Push down to host kernel the new (larger) value.
-	msg := []byte(strconv.Itoa(newMaxInt))
-	err = n.WriteFile(msg)
-	if err != nil && !h.Service.IgnoreErrors() {
-		logrus.Errorf("Could not write to file: %s", err)
-		return err
+	for i := 0; i < retries; i++ {
+
+		curHostMax, err := n.ReadLine()
+		if err != nil && err != io.EOF {
+			return err
+		}
+		curHostMaxInt, err := strconv.Atoi(curHostMax)
+		if err != nil {
+			logrus.Errorf("Unexpected error: %v", err)
+			return err
+		}
+
+		// If the existing host value is larger than the new one to configure,
+		// then let's just return here as we want to keep the largest value
+		// in the host kernel.
+		if newMaxInt <= curHostMaxInt {
+			return nil
+		}
+
+		// When retrying, wait a random delay to reduce chances of a new collision
+		if i > 0 {
+			d := rand.Intn(retryDelay)
+			time.Sleep(time.Duration(d) * time.Microsecond)
+		}
+
+		// Push down to host kernel the new (larger) value.
+		msg := []byte(strconv.Itoa(newMaxInt))
+		err = n.WriteFile(msg)
+		if err != nil && !h.Service.IgnoreErrors() {
+			logrus.Errorf("Could not write to file: %s", err)
+			return err
+		}
 	}
 
 	return nil
