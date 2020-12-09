@@ -29,8 +29,7 @@ type Inode = uint64
 // 1. ioNodeFile: Basically, a wrapper over os.File type to allow interactions
 //    with the host FS. To be utilized in production scenarios.
 //
-// 2. ioNodeBuffer: An enhanced byte-buffer class wrapper. To be utilized
-//    during UT efforts.
+// 2. iMemFile: Utilized for unit testing.
 //
 
 type IOServiceType = int
@@ -39,7 +38,6 @@ const (
 	Unknown          IOServiceType = iota
 	IOOsFileService                // production / regular purposes
 	IOMemFileService               // unit-testing purposes
-	IOBufferService
 )
 
 type IOServiceIface interface {
