@@ -71,46 +71,6 @@ func (s *ioFileService) NewIOnode(
 	return newFile
 }
 
-func (s *ioFileService) OpenNode(i domain.IOnodeIface) error {
-	return i.Open()
-}
-
-func (s *ioFileService) ReadNode(i domain.IOnodeIface, p []byte) (int, error) {
-	return i.Read(p)
-}
-
-func (s *ioFileService) WriteNode(i domain.IOnodeIface, p []byte) (int, error) {
-	return i.Write(p)
-}
-
-func (s *ioFileService) CloseNode(i domain.IOnodeIface) error {
-	return i.Close()
-}
-
-func (s *ioFileService) ReadAtNode(i domain.IOnodeIface, p []byte, off int64) (int, error) {
-	return i.ReadAt(p, off)
-}
-
-func (s *ioFileService) ReadDirAllNode(i domain.IOnodeIface) ([]os.FileInfo, error) {
-	return i.ReadDirAll()
-}
-
-func (s *ioFileService) ReadFileNode(i domain.IOnodeIface) ([]byte, error) {
-	return i.ReadFile()
-}
-
-func (s *ioFileService) ReadLineNode(i domain.IOnodeIface) (string, error) {
-	return i.ReadLine()
-}
-
-func (s *ioFileService) StatNode(i domain.IOnodeIface) (os.FileInfo, error) {
-	return i.Stat()
-}
-
-func (s *ioFileService) SeekResetNode(i domain.IOnodeIface) (int64, error) {
-	return i.SeekReset()
-}
-
 // Eliminate all nodes from a previously created file-system. Utilized exclusively
 // for unit-testing purposes (i.e. afero.MemFs).
 func (s *ioFileService) RemoveAllIOnodes() error {
@@ -119,10 +79,6 @@ func (s *ioFileService) RemoveAllIOnodes() error {
 	}
 
 	return nil
-}
-
-func (s *ioFileService) PathNode(i domain.IOnodeIface) string {
-	return i.Path()
 }
 
 func (i *ioFileService) GetServiceType() domain.IOServiceType {

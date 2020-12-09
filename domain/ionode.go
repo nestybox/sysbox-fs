@@ -42,18 +42,7 @@ const (
 
 type IOServiceIface interface {
 	NewIOnode(n string, p string, attr os.FileMode) IOnodeIface
-	OpenNode(i IOnodeIface) error
-	ReadNode(i IOnodeIface, p []byte) (int, error)
-	WriteNode(i IOnodeIface, p []byte) (int, error)
-	CloseNode(i IOnodeIface) error
-	ReadAtNode(i IOnodeIface, p []byte, off int64) (int, error)
-	ReadDirAllNode(i IOnodeIface) ([]os.FileInfo, error)
-	ReadFileNode(i IOnodeIface) ([]byte, error)
-	ReadLineNode(i IOnodeIface) (string, error)
-	StatNode(i IOnodeIface) (os.FileInfo, error)
-	SeekResetNode(i IOnodeIface) (int64, error)
 	RemoveAllIOnodes() error
-	PathNode(i IOnodeIface) string
 	GetServiceType() IOServiceType
 }
 
