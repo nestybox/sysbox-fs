@@ -128,8 +128,7 @@ func (h *ProcSwapsHandler) Read(
 	// stats of the overall system, and not of the container itself, but it's
 	// a valid approximation for now given that kernel doesn't expose anything
 	// close to this.
-	ios := h.Service.IOService()
-	_, err := ios.ReadNode(n, result)
+	_, err := n.Read(result)
 	if err != nil && err != io.EOF {
 		return 0, err
 	}

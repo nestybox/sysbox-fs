@@ -95,8 +95,7 @@ func (h *ProcLoadavgHandler) Read(
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	// Bypass emulation logic for now by going straight to host fs.
-	ios := h.Service.IOService()
-	len, err := ios.ReadNode(n, req.Data)
+	len, err := n.Read(req.Data)
 	if err != nil && err != io.EOF {
 		return 0, err
 	}
