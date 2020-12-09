@@ -51,6 +51,17 @@ const (
 	NODE_PROPAGATE = 0x8
 )
 
+// HandlerBase is a type common to all handlers
+type HandlerBase struct {
+	Name      string
+	Path      string
+	Type      HandlerType
+	Enabled   bool
+	Cacheable bool
+	Service   HandlerServiceIface
+}
+
+// HandlerRequest represents a request to be processed by a handler
 type HandlerRequest struct {
 	ID        uint64
 	Pid       uint32
@@ -61,15 +72,7 @@ type HandlerRequest struct {
 	Container ContainerIface
 }
 
-type Handler struct {
-	Name    string
-	Path    string
-	Type    HandlerType
-	Enabled bool
-	Service HandlerServiceIface
-	HandlerIface
-}
-
+// HandlerIface is the interface that each handler must implement
 type HandlerIface interface {
 	// FS operations.
 	Open(node IOnodeIface, req *HandlerRequest) error

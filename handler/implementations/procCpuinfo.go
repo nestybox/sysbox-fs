@@ -31,12 +31,7 @@ import (
 // /proc/cpuinfo Handler
 //
 type ProcCpuinfoHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *ProcCpuinfoHandler) Lookup(

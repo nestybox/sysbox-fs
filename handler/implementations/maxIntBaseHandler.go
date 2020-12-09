@@ -37,12 +37,7 @@ import (
 // kernel is the max value across sys containers.
 
 type MaxIntBaseHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *MaxIntBaseHandler) Lookup(

@@ -30,12 +30,7 @@ import (
 // /proc/sys/net/ipv4/neigh/default directory handler
 //
 type NeighDefaultHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *NeighDefaultHandler) Lookup(
