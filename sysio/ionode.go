@@ -32,9 +32,6 @@ func NewIOService(t domain.IOServiceType) domain.IOServiceIface {
 	case domain.IOMemFileService:
 		return newIOFileService(domain.IOMemFileService)
 
-	//case domain.IOBufferNode:
-	//	return &ioBufferService{}
-
 	default:
 		logrus.Panic("Unsupported ioService required: ", t)
 	}
