@@ -63,7 +63,7 @@ func (ips *ipcService) Init() error {
 
 func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 
-	logrus.Infof("Container pre-registration message received for id: %s", data.Id)
+	logrus.Debugf("Container pre-registration started: id = %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -72,15 +72,14 @@ func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Infof("Container pre-registration successfully completed for id: %s",
-		data.Id)
+	logrus.Debugf("Container pre-registration completed: id = %s", data.Id)
 
 	return nil
 }
 
 func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 
-	logrus.Infof("Container registration message received for id: %s", data.Id)
+	logrus.Debugf("Container registration started: id = %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -103,15 +102,14 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Infof("Container registration successfully completed for id: %s",
-		data.Id)
+	logrus.Infof("Container registration completed: %v", cntr)
 
 	return nil
 }
 
 func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 
-	logrus.Infof("Container unregistration message received for id: %s", data.Id)
+	logrus.Debugf("Container unregistration started: id = %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -130,15 +128,14 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Infof("Container unregistration successfully completed for id: %s",
-		data.Id)
+	logrus.Infof("Container unregistration completed: id = %s", data.Id)
 
 	return nil
 }
 
 func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 
-	logrus.Infof("Container update message received for id: %s", data.Id)
+	logrus.Debugf("Container update started: id = %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -161,7 +158,7 @@ func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Infof("Container update successfully processed for id: %s", data.Id)
+	logrus.Debugf("Container update completed: id = %s", data.Id)
 
 	return nil
 }

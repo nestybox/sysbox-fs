@@ -190,8 +190,6 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 	css.usernsTable[usernsInode] = currCntr
 	css.Unlock()
 
-	logrus.Info(cntr.String())
-
 	return nil
 }
 
@@ -218,9 +216,6 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	currCntr.SetCtime(cntr.ctime)
 
 	css.Unlock()
-
-	logrus.Info(currCntr.String())
-
 	return nil
 }
 
@@ -292,8 +287,6 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	delete(css.idTable, cntr.id)
 	delete(css.usernsTable, usernsInode)
 	css.Unlock()
-
-	logrus.Info(currCntrIdTable.String())
 
 	return nil
 }

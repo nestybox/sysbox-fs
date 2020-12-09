@@ -18,7 +18,6 @@ package state
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -132,18 +131,12 @@ func (c *container) InitProc() domain.ProcessIface {
 	return c.initProc
 }
 
-// String() specialization for container type.
 func (c *container) String() string {
 	c.RLock()
 	defer c.RUnlock()
 
-	result := "\n\t\t id: " + c.id + "\n" +
-		"\t\t initPid: " + strconv.Itoa(int(c.initPid)) + "\n" +
-		"\t\t ctime: " + c.ctime.String() + "\n" +
-		"\t\t UID: " + strconv.Itoa(int(c.uidFirst)) + "\n" +
-		"\t\t GID: " + strconv.Itoa(int(c.gidFirst))
-
-	return result
+	return fmt.Sprintf("id = %s, initPid = %d, uid:gid = %v:%v",
+		c.id, int(c.initPid), c.uidFirst, c.gidFirst)
 }
 
 //
