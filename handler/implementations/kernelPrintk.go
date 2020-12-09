@@ -57,12 +57,7 @@ import (
 // Example: "4   4 	1	7".
 //
 type KernelPrintkHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *KernelPrintkHandler) Lookup(

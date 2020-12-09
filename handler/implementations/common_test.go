@@ -233,12 +233,14 @@ func TestCommonHandler_Lookup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 
 			// Prepare the mocks.
@@ -361,12 +363,14 @@ func TestCommonHandler_Getattr(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 
 			// Prepare the mocks.
@@ -559,12 +563,14 @@ func TestCommonHandler_Open(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 
 			// Prepare the mocks.
@@ -778,12 +784,14 @@ func TestCommonHandler_Read(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 
 			// Prepare the mocks.
@@ -989,12 +997,14 @@ func TestCommonHandler_Write(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 
 			// Prepare the mocks.
@@ -1214,12 +1224,14 @@ func TestCommonHandler_ReadDirAll(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 
 			// Prepare the mocks.
@@ -1271,12 +1283,14 @@ func TestCommonHandler_Setattr(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 			if err := h.Setattr(tt.args.n, tt.args.req); (err != nil) != tt.wantErr {
 				t.Errorf("CommonHandler.Setattr() error = %v, wantErr %v", err, tt.wantErr)
@@ -1304,12 +1318,14 @@ func TestCommonHandler_GetName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 			if got := h.GetName(); got != tt.want {
 				t.Errorf("CommonHandler.GetName() = %v, want %v", got, tt.want)
@@ -1337,12 +1353,14 @@ func TestCommonHandler_GetPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 			if got := h.GetPath(); got != tt.want {
 				t.Errorf("CommonHandler.GetPath() = %v, want %v", got, tt.want)
@@ -1370,12 +1388,14 @@ func TestCommonHandler_GetEnabled(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 			if got := h.GetEnabled(); got != tt.want {
 				t.Errorf("CommonHandler.GetEnabled() = %v, want %v", got, tt.want)
@@ -1403,12 +1423,14 @@ func TestCommonHandler_GetType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 			if got := h.GetType(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("CommonHandler.GetType() = %v, want %v", got, tt.want)
@@ -1436,12 +1458,14 @@ func TestCommonHandler_GetService(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 			if got := h.GetService(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("CommonHandler.GetService() = %v, want %v", got, tt.want)
@@ -1472,12 +1496,14 @@ func TestCommonHandler_SetEnabled(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 			h.SetEnabled(tt.args.val)
 		})
@@ -1506,12 +1532,14 @@ func TestCommonHandler_SetService(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.CommonHandler{
-				Name:      tt.fields.Name,
-				Path:      tt.fields.Path,
-				Type:      tt.fields.Type,
-				Enabled:   tt.fields.Enabled,
-				Cacheable: tt.fields.Cacheable,
-				Service:   tt.fields.Service,
+				domain.HandlerBase{
+					Name:      tt.fields.Name,
+					Path:      tt.fields.Path,
+					Type:      tt.fields.Type,
+					Enabled:   tt.fields.Enabled,
+					Cacheable: tt.fields.Cacheable,
+					Service:   tt.fields.Service,
+				},
 			}
 			h.SetService(tt.args.hs)
 		})

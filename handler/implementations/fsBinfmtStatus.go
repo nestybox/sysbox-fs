@@ -29,12 +29,7 @@ import (
 // /proc/sys/fs/binfmt_misc/status Handler
 //
 type FsBinfmtStatusHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *FsBinfmtStatusHandler) Lookup(

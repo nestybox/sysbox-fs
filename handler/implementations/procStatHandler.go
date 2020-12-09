@@ -31,12 +31,7 @@ import (
 // /proc/stat Handler
 //
 type ProcStatHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *ProcStatHandler) Lookup(

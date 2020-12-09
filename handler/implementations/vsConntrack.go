@@ -39,12 +39,7 @@ import (
 // under "/proc/sys/net/ipv4/vs/", though this handler only deals with "conntrack".
 //
 type VsConntrackHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *VsConntrackHandler) Lookup(

@@ -50,12 +50,7 @@ import (
 // source file, or do not have read/write access to it.
 //
 type FsProtectHardLinksHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *FsProtectHardLinksHandler) Lookup(

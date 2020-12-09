@@ -31,12 +31,7 @@ import (
 // /proc/pagetypeinfo Handler
 //
 type ProcPagetypeinfoHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *ProcPagetypeinfoHandler) Lookup(

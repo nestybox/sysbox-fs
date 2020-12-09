@@ -34,12 +34,7 @@ import (
 // /proc/uptime Handler
 //
 type ProcUptimeHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *ProcUptimeHandler) Lookup(

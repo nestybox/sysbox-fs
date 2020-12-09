@@ -47,12 +47,7 @@ import (
 // IOW, the host value will be the one honored upon 'oops' arrival.
 //
 type KernelPanicOopsHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *KernelPanicOopsHandler) Lookup(

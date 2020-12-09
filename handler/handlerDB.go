@@ -38,104 +38,132 @@ var DefaultHandlers = []domain.HandlerIface{
 	// / handler
 	//
 	&implementations.RootHandler{
-		Name:      "root",
-		Path:      "/",
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "root",
+			Path:      "/",
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// /proc handlers
 	//
 	&implementations.ProcHandler{
-		Name:      "proc",
-		Path:      "/proc",
-		Type:      domain.NODE_MOUNT,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "proc",
+			Path:      "/proc",
+			Type:      domain.NODE_MOUNT,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.ProcCgroupsHandler{
-		Name:      "procCgroups",
-		Path:      "/proc/cgroups",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procCgroups",
+			Path:      "/proc/cgroups",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.ProcCpuinfoHandler{
-		Name:      "procCpuinfo",
-		Path:      "/proc/cpuinfo",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "procCpuinfo",
+			Path:      "/proc/cpuinfo",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.ProcDevicesHandler{
-		Name:      "procDevices",
-		Path:      "/proc/devices",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procDevices",
+			Path:      "/proc/devices",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.ProcDiskstatsHandler{
-		Name:      "procDiskstats",
-		Path:      "/proc/diskstats",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procDiskstats",
+			Path:      "/proc/diskstats",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.ProcLoadavgHandler{
-		Name:      "procLoadavg",
-		Path:      "/proc/loadavg",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procLoadavg",
+			Path:      "/proc/loadavg",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.ProcMeminfoHandler{
-		Name:      "procMeminfo",
-		Path:      "/proc/meminfo",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procMeminfo",
+			Path:      "/proc/meminfo",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.ProcPagetypeinfoHandler{
-		Name:      "procPagetypeinfo",
-		Path:      "/proc/pagetypeinfo",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procPagetypeinfo",
+			Path:      "/proc/pagetypeinfo",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.ProcPartitionsHandler{
-		Name:      "procPartitions",
-		Path:      "/proc/partitions",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procPartitions",
+			Path:      "/proc/partitions",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.ProcStatHandler{
-		Name:      "procStat",
-		Path:      "/proc/stat",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procStat",
+			Path:      "/proc/stat",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.ProcSwapsHandler{
-		Name:      "procSwaps",
-		Path:      "/proc/swaps",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procSwaps",
+			Path:      "/proc/swaps",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.ProcSysHandler{
-		Name:      "procSys",
-		Path:      "/proc/sys",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procSys",
+			Path:      "/proc/sys",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.ProcUptimeHandler{
-		Name:      "procUptime",
-		Path:      "/proc/uptime",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "procUptime",
+			Path:      "/proc/uptime",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	//
 	// /proc/sys/fs handlers
@@ -143,163 +171,205 @@ var DefaultHandlers = []domain.HandlerIface{
 
 	// TODO: use a common dir handler here ...
 	&implementations.FsBinfmtHandler{
-		Name:      "fsBinfmt",
-		Path:      "/proc/sys/fs/binfmt_misc",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "fsBinfmt",
+			Path:      "/proc/sys/fs/binfmt_misc",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.FsBinfmtStatusHandler{
-		Name:      "fsBinfmtStatus",
-		Path:      "/proc/sys/fs/binfmt_misc/status",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "fsBinfmtStatus",
+			Path:      "/proc/sys/fs/binfmt_misc/status",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.FsBinfmtRegisterHandler{
-		Name:      "fsBinfmtRegister",
-		Path:      "/proc/sys/fs/binfmt_misc/register",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "fsBinfmtRegister",
+			Path:      "/proc/sys/fs/binfmt_misc/register",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	&implementations.FsProtectHardLinksHandler{
-		Name:      "fsProtectHardLinks",
-		Path:      "/proc/sys/fs/protected_hardlinks",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "fsProtectHardLinks",
+			Path:      "/proc/sys/fs/protected_hardlinks",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.FsProtectSymLinksHandler{
-		Name:      "fsProtectSymLinks",
-		Path:      "/proc/sys/fs/protected_symlinks",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "fsProtectSymLinks",
+			Path:      "/proc/sys/fs/protected_symlinks",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// /proc/sys/kernel handlers
 	//
 	&implementations.KernelKptrRestrictHandler{
-		Name:      "kernelKptrRestrict",
-		Path:      "/proc/sys/kernel/kptr_restrict",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "kernelKptrRestrict",
+			Path:      "/proc/sys/kernel/kptr_restrict",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.KernelNgroupsMaxHandler{
-		Name:      "kernelNgroupsMax",
-		Path:      "/proc/sys/kernel/ngroups_max",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "kernelNgroupsMax",
+			Path:      "/proc/sys/kernel/ngroups_max",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.KernelLastCapHandler{
-		Name:      "kernelLastCap",
-		Path:      "/proc/sys/kernel/cap_last_cap",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "kernelLastCap",
+			Path:      "/proc/sys/kernel/cap_last_cap",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.KernelPanicHandler{
-		Name:      "kernelPanic",
-		Path:      "/proc/sys/kernel/panic",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "kernelPanic",
+			Path:      "/proc/sys/kernel/panic",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.KernelPanicOopsHandler{
-		Name:      "kernelPanicOops",
-		Path:      "/proc/sys/kernel/panic_on_oops",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "kernelPanicOops",
+			Path:      "/proc/sys/kernel/panic_on_oops",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.KernelPrintkHandler{
-		Name:      "kernelPrintk",
-		Path:      "/proc/sys/kernel/printk",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "kernelPrintk",
+			Path:      "/proc/sys/kernel/printk",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.KernelSysrqHandler{
-		Name:      "kernelSysrq",
-		Path:      "/proc/sys/kernel/sysrq",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "kernelSysrq",
+			Path:      "/proc/sys/kernel/sysrq",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.KernelYamaPtraceScopeHandler{
-		Name:      "kernelYamaPtraceScope",
-		Path:      "/proc/sys/kernel/yama/ptrace_scope",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "kernelYamaPtraceScope",
+			Path:      "/proc/sys/kernel/yama/ptrace_scope",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// /proc/sys/net/core handlers
 	//
 	&implementations.CoreDefaultQdiscHandler{
-		Name:      "coreDefaultQdisc",
-		Path:      "/proc/sys/net/core/default_qdisc",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "coreDefaultQdisc",
+			Path:      "/proc/sys/net/core/default_qdisc",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// /proc/sys/net/netfilter handlers
 	//
 	&implementations.MaxIntBaseHandler{
-		Name:      "nfConntrackMax",
-		Path:      "/proc/sys/net/netfilter/nf_conntrack_max",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "nfConntrackMax",
+			Path:      "/proc/sys/net/netfilter/nf_conntrack_max",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.MaxIntBaseHandler{
-		Name:      "nfConntrackTcpTimeoutEst",
-		Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "nfConntrackTcpTimeoutEst",
+			Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.MaxIntBaseHandler{
-		Name:      "nfConntrackTcpTimeoutCWait",
-		Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_close_wait",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "nfConntrackTcpTimeoutCWait",
+			Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_close_wait",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// /proc/sys/net/ipv4/vs handlers
 	//
 	&implementations.VsConntrackHandler{
-		Name:      "vsConntrack",
-		Path:      "/proc/sys/net/ipv4/vs/conntrack",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "vsConntrack",
+			Path:      "/proc/sys/net/ipv4/vs/conntrack",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.VsConnReuseModeHandler{
-		Name:      "vsConnReuseMode",
-		Path:      "/proc/sys/net/ipv4/vs/conn_reuse_mode",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "vsConnReuseMode",
+			Path:      "/proc/sys/net/ipv4/vs/conn_reuse_mode",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.VsExpireNoDestConnHandler{
-		Name:      "vsExpireNoDestConn",
-		Path:      "/proc/sys/net/ipv4/vs/expire_nodest_conn",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "vsExpireNoDestConn",
+			Path:      "/proc/sys/net/ipv4/vs/expire_nodest_conn",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.VsExpireQuiescentTemplateHandler{
-		Name:      "vsExpireQuiescentTemplate",
-		Path:      "/proc/sys/net/ipv4/vs/expire_quiescent_template",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "vsExpireQuiescentTemplate",
+			Path:      "/proc/sys/net/ipv4/vs/expire_quiescent_template",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// /proc/sys/net/ipv4/neigh/default handlers
@@ -307,103 +377,127 @@ var DefaultHandlers = []domain.HandlerIface{
 
 	// TODO: use a common dir handler here ...
 	&implementations.NeighDefaultHandler{
-		Name:      "neighDefault",
-		Path:      "/proc/sys/net/ipv4/neigh/default",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "neighDefault",
+			Path:      "/proc/sys/net/ipv4/neigh/default",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.MaxIntBaseHandler{
-		Name:      "neighDefaultGcThresh1",
-		Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh1",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "neighDefaultGcThresh1",
+			Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh1",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.MaxIntBaseHandler{
-		Name:      "neighDefaultGcThresh2",
-		Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh2",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "neighDefaultGcThresh2",
+			Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh2",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.MaxIntBaseHandler{
-		Name:      "neighDefaultGcThresh3",
-		Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh3",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "neighDefaultGcThresh3",
+			Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh3",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// /proc/sys/net/unix handlers
 	//
 	&implementations.MaxIntBaseHandler{
-		Name:      "maxDgramQlen",
-		Path:      "/proc/sys/net/unix/max_dgram_qlen",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "maxDgramQlen",
+			Path:      "/proc/sys/net/unix/max_dgram_qlen",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// /proc/sys/vm handlers
 	//
 	&implementations.VmOvercommitMemHandler{
-		Name:      "vmOvercommitMem",
-		Path:      "/proc/sys/vm/overcommit_memory",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "vmOvercommitMem",
+			Path:      "/proc/sys/vm/overcommit_memory",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	&implementations.VmMmapMinAddrHandler{
-		Name:      "vmMmapMinAddr",
-		Path:      "/proc/sys/vm/mmap_min_addr",
-		Type:      domain.NODE_SUBSTITUTION,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "vmMmapMinAddr",
+			Path:      "/proc/sys/vm/mmap_min_addr",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// /sys handlers
 	//
 	&implementations.SysHandler{
-		Name:      "sys",
-		Path:      "/sys",
-		Type:      domain.NODE_MOUNT,
-		Enabled:   false,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "sys",
+			Path:      "/sys",
+			Type:      domain.NODE_MOUNT,
+			Enabled:   false,
+			Cacheable: true,
+		},
 	},
 	&implementations.MaxIntBaseHandler{
-		Name:      "nfConntrackHashSize",
-		Path:      "/sys/module/nf_conntrack/parameters/hashsize",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "nfConntrackHashSize",
+			Path:      "/sys/module/nf_conntrack/parameters/hashsize",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// Common handler -- to be utilized for all namespaced resources.
 	//
 	&implementations.CommonHandler{
-		Name:      "common",
-		Path:      "commonHandler",
-		Enabled:   true,
-		Cacheable: true,
+		domain.HandlerBase{
+			Name:      "common",
+			Path:      "commonHandler",
+			Enabled:   true,
+			Cacheable: true,
+		},
 	},
 	//
 	// SysCommon handler -- to be utilized for all namespaced resources.
 	//
 	&implementations.SysCommonHandler{
-		Name:      "sysCommon",
-		Path:      "sysCommonHandler",
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "sysCommon",
+			Path:      "sysCommonHandler",
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 	//
 	// Testing handler
 	//
 	&implementations.TestingHandler{
-		Name:      "testing",
-		Path:      "/testing",
-		Enabled:   true,
-		Cacheable: false,
+		domain.HandlerBase{
+			Name:      "testing",
+			Path:      "/testing",
+			Enabled:   true,
+			Cacheable: false,
+		},
 	},
 }
 

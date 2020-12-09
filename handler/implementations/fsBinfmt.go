@@ -30,12 +30,7 @@ import (
 // /proc/sys Handler
 //
 type FsBinfmtHandler struct {
-	Name      string
-	Path      string
-	Type      domain.HandlerType
-	Enabled   bool
-	Cacheable bool
-	Service   domain.HandlerServiceIface
+	domain.HandlerBase
 }
 
 func (h *FsBinfmtHandler) Lookup(
