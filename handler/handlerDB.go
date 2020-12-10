@@ -51,7 +51,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.ProcHandler{
 		domain.HandlerBase{
 			Name:      "proc",
-			Path:      "/proc",
+			Path:      "procHandler",
 			Type:      domain.NODE_MOUNT,
 			Enabled:   true,
 			Cacheable: true,
@@ -147,15 +147,6 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: false,
 		},
 	},
-	&implementations.ProcSysHandler{
-		domain.HandlerBase{
-			Name:      "procSys",
-			Path:      "/proc/sys",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
 	&implementations.ProcUptimeHandler{
 		domain.HandlerBase{
 			Name:      "procUptime",
@@ -165,10 +156,29 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: false,
 		},
 	},
+	&implementations.ProcSysHandler{
+		domain.HandlerBase{
+			Name:      "procSys",
+			Path:      "/proc/sys",
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+			Enabled:   true,
+			Cacheable: false,
+		},
+	},
+	//
+	// Handler for all non-emulated resources under /proc/sys.
+	//
+	&implementations.ProcSysCommonHandler{
+		domain.HandlerBase{
+			Name:      "procSysCommon",
+			Path:      "procSysCommonHandler",
+			Enabled:   true,
+			Cacheable: true,
+		},
+	},
 	//
 	// /proc/sys/fs handlers
 	//
-
 	// TODO: use a common dir handler here ...
 	&implementations.FsBinfmtHandler{
 		domain.HandlerBase{
@@ -374,7 +384,6 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /proc/sys/net/ipv4/neigh/default handlers
 	//
-
 	// TODO: use a common dir handler here ...
 	&implementations.NeighDefaultHandler{
 		domain.HandlerBase{
@@ -451,10 +460,9 @@ var DefaultHandlers = []domain.HandlerIface{
 	&implementations.SysHandler{
 		domain.HandlerBase{
 			Name:      "sys",
-			Path:      "/sys",
-			Type:      domain.NODE_MOUNT,
-			Enabled:   false,
-			Cacheable: true,
+			Path:      "sysHandler",
+			Enabled:   true,
+			Cacheable: false,
 		},
 	},
 	&implementations.MaxIntBaseHandler{
@@ -464,28 +472,6 @@ var DefaultHandlers = []domain.HandlerIface{
 			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
 			Enabled:   true,
 			Cacheable: true,
-		},
-	},
-	//
-	// Common handler -- to be utilized for all namespaced resources.
-	//
-	&implementations.CommonHandler{
-		domain.HandlerBase{
-			Name:      "common",
-			Path:      "commonHandler",
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	//
-	// SysCommon handler -- to be utilized for all namespaced resources.
-	//
-	&implementations.SysCommonHandler{
-		domain.HandlerBase{
-			Name:      "sysCommon",
-			Path:      "sysCommonHandler",
-			Enabled:   true,
-			Cacheable: false,
 		},
 	},
 	//
@@ -663,18 +649,29 @@ func (hs *handlerService) LookupHandler(
 	hs.RLock()
 	defer hs.RUnlock()
 
+	// If the /proc or /sys resource being accessed is emulated by sysbox-fs,
+	// we will find it in the handlerDB. Otherwise, it's handled by one
+	// of the generic handlers.
+
 	h, ok := hs.handlerDB[i.Path()]
 	if !ok {
-		if strings.HasPrefix(i.Path(), "/sys") {
-			h, ok = hs.handlerDB["sysCommonHandler"]
+		if strings.HasPrefix(i.Path(), "/proc/sys") {
+			h, ok = hs.handlerDB["procSysCommonHandler"]
+			if !ok {
+				return nil, false
+			}
+		} else if strings.HasPrefix(i.Path(), "/proc") {
+			h, ok = hs.handlerDB["procHandler"]
+			if !ok {
+				return nil, false
+			}
+		} else if strings.HasPrefix(i.Path(), "/sys") {
+			h, ok = hs.handlerDB["sysHandler"]
 			if !ok {
 				return nil, false
 			}
 		} else {
-			h, ok = hs.handlerDB["commonHandler"]
-			if !ok {
-				return nil, false
-			}
+			return nil, false
 		}
 
 		return h, true

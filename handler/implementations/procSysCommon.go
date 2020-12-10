@@ -29,18 +29,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// /proc/sys common handler
 //
-// Common Handler for all namespaced resources within /proc/sys subtree.
+// Handler for all non-emulated resources within the /proc/sys subtree. It does
+// a simple "passthrough" of the access by entering all the namespaces of the
+// process that is doing the /proc/sys access and performing that access on
+// behalf of it.
 //
-type CommonHandler struct {
+// Note that emulated resources within /proc/sys don't go through this handler,
+// but rather through their specific handlers (see handlerDB.go).
+//
+type ProcSysCommonHandler struct {
 	domain.HandlerBase
 }
 
-func (h *CommonHandler) Lookup(
+func (h *ProcSysCommonHandler) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler", req.ID, h.Name)
+	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler: %s", req.ID, h.Name, n.Path())
 
 	// Ensure operation is generated from within a registered sys container.
 	if req.Container == nil {
@@ -80,7 +87,7 @@ func (h *CommonHandler) Lookup(
 	return info, nil
 }
 
-func (h *CommonHandler) Getattr(
+func (h *ProcSysCommonHandler) Getattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -101,7 +108,7 @@ func (h *CommonHandler) Getattr(
 	return stat, nil
 }
 
-func (h *CommonHandler) Open(
+func (h *ProcSysCommonHandler) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -145,14 +152,14 @@ func (h *CommonHandler) Open(
 	return nil
 }
 
-func (h *CommonHandler) Close(node domain.IOnodeIface) error {
+func (h *ProcSysCommonHandler) Close(node domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *CommonHandler) Read(
+func (h *ProcSysCommonHandler) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -216,7 +223,7 @@ func (h *CommonHandler) Read(
 	return copyResultBuffer(req.Data, []byte(data))
 }
 
-func (h *CommonHandler) Write(
+func (h *ProcSysCommonHandler) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -255,7 +262,7 @@ func (h *CommonHandler) Write(
 	return len(req.Data), nil
 }
 
-func (h *CommonHandler) ReadDirAll(
+func (h *ProcSysCommonHandler) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
@@ -323,7 +330,7 @@ func (h *CommonHandler) ReadDirAll(
 	return osFileEntries, nil
 }
 
-func (h *CommonHandler) Setattr(
+func (h *ProcSysCommonHandler) Setattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -368,7 +375,7 @@ func (h *CommonHandler) Setattr(
 }
 
 // Auxiliary method to fetch the content of any given file within a container.
-func (h *CommonHandler) fetchFile(
+func (h *ProcSysCommonHandler) fetchFile(
 	n domain.IOnodeIface,
 	process domain.ProcessIface) (string, error) {
 
@@ -405,7 +412,7 @@ func (h *CommonHandler) fetchFile(
 }
 
 // Auxiliary method to inject content into any given file within a container.
-func (h *CommonHandler) pushFile(
+func (h *ProcSysCommonHandler) pushFile(
 	n domain.IOnodeIface,
 	process domain.ProcessIface,
 	s string) error {
@@ -441,30 +448,30 @@ func (h *CommonHandler) pushFile(
 	return nil
 }
 
-func (h *CommonHandler) GetName() string {
+func (h *ProcSysCommonHandler) GetName() string {
 	return h.Name
 }
 
-func (h *CommonHandler) GetPath() string {
+func (h *ProcSysCommonHandler) GetPath() string {
 	return h.Path
 }
 
-func (h *CommonHandler) GetEnabled() bool {
+func (h *ProcSysCommonHandler) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *CommonHandler) GetType() domain.HandlerType {
+func (h *ProcSysCommonHandler) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *CommonHandler) GetService() domain.HandlerServiceIface {
+func (h *ProcSysCommonHandler) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *CommonHandler) SetEnabled(val bool) {
+func (h *ProcSysCommonHandler) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *CommonHandler) SetService(hs domain.HandlerServiceIface) {
+func (h *ProcSysCommonHandler) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

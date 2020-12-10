@@ -25,14 +25,20 @@ import (
 )
 
 //
-// Due to the fact that sysbox-fs' procfs is sourced at /proc/sys, there's no
-// much this handler needs to do. This handler's purpose is to be able to manage
-// operations associated to /proc bind-mounts such as cpuinfo, meminfo, etc).
+// /proc handler
 //
+// This handler is used for accesses to non-emulated resources under
+// /var/lib/sysboxfs/<container-id>/proc.
+//
+// Since that directory is not mounted inside a system container, such accesses
+// are only possible from host level. They typically occur when sysbox-runc is
+// creating the container and it bind-mounts sysbox-fs to subdirs under the
+// container's "/proc" (e.g., /proc/uptime, /proc/sys, etc); as part of the
+// bind-mount, the kernel walks the bind-source path, which results in sysbox-fs
+// receiving lookups into /proc. Thus, this handler only serves such lookups;
+// all other handler methods are purposefuly dummy, as we generally want to
+// ignore accesses to sysbox-fs from host level.
 
-//
-// /proc Handler
-//
 type ProcHandler struct {
 	domain.HandlerBase
 }

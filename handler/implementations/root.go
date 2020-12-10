@@ -25,17 +25,19 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
+// sysbox-fs root dir (/) dummy handler
 //
-// This handler's sole purpose is to prevent users in the host file-system from
-// being able to list the file contents present in sysbox-fs mountpoint. With
-// the exception of lookup(), all operations in this handler will return nil.
-// Notice that only users in the host FS can invoke this handler as sysbox-fs
-// is mounted in /proc and /proc/sys within the sysbox containers.
+// Since the sysbox-fs root dir is not mounted inside a system container,
+// accesses to it are only possible from host level (e.g., via /var/lib/sysboxfs/<container-id>/).
 //
+// Such acccesses typically occur when sysbox-runc is creating the container and
+// it bind-mounts sysbox-fs to subdirs under the container's "/proc" or "/sys"
+// (e.g., /proc/uptime, /proc/sys, etc); as part of the bind-mount, the kernel
+// walks the bind-source path, which results in sysbox-fs receiving lookups into
+// this handler. Thus, this handler only serves such lookups; all other handler
+// methods are purposefuly dummy, as we generally want to ignore accesses to
+// sysbox-fs from host level.
 
-//
-// / Handler
-//
 type RootHandler struct {
 	domain.HandlerBase
 }
