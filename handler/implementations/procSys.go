@@ -94,12 +94,12 @@ func (h *ProcSysHandler) ReadDirAll(
 
 	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	commonHandler, ok := h.Service.FindHandler("commonHandler")
+	procSysCommonHandler, ok := h.Service.FindHandler("procSysCommonHandler")
 	if !ok {
-		return nil, fmt.Errorf("No commonHandler found")
+		return nil, fmt.Errorf("No procSysCommonHandler found")
 	}
 
-	return commonHandler.ReadDirAll(n, req)
+	return procSysCommonHandler.ReadDirAll(n, req)
 }
 
 func (h *ProcSysHandler) GetName() string {

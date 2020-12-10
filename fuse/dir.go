@@ -290,8 +290,8 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 
 	for _, node := range files {
 		//
-		// For system's root dir ("/"), we will only take into account
-		// the specific paths emulated by sysbox-fs.
+		// For ReadDirAll on the sysbox-fs root dir ("/"), we only act
+		// on the subdirs emulated by sysbox-fs (e.g., /proc, /sys).
 		//
 		if d.path == "/" {
 			if node.Name() != "sys" && node.Name() != "proc" &&

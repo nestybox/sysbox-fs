@@ -20,18 +20,26 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/sirupsen/logrus"
+
+	"github.com/nestybox/sysbox-fs/domain"
 )
 
 //
-// This is merely a place-holder for upcoming operations requiring "/sys" node
-// virtualizations.
+// /sys handler
 //
+// This handler is used for accesses to non-emulated resources under
+// /var/lib/sysboxfs/<container-id>/sys.
+//
+// Since that directory is not mounted inside a system container, such accesses
+// are only possible from host level. They typically occur when sysbox-runc is
+// creating the container and it bind-mounts sysbox-fs to subdirs under the
+// container's "/sys" (e.g., /sys/module/nf_conntrack/parameters/hashsize); as
+// part of the bind-mount, the kernel walks the bind-source path, which results
+// in sysbox-fs receiving lookups into /sys and below. Thus, this handler only
+// serves such lookups; all other handler methods are purposefuly dummy, as we
+// generally want to ignore accesses to sysbox-fs from host level.
 
-//
-// /sys Handler
-//
 type SysHandler struct {
 	domain.HandlerBase
 }
@@ -40,7 +48,7 @@ func (h *SysHandler) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
+	logrus.Debugf("Executing Lookup() method on %v handler: %v", h.Name, n.Path())
 
 	return n.Stat()
 }
