@@ -18,6 +18,7 @@ package domain
 
 import (
 	"os"
+	"sync"
 	"syscall"
 )
 
@@ -52,12 +53,24 @@ const (
 )
 
 // HandlerBase is a type common to all handlers
+//
+// Note: the "Lock" variable can be used to synchronize across concurrent
+// executions of the same handler (e.g., if multiple processes within the same
+// sys container or across different sys containers are accessing the same
+// sysbox-fs emulated resource). When obtaining the handler lock, only do so to
+// synchronize accesses to host resources associated with the emulated resources
+// (e.g., if a handler needs to write to the host's procfs for example). While
+// holding the handler lock, avoid accessing objects of "container" struct type as
+// those have a dedicated lock which is typically held across invocations of the
+// handler lock. Violating this rule may result in deadlocks.
+
 type HandlerBase struct {
 	Name      string
 	Path      string
 	Type      HandlerType
 	Enabled   bool
 	Cacheable bool
+	Lock      sync.Mutex
 	Service   HandlerServiceIface
 }
 

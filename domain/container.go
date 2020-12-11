@@ -43,6 +43,12 @@ type ContainerIface interface {
 	SetData(path string, name string, data string)
 	SetInitProc(pid, uid, gid uint32) error
 	SetService(css ContainerStateServiceIface)
+	//
+	// Locks for read-modify-write operations on container data via the Data()
+	// and SetData() methods.
+	//
+	Lock()
+	Unlock()
 }
 
 //

@@ -18,7 +18,6 @@ package state
 
 import (
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -276,7 +275,6 @@ func Test_container_SetData(t *testing.T) {
 
 func Test_container_update(t *testing.T) {
 	type fields struct {
-		RWMutex       sync.RWMutex
 		id            string
 		initPid       uint32
 		ctime         time.Time
@@ -335,7 +333,6 @@ func Test_container_update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &container{
-				RWMutex:       tt.fields.RWMutex,
 				id:            tt.fields.id,
 				initPid:       tt.fields.initPid,
 				ctime:         tt.fields.ctime,

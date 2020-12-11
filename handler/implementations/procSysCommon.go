@@ -199,18 +199,20 @@ func (h *ProcSysCommonHandler) Read(
 	//
 	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
 
-		// If this resource is cached, return it's data; otherwise fetch its data from teh
+		// If this resource is cached, return it's data; otherwise fetch its data from the
 		// host FS and store it in the cache.
-
+		cntr.Lock()
 		data, ok = cntr.Data(path, name)
 		if !ok {
 			data, err = h.fetchFile(n, process)
 			if err != nil {
+				cntr.Unlock()
 				return 0, err
 			}
 
 			cntr.SetData(path, name, data)
 		}
+		cntr.Unlock()
 	} else {
 		data, err = h.fetchFile(n, process)
 		if err != nil {
@@ -248,10 +250,14 @@ func (h *ProcSysCommonHandler) Write(
 	// If caching is enabled, store the data in the cache and do a write-through to the
 	// host FS. Otherwise just do the write-through.
 	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
+
+		cntr.Lock()
 		if err := h.pushFile(n, process, newContent); err != nil {
+			cntr.Unlock()
 			return 0, err
 		}
 		cntr.SetData(path, name, newContent)
+		cntr.Unlock()
 
 	} else {
 		if err := h.pushFile(n, process, newContent); err != nil {

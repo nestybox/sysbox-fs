@@ -123,11 +123,13 @@ func (h *KernelPanicHandler) Read(
 	// Check if this resource has been initialized for this container. Otherwise,
 	// fetch the information from the host FS and store it accordingly within
 	// the container struct.
+	cntr.Lock()
 	data, ok := cntr.Data(path, name)
 	if !ok {
 		// Read from host FS to extract the existing 'panic' interval value.
 		curHostVal, err := n.ReadLine()
 		if err != nil && err != io.EOF {
+			cntr.Unlock()
 			logrus.Errorf("Could not read from file %s", h.Path)
 			return 0, fuse.IOerror{Code: syscall.EIO}
 		}
@@ -135,6 +137,7 @@ func (h *KernelPanicHandler) Read(
 		// High-level verification to ensure that format is the expected one.
 		_, err = strconv.Atoi(curHostVal)
 		if err != nil {
+			cntr.Unlock()
 			logrus.Errorf("Unsupported content read from file %v, error %v", h.Path, err)
 			return 0, fuse.IOerror{Code: syscall.EINVAL}
 		}
@@ -142,6 +145,7 @@ func (h *KernelPanicHandler) Read(
 		data = curHostVal
 		cntr.SetData(path, name, data)
 	}
+	cntr.Unlock()
 
 	data += "\n"
 
@@ -172,6 +176,9 @@ func (h *KernelPanicHandler) Write(
 	}
 
 	// Store the new value within the container struct.
+	cntr.Lock()
+	defer cntr.Unlock()
+
 	cntr.SetData(path, name, newVal)
 
 	return len(req.Data), nil

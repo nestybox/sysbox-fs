@@ -126,15 +126,18 @@ func (h *VsExpireQuiescentTemplateHandler) Read(
 	// Check if this resource has been initialized for this container. Otherwise,
 	// fetch the information from the host FS and store it accordingly within
 	// the container struct.
+	cntr.Lock()
 	data, ok := cntr.Data(path, name)
 	if !ok {
 		data, err = h.fetchFile(n, cntr)
 		if err != nil && err != io.EOF {
+			cntr.Unlock()
 			return 0, err
 		}
 
 		cntr.SetData(path, name, data)
 	}
+	cntr.Unlock()
 
 	data += "\n"
 
@@ -164,6 +167,9 @@ func (h *VsExpireQuiescentTemplateHandler) Write(
 		logrus.Errorf("Unexpected error: %v", err)
 		return 0, err
 	}
+
+	cntr.Lock()
+	defer cntr.Unlock()
 
 	if err := h.pushFile(n, cntr, newValInt); err != nil {
 		return 0, err

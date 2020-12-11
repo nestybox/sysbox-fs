@@ -219,3 +219,11 @@ func (_m *ContainerIface) UID() uint32 {
 
 	return r0
 }
+
+func (_m *ContainerIface) Lock() {
+	return
+}
+
+func (_m *ContainerIface) Unlock() {
+	return
+}
