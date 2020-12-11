@@ -135,11 +135,13 @@ func (h *KernelPrintkHandler) Read(
 	// Check if this resource has been initialized for this container. Otherwise,
 	// fetch the information from the host FS and store it accordingly within
 	// the container struct.
+	cntr.Lock()
 	data, ok := cntr.Data(path, name)
 	if !ok {
 		// Read from host FS to extract the existing value.
 		curHostVal, err := n.ReadLine()
 		if err != nil && err != io.EOF {
+			cntr.Unlock()
 			logrus.Errorf("Could not read from file %v", h.Path)
 			return 0, fuse.IOerror{Code: syscall.EIO}
 		}
@@ -147,6 +149,7 @@ func (h *KernelPrintkHandler) Read(
 		data = curHostVal
 		cntr.SetData(path, name, data)
 	}
+	cntr.Unlock()
 
 	data += "\n"
 
@@ -173,6 +176,9 @@ func (h *KernelPrintkHandler) Write(
 	newVal := strings.TrimSpace(string(req.Data))
 
 	// Store the new value within the container struct.
+	cntr.Lock()
+	defer cntr.Unlock()
+
 	cntr.SetData(path, name, newVal)
 
 	return len(req.Data), nil

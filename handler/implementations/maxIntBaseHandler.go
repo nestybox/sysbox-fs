@@ -100,6 +100,8 @@ func (h *MaxIntBaseHandler) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
+	var err error
+
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	// We are dealing with a single integer element being read, so we can save
@@ -119,20 +121,21 @@ func (h *MaxIntBaseHandler) Read(
 		return 0, errors.New("Container not found")
 	}
 
-	var err error
-
 	// Check if this resource has been initialized for this container. Otherwise,
 	// fetch the information from the host FS and store it accordingly within
 	// the container struct.
+	cntr.Lock()
 	data, ok := cntr.Data(path, name)
 	if !ok {
 		data, err = h.fetchFile(n, cntr)
 		if err != nil && err != io.EOF {
+			cntr.Unlock()
 			return 0, err
 		}
 
 		cntr.SetData(path, name, data)
 	}
+	cntr.Unlock()
 
 	data += "\n"
 
@@ -162,6 +165,9 @@ func (h *MaxIntBaseHandler) Write(
 			req.Pid)
 		return 0, errors.New("Container not found")
 	}
+
+	cntr.Lock()
+	defer cntr.Unlock()
 
 	// Check if this resource has been initialized for this container. If not,
 	// push it to the host FS and store it within the container struct.
@@ -212,12 +218,19 @@ func (h *MaxIntBaseHandler) fetchFile(
 	n domain.IOnodeIface,
 	c domain.ContainerIface) (string, error) {
 
+	// We need the per-resource lock since we are about to access the resource on
+	// the host FS. See pushFile() for a full explanation.
+	h.Lock.Lock()
+
 	// Read from host FS to extract the existing value.
 	curHostMax, err := n.ReadLine()
 	if err != nil && err != io.EOF {
+		h.Lock.Unlock()
 		logrus.Errorf("Could not read from file %v", h.Path)
 		return "", err
 	}
+
+	h.Lock.Unlock()
 
 	// High-level verification to ensure that format is the expected one.
 	_, err = strconv.Atoi(curHostMax)
@@ -234,18 +247,22 @@ func (h *MaxIntBaseHandler) pushFile(
 	c domain.ContainerIface,
 	newMaxInt int) error {
 
-	// Some users may deploy sysbox inside a privileged container, and thus can
-	// have multiple sysbox instances running concurrently on the same host. If
-	// those sysbox instances write conflicting values to a kernel resource that
-	// uses this handler (e.g., a sysctl under /proc/sys), a race condition
-	// arises that could cause the value to be written to not be the max across
-	// all instances.
+	// We need the per-resource lock since we are about to access the resource on
+	// the host FS and multiple sys containers could be accessing that same
+	// resource concurrently.
 	//
-	// To reduce the chance of this ocurring, we use a heuristic in which we
-	// read-after-write to verify the value of the resource is larger or equal to
-	// the one we wrote. If it isn't, it means some other agent on the host wrote
-	// a smaller value to the resource after we wrote to it, so we must retry the
-	// write.
+	// But that's not sufficient. Some users may deploy sysbox inside a
+	// privileged container, and thus can have multiple sysbox instances running
+	// concurrently on the same host. If those sysbox instances write conflicting
+	// values to a kernel resource that uses this handler (e.g., a sysctl under
+	// /proc/sys), a race condition arises that could cause the value to be
+	// written to not be the max across all instances.
+	//
+	// To reduce the chance of this ocurring, in addition to the per-resource
+	// lock, we use a heuristic in which we read-after-write to verify the value
+	// of the resource is larger or equal to the one we wrote. If it isn't, it
+	// means some other agent on the host wrote a smaller value to the resource
+	// after we wrote to it, so we must retry the write.
 	//
 	// When retrying, we wait a small but random amount of time to reduce the
 	// chance of hitting the race condition again. And we retry a limited amount
@@ -255,6 +272,9 @@ func (h *MaxIntBaseHandler) pushFile(
 	// sysbox instances, but may not address race conditions with other host
 	// agents that write to the same sysctl. That's because there is no guarantee
 	// that the other host agent will read-after-write and retry as sysbox does.
+
+	h.Lock.Lock()
+	defer h.Lock.Unlock()
 
 	retries := 5
 	retryDelay := 100 // microsecs
