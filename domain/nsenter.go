@@ -168,18 +168,12 @@ type ReadDirPayload struct {
 
 type MountSyscallPayload struct {
 	Header NSenterMsgHeader
-	Source string `json:"source"`
-	Target string `json:"target"`
-	FsType string `json:"fstype"`
-	Flags  uint64 `json:"flags"`
-	Data   string `json:"data"`
+	Mount
 }
 
 type UmountSyscallPayload struct {
 	Header NSenterMsgHeader
-	Target string `json:"target"`
-	FsType uint8  `json:"-"`
-	Flags  uint64 `json:"flags"`
+	Mount
 }
 
 type ChownSyscallPayload struct {

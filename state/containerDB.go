@@ -46,6 +46,9 @@ type containerStateService struct {
 
 	// Pointer to the service providing file-system I/O capabilities.
 	ios domain.IOServiceIface
+
+	// Pointer to the service providing mount helper/parser capabilities.
+	mts domain.MountServiceIface
 }
 
 func NewContainerStateService() domain.ContainerStateServiceIface {
@@ -61,11 +64,13 @@ func NewContainerStateService() domain.ContainerStateServiceIface {
 func (css *containerStateService) Setup(
 	fss domain.FuseServerServiceIface,
 	prs domain.ProcessServiceIface,
-	ios domain.IOServiceIface) {
+	ios domain.IOServiceIface,
+	mts domain.MountServiceIface) {
 
 	css.fss = fss
 	css.prs = prs
 	css.ios = ios
+	css.mts = mts
 }
 
 func (css *containerStateService) ContainerCreate(
@@ -78,23 +83,21 @@ func (css *containerStateService) ContainerCreate(
 	gidSize uint32,
 	procRoPaths []string,
 	procMaskPaths []string,
+	service domain.ContainerStateServiceIface,
 ) domain.ContainerIface {
 
-	newcntr := &container{
-		id:            id,
-		initPid:       initPid,
-		ctime:         ctime,
-		uidFirst:      uidFirst,
-		uidSize:       uidSize,
-		gidFirst:      gidFirst,
-		gidSize:       gidSize,
-		procRoPaths:   procRoPaths,
-		procMaskPaths: procMaskPaths,
-		specPaths:     make(map[string]struct{}),
-		service:       css,
-	}
-
-	return newcntr
+	return newContainer(
+		id,
+		initPid,
+		ctime,
+		uidFirst,
+		uidSize,
+		gidFirst,
+		gidSize,
+		procRoPaths,
+		procMaskPaths,
+		css,
+	)
 }
 
 func (css *containerStateService) ContainerPreRegister(id string) error {
@@ -112,7 +115,10 @@ func (css *containerStateService) ContainerPreRegister(id string) error {
 		)
 	}
 
-	cntr := &container{id: id}
+	cntr := &container{
+		id:      id,
+		service: css,
+	}
 	css.idTable[cntr.id] = cntr
 
 	// Create dedicated fuse-server for each sys container.
@@ -150,6 +156,14 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 			cntr.id,
 		)
 	}
+
+	// A per-container mountInfoParser object will be created here to hold the
+	// mount-state created by sysbox-runc during container initialization.
+	mip, err := css.mts.NewMountInfoParser(currCntr, c.InitPid(), true)
+	if err != nil {
+		return err
+	}
+	cntr.mountInfoParser = mip
 
 	// Update existing container with received attributes.
 	if err := currCntr.update(cntr); err != nil {
@@ -358,7 +372,7 @@ func (css *containerStateService) ContainerLookupByProcess(
 
 		parentCntr := css.ContainerLookupByInode(parentUsernsInode)
 		if parentCntr == nil {
-			logrus.Errorf("Could not find the container originating this request (userNsInode %d)",
+			logrus.Infof("Could not find the container originating this request (userNsInode %d)",
 				usernsInode)
 			return nil
 		}
@@ -375,6 +389,10 @@ func (css *containerStateService) FuseServerService() domain.FuseServerServiceIf
 
 func (css *containerStateService) ProcessService() domain.ProcessServiceIface {
 	return css.prs
+}
+
+func (css *containerStateService) MountService() domain.MountServiceIface {
+	return css.mts
 }
 
 func (css *containerStateService) ContainerDBSize() int {

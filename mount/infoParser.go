@@ -42,7 +42,7 @@
 //
 // Same applies to sysfs mounts.
 
-package seccomp
+package mount
 
 import (
 	"bufio"
@@ -53,78 +53,46 @@ import (
 	"strings"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"golang.org/x/sys/unix"
 )
-
-//
-// mountInfo reveals information about a particular mounted filesystem. This
-// struct is populated from the content in the /proc/<pid>/mountinfo file. The
-// fields described in each entry of /proc/self/mountinfo are described here:
-// http://man7.org/linux/man-pages/man5/proc.5.html
-//
-// Note: Defnition borrowed from OCI runc's mount package ...
-//
-//   36 35 98:0 /mnt1 /mnt2 rw,noatime master:1 - ext3 /dev/root rw,errors=continue
-//   (1)(2)(3)   (4)   (5)      (6)      (7)   (8) (9)   (10)         (11)
-//
-//    (1) mount ID:  unique identifier of the mount (may be reused after umount)
-//    (2) parent ID:  ID of parent (or of self for the top of the mount tree)
-//    (3) major:minor:  value of st_dev for files on filesystem
-//    (4) root:  root of the mount within the filesystem
-//    (5) mount point:  mount point relative to the process's root
-//    (6) mount options:  per mount options
-//    (7) optional fields:  zero or more fields of the form "tag[:value]"
-//    (8) separator:  marks the end of the optional fields
-//    (9) filesystem type:  name of filesystem of the form "type[.subtype]"
-//    (10) mount source:  filesystem specific information or "none"
-//    (11) super options:  per super block options*/
-//
-type mountInfo struct {
-	MountID        int               // mount identifier
-	ParentID       int               // parent-mount identifier
-	MajorMinorVer  string            // 'st_dev' value for files in FS
-	FsType         string            // file-system type
-	Source         string            // file-system specific information or "none"
-	Root           string            // pathname of root of the mount within the FS
-	MountPoint     string            // pathname of the mount point relative to the root
-	Options        map[string]string // mount-specific options
-	OptionalFields map[string]string // optional-fields
-	VfsOptions     map[string]string // superblock options
-}
 
 // mountInfoParser holds info about a process' mountpoints, and can be queried
 // to check if a given mountpoint is a sysbox-fs managed mountpoint (i.e., base
 // mount or submount).
 type mountInfoParser struct {
-	mh     *mountHelper
-	cntr   domain.ContainerIface
-	pid    uint32
-	deep   bool                  // superficial vs deep parsing mode
-	mpInfo map[string]*mountInfo // mountinfo, indexed by path
-	idInfo map[int]*mountInfo    // mountinfo, indexed by mount ID
+	mh        *mountHelper
+	cntr      domain.ContainerIface
+	pid       uint32
+	deep      bool                           // superficial vs deep parsing mode
+	mpInfo    map[string]*domain.MountInfo   // mountinfo, indexed by path
+	idInfo    map[int]*domain.MountInfo      // mountinfo, indexed by mount ID
+	devIdInfo map[string][]*domain.MountInfo // mountinfo, indexed by mount major/minor ver
+	service   *MountService                  // backpointer to mount service
 }
 
-// NewMountInfoParser returns a new mountInfoParser object.
-func NewMountInfoParser(
-	mh *mountHelper,
+// newMountInfoParser returns a new mountInfoParser object.
+func newMountInfoParser(
 	cntr domain.ContainerIface,
 	pid uint32,
-	deep bool) (*mountInfoParser, error) {
+	deep bool,
+	mts *MountService) (*mountInfoParser, error) {
 
-	mi := &mountInfoParser{
-		mh:     mh,
-		cntr:   cntr,
-		pid:    pid,
-		deep:   deep,
-		mpInfo: make(map[string]*mountInfo),
-		idInfo: make(map[int]*mountInfo),
+	mip := &mountInfoParser{
+		cntr:      cntr,
+		pid:       pid,
+		deep:      deep,
+		mpInfo:    make(map[string]*domain.MountInfo),
+		idInfo:    make(map[int]*domain.MountInfo),
+		devIdInfo: make(map[string][]*domain.MountInfo),
+		service:   mts,
 	}
 
-	err := mi.parse()
+	err := mip.parse()
 	if err != nil {
 		return nil, fmt.Errorf("mountInfoParser error for pid = %d: %s", pid, err)
 	}
 
-	return mi, nil
+	return mip, nil
 }
 
 // Simple wrapper over parseData() method. We are keeping this one separated
@@ -159,13 +127,23 @@ func (mi *mountInfoParser) parseData(data []byte) error {
 
 		mi.mpInfo[parsedMounts.MountPoint] = parsedMounts
 		mi.idInfo[parsedMounts.MountID] = parsedMounts
+
+		// Optimization needed here -- this logic makes sense only for remount ops.
+		devIdSlice, ok := mi.devIdInfo[parsedMounts.MajorMinorVer]
+		if ok {
+			mi.devIdInfo[parsedMounts.MajorMinorVer] =
+				append(devIdSlice, parsedMounts)
+		} else {
+			mi.devIdInfo[parsedMounts.MajorMinorVer] =
+				[]*domain.MountInfo{parsedMounts}
+		}
 	}
 
 	return scanner.Err()
 }
 
 // parseComponents parses a mountinfo file line.
-func (mi *mountInfoParser) parseComponents(data string) (*mountInfo, error) {
+func (mi *mountInfoParser) parseComponents(data string) (*domain.MountInfo, error) {
 
 	var err error
 
@@ -182,7 +160,7 @@ func (mi *mountInfoParser) parseComponents(data string) (*mountInfo, error) {
 			componentSplit[componentSplitLength-4])
 	}
 
-	mount := &mountInfo{
+	mount := &domain.MountInfo{
 		MajorMinorVer: componentSplit[2],
 		Root:          componentSplit[3],
 		MountPoint:    componentSplit[4],
@@ -280,20 +258,20 @@ func (mi *mountInfoParser) parseOptFieldsComponent(s []string) map[string]string
 
 // getParentMount returns the parent of a given mountpoint (or nil if none is
 // found).
-func (mi *mountInfoParser) getParentMount(info *mountInfo) *mountInfo {
+func (mi *mountInfoParser) getParentMount(info *domain.MountInfo) *domain.MountInfo {
 	return mi.idInfo[info.ParentID]
 }
 
 // isSysboxfsBasemount checks if the given mountpoint is a sysbox-fs managed
 // base mount (e.g., a procfs or sysfs mountpoint).
-func (mi *mountInfoParser) isSysboxfsBaseMount(info *mountInfo) bool {
+func (mi *mountInfoParser) isSysboxfsBaseMount(info *domain.MountInfo) bool {
 	return (info.FsType == "proc" || info.FsType == "sysfs") && info.Root == "/"
 }
 
 // isSysboxfsSubmountOf checks is the given mountpoint is a sysbox-fs managed
 // submount of the given sysbox-fs base mount (e.g., /proc/sys is a sysbox-fs
 // managed submount of /proc).
-func (mi *mountInfoParser) isSysboxfsSubMountOf(info, baseInfo *mountInfo) bool {
+func (mi *mountInfoParser) isSysboxfsSubMountOf(info, baseInfo *domain.MountInfo) bool {
 	if info.ParentID != baseInfo.MountID {
 		return false
 	}
@@ -306,13 +284,13 @@ func (mi *mountInfoParser) isSysboxfsSubMountOf(info, baseInfo *mountInfo) bool 
 
 	switch baseInfo.FsType {
 	case "proc":
-		if isMountpointUnder(relMountpoint, mi.mh.procMounts) ||
+		if isMountpointUnder(relMountpoint, mi.service.mh.procMounts) ||
 			isMountpointUnder(relMountpoint, mi.cntr.ProcRoPaths()) ||
 			isMountpointUnder(relMountpoint, mi.cntr.ProcMaskPaths()) {
 			return true
 		}
 	case "sysfs":
-		if isMountpointUnder(relMountpoint, mi.mh.sysMounts) {
+		if isMountpointUnder(relMountpoint, mi.service.mh.sysMounts) {
 			return true
 		}
 	}
@@ -333,7 +311,7 @@ func isMountpointUnder(mountpoint string, mpSet []string) bool {
 
 // isSysboxfsSubMount returns true if the given mountpoint is a sysboxfs-managed
 // submount (e.g., /proc/sys is a sysbox-fs managed submount of /proc).
-func (mi *mountInfoParser) isSysboxfsSubMount(info *mountInfo) bool {
+func (mi *mountInfoParser) isSysboxfsSubMount(info *domain.MountInfo) bool {
 
 	parentInfo := mi.getParentMount(info)
 
@@ -350,7 +328,7 @@ func (mi *mountInfoParser) isSysboxfsSubMount(info *mountInfo) bool {
 }
 
 // GetInfo returns the mountinfo for a given mountpoint.
-func (mi *mountInfoParser) GetInfo(mountpoint string) *mountInfo {
+func (mi *mountInfoParser) GetInfo(mountpoint string) *domain.MountInfo {
 	info, found := mi.mpInfo[mountpoint]
 	if !found {
 		return nil
@@ -382,7 +360,7 @@ func (mi *mountInfoParser) IsSysboxfsSubmount(mountpoint string) bool {
 	return mi.isSysboxfsSubMount(info)
 }
 
-// IsSysboxfsRoSubmount checks if the given moutpoint is a sysbox-fs managed
+// IsSysboxfsRoSubmount checks if the given mountpoint is a sysbox-fs managed
 // submount that is mounted as read-only.
 func (mi *mountInfoParser) IsSysboxfsRoSubmount(mountpoint string) bool {
 
@@ -471,4 +449,110 @@ func (mi *mountInfoParser) HasNonSysboxfsSubmount(basemount string) bool {
 	}
 
 	return false
+}
+
+// IsRoMount checks if the passed mountpoint is currently present and tagged as
+// read-only.
+func (mi *mountInfoParser) IsRoMount(mountpoint string) bool {
+
+	info := mi.GetInfo(mountpoint)
+	if info == nil {
+		return false
+	}
+
+	perMountFlags := mi.service.mh.StringToFlags(info.Options)
+
+	return perMountFlags&unix.MS_RDONLY == unix.MS_RDONLY
+}
+
+// IsRecursiveBindMount verifies if the passed mountinfo entry is a recursive
+// bind-mount.
+//
+// Example: [ mouuntID-3413 is a recursive bind-mount of mountID-3544 ]
+//
+// 3544 3503 0:129 / /usr/src/linux-headers-5.4.0-48 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-48 rw
+// 3413 3544 0:129 / /usr/src/linux-headers-5.4.0-48 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-48 rw
+func (mi *mountInfoParser) IsRecursiveBindMount(info *domain.MountInfo) bool {
+
+	devIdSlice := mi.devIdInfo[info.MajorMinorVer]
+
+	for _, elem := range devIdSlice {
+		if elem.MountID == info.MountID {
+			continue
+		}
+
+		if elem.MountID == info.ParentID &&
+			elem.Source == info.Source &&
+			elem.Root == info.Root {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsBindMount verifies if the passed mountinfo entry is a bind-mount.
+func (mi *mountInfoParser) IsBindMount(info *domain.MountInfo) bool {
+
+	mh := mi.service.mh
+	if mh == nil {
+		return false
+	}
+
+	devIdSlice := mi.devIdInfo[info.MajorMinorVer]
+
+	for _, elem := range devIdSlice {
+		if elem.MountID == info.MountID {
+			continue
+		}
+
+		if elem.Root == info.Root && elem.Source == info.Source {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsBindMount verifies if the passed mountinfo entry is a read-only bind-mount.
+func (mi *mountInfoParser) IsRoBindMount(info *domain.MountInfo) bool {
+
+	mh := mi.service.mh
+	if mh == nil {
+		return false
+	}
+
+	devIdSlice := mi.devIdInfo[info.MajorMinorVer]
+
+	for _, elem := range devIdSlice {
+		if elem.MountID == info.MountID {
+			continue
+		}
+
+		if elem.Root == info.Root && elem.Source == info.Source {
+			return mh.StringToFlags(elem.Options)&unix.MS_RDONLY == unix.MS_RDONLY
+		}
+	}
+
+	return false
+}
+
+// LookupByMountID does a simple lookup in IdInfo map.
+func (mi *mountInfoParser) LookupByMountID(id int) *domain.MountInfo {
+
+	if info, ok := mi.idInfo[id]; ok == true {
+		return info
+	}
+
+	return nil
+}
+
+// LookupByMountpoint does a simple lookup in mpInfo map.
+func (mi *mountInfoParser) LookupByMountpoint(mp string) *domain.MountInfo {
+
+	if info, ok := mi.mpInfo[mp]; ok == true {
+		return info
+	}
+
+	return nil
 }

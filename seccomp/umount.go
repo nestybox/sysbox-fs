@@ -48,11 +48,18 @@ func (u *umountSyscallInfo) process() (*sysResponse, error) {
 	//
 	// Same applies to sysfs mounts.
 
-	mh := u.tracer.mountHelper
+	mts := u.tracer.service.mts
+	if mts == nil {
+		return nil, fmt.Errorf("unexpected mount-service handler")
+	}
 
-	mip, err := NewMountInfoParser(mh, u.cntr, u.pid, false)
+	mip, err := mts.NewMountInfoParser(u.cntr, u.pid, false)
 	if err != nil {
 		return nil, err
+	}
+
+	if ok, resp := u.processUmountAllowed(mip); ok == false {
+		return resp, nil
 	}
 
 	if mip.IsSysboxfsBaseMount(u.Target) {
@@ -117,15 +124,81 @@ func (u *umountSyscallInfo) process() (*sysResponse, error) {
 	return u.tracer.createContinueResponse(u.reqId), nil
 }
 
+// processUmmountAllowed purpose is to prevent immutable resources from being
+// unmounted.
+//
+// Method will return 'true' if the umount operation is deemed legit, and will
+// return 'false' otherwise.
+func (u *umountSyscallInfo) processUmountAllowed(
+	mip domain.MountInfoParserIface) (bool, *sysResponse) {
+
+	// There must be mountinfo state present for this target. Otherwise, let
+	// kernel handle the error.
+	info := mip.GetInfo(u.Target)
+	if info == nil {
+		return true, u.tracer.createContinueResponse(u.reqId)
+	}
+
+	// Return 'eperm' if the umount operation is over an immutable mountpoint.
+	if u.cntr.IsImmutableMountID(info.MountID) {
+		return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
+	}
+
+	// At this point we have already concluded that the mountpoint being
+	// unmounted doesn't match any of the immutable resources, so we could
+	// be tempted to allow all umount instructions reaching this stage to
+	// succeed. However, there is one particular case that we must identify
+	// to prevent the exposure of immutable masked resources. This is the case
+	// of an umount instruction launched from an unshare() context that targets
+	// an immutable resource. The rest of the code in this function deals with
+	// the identification and handling of this particular case.
+
+	p := u.processData
+
+	// Allow umount if this one is launched from a process whose root-inode
+	// differs from the sys container's initPid one.
+	if p.RootInode() != u.cntr.InitProc().RootInode() {
+		return true, u.tracer.createContinueResponse(u.reqId)
+	}
+
+	// Allow umount if this one is launched from a process' whose mount-ns
+	// matches the sys container's one.
+	processMountNs, err := p.MountNsInode()
+	if err != nil {
+		return true, nil
+	}
+	initProcMountNs, err := u.cntr.InitProc().MountNsInode()
+	if err != nil {
+		return true, nil
+	}
+	if processMountNs == initProcMountNs {
+		return true, nil
+	}
+
+	// Allow umount if the targeted mountpoint is a recursive bind-mount.
+	if mip.IsRecursiveBindMount(info) {
+		return true, nil
+	}
+
+	// If not a recursive bindmount, treat entry like any other mountinfo entry:
+	// check if it matches an immutable resource and prevent umount if that's
+	// the case.
+	if u.cntr.IsImmutableMountpoint(info.MountPoint) {
+		return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
+	}
+
+	return true, nil
+}
+
 // Method handles umount syscall requests on sysbox-fs managed base mounts.
 func (u *umountSyscallInfo) processUmount(
-	mip *mountInfoParser) (*sysResponse, error) {
+	mip domain.MountInfoParserIface) (*sysResponse, error) {
 
 	// Create instructions payload.
 	payload := u.createUmountPayload(mip)
 
 	// Create nsenter-event envelope.
-	nss := u.tracer.sms.nss
+	nss := u.tracer.service.nss
 	event := nss.NewEvent(
 		u.syscallCtx.pid,
 		&domain.AllNSs,
@@ -158,7 +231,7 @@ func (u *umountSyscallInfo) processUmount(
 // Build instructions payload required to unmount a sysbox-fs base mount (and
 // any submounts under it)
 func (u *umountSyscallInfo) createUmountPayload(
-	mip *mountInfoParser) *[]*domain.UmountSyscallPayload {
+	mip domain.MountInfoParserIface) *[]*domain.UmountSyscallPayload {
 
 	var payload []*domain.UmountSyscallPayload
 
@@ -173,8 +246,11 @@ func (u *umountSyscallInfo) createUmountPayload(
 	for _, subm := range submounts {
 		info := mip.GetInfo(subm)
 		newelem := &domain.UmountSyscallPayload{
-			Target: info.MountPoint,
-			Flags:  u.Flags,
+			domain.NSenterMsgHeader{},
+			domain.Mount{
+				Target: info.MountPoint,
+				Flags:  u.Flags,
+			},
 		}
 		payload = append(payload, newelem)
 	}

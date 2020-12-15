@@ -95,6 +95,7 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 		uint32(data.GidSize),
 		data.ProcRoPaths,
 		data.ProcMaskPaths,
+		ipcService.css,
 	)
 
 	err := ipcService.css.ContainerRegister(cntr)
@@ -149,8 +150,9 @@ func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 		uint32(data.UidSize),
 		uint32(data.GidFirst),
 		uint32(data.GidSize),
-		data.ProcRoPaths,
-		data.ProcMaskPaths,
+		nil,
+		nil,
+		ipcService.css,
 	)
 
 	err := ipcService.css.ContainerUpdate(cntr)
