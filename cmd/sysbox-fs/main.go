@@ -31,6 +31,7 @@ import (
 	"github.com/nestybox/sysbox-fs/fuse"
 	"github.com/nestybox/sysbox-fs/handler"
 	"github.com/nestybox/sysbox-fs/ipc"
+	"github.com/nestybox/sysbox-fs/mount"
 	"github.com/nestybox/sysbox-fs/nsenter"
 	"github.com/nestybox/sysbox-fs/process"
 	"github.com/nestybox/sysbox-fs/seccomp"
@@ -310,6 +311,7 @@ func main() {
 		var containerStateService = state.NewContainerStateService()
 		var syscallMonitorService = seccomp.NewSyscallMonitorService()
 		var ipcService = ipc.NewIpcService()
+		var mountService = mount.NewMountService()
 
 		// Setup sysbox-fs services.
 		processService.Setup(ioService)
@@ -336,13 +338,19 @@ func main() {
 			fuseServerService,
 			processService,
 			ioService,
+			mountService,
+		)
+
+		mountService.Setup(
+			containerStateService,
+			handlerService,
 		)
 
 		syscallMonitorService.Setup(
 			nsenterService,
 			containerStateService,
-			handlerService,
 			processService,
+			mountService,
 		)
 
 		ipcService.Setup(

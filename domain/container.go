@@ -16,7 +16,9 @@
 
 package domain
 
-import "time"
+import (
+	"time"
+)
 
 //
 // Container interface.
@@ -34,15 +36,17 @@ type ContainerIface interface {
 	GID() uint32
 	ProcRoPaths() []string
 	ProcMaskPaths() []string
-	IsSpecPath(s string) bool
 	InitProc() ProcessIface
+	IsImmutableMountID(id int) bool
+	IsImmutableRoMountID(id int) bool
+	IsImmutableMountpoint(mp string) bool
+	IsImmutableBindMount(info *MountInfo) bool
+	IsImmutableRoBindMount(info *MountInfo) bool
 	//
 	// Setters
 	//
-	//Update(cntr ContainerIface) error
 	SetData(path string, name string, data string)
 	SetInitProc(pid, uid, gid uint32) error
-	SetService(css ContainerStateServiceIface)
 	//
 	// Locks for read-modify-write operations on container data via the Data()
 	// and SetData() methods.
@@ -66,7 +70,8 @@ type ContainerStateServiceIface interface {
 	Setup(
 		fss FuseServerServiceIface,
 		prs ProcessServiceIface,
-		ios IOServiceIface)
+		ios IOServiceIface,
+		mts MountServiceIface)
 
 	ContainerCreate(
 		id string,
@@ -77,7 +82,8 @@ type ContainerStateServiceIface interface {
 		gidFirst uint32,
 		gidSize uint32,
 		procRoPaths []string,
-		procMaskPaths []string) ContainerIface
+		procMaskPaths []string,
+		service ContainerStateServiceIface) ContainerIface
 
 	ContainerPreRegister(id string) error
 	ContainerRegister(c ContainerIface) error
@@ -88,5 +94,6 @@ type ContainerStateServiceIface interface {
 	ContainerLookupByProcess(process ProcessIface) ContainerIface
 	FuseServerService() FuseServerServiceIface
 	ProcessService() ProcessServiceIface
+	MountService() MountServiceIface
 	ContainerDBSize() int
 }

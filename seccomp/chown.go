@@ -63,8 +63,9 @@ func (ci *chownSyscallInfo) ignoreChown(absPath string) bool {
 	// Check if /sys is a sysfs mount. In the rare case where it's not, we can't
 	// ignore the chown.
 
-	mh := ci.tracer.mountHelper
-	mip, err := NewMountInfoParser(mh, ci.cntr, ci.pid, false)
+	mts := ci.tracer.service.mts
+
+	mip, err := mts.NewMountInfoParser(ci.cntr, ci.pid, false)
 	if err != nil {
 		logrus.Errorf("Failed to get mount info while processing fchown from pid %d: %s", ci.pid, err)
 		return false
@@ -81,7 +82,7 @@ func (ci *chownSyscallInfo) ignoreChown(absPath string) bool {
 func (ci *chownSyscallInfo) processChown() (*sysResponse, error) {
 
 	t := ci.tracer
-	process := t.sms.prs.ProcessCreate(ci.pid, 0, 0)
+	process := t.service.prs.ProcessCreate(ci.pid, 0, 0)
 	path := ci.path
 
 	if !filepath.IsAbs(path) {
@@ -100,7 +101,7 @@ func (ci *chownSyscallInfo) processChown() (*sysResponse, error) {
 func (ci *chownSyscallInfo) processFchown() (*sysResponse, error) {
 
 	t := ci.tracer
-	process := t.sms.prs.ProcessCreate(ci.pid, 0, 0)
+	process := t.service.prs.ProcessCreate(ci.pid, 0, 0)
 
 	path, err := process.GetFd(ci.pathFd)
 	if err != nil {
@@ -123,7 +124,7 @@ func (ci *chownSyscallInfo) processFchown() (*sysResponse, error) {
 func (ci *chownSyscallInfo) processFchownat() (*sysResponse, error) {
 
 	t := ci.tracer
-	process := t.sms.prs.ProcessCreate(ci.pid, 0, 0)
+	process := t.service.prs.ProcessCreate(ci.pid, 0, 0)
 	path := ci.path
 
 	// Interpret dirFd (if the pathname is not absolute)
@@ -184,7 +185,7 @@ func (ci *chownSyscallInfo) processChownNSenter(nstype []domain.NStype) (*sysRes
 
 	chownPayload = append(chownPayload, newElem)
 
-	nss := ci.tracer.sms.nss
+	nss := ci.tracer.service.nss
 	event := nss.NewEvent(
 		ci.pid,
 		&nstype,

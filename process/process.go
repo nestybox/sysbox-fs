@@ -119,6 +119,25 @@ func (p *process) Root() string {
 	return p.root
 }
 
+func (p *process) RootInode() uint64 {
+
+	if !p.initialized {
+		p.procroot = fmt.Sprintf("/proc/%d/root", p.pid)
+	}
+
+	fi, err := os.Stat(p.procroot)
+	if err != nil {
+		return 0
+	}
+
+	st, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0
+	}
+
+	return st.Ino
+}
+
 func (p *process) SGid() []uint32 {
 
 	if !p.initialized {
@@ -267,6 +286,20 @@ func (p *process) NsInodes() (map[string]domain.Inode, error) {
 	}
 
 	return p.nsInodes, nil
+}
+
+func (p *process) MountNsInode() (domain.Inode, error) {
+	nsInodes, err := p.NsInodes()
+	if err != nil {
+		return 0, err
+	}
+
+	mountns, found := nsInodes["mnt"]
+	if !found {
+		return 0, fmt.Errorf("mountns not found")
+	}
+
+	return mountns, nil
 }
 
 func (p *process) UserNsInode() (domain.Inode, error) {

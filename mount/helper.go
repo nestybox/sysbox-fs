@@ -14,10 +14,9 @@
 // limitations under the License.
 //
 
-package seccomp
+package mount
 
 import (
-	"os"
 	"sort"
 	"strings"
 
@@ -96,35 +95,50 @@ func newMountHelper(hdb map[string]domain.HandlerIface) *mountHelper {
 	return info
 }
 
-// isNewMount returns true if the mount flags indicate creation of a new mountpoint.
-func (m *mountHelper) isNewMount(flags uint64) bool {
+// ProcMounts returns sysbox-fs' procfs submounts.
+func (m *mountHelper) ProcMounts() []string {
+	return m.procMounts
+}
+
+// SysMounts returns sysbox-fs' sysfs submounts.
+func (m *mountHelper) SysMounts() []string {
+	return m.sysMounts
+}
+
+// IsNewMount returns true if the mount flags indicate creation of a new mountpoint.
+func (m *mountHelper) IsNewMount(flags uint64) bool {
 	return flags&unix.MS_MGC_MSK == unix.MS_MGC_VAL || flags&mountModFlags == 0
 }
 
-// isRemount returns true if the mount flags indicate a remount operation.
-func (m *mountHelper) isRemount(flags uint64) bool {
+// IsRemount returns true if the mount flags indicate a remount operation.
+func (m *mountHelper) IsRemount(flags uint64) bool {
 	return flags&unix.MS_REMOUNT == unix.MS_REMOUNT
 }
 
-// isBind returns true if the mount flags indicate a bind-mount operation.
-func (m *mountHelper) isBind(flags uint64) bool {
+// IsBind returns true if the mount flags indicate a bind-mount operation.
+func (m *mountHelper) IsBind(flags uint64) bool {
 	return flags&unix.MS_BIND == unix.MS_BIND
 }
 
-// isMove returns true if the mount flags indicate a mount move operation.
-func (m *mountHelper) isMove(flags uint64) bool {
+// IsMove returns true if the mount flags indicate a mount move operation.
+func (m *mountHelper) IsMove(flags uint64) bool {
 	return flags&unix.MS_MOVE == unix.MS_MOVE
 }
 
-// isRemount returns true if the mount flags indicate a mount propagation change.
-func (m *mountHelper) hasPropagationFlag(flags uint64) bool {
+// IsRemount returns true if the mount flags indicate a mount propagation change.
+func (m *mountHelper) HasPropagationFlag(flags uint64) bool {
 	return flags&mountPropFlags != 0
 }
 
-// stringToFlags converts string-based mount flags (as extracted from
+// IsReadOnlyMount returns 'true' if the mount flags indicate a read-only mount
+// operation. Otherwise, 'false' is returned to refer to a read-write instruction.
+func (m *mountHelper) IsReadOnlyMount(flags uint64) bool {
+	return flags&unix.MS_RDONLY == unix.MS_RDONLY
+}
+
+// StringToFlags converts string-based mount flags (as extracted from
 // /proc/pid/mountinfo), into their corresponding numerical values.
-//func (m *mountHelper) stringToFlags(s string) uint64 {
-func (m *mountHelper) stringToFlags(s map[string]string) uint64 {
+func (m *mountHelper) StringToFlags(s map[string]string) uint64 {
 	var flags uint64
 
 	for k, _ := range s {
@@ -143,11 +157,10 @@ func (m *mountHelper) stringToFlags(s map[string]string) uint64 {
 	return flags
 }
 
-// filterFsFlags takes filesystem options as extracted from /proc/pid/mountinfo, filters
+// FilterFsFlags takes filesystem options as extracted from /proc/pid/mountinfo, filters
 // out options corresponding to mount flags, and returns options corresponding to
 // filesystem-specific mount data.
-//func (m *mountHelper) filterFsFlags(fsOpts string) string {
-func (m *mountHelper) filterFsFlags(fsOpts map[string]string) string {
+func (m *mountHelper) FilterFsFlags(fsOpts map[string]string) string {
 
 	opts := []string{}
 
@@ -159,14 +172,4 @@ func (m *mountHelper) filterFsFlags(fsOpts map[string]string) string {
 	}
 
 	return strings.Join(opts, ",")
-}
-
-// fileExists reports whether the named file or directory exists.
-func fileExists(name string) bool {
-	if _, err := os.Stat(name); err != nil {
-		if os.IsNotExist(err) {
-			return false
-		}
-	}
-	return true
 }

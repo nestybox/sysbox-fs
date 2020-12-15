@@ -40,10 +40,12 @@ type ProcessIface interface {
 	Gid() uint32
 	Cwd() string
 	Root() string
+	RootInode() uint64
 	SGid() []uint32
 	IsCapabilitySet(cap.CapType, cap.Cap) bool
 	IsSysAdminCapabilitySet() bool
 	NsInodes() (map[string]Inode, error)
+	MountNsInode() (Inode, error)
 	UserNsInode() (Inode, error)
 	UserNsInodeParent() (Inode, error)
 	CreateNsInodes(Inode) error

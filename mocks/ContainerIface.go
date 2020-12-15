@@ -122,20 +122,6 @@ func (_m *ContainerIface) InitProc() domain.ProcessIface {
 	return r0
 }
 
-// IsSpecPath provides a mock function with given fields: s
-func (_m *ContainerIface) IsSpecPath(s string) bool {
-	ret := _m.Called(s)
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func(string) bool); ok {
-		r0 = rf(s)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // ProcMaskPaths provides a mock function with given fields:
 func (_m *ContainerIface) ProcMaskPaths() []string {
 	ret := _m.Called()
