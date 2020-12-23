@@ -179,6 +179,11 @@ func main() {
 			Value: "info",
 			Usage: "log categories to include (debug, info, warning, error, fatal)",
 		},
+		cli.StringFlag{
+			Name:  "log-format",
+			Value: "text",
+			Usage: "log format; must be json or text (default = text)",
+		},
 		cli.BoolFlag{
 			Name:   "ignore-handler-errors",
 			Usage:  "ignore errors during procfs / sysfs node interactions (testing purposes)",
@@ -240,14 +245,19 @@ func main() {
 				return err
 			}
 
-			// Set a proper logging formatter.
+			logrus.SetOutput(f)
+			log.SetOutput(f)
+		}
+
+		if logFormat := ctx.GlobalString("log-format"); logFormat == "json" {
+			logrus.SetFormatter(&logrus.JSONFormatter{
+				TimestampFormat: "2006-01-02 15:04:05",
+			})
+		} else {
 			logrus.SetFormatter(&logrus.TextFormatter{
-				ForceColors:     true,
 				TimestampFormat: "2006-01-02 15:04:05",
 				FullTimestamp:   true,
 			})
-			logrus.SetOutput(f)
-			log.SetOutput(f)
 		}
 
 		// Set desired log-level.
