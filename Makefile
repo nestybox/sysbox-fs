@@ -3,7 +3,7 @@
 #
 # Note: targets must execute from the $SYSFS_DIR
 
-.PHONY: clean sysbox-fs-debug sysbox-fs-static
+.PHONY: clean sysbox-fs-debug sysbox-fs-static validate list-packages
 
 GO := go
 
@@ -36,5 +36,16 @@ sysbox-fs-static: $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) 
 		-installsuffix netgo -ldflags "-w -extldflags -static" \
 		-o sysbox-fs ./cmd/sysbox-fs
 
+validate:
+	script/validate-gofmt
+	$(GO) vet $(allpackages)
+
+listpackages:
+	@echo $(allpackages)
+
 clean:
 	rm -f sysbox-fs
+
+# memoize allpackages, so that it's executed only once and only if used
+_allpackages = $(shell $(GO) list ./... | grep -v vendor)
+allpackages = $(if $(__allpackages),,$(eval __allpackages := $$(_allpackages)))$(__allpackages)
