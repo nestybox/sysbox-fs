@@ -3,7 +3,7 @@
 #
 # Note: targets must execute from the $SYSFS_DIR
 
-.PHONY: clean sysbox-fs-debug sysbox-fs-static validate list-packages
+.PHONY: clean sysbox-fs-debug sysbox-fs-static lint list-packages
 
 GO := go
 
@@ -36,9 +36,9 @@ sysbox-fs-static: $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) 
 		-installsuffix netgo -ldflags "-w -extldflags -static" \
 		-o sysbox-fs ./cmd/sysbox-fs
 
-validate:
-	script/validate-gofmt
+lint:
 	$(GO) vet $(allpackages)
+	$(GO) fmt $(allpackages)
 
 listpackages:
 	@echo $(allpackages)
