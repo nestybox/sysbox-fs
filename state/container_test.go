@@ -255,7 +255,7 @@ func Test_container_update(t *testing.T) {
 		specPaths     map[string]struct{}
 		dataStore     domain.StateDataMap
 		initProc      domain.ProcessIface
-		service       domain.ContainerStateServiceIface
+		service       *containerStateService
 	}
 	f1 := fields{}
 
@@ -282,7 +282,6 @@ func Test_container_update(t *testing.T) {
 			gidSize:       65535,
 			procRoPaths:   nil,
 			procMaskPaths: nil,
-			specPaths:     make(map[string]struct{}),
 			dataStore:     nil,
 			initProc:      nil,
 			service:       css,
@@ -310,7 +309,6 @@ func Test_container_update(t *testing.T) {
 				gidSize:       tt.fields.gidSize,
 				procRoPaths:   tt.fields.procRoPaths,
 				procMaskPaths: tt.fields.procMaskPaths,
-				specPaths:     tt.fields.specPaths,
 				dataStore:     tt.fields.dataStore,
 				initProc:      tt.fields.initProc,
 				service:       tt.fields.service,

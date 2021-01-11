@@ -36,6 +36,7 @@ var prs domain.ProcessServiceIface
 var nss *mocks.NSenterServiceIface
 var fss *mocks.FuseServerServiceIface
 var hds *mocks.HandlerServiceIface
+var mts *mocks.MountServiceIface
 
 func TestMain(m *testing.M) {
 
@@ -50,6 +51,7 @@ func TestMain(m *testing.M) {
 	nss = &mocks.NSenterServiceIface{}
 	hds = &mocks.HandlerServiceIface{}
 	fss = &mocks.FuseServerServiceIface{}
+	mts = &mocks.MountServiceIface{}
 
 	prs.Setup(ios)
 
@@ -65,6 +67,7 @@ func Test_containerStateService_Setup(t *testing.T) {
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
+		mts         domain.MountServiceIface
 	}
 
 	var f1 = fields{
@@ -79,12 +82,14 @@ func Test_containerStateService_Setup(t *testing.T) {
 		fss domain.FuseServerServiceIface
 		prs domain.ProcessServiceIface
 		ios domain.IOServiceIface
+		mts domain.MountServiceIface
 	}
 
 	a1 := args{
 		fss: fss,
 		prs: prs,
 		ios: ios,
+		mts: mts,
 	}
 
 	tests := []struct {
@@ -107,8 +112,9 @@ func Test_containerStateService_Setup(t *testing.T) {
 				fss:         tt.fields.fss,
 				prs:         tt.fields.prs,
 				ios:         tt.fields.ios,
+				mts:         tt.fields.mts,
 			}
-			css.Setup(tt.args.fss, tt.args.prs, tt.args.ios)
+			css.Setup(tt.args.fss, tt.args.prs, tt.args.ios, tt.args.mts)
 		})
 	}
 }
@@ -121,6 +127,7 @@ func Test_containerStateService_ContainerCreate(t *testing.T) {
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
+		mts         domain.MountServiceIface
 	}
 
 	var f1 = fields{
@@ -129,6 +136,7 @@ func Test_containerStateService_ContainerCreate(t *testing.T) {
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
+		mts:         mts,
 	}
 
 	css := &containerStateService{
@@ -137,6 +145,7 @@ func Test_containerStateService_ContainerCreate(t *testing.T) {
 		fss:         f1.fss,
 		prs:         f1.prs,
 		ios:         f1.ios,
+		mts:         f1.mts,
 	}
 	type args struct {
 		id            string
@@ -161,7 +170,6 @@ func Test_containerStateService_ContainerCreate(t *testing.T) {
 		gidSize:       65535,
 		procRoPaths:   nil,
 		procMaskPaths: nil,
-		specPaths:     make(map[string]struct{}),
 		dataStore:     nil,
 		initProc:      nil,
 		service:       css,
@@ -205,7 +213,8 @@ func Test_containerStateService_ContainerCreate(t *testing.T) {
 				tt.args.gidFirst,
 				tt.args.gidSize,
 				tt.args.procRoPaths,
-				tt.args.procMaskPaths); !reflect.DeepEqual(got, tt.want) {
+				tt.args.procMaskPaths,
+				css); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("containerStateService.ContainerCreate() = %v, want %v",
 					got, tt.want)
 			}
@@ -221,6 +230,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
+		mts         domain.MountServiceIface
 	}
 
 	var f1 = fields{
@@ -229,14 +239,26 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
+		mts:         mts,
+	}
+
+	css := &containerStateService{
+		idTable:     f1.idTable,
+		usernsTable: f1.usernsTable,
+		fss:         f1.fss,
+		prs:         f1.prs,
+		ios:         f1.ios,
+		mts:         f1.mts,
 	}
 
 	var c1 = &container{
-		id: "c1",
+		id:      "c1",
+		service: css,
 	}
 
 	var c2 = &container{
-		id: "c2",
+		id:      "c2",
+		service: css,
 	}
 
 	type args struct {
@@ -247,7 +269,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 		fields  fields
 		args    args
 		wantErr bool
-		prepare func(css domain.ContainerStateServiceIface)
+		prepare func()
 	}{
 		{
 			//
@@ -257,7 +279,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 			fields:  f1,
 			args:    args{"c1"},
 			wantErr: false,
-			prepare: func(css domain.ContainerStateServiceIface) {
+			prepare: func() {
 
 				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
 					"CreateFuseServer", c1).Return(nil)
@@ -272,7 +294,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 			fields:  f1,
 			args:    args{"c2"},
 			wantErr: true,
-			prepare: func(css domain.ContainerStateServiceIface) {
+			prepare: func() {
 
 				f1.idTable[c2.id] = c2
 				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
@@ -286,17 +308,10 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			css := &containerStateService{
-				idTable:     tt.fields.idTable,
-				usernsTable: tt.fields.usernsTable,
-				fss:         tt.fields.fss,
-				prs:         tt.fields.prs,
-				ios:         tt.fields.ios,
-			}
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
-				tt.prepare(css)
+				tt.prepare()
 			}
 
 			if err := css.ContainerPreRegister(tt.args.id); (err != nil) != tt.wantErr {
@@ -316,6 +331,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
+		mts         domain.MountServiceIface
 	}
 
 	var f1 = fields{
@@ -324,10 +340,12 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
+		mts:         mts,
 	}
 
 	var c1 = &container{
 		id:       "c1",
+		initPid:  1001,
 		initProc: f1.prs.ProcessCreate(1001, 0, 0),
 	}
 
@@ -337,11 +355,13 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 
 	var c3 = &container{
 		id:       "c3",
+		initPid:  3003,
 		initProc: f1.prs.ProcessCreate(3003, 0, 0),
 	}
 
 	var c4 = &container{
 		id:       "c4",
+		initPid:  4004,
 		initProc: f1.prs.ProcessCreate(4004, 0, 0),
 	}
 
@@ -354,7 +374,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 		fields  fields
 		args    args
 		wantErr bool
-		prepare func()
+		prepare func(css *containerStateService)
 	}{
 		{
 			//
@@ -365,11 +385,14 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			fields:  f1,
 			args:    args{c1},
 			wantErr: false,
-			prepare: func() {
+			prepare: func(css *containerStateService) {
 
 				c1.InitProc().CreateNsInodes(123456)
 
 				f1.idTable[c1.id] = c1
+
+				css.MountService().(*mocks.MountServiceIface).On(
+					"NewMountInfoParser", c1, c1.initPid, true).Return(nil, nil)
 			},
 		},
 		{
@@ -381,7 +404,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			fields:  f1,
 			args:    args{c2},
 			wantErr: true,
-			prepare: func() {},
+			prepare: func(css *containerStateService) {},
 		},
 		{
 			//
@@ -393,9 +416,12 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			fields:  f1,
 			args:    args{c3},
 			wantErr: true,
-			prepare: func() {
+			prepare: func(css *containerStateService) {
 
 				f1.idTable[c3.id] = c3
+
+				css.MountService().(*mocks.MountServiceIface).On(
+					"NewMountInfoParser", c3, c3.initPid, true).Return(nil, nil)
 			},
 		},
 		{
@@ -410,7 +436,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			fields:  f1,
 			args:    args{c4},
 			wantErr: true,
-			prepare: func() {
+			prepare: func(css *containerStateService) {
 
 				c4.InitProc().CreateNsInodes(123456)
 				inode, _ := c4.InitProc().UserNsInode()
@@ -418,6 +444,8 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 				f1.idTable[c4.id] = c4
 				f1.usernsTable[inode] = c4 // <-- unexpected instruction during registration
 
+				css.MountService().(*mocks.MountServiceIface).On(
+					"NewMountInfoParser", c4, c4.initPid, true).Return(nil, nil)
 			},
 		},
 	}
@@ -434,6 +462,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 				fss:         tt.fields.fss,
 				prs:         tt.fields.prs,
 				ios:         tt.fields.ios,
+				mts:         tt.fields.mts,
 			}
 
 			// Initialize memory-based mock FS.
@@ -441,7 +470,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
-				tt.prepare()
+				tt.prepare(css)
 			}
 
 			if err := css.ContainerRegister(tt.args.c); (err != nil) != tt.wantErr {

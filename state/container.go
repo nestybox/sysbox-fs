@@ -308,8 +308,3 @@ func (c *container) SetInitProc(pid, uid, gid uint32) error {
 
 	return nil
 }
-
-// // Exclusively utilized for unit-testing purposes.
-// func (c *container) SetService(css *containerStateService) {
-// 	c.service = css
-// }

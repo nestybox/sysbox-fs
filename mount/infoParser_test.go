@@ -18,6 +18,8 @@ package mount
 
 import (
 	"testing"
+
+	"github.com/nestybox/sysbox-fs/domain"
 )
 
 var mountInfoData = []byte(`1526 1218 0:86 / / rw,relatime - shiftfs /var/lib/docker/overlay2/85257da8a9d3ce990cc15656845ff381b195501df3aedce24748282556baec11/merged rw
@@ -87,8 +89,8 @@ func Benchmark_parseData(b *testing.B) {
 		cntr:   nil,
 		pid:    0,
 		deep:   true,
-		mpInfo: make(map[string]*mountInfo),
-		idInfo: make(map[int]*mountInfo),
+		mpInfo: make(map[string]*domain.MountInfo),
+		idInfo: make(map[int]*domain.MountInfo),
 	}
 
 	for i := 0; i < b.N; i++ {

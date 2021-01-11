@@ -247,7 +247,8 @@ func TestContainerRegister(t *testing.T) {
 					uint32(a1.data.GidFirst),
 					uint32(a1.data.GidSize),
 					a1.data.ProcRoPaths,
-					a1.data.ProcMaskPaths).Return(c1)
+					a1.data.ProcMaskPaths,
+					css).Return(c1)
 
 				css.On("ContainerRegister", c1).Return(nil)
 			},
@@ -271,7 +272,8 @@ func TestContainerRegister(t *testing.T) {
 					uint32(a1.data.GidFirst),
 					uint32(a1.data.GidSize),
 					a1.data.ProcRoPaths,
-					a1.data.ProcMaskPaths).Return(c1)
+					a1.data.ProcMaskPaths,
+					css).Return(c1)
 
 				css.On("ContainerRegister", c1).Return(
 					errors.New("registration error found"))
@@ -317,6 +319,7 @@ func TestContainerUnregister(t *testing.T) {
 		65535,
 		231072,
 		65535,
+		nil,
 		nil,
 		nil,
 	)
@@ -430,7 +433,8 @@ func TestContainerUpdate(t *testing.T) {
 					uint32(a1.data.GidFirst),
 					uint32(a1.data.GidSize),
 					a1.data.ProcRoPaths,
-					a1.data.ProcMaskPaths).Return(c1)
+					a1.data.ProcMaskPaths,
+					css).Return(c1)
 
 				css.On("ContainerUpdate", c1).Return(nil)
 			},
@@ -454,7 +458,8 @@ func TestContainerUpdate(t *testing.T) {
 					uint32(a1.data.GidFirst),
 					uint32(a1.data.GidSize),
 					a1.data.ProcRoPaths,
-					a1.data.ProcMaskPaths).Return(c1)
+					a1.data.ProcMaskPaths,
+					css).Return(c1)
 
 				css.On("ContainerUpdate", c1).Return(
 					errors.New("registration error found"))

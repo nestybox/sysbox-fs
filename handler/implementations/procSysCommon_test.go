@@ -29,6 +29,7 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/handler/implementations"
 	"github.com/nestybox/sysbox-fs/mocks"
+	"github.com/nestybox/sysbox-fs/mount"
 	"github.com/nestybox/sysbox-fs/nsenter"
 	"github.com/nestybox/sysbox-fs/process"
 	"github.com/nestybox/sysbox-fs/state"
@@ -38,6 +39,7 @@ import (
 
 // Sysbox-fs global services for all handler's testing consumption.
 var css domain.ContainerStateServiceIface
+var mts domain.MountServiceIface
 var ios domain.IOServiceIface
 var prs domain.ProcessServiceIface
 var nss *mocks.NSenterServiceIface
@@ -57,9 +59,11 @@ func TestMain(m *testing.M) {
 	nss = &mocks.NSenterServiceIface{}
 	hds = &mocks.HandlerServiceIface{}
 	css = state.NewContainerStateService()
+	mts = mount.NewMountService()
 
 	prs.Setup(ios)
-	css.Setup(nil, prs, ios)
+	css.Setup(nil, prs, ios, mts)
+	mts.Setup(css, hds)
 
 	// HandlerService's common mocking instructions.
 	hds.On("NSenterService").Return(nss)
@@ -106,6 +110,7 @@ func TestProcSysCommonHandler_Lookup(t *testing.T) {
 				65535,
 				231072,
 				65535,
+				nil,
 				nil,
 				nil),
 		},
@@ -309,6 +314,7 @@ func TestProcSysCommonHandler_Getattr(t *testing.T) {
 				231072,
 				65535,
 				nil,
+				nil,
 				nil),
 		},
 	}
@@ -435,6 +441,7 @@ func TestProcSysCommonHandler_Open(t *testing.T) {
 				65535,
 				231072,
 				65535,
+				nil,
 				nil,
 				nil),
 		},
@@ -643,7 +650,8 @@ func TestProcSysCommonHandler_Read(t *testing.T) {
 				231072,
 				65535,
 				nil,
-				nil),
+				nil,
+				css),
 		},
 	}
 
@@ -678,7 +686,6 @@ func TestProcSysCommonHandler_Read(t *testing.T) {
 
 				// Setup dynamic state associated to tested container.
 				c1 := a1.req.Container
-				c1.SetService(css)
 				_ = c1.SetInitProc(c1.InitPid(), c1.UID(), c1.GID())
 				c1.InitProc().CreateNsInodes(123456)
 
@@ -741,7 +748,6 @@ func TestProcSysCommonHandler_Read(t *testing.T) {
 
 				// Setup dynamic state associated to tested container.
 				c1 := a1.req.Container
-				c1.SetService(css)
 				_ = c1.SetInitProc(c1.InitPid(), c1.UID(), c1.GID())
 				c1.InitProc().CreateNsInodes(123456)
 
@@ -854,7 +860,8 @@ func TestProcSysCommonHandler_Write(t *testing.T) {
 				231072,
 				65535,
 				nil,
-				nil),
+				nil,
+				css),
 		},
 	}
 
@@ -889,7 +896,6 @@ func TestProcSysCommonHandler_Write(t *testing.T) {
 
 				// Setup dynamic state associated to tested container.
 				c1 := a1.req.Container
-				c1.SetService(css)
 				_ = c1.SetInitProc(c1.InitPid(), c1.UID(), c1.GID())
 				c1.InitProc().CreateNsInodes(123456)
 
@@ -953,7 +959,6 @@ func TestProcSysCommonHandler_Write(t *testing.T) {
 
 				// Setup dynamic state associated to tested container.
 				c1 := a1.req.Container
-				c1.SetService(css)
 				_ = c1.SetInitProc(c1.InitPid(), c1.UID(), c1.GID())
 				c1.InitProc().CreateNsInodes(123456)
 
@@ -1066,7 +1071,8 @@ func TestProcSysCommonHandler_ReadDirAll(t *testing.T) {
 				231072,
 				65535,
 				nil,
-				nil),
+				nil,
+				css),
 		},
 	}
 
@@ -1111,7 +1117,6 @@ func TestProcSysCommonHandler_ReadDirAll(t *testing.T) {
 
 				// Setup dynamic state associated to tested container.
 				c1 := a1.req.Container
-				c1.SetService(css)
 				_ = c1.SetInitProc(c1.InitPid(), c1.UID(), c1.GID())
 				c1.InitProc().CreateNsInodes(123456)
 
@@ -1181,7 +1186,6 @@ func TestProcSysCommonHandler_ReadDirAll(t *testing.T) {
 
 				// Setup dynamic state associated to tested container.
 				c1 := a1.req.Container
-				c1.SetService(css)
 				_ = c1.SetInitProc(c1.InitPid(), c1.UID(), c1.GID())
 				c1.InitProc().CreateNsInodes(123456)
 
