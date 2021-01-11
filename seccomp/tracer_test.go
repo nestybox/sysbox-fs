@@ -23,8 +23,8 @@ import (
 	"syscall"
 	"testing"
 
-	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
+	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
 )
 
 func Test_syscallTracer_createErrorResponse(t *testing.T) {
@@ -81,7 +81,7 @@ func Test_syscallTracer_createErrorResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracer := &syscallTracer{
-				sms:              tt.fields.sms,
+				service:          tt.fields.sms,
 				srv:              tt.fields.srv,
 				pollsrv:          tt.fields.pollsrv,
 				syscalls:         tt.fields.syscalls,
