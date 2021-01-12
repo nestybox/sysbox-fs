@@ -125,17 +125,7 @@ func (p *process) RootInode() uint64 {
 		p.procroot = fmt.Sprintf("/proc/%d/root", p.pid)
 	}
 
-	fi, err := os.Stat(p.procroot)
-	if err != nil {
-		return 0
-	}
-
-	st, ok := fi.Sys().(*syscall.Stat_t)
-	if !ok {
-		return 0
-	}
-
-	return st.Ino
+	return domain.FileInode(p.procroot)
 }
 
 func (p *process) SGid() []uint32 {
