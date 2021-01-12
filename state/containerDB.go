@@ -157,14 +157,6 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 		)
 	}
 
-	// A per-container mountInfoParser object will be created here to hold the
-	// mount-state created by sysbox-runc during container initialization.
-	mip, err := css.mts.NewMountInfoParser(currCntr, c.InitPid(), true)
-	if err != nil {
-		return err
-	}
-	cntr.mountInfoParser = mip
-
 	// Update existing container with received attributes.
 	if err := currCntr.update(cntr); err != nil {
 		css.Unlock()

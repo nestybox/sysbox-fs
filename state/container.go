@@ -251,8 +251,15 @@ func (c *container) update(src *container) error {
 		c.service = src.service
 	}
 
-	// Always honor latest mountInfoParser.
-	c.mountInfoParser = src.mountInfoParser
+	// A per-container mountInfoParser object will be created here to hold the
+	// mount-state created by sysbox-runc during container initialization.
+	if c.mountInfoParser == nil {
+		mip, err := c.service.mts.NewMountInfoParser(c, c.initProc, true, true, true)
+		if err != nil {
+			return err
+		}
+		c.mountInfoParser = mip
+	}
 
 	// Unconditional malloc + copy -- think about how to optimize if no changes
 	// are detected.
