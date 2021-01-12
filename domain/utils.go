@@ -18,6 +18,7 @@ package domain
 
 import (
 	"os"
+	"syscall"
 )
 
 // FileExists reports whether the named file or directory exists.
@@ -28,4 +29,20 @@ func FileExists(name string) bool {
 		}
 	}
 	return true
+}
+
+// FileInode obtains the inode associated with any given file-system resource.
+func FileInode(name string) Inode {
+
+	fi, err := os.Stat(name)
+	if err != nil {
+		return 0
+	}
+
+	st, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0
+	}
+
+	return st.Ino
 }
