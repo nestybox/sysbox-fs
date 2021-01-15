@@ -256,10 +256,179 @@ func (mi *mountInfoParser) parseOptFieldsComponent(s []string) map[string]string
 	return optionalFieldsMap
 }
 
-// getParentMount returns the parent of a given mountpoint (or nil if none is
-// found).
-func (mi *mountInfoParser) getParentMount(info *domain.MountInfo) *domain.MountInfo {
-	return mi.idInfo[info.ParentID]
+func (mi *mountInfoParser) extractMountInfo() ([]byte, error) {
+
+	if mi.process.Root() == "/" {
+		data, err :=
+			ioutil.ReadFile(fmt.Sprintf("/proc/%d/mountinfo", mi.process.Pid()))
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	}
+
+	// In chroot-jail setups, launch an asynchronous nsenter-event to enter
+	// the namespaces of the process that originated the mount/umount
+	// instruction. By having the 'root' path of this new nsexec process
+	// matching the default one ("/"), we can now launch a subsequent nsenter
+	// event to extract the mountinfo state present in the entire mount-ns.
+	// Having this complete picture will probe usual later on when trying to
+	// validate the legitimacy of the original mount/unmount request.
+	asyncEvent := mi.service.nss.NewEvent(
+		mi.process.Pid(),
+		&domain.AllNSs,
+		&domain.NSenterMessage{
+			Type:    domain.SleepRequest,
+			Payload: &domain.SleepReqPayload{Ival: strconv.Itoa(5)},
+		},
+		nil,
+		true,
+	)
+
+	// Launch aync nsenter-event.
+	err := mi.service.nss.SendRequestEvent(asyncEvent)
+	if err != nil {
+		return nil, err
+	}
+	defer asyncEvent.TerminateRequest()
+
+	asyncEventPid := mi.service.nss.GetEventProcessID(asyncEvent)
+	if asyncEventPid == 0 {
+		return nil, fmt.Errorf("Invalid nsexec process agent")
+	}
+
+	// Create nsenter-event envelope. Notice that we are passing the async
+	// event's pid as the one for which the mountInfo data will be collected.
+	event := mi.service.nss.NewEvent(
+		asyncEventPid,
+		&domain.AllNSs,
+		&domain.NSenterMessage{Type: domain.MountInfoRequest},
+		nil,
+		false,
+	)
+
+	// Launch nsenter-event.
+	err = mi.service.nss.SendRequestEvent(event)
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := mi.service.nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return nil, fmt.Errorf("nsenter error received")
+	}
+
+	return []byte(responseMsg.Payload.(domain.MountInfoRespPayload).Data), nil
+}
+
+func (mi *mountInfoParser) extractAllInodes() error {
+
+	var reqMounts []string
+
+	for _, info := range mi.idInfo {
+		//
+		if _, ok := mi.service.mh.mapMounts[info.MountPoint]; ok == true {
+			continue
+		}
+
+		reqMounts = append(reqMounts, info.MountPoint)
+	}
+
+	respMounts, err := mi.extractInodes(reqMounts)
+	if err != nil {
+		return nil
+	}
+
+	if len(reqMounts) != len(respMounts) {
+		return fmt.Errorf("Unexpected number of inodes rcvd, expected %d, rcvd %d",
+			len(reqMounts), len(respMounts))
+	}
+
+	for i := 0; i < len(reqMounts); i++ {
+		info, ok := mi.mpInfo[reqMounts[i]]
+		if !ok {
+			return fmt.Errorf("Missing mountInfo entry for mountpoint %s",
+				reqMounts[i])
+		}
+
+		info.MpInode = respMounts[i]
+	}
+
+	return nil
+}
+
+func (mi *mountInfoParser) extractAncestorInodes(info *domain.MountInfo) error {
+
+	var reqMounts []string
+
+	for {
+		if info == nil {
+			break
+		}
+
+		//
+		if _, ok := mi.service.mh.mapMounts[info.MountPoint]; ok == false {
+			reqMounts = append(reqMounts, info.MountPoint)
+		}
+
+		info = mi.GetParentMount(info)
+	}
+
+	respMounts, err := mi.extractInodes(reqMounts)
+	if err != nil {
+		return nil
+	}
+
+	if len(reqMounts) != len(respMounts) {
+		return fmt.Errorf("Unexpected number of inodes rcvd, expected %d, rcvd %d",
+			len(reqMounts), len(respMounts))
+	}
+
+	for i := 0; i < len(reqMounts); i++ {
+		info, ok := mi.mpInfo[reqMounts[i]]
+		if !ok {
+			return fmt.Errorf("Missing mountInfo entry for mountpoint %s",
+				reqMounts[i])
+		}
+
+		info.MpInode = respMounts[i]
+	}
+
+	return nil
+}
+
+func (mi *mountInfoParser) extractInodes(mps []string) ([]domain.Inode, error) {
+
+	// Create nsenter-event envelope. Notice that we are passing the container's
+	// initPid as the pid over which to obtain the mountInfo data.
+	nss := mi.service.nss
+	event := nss.NewEvent(
+		mi.process.Pid(),
+		&domain.AllNSsButUser,
+		&domain.NSenterMessage{
+			Type: domain.MountInodeRequest,
+			Payload: &domain.MountInodeReqPayload{
+				Mountpoints: mps,
+			},
+		},
+		nil,
+		false,
+	)
+
+	// Launch nsenter-event.
+	err := nss.SendRequestEvent(event)
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return nil, fmt.Errorf("nsenter error received")
+	}
+
+	return responseMsg.Payload.(domain.MountInodeRespPayload).MpInodes, nil
 }
 
 // isSysboxfsBasemount checks if the given mountpoint is a sysbox-fs managed
