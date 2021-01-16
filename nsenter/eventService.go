@@ -22,6 +22,7 @@ import (
 
 type nsenterService struct {
 	prs    domain.ProcessServiceIface // for process class interactions (capabilities)
+	mts    domain.MountServiceIface   // for mount class interactions (mountInfoParser)
 	reaper *zombieReaper
 }
 
@@ -31,28 +32,40 @@ func NewNSenterService() domain.NSenterServiceIface {
 	}
 }
 
-func (s *nsenterService) Setup(prs domain.ProcessServiceIface) {
+func (s *nsenterService) Setup(
+	prs domain.ProcessServiceIface,
+	mts domain.MountServiceIface) {
 
 	s.prs = prs
+	s.mts = mts
 }
 
 func (s *nsenterService) NewEvent(
 	pid uint32,
 	ns *[]domain.NStype,
 	req *domain.NSenterMessage,
-	res *domain.NSenterMessage) domain.NSenterEventIface {
+	res *domain.NSenterMessage,
+	async bool) domain.NSenterEventIface {
 
-	return &NSenterEvent{
+	event := &NSenterEvent{
 		Pid:       pid,
 		Namespace: ns,
 		ReqMsg:    req,
 		ResMsg:    res,
+		async:     async,
 		reaper:    s.reaper,
 	}
+
+	return event
 }
 
-func (s *nsenterService) SendRequestEvent(e domain.NSenterEventIface) error {
+func (s *nsenterService) SendRequestEvent(
+	e domain.NSenterEventIface) error {
 	return e.SendRequest()
+}
+
+func (s *nsenterService) TerminateRequestEvent(e domain.NSenterEventIface) error {
+	return e.TerminateRequest()
 }
 
 func (s *nsenterService) ReceiveResponseEvent(
@@ -85,4 +98,8 @@ func (s *nsenterService) GetResponseEventPayload(
 	e domain.NSenterEventIface) *domain.NSenterMessage {
 
 	return e.GetResponseMsg()
+}
+
+func (s *nsenterService) GetEventProcessID(e domain.NSenterEventIface) uint32 {
+	return e.GetProcessID()
 }
