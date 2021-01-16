@@ -60,36 +60,46 @@ import (
 // to check if a given mountpoint is a sysbox-fs managed mountpoint (i.e., base
 // mount or submount).
 type mountInfoParser struct {
-	mh        *mountHelper
-	cntr      domain.ContainerIface
-	pid       uint32
-	deep      bool                           // superficial vs deep parsing mode
-	mpInfo    map[string]*domain.MountInfo   // mountinfo, indexed by path
-	idInfo    map[int]*domain.MountInfo      // mountinfo, indexed by mount ID
-	devIdInfo map[string][]*domain.MountInfo // mountinfo, indexed by mount major/minor ver
-	service   *MountService                  // backpointer to mount service
+	cntr         domain.ContainerIface
+	process      domain.ProcessIface
+	launchParser bool                                 // if set, it launches mountinfo parser
+	fetchOptions bool                                 // superficial vs deep parsing mode
+	fetchInodes  bool                                 // if set, parser fetches mountpoints inodes
+	mpInfo       map[string]*domain.MountInfo         // mountinfo, indexed by mountpoint path
+	idInfo       map[int]*domain.MountInfo            // mountinfo, indexed by mount ID
+	inInfo       map[domain.Inode][]*domain.MountInfo // mountinfo, indexed by mountpoint inode
+	devIdInfo    map[string][]*domain.MountInfo       // mountinfo, indexed by mount major/minor ver
+	service      *MountService                        // backpointer to mount service
 }
 
 // newMountInfoParser returns a new mountInfoParser object.
 func newMountInfoParser(
 	cntr domain.ContainerIface,
-	pid uint32,
-	deep bool,
+	process domain.ProcessIface,
+	launchParser bool,
+	fetchOptions bool,
+	fetchInodes bool,
 	mts *MountService) (*mountInfoParser, error) {
 
 	mip := &mountInfoParser{
-		cntr:      cntr,
-		pid:       pid,
-		deep:      deep,
-		mpInfo:    make(map[string]*domain.MountInfo),
-		idInfo:    make(map[int]*domain.MountInfo),
-		devIdInfo: make(map[string][]*domain.MountInfo),
-		service:   mts,
+		cntr:         cntr,
+		process:      process,
+		launchParser: launchParser,
+		fetchOptions: fetchOptions,
+		fetchInodes:  fetchInodes,
+		mpInfo:       make(map[string]*domain.MountInfo),
+		idInfo:       make(map[int]*domain.MountInfo),
+		inInfo:       make(map[domain.Inode][]*domain.MountInfo),
+		devIdInfo:    make(map[string][]*domain.MountInfo),
+		service:      mts,
 	}
 
-	err := mip.parse()
-	if err != nil {
-		return nil, fmt.Errorf("mountInfoParser error for pid = %d: %s", pid, err)
+	if launchParser {
+		err := mip.parse()
+		if err != nil {
+			return nil, fmt.Errorf("mountInfoParser error for pid = %d: %s",
+				process.Pid(), err)
+		}
 	}
 
 	return mip, nil
@@ -100,13 +110,20 @@ func newMountInfoParser(
 // input parameter for benchmarking purposes.
 func (mi *mountInfoParser) parse() error {
 
-	data, err := ioutil.ReadFile(fmt.Sprintf("/proc/%d/mountinfo", mi.pid))
+	data, err := mi.extractMountInfo()
 	if err != nil {
 		return err
 	}
 
 	if err := mi.parseData(data); err != nil {
 		return err
+	}
+
+	if mi.fetchInodes {
+		err = mi.extractAllInodes()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -128,7 +145,7 @@ func (mi *mountInfoParser) parseData(data []byte) error {
 		mi.mpInfo[parsedMounts.MountPoint] = parsedMounts
 		mi.idInfo[parsedMounts.MountID] = parsedMounts
 
-		// Optimization needed here -- this logic makes sense only for remount ops.
+		//
 		devIdSlice, ok := mi.devIdInfo[parsedMounts.MajorMinorVer]
 		if ok {
 			mi.devIdInfo[parsedMounts.MajorMinorVer] =
@@ -166,6 +183,7 @@ func (mi *mountInfoParser) parseComponents(data string) (*domain.MountInfo, erro
 		MountPoint:    componentSplit[4],
 		FsType:        componentSplit[componentSplitLength-3],
 		Source:        componentSplit[componentSplitLength-2],
+		Mip:           mi,
 	}
 
 	mount.MountID, err = strconv.Atoi(componentSplit[0])
@@ -178,7 +196,7 @@ func (mi *mountInfoParser) parseComponents(data string) (*domain.MountInfo, erro
 	}
 
 	// Continue parsing process if 'deep' mode has been requested.
-	if mi.deep {
+	if mi.fetchOptions {
 		mount.Options =
 			mi.parseOptionsComponent(componentSplit[5])
 		mount.VfsOptions =
@@ -482,7 +500,7 @@ func isMountpointUnder(mountpoint string, mpSet []string) bool {
 // submount (e.g., /proc/sys is a sysbox-fs managed submount of /proc).
 func (mi *mountInfoParser) isSysboxfsSubMount(info *domain.MountInfo) bool {
 
-	parentInfo := mi.getParentMount(info)
+	parentInfo := mi.GetParentMount(info)
 
 	// parent may be nil if it's a mount outside the process mount namespace
 	if parentInfo == nil {
@@ -505,6 +523,55 @@ func (mi *mountInfoParser) GetInfo(mountpoint string) *domain.MountInfo {
 	return info
 }
 
+// GetProcessID returns the pid of the process that triggered the creation of
+// a mountInfoParser object.
+func (mi *mountInfoParser) GetProcessID() uint32 {
+	return mi.process.Pid()
+}
+
+// GetParentMount returns the parent of a given mountpoint (or nil if none is
+// found).
+func (mi *mountInfoParser) GetParentMount(info *domain.MountInfo) *domain.MountInfo {
+	return mi.idInfo[info.ParentID]
+}
+
+func (mi *mountInfoParser) ExtractMountInfo() ([]byte, error) {
+	return mi.extractMountInfo()
+}
+
+func (mi *mountInfoParser) ExtractInode(mp string) (domain.Inode, error) {
+	info, ok := mi.mpInfo[mp]
+	if !ok {
+		return 0, fmt.Errorf("No entry found for mountpoint %s", mp)
+	}
+
+	if info.MpInode == 0 {
+		inodes, err := mi.extractInodes([]string{mp})
+		if err != nil {
+			return 0, err
+		}
+		info.MpInode = inodes[0]
+	}
+
+	return info.MpInode, nil
+}
+
+func (mi *mountInfoParser) ExtractAncestorInodes(info *domain.MountInfo) error {
+	return mi.extractAncestorInodes(info)
+}
+
+// GetIdInfoMap returns the content of the IdInfo map to caller.
+func (mi *mountInfoParser) ExtractMountDB() []domain.MountInfo {
+
+	var res []domain.MountInfo
+
+	for _, elem := range mi.idInfo {
+		res = append(res, *elem)
+	}
+
+	return res
+}
+
 // IsSysboxfsBaseMount checks if the given mountpoint is a sysbox-fs managed
 // base mount (e.g., a procfs or sysfs mountpoint).
 func (mi *mountInfoParser) IsSysboxfsBaseMount(mountpoint string) bool {
@@ -515,6 +582,23 @@ func (mi *mountInfoParser) IsSysboxfsBaseMount(mountpoint string) bool {
 	}
 
 	return mi.isSysboxfsBaseMount(info)
+}
+
+// IsSysboxfsBaseMount checks if the given mountpoint is a sysbox-fs managed
+// base mount (e.g., a procfs or sysfs mountpoint) mounted as read-only.
+func (mi *mountInfoParser) IsSysboxfsBaseRoMount(mountpoint string) bool {
+
+	info, found := mi.mpInfo[mountpoint]
+	if !found {
+		return false
+	}
+
+	if mi.isSysboxfsBaseMount(info) &&
+		mi.IsRoMount(info) {
+		return true
+	}
+
+	return false
 }
 
 // IsSysboxfsSubmount checks if the given mountpoint is a sysbox-fs managed
@@ -542,7 +626,7 @@ func (mi *mountInfoParser) IsSysboxfsRoSubmount(mountpoint string) bool {
 		return false
 	}
 
-	baseInfo := mi.getParentMount(info)
+	baseInfo := mi.GetParentMount(info)
 
 	// "/some/path/proc/uptime" -> "/uptime"
 	relMp := strings.TrimPrefix(mountpoint, baseInfo.MountPoint)
@@ -569,7 +653,7 @@ func (mi *mountInfoParser) IsSysboxfsMaskedSubmount(mountpoint string) bool {
 		return false
 	}
 
-	baseInfo := mi.getParentMount(info)
+	baseInfo := mi.GetParentMount(info)
 
 	// "/some/path/proc/uptime" -> "/uptime"
 	relMp := strings.TrimPrefix(mountpoint, baseInfo.MountPoint)
@@ -622,9 +706,8 @@ func (mi *mountInfoParser) HasNonSysboxfsSubmount(basemount string) bool {
 
 // IsRoMount checks if the passed mountpoint is currently present and tagged as
 // read-only.
-func (mi *mountInfoParser) IsRoMount(mountpoint string) bool {
+func (mi *mountInfoParser) IsRoMount(info *domain.MountInfo) bool {
 
-	info := mi.GetInfo(mountpoint)
 	if info == nil {
 		return false
 	}
@@ -643,6 +726,10 @@ func (mi *mountInfoParser) IsRoMount(mountpoint string) bool {
 // 3413 3544 0:129 / /usr/src/linux-headers-5.4.0-48 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-48 rw
 func (mi *mountInfoParser) IsRecursiveBindMount(info *domain.MountInfo) bool {
 
+	if info == nil {
+		return false
+	}
+
 	devIdSlice := mi.devIdInfo[info.MajorMinorVer]
 
 	for _, elem := range devIdSlice {
@@ -660,8 +747,43 @@ func (mi *mountInfoParser) IsRecursiveBindMount(info *domain.MountInfo) bool {
 	return false
 }
 
-// IsBindMount verifies if the passed mountinfo entry is a bind-mount.
+func (mi *mountInfoParser) IsSelfMount(info *domain.MountInfo) bool {
+	if info == nil {
+		return false
+	}
+
+	infoParent := mi.GetParentMount(info)
+	if infoParent == nil {
+		return false
+	}
+
+	return info.Root == infoParent.Root &&
+		info.MountPoint == infoParent.MountPoint &&
+		info.Source == infoParent.Source
+}
+
+func (mi *mountInfoParser) IsOverlapMount(info *domain.MountInfo) bool {
+
+	if info == nil {
+		return false
+	}
+
+	infoParent := mi.GetParentMount(info)
+	if infoParent == nil {
+		return false
+	}
+
+	return info.MountPoint == infoParent.MountPoint
+}
+
+// IsBindMount verifies if the passed mountinfo entry is potentially
+// a bind-mount
+// candidate.
 func (mi *mountInfoParser) IsBindMount(info *domain.MountInfo) bool {
+
+	if info == nil {
+		return false
+	}
 
 	mh := mi.service.mh
 	if mh == nil {
@@ -684,7 +806,12 @@ func (mi *mountInfoParser) IsBindMount(info *domain.MountInfo) bool {
 }
 
 // IsBindMount verifies if the passed mountinfo entry is a read-only bind-mount.
+
 func (mi *mountInfoParser) IsRoBindMount(info *domain.MountInfo) bool {
+
+	if info == nil {
+		return false
+	}
 
 	mh := mi.service.mh
 	if mh == nil {

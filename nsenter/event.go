@@ -72,7 +72,7 @@ type pid struct {
 //
 type NSenterEvent struct {
 
-	// Pid on behalf of which we are doing the nsenter event
+	// Pid on behalf of which sysbox-fs is creating the nsenter event.
 	Pid uint32 `json:"pid"`
 
 	// namespace-types to attach to.
@@ -83,6 +83,15 @@ type NSenterEvent struct {
 
 	// Request message to be received.
 	ResMsg *domain.NSenterMessage `json:"response"`
+
+	// Sysbox-fs' spawned process carrying out the nsexec instruction.
+	Process *os.Process `json:"process"`
+
+	// IPC pipes among sysbox-fs parent / child processes.
+	parentPipe *os.File
+
+	// Asynchronous flag to tag events for which no response is expected.
+	async bool
 
 	// Zombie Reaper (for left-over nsenter child processes)
 	reaper *zombieReaper
@@ -366,18 +375,19 @@ func (e *NSenterEvent) namespacePaths() []string {
 //
 func (e *NSenterEvent) SendRequest() error {
 
-	logrus.Debug("Executing nsenterEvent's request() method")
+	logrus.Debug("Executing nsenterEvent's SendRequest() method")
 
 	// Alert the zombie reaper that nsenter is about to start
 	e.reaper.nsenterStarted()
-	defer e.reaper.nsenterEnded()
 
 	// Create a socket pair
 	parentPipe, childPipe, err := utils.NewSockPair("nsenterPipe")
 	if err != nil {
+		e.reaper.nsenterEnded()
 		return errors.New("Error creating sysbox-fs nsenter pipe")
 	}
-	defer parentPipe.Close()
+	//defer parentPipe.Close()
+	e.parentPipe = parentPipe
 
 	// Set the SO_PASSCRED on the socket (so we can pass process credentials across it)
 	socket := int(parentPipe.Fd())
@@ -399,13 +409,14 @@ func (e *NSenterEvent) SendRequest() error {
 
 	// Prepare exec.cmd in charge of running: "sysbox-fs nsenter".
 	cmd := &exec.Cmd{
-		Path:       "/proc/self/exe",
-		Args:       []string{os.Args[0], "nsenter"},
-		ExtraFiles: []*os.File{childPipe},
-		Env:        []string{"_LIBCONTAINER_INITPIPE=3", fmt.Sprintf("GOMAXPROCS=%s", os.Getenv("GOMAXPROCS"))},
-		Stdin:      nil,
-		Stdout:     nil,
-		Stderr:     nil,
+		Path:        "/proc/self/exe",
+		Args:        []string{os.Args[0], "nsenter"},
+		ExtraFiles:  []*os.File{childPipe},
+		Env:         []string{"_LIBCONTAINER_INITPIPE=3", fmt.Sprintf("GOMAXPROCS=%s", os.Getenv("GOMAXPROCS"))},
+		SysProcAttr: &syscall.SysProcAttr{Pdeathsig: syscall.SIGTERM},
+		Stdin:       nil,
+		Stdout:      nil,
+		Stderr:      nil,
 	}
 
 	// Launch sysbox-fs' first child process.
@@ -413,13 +424,15 @@ func (e *NSenterEvent) SendRequest() error {
 	childPipe.Close()
 	if err != nil {
 		logrus.Errorf("Error launching sysbox-fs first child process: %s", err)
+		e.reaper.nsenterEnded()
 		return errors.New("Error launching sysbox-fs first child process")
 	}
 
 	// Send the config to child process.
-	if _, err := io.Copy(parentPipe, bytes.NewReader(r.Serialize())); err != nil {
+	if _, err := io.Copy(e.parentPipe, bytes.NewReader(r.Serialize())); err != nil {
 		logrus.Warnf("Error copying payload to pipe: %s", err)
 		e.reaper.nsenterReapReq()
+		e.reaper.nsenterEnded()
 		return errors.New("Error copying payload to pipe")
 	}
 
@@ -428,25 +441,29 @@ func (e *NSenterEvent) SendRequest() error {
 	if err != nil {
 		logrus.Warnf("Error waiting for sysbox-fs first child process %d: %s", cmd.Process.Pid, err)
 		e.reaper.nsenterReapReq()
+		e.reaper.nsenterEnded()
 		return err
 	}
 	if !status.Success() {
 		logrus.Warnf("Sysbox-fs first child process error status: pid = %d", cmd.Process.Pid)
 		e.reaper.nsenterReapReq()
+		e.reaper.nsenterEnded()
 		return errors.New("Error waiting for sysbox-fs first child process")
 	}
 
 	// Receive sysbox-fs' first-child pid.
 	var pid pid
-	decoder := json.NewDecoder(parentPipe)
+	decoder := json.NewDecoder(e.parentPipe)
 	if err := decoder.Decode(&pid); err != nil {
 		logrus.Warnf("Error receiving first-child pid: %s", err)
+		e.reaper.nsenterEnded()
 		return errors.New("Error receiving first-child pid")
 	}
 
 	firstChildProcess, err := os.FindProcess(pid.PidFirstChild)
 	if err != nil {
 		logrus.Warnf("Error finding first-child pid: %s", err)
+		e.reaper.nsenterEnded()
 		return err
 	}
 
@@ -459,9 +476,10 @@ func (e *NSenterEvent) SendRequest() error {
 	process, err := os.FindProcess(pid.Pid)
 	if err != nil {
 		logrus.Warnf("Error finding grand-child pid %d: %s", pid.Pid, err)
+		e.reaper.nsenterEnded()
 		return err
 	}
-	cmd.Process = process
+	e.Process = process
 
 	//
 	// Transfer the nsenterEvent details to grand-child for processing.
@@ -492,17 +510,24 @@ func (e *NSenterEvent) SendRequest() error {
 	if err != nil {
 		logrus.Warnf("Error while encoding nsenter payload (%v).", err)
 		e.reaper.nsenterReapReq()
+		e.reaper.nsenterEnded()
 		return err
 	}
-	_, err = parentPipe.Write(data)
+	_, err = e.parentPipe.Write(data)
 	if err != nil {
 		logrus.Warnf("Error while writing nsenter payload into pipeline (%v)", err)
 		e.reaper.nsenterReapReq()
+		e.reaper.nsenterEnded()
 		return err
 	}
 
+	// Return if dealing with an asynchronous request.
+	if e.async {
+		return nil
+	}
+
 	// Wait for sysbox-fs' grand-child response and process it accordingly.
-	ierr := e.processResponse(parentPipe)
+	ierr := e.processResponse(e.parentPipe)
 
 	// Destroy the socket pair.
 	if err := unix.Shutdown(int(parentPipe.Fd()), unix.SHUT_WR); err != nil {
@@ -511,10 +536,12 @@ func (e *NSenterEvent) SendRequest() error {
 
 	if ierr != nil {
 		e.reaper.nsenterReapReq()
+		e.reaper.nsenterEnded()
 		return ierr
 	}
 
-	cmd.Wait()
+	e.Process.Wait()
+	e.reaper.nsenterEnded()
 
 	return nil
 }
@@ -522,6 +549,37 @@ func (e *NSenterEvent) SendRequest() error {
 func (e *NSenterEvent) ReceiveResponse() *domain.NSenterMessage {
 
 	return e.ResMsg
+}
+
+// TerminateRequest serves to unwind the nsenter-event FSM after the generation
+// of an asynchronous event through SendRequest(true) execution.
+func (e *NSenterEvent) TerminateRequest() error {
+
+	logrus.Debug("Executing nsenterEvent's TerminateRequest() method")
+
+	defer e.reaper.nsenterEnded()
+
+	if e.Process == nil {
+		return nil
+	}
+
+	// Destroy the socket pair.
+	if err := unix.Shutdown(int(e.parentPipe.Fd()), unix.SHUT_WR); err != nil {
+		logrus.Warnf("Error shutting down sysbox-fs nsenter pipe: %s", err)
+		defer e.reaper.nsenterReapReq()
+		return err
+	}
+
+	// Kill ongoing request.
+	if err := e.Process.Kill(); err != nil {
+		defer e.reaper.nsenterReapReq()
+		return err
+	}
+
+	e.Process.Wait()
+	e.Process = nil
+
+	return nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////

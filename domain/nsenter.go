@@ -66,8 +66,8 @@ var AllNSsButUser = []NStype{
 const (
 	LookupRequest         NSenterMsgType = "lookupRequest"
 	LookupResponse        NSenterMsgType = "lookupResponse"
-	OpenFileRequest       NSenterMsgType = "OpenFileRequest"
-	OpenFileResponse      NSenterMsgType = "OpenFileResponse"
+	OpenFileRequest       NSenterMsgType = "openFileRequest"
+	OpenFileResponse      NSenterMsgType = "openFileResponse"
 	ReadFileRequest       NSenterMsgType = "readFileRequest"
 	ReadFileResponse      NSenterMsgType = "readFileResponse"
 	WriteFileRequest      NSenterMsgType = "writeFileRequest"
@@ -82,6 +82,12 @@ const (
 	UmountSyscallResponse NSenterMsgType = "umountSyscallResponse"
 	ChownSyscallRequest   NSenterMsgType = "chownSyscallRequest"
 	ChownSyscallResponse  NSenterMsgType = "chownSyscallResponse"
+	MountInfoRequest      NSenterMsgType = "mountInfoRequest"
+	MountInfoResponse     NSenterMsgType = "mountInfoResponse"
+	MountInodeRequest     NSenterMsgType = "mountInodeRequest"
+	MountInodeResponse    NSenterMsgType = "mountInodeResponse"
+	SleepRequest          NSenterMsgType = "sleepRequest"
+	SleepResponse         NSenterMsgType = "sleepResponse"
 	ErrorResponse         NSenterMsgType = "errorResponse"
 )
 
@@ -95,11 +101,14 @@ type NSenterServiceIface interface {
 		pid uint32,
 		ns *[]NStype,
 		req *NSenterMessage,
-		res *NSenterMessage) NSenterEventIface
+		res *NSenterMessage,
+		async bool) NSenterEventIface
 
-	Setup(prs ProcessServiceIface)
+	Setup(prs ProcessServiceIface, mts MountServiceIface)
 	SendRequestEvent(e NSenterEventIface) error
 	ReceiveResponseEvent(e NSenterEventIface) *NSenterMessage
+	TerminateRequestEvent(e NSenterEventIface) error
+	GetEventProcessID(e NSenterEventIface) uint32
 }
 
 //
@@ -116,11 +125,13 @@ type NSenterServiceIface interface {
 //
 type NSenterEventIface interface {
 	SendRequest() error
+	TerminateRequest() error
 	ReceiveResponse() *NSenterMessage
 	SetRequestMsg(m *NSenterMessage)
 	GetRequestMsg() *NSenterMessage
 	SetResponseMsg(m *NSenterMessage)
 	GetResponseMsg() *NSenterMessage
+	GetProcessID() uint32
 }
 
 // NSenterMessage struct defines the layout of the messages being exchanged
@@ -180,4 +191,19 @@ type ChownSyscallPayload struct {
 	Target    string `json:"target"`
 	TargetUid int    `json:"uid"`
 	TargetGid int    `json:"gid"`
+}
+
+type MountInfoRespPayload struct {
+	Data []byte `json:"data"`
+}
+
+type MountInodeReqPayload struct {
+	Mountpoints []string `json:"mountpoints"`
+}
+type MountInodeRespPayload struct {
+	MpInodes []Inode `json:"mpinodes"`
+}
+
+type SleepReqPayload struct {
+	Ival string `json:"attr"`
 }
