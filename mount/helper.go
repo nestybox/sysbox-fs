@@ -164,10 +164,10 @@ func (m *mountHelper) FilterFsFlags(fsOpts map[string]string) string {
 
 	opts := []string{}
 
-	for _, v := range fsOpts {
-		_, ok := m.flagsMap[v]
-		if !ok && v != "rw" {
-			opts = append(opts, v)
+	for k, _ := range fsOpts {
+		_, ok := m.flagsMap[k]
+		if ok && k != "rw" {
+			opts = append(opts, k)
 		}
 	}
 
