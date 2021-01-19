@@ -194,6 +194,7 @@ func (ci *chownSyscallInfo) processChownNSenter(nstype []domain.NStype) (*sysRes
 			Payload: chownPayload,
 		},
 		nil,
+		false,
 	)
 
 	err := nss.SendRequestEvent(event)

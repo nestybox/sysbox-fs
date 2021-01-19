@@ -68,6 +68,7 @@ func (h *ProcSysCommonHandler) Lookup(
 			},
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.
@@ -135,6 +136,7 @@ func (h *ProcSysCommonHandler) Open(
 			},
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.
@@ -294,6 +296,7 @@ func (h *ProcSysCommonHandler) ReadDirAll(
 			},
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.
@@ -363,6 +366,7 @@ func (h *ProcSysCommonHandler) Setattr(
 			},
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.
@@ -397,6 +401,7 @@ func (h *ProcSysCommonHandler) fetchFile(
 			},
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event to obtain file state within container
@@ -436,6 +441,7 @@ func (h *ProcSysCommonHandler) pushFile(
 			},
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event to write file state within container

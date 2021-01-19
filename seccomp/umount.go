@@ -207,6 +207,7 @@ func (u *umountSyscallInfo) processUmount(
 			Payload: payload,
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.
