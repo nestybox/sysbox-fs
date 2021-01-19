@@ -164,6 +164,7 @@ func (m *mountSyscallInfo) processProcMount(
 			Payload: payload,
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.
@@ -342,6 +343,7 @@ func (m *mountSyscallInfo) processSysMount(
 			Payload: payload,
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.
@@ -451,6 +453,7 @@ func (m *mountSyscallInfo) processOverlayMount(
 			Payload: payload,
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.
@@ -525,6 +528,7 @@ func (m *mountSyscallInfo) processNfsMount(
 			Payload: payload,
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.
@@ -617,6 +621,7 @@ func (m *mountSyscallInfo) processRemount(
 			Payload: payload,
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.
@@ -743,6 +748,7 @@ func (m *mountSyscallInfo) processBindMount(
 			Payload: payload,
 		},
 		nil,
+		false,
 	)
 
 	// Launch nsenter-event.

@@ -316,7 +316,7 @@ func main() {
 		// Setup sysbox-fs services.
 		processService.Setup(ioService)
 
-		nsenterService.Setup(processService)
+		nsenterService.Setup(processService, nil)
 
 		handlerService.Setup(
 			handler.DefaultHandlers,
@@ -344,6 +344,8 @@ func main() {
 		mountService.Setup(
 			containerStateService,
 			handlerService,
+			processService,
+			nsenterService,
 		)
 
 		syscallMonitorService.Setup(
