@@ -171,6 +171,12 @@ func (c *container) IsImmutableMountID(id int) bool {
 	return false
 }
 
+// ExtractInode obtains the inode of any given resource within a sys container's
+// file-system.
+func (c *container) ExtractInode(path string) (domain.Inode, error) {
+	return c.mountInfoParser.ExtractInode(path)
+}
+
 func (c *container) IsImmutableRoMountID(id int) bool {
 	c.intLock.RLock()
 	defer c.intLock.RUnlock()
@@ -192,6 +198,20 @@ func (c *container) IsImmutableMountpoint(mp string) bool {
 	}
 
 	return false
+}
+
+func (c *container) IsImmutableMount(info *domain.MountInfo) bool {
+	c.intLock.RLock()
+	defer c.intLock.RUnlock()
+
+	return c.mountInfoParser.IsCloneMount(info, false)
+}
+
+func (c *container) IsImmutableRoMount(info *domain.MountInfo) bool {
+	c.intLock.RLock()
+	defer c.intLock.RUnlock()
+
+	return c.mountInfoParser.IsCloneMount(info, true)
 }
 
 func (c *container) IsImmutableBindMount(info *domain.MountInfo) bool {
