@@ -37,6 +37,8 @@ import (
 	"github.com/nestybox/sysbox-fs/state"
 	"github.com/nestybox/sysbox-fs/sysio"
 
+	systemd "github.com/coreos/go-systemd/daemon"
+
 	"github.com/pkg/profile"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -74,6 +76,10 @@ func exitHandler(
 	s := <-signalChan
 
 	logrus.Warnf("sysbox-fs caught signal: %s", s)
+
+	logrus.Info("Stopping (gracefully) ...")
+
+	systemd.SdNotify(false, systemd.SdNotifyStopping)
 
 	switch s {
 
@@ -293,6 +299,8 @@ func main() {
 	// sysbox-fs main-loop execution.
 	app.Action = func(ctx *cli.Context) error {
 
+		logrus.Info("Initiating sysbox-fs ...")
+
 		// Construct sysbox-fs services.
 		var nsenterService = nsenter.NewNSenterService()
 		var ioService = sysio.NewIOService(domain.IOOsFileService)
@@ -364,7 +372,9 @@ func main() {
 		// TODO: Consider adding sync.Workgroups to ensure that all goroutines
 		// are done with their in-fly tasks before exit()ing.
 
-		logrus.Info("Initiating sysbox-fs engine ...")
+		systemd.SdNotify(false, systemd.SdNotifyReady)
+
+		logrus.Info("Ready ...")
 
 		if err := ipcService.Init(); err != nil {
 			logrus.Panic(err)
