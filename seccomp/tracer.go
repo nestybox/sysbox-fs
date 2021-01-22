@@ -448,7 +448,7 @@ func (t *syscallTracer) processMount(
 	mount.gid = process.Gid()
 	mount.cwd = process.Cwd()
 	mount.root = process.Root()
-	mount.processData = process
+	mount.processInfo = process
 
 	logrus.Debug(mount)
 
@@ -512,7 +512,7 @@ func (t *syscallTracer) processUmount(
 	umount.gid = process.Gid()
 	umount.cwd = process.Cwd()
 	umount.root = process.Root()
-	umount.processData = process
+	umount.processInfo = process
 
 	logrus.Debug(umount)
 
