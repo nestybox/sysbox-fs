@@ -65,7 +65,7 @@ func (ci *chownSyscallInfo) ignoreChown(absPath string) bool {
 
 	mts := ci.tracer.service.mts
 
-	mip, err := mts.NewMountInfoParser(ci.cntr, ci.pid, false)
+	mip, err := mts.NewMountInfoParser(ci.cntr, ci.processInfo, true, false, false)
 	if err != nil {
 		logrus.Errorf("Failed to get mount info while processing fchown from pid %d: %s", ci.pid, err)
 		return false
@@ -82,11 +82,11 @@ func (ci *chownSyscallInfo) ignoreChown(absPath string) bool {
 func (ci *chownSyscallInfo) processChown() (*sysResponse, error) {
 
 	t := ci.tracer
-	process := t.service.prs.ProcessCreate(ci.pid, 0, 0)
+	ci.processInfo = t.service.prs.ProcessCreate(ci.pid, 0, 0)
 	path := ci.path
 
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(process.Cwd(), path)
+		path = filepath.Join(ci.processInfo.Cwd(), path)
 	}
 
 	if ci.ignoreChown(path) {
@@ -101,15 +101,15 @@ func (ci *chownSyscallInfo) processChown() (*sysResponse, error) {
 func (ci *chownSyscallInfo) processFchown() (*sysResponse, error) {
 
 	t := ci.tracer
-	process := t.service.prs.ProcessCreate(ci.pid, 0, 0)
+	ci.processInfo = t.service.prs.ProcessCreate(ci.pid, 0, 0)
 
-	path, err := process.GetFd(ci.pathFd)
+	path, err := ci.processInfo.GetFd(ci.pathFd)
 	if err != nil {
 		return t.createContinueResponse(ci.reqId), nil
 	}
 
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(process.Cwd(), path)
+		path = filepath.Join(ci.processInfo.Cwd(), path)
 	}
 
 	if ci.ignoreChown(path) {
@@ -124,7 +124,7 @@ func (ci *chownSyscallInfo) processFchown() (*sysResponse, error) {
 func (ci *chownSyscallInfo) processFchownat() (*sysResponse, error) {
 
 	t := ci.tracer
-	process := t.service.prs.ProcessCreate(ci.pid, 0, 0)
+	ci.processInfo = t.service.prs.ProcessCreate(ci.pid, 0, 0)
 	path := ci.path
 
 	// Interpret dirFd (if the pathname is not absolute)
@@ -137,9 +137,9 @@ func (ci *chownSyscallInfo) processFchownat() (*sysResponse, error) {
 			// AT_FDCWD, the call operates on the current working directory.
 
 			if ci.dirFd == unix.AT_FDCWD {
-				path = process.Cwd()
+				path = ci.processInfo.Cwd()
 			} else {
-				dirPath, err := process.GetFd(ci.dirFd)
+				dirPath, err := ci.processInfo.GetFd(ci.dirFd)
 				if err != nil {
 					return t.createContinueResponse(ci.reqId), nil
 				}
@@ -153,9 +153,9 @@ func (ci *chownSyscallInfo) processFchownat() (*sysResponse, error) {
 			// working dir. Otherwise it's interpreted relative to dirFd.
 
 			if ci.dirFd == unix.AT_FDCWD {
-				path = filepath.Join(process.Cwd(), path)
+				path = filepath.Join(ci.processInfo.Cwd(), path)
 			} else {
-				dirPath, err := process.GetFd(ci.dirFd)
+				dirPath, err := ci.processInfo.GetFd(ci.dirFd)
 				if err != nil {
 					return t.createContinueResponse(ci.reqId), nil
 				}

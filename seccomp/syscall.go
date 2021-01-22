@@ -29,7 +29,7 @@ type syscallCtx struct {
 	gid         uint32                // Gid of the process generating the syscall
 	cwd         string                // Cwd of process generating the syscall
 	root        string                // Root of process generating the syscall
-	processData domain.ProcessIface   // Process details associated to the syscall request
+	processInfo domain.ProcessIface   // Process details associated to the syscall request
 	cntr        domain.ContainerIface // Container hosting the process generating the syscall
 	tracer      *syscallTracer        // Backpointer to the seccomp-tracer owning the syscall
 }
