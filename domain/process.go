@@ -48,6 +48,7 @@ type ProcessIface interface {
 	UserNsInodeParent() (Inode, error)
 	CreateNsInodes(Inode) error
 	PathAccess(path string, accessFlags AccessMode) error
+	ResolveProcSelf(string) (string, error)
 	GetEffCaps() [2]uint32
 	SetEffCaps(caps [2]uint32)
 	GetFd(int32) (string, error)

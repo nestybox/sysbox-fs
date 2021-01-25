@@ -392,8 +392,14 @@ func (p *process) CreateNsInodes(inode domain.Inode) error {
 
 func (p *process) PathAccess(path string, aMode domain.AccessMode) error {
 
-	if err := p.init(); err != nil {
+	err := p.init()
+	if err != nil {
 		return err
+	}
+
+	path, err = p.ResolveProcSelf(path)
+	if err != nil {
+		return syscall.EINVAL
 	}
 
 	return p.pathAccess(path, aMode)
@@ -519,6 +525,66 @@ func (p *process) getStatus(fields []string) error {
 	p.status = status
 
 	return nil
+}
+
+// Given a path "/proc/self/path/to/symlink" it resolves it to the location
+// pointed to by symlink. For example, if path is "/proc/self/fd/3" and
+// "/proc/self/fd/3" is a symlink to "/some/path", then this function returns
+// "/some/path". Note that "self" refers to the process struct, so we replace
+// "self" with p.pid.  The path resolution is recursive: E.g., if
+// "/proc/self/fd/3" symlink points to "/proc/self/cwd", and "/proc/self/cwd"
+// points to "/some/path", this function follows the symlinks and returns
+// "/some/path".
+
+func (p *process) ResolveProcSelf(path string) (string, error) {
+
+	// TODO: this function is not capable of dealing with relative paths
+	// "../../proc/self/fd/X". It also assumes procfs is mounted on /proc, so
+	// it's not capable of dealing with scenarios where something else is mounted
+	// on /proc (rare), or where procfs is mounted at a different location (e.g.,
+	// /root/proc/self). We need to improve it to deal with these issues (likely
+	// by doing a filepath walk of each component of the path, and resolving
+	// "self" when we are sure it's under a procfs mount).
+
+	for {
+		if !strings.HasPrefix(path, "/proc/self/") {
+			break
+		}
+
+		procPid := fmt.Sprintf("/proc/%d/", p.pid)
+		procPidPath := strings.Replace(path, "/proc/self/", procPid, 1)
+
+		// Resolve the procfs symlink, then append the rest of the path (e.g., if
+		// /proc/<pid>/fd/5 is a symlink to /some/path, then given path
+		// /proc/<pid>/fd/5/another/path, we should resolve to
+		// /some/path/another/path.
+
+		components := strings.Split(procPidPath, "/")
+		procPidNext := procPid + components[3]
+
+		err := filepath.Walk(procPidNext, func(walkPath string, fi os.FileInfo, err error) error {
+
+			if strings.Contains(procPidPath, walkPath) {
+				isSymlink := fi.Mode()&os.ModeSymlink == os.ModeSymlink
+				if isSymlink {
+					resolvedPath, err := os.Readlink(walkPath)
+					if err != nil {
+						return err
+					}
+					path = strings.Replace(procPidPath, walkPath, resolvedPath, 1)
+					return nil
+				}
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			return path, err
+		}
+	}
+
+	return path, nil
 }
 
 func (p *process) pathAccess(path string, mode domain.AccessMode) error {

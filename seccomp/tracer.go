@@ -556,7 +556,7 @@ func (t *syscallTracer) processFchown(
 		ownerGid: gid,
 	}
 
-	return chown.processChown()
+	return chown.processFchown()
 }
 
 func (t *syscallTracer) processFchownat(

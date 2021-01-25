@@ -10,16 +10,16 @@ require (
 	github.com/nestybox/sysbox-libs/libseccomp-golang v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/pidmonitor v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
-	github.com/pkg/profile v1.4.0
-	github.com/sirupsen/logrus v1.4.2
+	github.com/pkg/profile v1.5.0
+	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/afero v1.4.1
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/stretchr/testify v1.6.1
-	github.com/urfave/cli v1.20.0
+	github.com/urfave/cli v1.22.1
 	github.com/vektra/mockery v1.1.2 // indirect
-	github.com/vishvananda/netlink v1.0.0
-	golang.org/x/sys v0.0.0-20201029080932-201ba4db2418
-	google.golang.org/grpc v1.27.0
+	github.com/vishvananda/netlink v1.1.0
+	golang.org/x/sys v0.0.0-20201107080550-4d91cf3a1aaf
+	google.golang.org/grpc v1.34.1
 	gopkg.in/hlandau/service.v1 v1.0.7
 )
 
