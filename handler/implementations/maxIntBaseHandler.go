@@ -308,7 +308,7 @@ func (h *MaxIntBaseHandler) pushFile(
 		msg := []byte(strconv.Itoa(newMaxInt))
 		err = n.WriteFile(msg)
 		if err != nil && !h.Service.IgnoreErrors() {
-			logrus.Errorf("Could not write to file: %s", err)
+			logrus.Errorf("Could not write %d to file: %s", newMaxInt, err)
 			return err
 		}
 	}

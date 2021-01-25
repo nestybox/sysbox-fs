@@ -225,6 +225,24 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: true,
 		},
 	},
+	&implementations.MaxIntBaseHandler{
+		domain.HandlerBase{
+			Name:      "fsFileMax",
+			Path:      "/proc/sys/fs/file-max",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
+	},
+	&implementations.MaxIntBaseHandler{
+		domain.HandlerBase{
+			Name:      "fsNrOpen",
+			Path:      "/proc/sys/fs/nr_open",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
+	},
 	//
 	// /proc/sys/kernel handlers
 	//
@@ -295,6 +313,15 @@ var DefaultHandlers = []domain.HandlerIface{
 		domain.HandlerBase{
 			Name:      "kernelYamaPtraceScope",
 			Path:      "/proc/sys/kernel/yama/ptrace_scope",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
+	},
+	&implementations.MaxIntBaseHandler{
+		domain.HandlerBase{
+			Name:      "kernelPidMax",
+			Path:      "/proc/sys/kernel/pid_max",
 			Type:      domain.NODE_SUBSTITUTION,
 			Enabled:   true,
 			Cacheable: true,
