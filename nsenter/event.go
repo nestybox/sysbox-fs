@@ -308,9 +308,8 @@ func (e *NSenterEvent) namespacePaths() []string {
 
 //
 // Sysbox-fs requests are generated through this method. Handlers seeking to
-// access namespaced resources will call this method to invoke sysbox-runc's
-// nsexec logic, which will serve to enter the container namespaces that host
-// these resources.
+// access namespaced resources will call this method to invoke nsexec,
+// which will enter the container namespaces that host these resources.
 //
 func (e *NSenterEvent) SendRequest() error {
 
@@ -320,12 +319,19 @@ func (e *NSenterEvent) SendRequest() error {
 	e.reaper.nsenterStarted()
 	defer e.reaper.nsenterEnded()
 
-	// Create a socket pair.
+	// Create a socket pair
 	parentPipe, childPipe, err := utils.NewSockPair("nsenterPipe")
 	if err != nil {
 		return errors.New("Error creating sysbox-fs nsenter pipe")
 	}
 	defer parentPipe.Close()
+
+	// Set the SO_PASSCRED on the socket (so we can pass process credentials across it)
+	socket := int(parentPipe.Fd())
+	err = syscall.SetsockoptInt(socket, syscall.SOL_SOCKET, syscall.SO_PASSCRED, 1)
+	if err != nil {
+		return fmt.Errorf("Error setting socket options on nsenter pipe: %v", err)
+	}
 
 	// Obtain the FS path for all the namespaces to be nsenter'ed into, and
 	// define the associated netlink-payload to transfer to child process.
@@ -338,7 +344,7 @@ func (e *NSenterEvent) SendRequest() error {
 		Value: []byte(strings.Join(namespaces, ",")),
 	})
 
-	// Prepare exec.cmd in charged of running: "sysbox-fs nsenter".
+	// Prepare exec.cmd in charge of running: "sysbox-fs nsenter".
 	cmd := &exec.Cmd{
 		Path:       "/proc/self/exe",
 		Args:       []string{os.Args[0], "nsenter"},
@@ -404,7 +410,31 @@ func (e *NSenterEvent) SendRequest() error {
 	}
 	cmd.Process = process
 
+	//
 	// Transfer the nsenterEvent details to grand-child for processing.
+	//
+
+	// Send the pid using SCM rights, so it shows up properly inside the
+	// nsexec process.
+	//
+	// TODO: in the future we should also send the process uid and gid
+	// credentials, so that the event handler can use this info to set ownership
+	// of files or mountpoints it creates on behalf of the process. This would
+	// void the need to send that info in the payload as done in the
+	// chown handler (i.e., it would void the need for processChownNSenter()).
+
+	reqCred := &syscall.Ucred{
+		Pid: int32(e.Pid),
+	}
+
+	credMsg := syscall.UnixCredentials(reqCred)
+	if err := syscall.Sendmsg(socket, nil, credMsg, nil, 0); err != nil {
+		logrus.Warnf("Error while sending process credentials to nsenter (%v).", err)
+		e.reaper.nsenterReapReq()
+		return err
+	}
+
+	// Transfer the rest of the payload
 	data, err := json.Marshal(*(e.ReqMsg))
 	if err != nil {
 		logrus.Warnf("Error while encoding nsenter payload (%v).", err)
@@ -629,22 +659,22 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 
 	payload := e.ReqMsg.Payload.([]domain.MountSyscallPayload)
 
+	// Extract payload-header from the first element
+	header := payload[0].Header
+
 	// For overlayfs mounts we adjust 'nsexec' process' personality (i.e.
 	// uid/gid and capabilities) to match the one of the original process
 	// performing the syscall. Our goal is mainly to avoid permission issues
 	// while accessing kernel's created overlayfs components.
 	if payload[0].FsType == "overlay" {
-		// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
-		// executing this logic.
-		process := e.service.prs.ProcessCreate(0, 0, 0)
 
-		// Extract payload-header from the first element (just one in overlayfs
-		// mounts) of the payload slice .
-		header := payload[0].Header
+		// Create a dummy 'process' struct to represent the 'sysbox-fs nsenter' process
+		// executing this logic.
+		this := e.service.prs.ProcessCreate(0, 0, 0)
 
 		// Adjust 'nsenter' process personality to match the end-user's original
 		// process.
-		if err := process.AdjustPersonality(
+		if err := this.AdjustPersonality(
 			header.Uid,
 			header.Gid,
 			header.Root,
@@ -661,8 +691,21 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 		}
 	}
 
+	process := e.service.prs.ProcessCreate(e.Pid, 0, 0)
+
 	// Perform mount instructions.
 	for i = 0; i < len(payload); i++ {
+
+		payload[i].Source, err = process.ResolveProcSelf(payload[i].Source)
+		if err != nil {
+			break
+		}
+
+		payload[i].Target, err = process.ResolveProcSelf(payload[i].Target)
+		if err != nil {
+			break
+		}
+
 		err = unix.Mount(
 			payload[i].Source,
 			payload[i].Target,
@@ -712,9 +755,16 @@ func (e *NSenterEvent) processUmountSyscallRequest() error {
 	)
 
 	payload := e.ReqMsg.Payload.([]domain.UmountSyscallPayload)
+	process := e.service.prs.ProcessCreate(e.Pid, 0, 0)
 
 	// Perform umount instructions.
 	for i = 0; i < len(payload); i++ {
+
+		payload[i].Target, err = process.ResolveProcSelf(payload[i].Target)
+		if err != nil {
+			break
+		}
+
 		err = unix.Unmount(
 			payload[i].Target,
 			int(payload[i].Flags),
@@ -747,10 +797,19 @@ func (e *NSenterEvent) processUmountSyscallRequest() error {
 }
 
 func (e *NSenterEvent) processChownSyscallRequest() error {
+
 	payload := e.ReqMsg.Payload.([]domain.ChownSyscallPayload)
+	process := e.service.prs.ProcessCreate(e.Pid, 0, 0)
 
 	for _, p := range payload {
-		if err := unix.Chown(p.Target, p.TargetUid, p.TargetGid); err != nil {
+		var err error
+
+		p.Target, err = process.ResolveProcSelf(p.Target)
+		if err != nil {
+			break
+		}
+
+		if err = unix.Chown(p.Target, p.TargetUid, p.TargetGid); err != nil {
 			e.ResMsg = &domain.NSenterMessage{
 				Type:    domain.ErrorResponse,
 				Payload: &fuse.IOerror{RcvError: err},
@@ -767,9 +826,48 @@ func (e *NSenterEvent) processChownSyscallRequest() error {
 	return nil
 }
 
+func (e *NSenterEvent) getProcCreds(pipe *os.File) error {
+
+	socket := int(pipe.Fd())
+
+	err := syscall.SetsockoptInt(socket, syscall.SOL_SOCKET, syscall.SO_PASSCRED, 1)
+	if err != nil {
+		return fmt.Errorf("Error setting socket options for credential passing: %v", err)
+	}
+
+	var cred syscall.Ucred
+	ucred := syscall.UnixCredentials(&cred)
+	buf := make([]byte, syscall.CmsgSpace(len(ucred)))
+
+	_, rbytes, _, _, err := syscall.Recvmsg(socket, nil, buf, 0)
+	if err != nil {
+		return errors.New("Error decoding received process credentials.")
+	}
+	buf = buf[:rbytes]
+
+	msgs, err := syscall.ParseSocketControlMessage(buf)
+	if err != nil || len(msgs) != 1 {
+		return errors.New("Error parsing socket control msg.")
+	}
+
+	procCred, err := syscall.ParseUnixCredentials(&msgs[0])
+	if err != nil {
+		return errors.New("Error parsing unix credentials.")
+	}
+
+	e.Pid = uint32(procCred.Pid)
+
+	return nil
+}
+
 // Method in charge of processing all requests generated by sysbox-fs' master
 // instance.
-func (e *NSenterEvent) processRequest(pipe io.Reader) error {
+func (e *NSenterEvent) processRequest(pipe *os.File) error {
+
+	// Get the credentials of the process on whose behalf we are operating
+	if err := e.getProcCreds(pipe); err != nil {
+		return err
+	}
 
 	// Raw message payload to aid in decoding generic messages (see below
 	// explanation).
