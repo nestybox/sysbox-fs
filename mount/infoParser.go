@@ -833,6 +833,157 @@ func (mi *mountInfoParser) IsRoBindMount(info *domain.MountInfo) bool {
 	return false
 }
 
+func (mi *mountInfoParser) equivalentMounts(m1, m2 *domain.MountInfo) bool {
+
+	if m1 == nil && m2 == nil {
+		return true
+	} else if m1 == nil || m2 == nil {
+		return false
+	}
+
+	return m1.Root == m2.Root &&
+		m1.FsType == m2.FsType &&
+		m1.MajorMinorVer == m2.MajorMinorVer &&
+		m1.MountPoint == m2.MountPoint &&
+		m1.Source == m2.Source
+}
+
+func (mi *mountInfoParser) equivalentMountAncestors(m1, m2 *domain.MountInfo) bool {
+
+	if m1 == nil && m2 == nil {
+		return true
+	} else if m1 == nil || m2 == nil {
+		return false
+	}
+
+	p1 := m1.Mip.GetParentMount(m1)
+	if p1 != nil && m1.Mip.IsSysboxfsBaseMount(p1.MountPoint) {
+		p1 = m1.Mip.GetParentMount(p1)
+	}
+	p2 := m2.Mip.GetParentMount(m2)
+	if p2 != nil && m2.Mip.IsSysboxfsBaseMount(p2.MountPoint) {
+		p2 = m2.Mip.GetParentMount(p2)
+	}
+
+	return mi.equivalentMounts(p1, p2)
+}
+
+// IsCloneMount determines if the passed mountInfo entry is a 'clone' of an
+// entry in the sys-container's mount namespace.
+func (mi *mountInfoParser) IsCloneMount(
+	procInfo *domain.MountInfo,
+	ronlyMatch bool) bool {
+
+	mh := mi.service.mh
+	if mh == nil {
+		return false
+	}
+
+	var candidateList []*domain.MountInfo
+
+	// Extract the list of mountpoints matching the incoming process' maj-min-id.
+	devIdSlice := mi.devIdInfo[procInfo.MajorMinorVer]
+
+	for _, cntrInfo := range devIdSlice {
+		if cntrInfo.MountID == procInfo.MountID {
+			continue
+		}
+
+		// Skip readwrite candidates when operating in readonly mode.
+		if ronlyMatch && !mi.IsRoMount(cntrInfo) {
+			continue
+		}
+
+		// All candidates must meet a minimum set of criteria.
+		if cntrInfo.Root != procInfo.Root ||
+			cntrInfo.Source != procInfo.Source ||
+			mi.IsRoMount(cntrInfo) != mi.IsRoMount(procInfo) {
+			continue
+		}
+
+		// If not already present, fetch the inodes of the elements being
+		// compared, and also those within their ancestry line. This last point
+		// is an optimization that takes into account the relatively-low cost
+		// of obtaining multiple-inodes vs the cost of collecting a single one
+		// in various (nsenter) iterations.
+		if cntrInfo.MpInode == 0 {
+			err := mi.extractAncestorInodes(cntrInfo)
+			if err != nil {
+				return false
+			}
+		}
+		if procInfo.MpInode == 0 {
+			err := procInfo.Mip.ExtractAncestorInodes(procInfo)
+			if err != nil {
+				return false
+			}
+		}
+		// Add entry to the list of candidates for further processing.
+		if cntrInfo.MpInode == procInfo.MpInode {
+			candidateList = append(candidateList, cntrInfo)
+		}
+	}
+
+	// Iterate through all the candidates to compare their ancestry line
+	// with the one of the entry in question.
+	for _, cntrInfo := range candidateList {
+		if mi.ancestryLineMatch(procInfo, cntrInfo) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ancestryLineMatch determines if the passed mountpoints are referring to the
+// same exact file-system resource. We do this by comparing the elements of the
+// ancestry line of each mountpoint.
+func (mi *mountInfoParser) ancestryLineMatch(m1, m2 *domain.MountInfo) bool {
+
+	for {
+		m1 = m1.Mip.GetParentMount(m1)
+		m2 = m2.Mip.GetParentMount(m2)
+
+		// A full match is encountered whenever there are no more elements to
+		// compare in either ancestry line.
+		if m1 == nil || m2 == nil {
+			return true
+		}
+
+		// We must skip basemount components of sysbox-fs' managed file-systems
+		// (i.e. /proc & /sys), due to the particular hierarchy displayed by
+		// their submounts as a consequence of the specific approach sysbox-fs
+		// follows to bind-mount these resources during container initialization.
+		if mi.isSysboxfsBaseMount(m1) {
+			m1 = m1.Mip.GetParentMount(m1)
+		}
+		if mi.isSysboxfsBaseMount(m2) {
+			m2 = m2.Mip.GetParentMount(m2)
+		}
+
+		if m1.MpInode == 0 {
+			err := m1.Mip.ExtractAncestorInodes(m1)
+			if err != nil {
+				return false
+			}
+		}
+		if m2.MpInode == 0 {
+			err := m2.Mip.ExtractAncestorInodes(m2)
+			if err != nil {
+				return false
+			}
+		}
+
+		// Return 'false' whenever a mismatch is found in any of the elements
+		// of the ancestry line.
+		if m1.MpInode != m2.MpInode {
+			return false
+		}
+	}
+
+	return false
+}
+
 // LookupByMountID does a simple lookup in IdInfo map.
 func (mi *mountInfoParser) LookupByMountID(id int) *domain.MountInfo {
 
@@ -851,4 +1002,13 @@ func (mi *mountInfoParser) LookupByMountpoint(mp string) *domain.MountInfo {
 	}
 
 	return nil
+}
+
+func (mi *mountInfoParser) MountInode(mp string) uint64 {
+
+	if info, ok := mi.mpInfo[mp]; ok == true {
+		return info.MpInode
+	}
+
+	return 0
 }
