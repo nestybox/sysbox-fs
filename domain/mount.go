@@ -20,28 +20,46 @@ package domain
 type MountServiceIface interface {
 	Setup(
 		css ContainerStateServiceIface,
-		hds HandlerServiceIface)
+		hds HandlerServiceIface,
+		prs ProcessServiceIface,
+		nss NSenterServiceIface)
 
-	NewMountInfoParser(c ContainerIface, pid uint32, deep bool) (MountInfoParserIface, error)
+	NewMountInfoParser(
+		c ContainerIface,
+		process ProcessIface,
+		launchParser bool,
+		fetchOptions bool,
+		fetchInodes bool) (MountInfoParserIface, error)
+
 	NewMountHelper() MountHelperIface
 	MountHelper() MountHelperIface
 }
 
 // Interface to define the mountInfoParser api.
 type MountInfoParserIface interface {
+	GetProcessID() uint32
 	GetInfo(mountpoint string) *MountInfo
+	GetParentMount(info *MountInfo) *MountInfo
 	LookupByMountID(id int) *MountInfo
 	LookupByMountpoint(mp string) *MountInfo
 	IsSysboxfsBaseMount(mountpoint string) bool
+	IsSysboxfsBaseRoMount(mountpoint string) bool
 	IsSysboxfsSubmount(mountpoint string) bool
 	IsSysboxfsRoSubmount(mountpoint string) bool
 	IsSysboxfsMaskedSubmount(mountpoint string) bool
 	GetSysboxfsSubMounts(basemount string) []string
 	HasNonSysboxfsSubmount(basemount string) bool
 	IsRecursiveBindMount(info *MountInfo) bool
-	IsRoMount(mountpoint string) bool
+	IsSelfMount(info *MountInfo) bool
+	IsOverlapMount(info *MountInfo) bool
+	IsRoMount(info *MountInfo) bool
 	IsBindMount(info *MountInfo) bool
+	IsCloneMount(info *MountInfo, ronlyMatch bool) bool
+	IsRoCloneMount(info *MountInfo) bool
 	IsRoBindMount(info *MountInfo) bool
+	ExtractMountInfo() ([]byte, error)
+	ExtractInode(mp string) (Inode, error)
+	ExtractAncestorInodes(info *MountInfo) error
 }
 
 // Interface to define the mountHelper api.
@@ -82,16 +100,41 @@ type MountHelperIface interface {
 //    (11) super options:  per super block options*/
 //
 type MountInfo struct {
-	MountID        int               // mount identifier
-	ParentID       int               // parent-mount identifier
-	MajorMinorVer  string            // 'st_dev' value for files in FS
-	FsType         string            // file-system type
-	Source         string            // file-system specific information or "none"
-	Root           string            // pathname of root of the mount within the FS
-	MountPoint     string            // pathname of the mount point relative to the root
-	Options        map[string]string // mount-specific options
-	OptionalFields map[string]string // optional-fields
-	VfsOptions     map[string]string // superblock options
+	// Mount identifier.
+	MountID int `json:"mountid"`
+
+	// Parent-mount identifier.
+	ParentID int `json:"parentid"`
+
+	// 'st_dev' value for files in FS.
+	MajorMinorVer string `json:"majorminorver"`
+
+	// File-system type.
+	FsType string `json:"fstype"`
+
+	// File-system specific information or "none".
+	Source string `json:"source"`
+
+	// Pathname of root of the mount within the FS.
+	Root string `json:"root"`
+
+	// Pathname of the mount point relative to the root.
+	MountPoint string `json:"mountpoint"`
+
+	// Mount-specific options.
+	Options map[string]string `json:"options"`
+
+	// Optional-fields.
+	OptionalFields map[string]string `json:"optionalfields"`
+
+	// Superblock options.
+	VfsOptions map[string]string `json:"vfsoptions"`
+
+	// FS inode corresponding to this mountpoint.
+	MpInode Inode `json:"mpinode"`
+
+	// Backpointer to mountInfoParser.
+	Mip MountInfoParserIface `json:"-"`
 }
 
 // Mount structure utilized to exchange mount-state across sysbox-fs components.
