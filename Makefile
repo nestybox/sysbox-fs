@@ -22,7 +22,10 @@ LIBSPIDMON_SRC := $(shell find $(LIBPIDMON_DIR) 2>&1 | grep -E '.*\.(go)')
 NSENTER_DIR := ../sysbox-runc/libcontainer/nsenter
 NSENTER_SRC := $(shell find $(NSENTER_DIR) 2>&1 | grep -E '.*\.(c|h|go)')
 
-LDFLAGS := '-X main.version=${VERSION} -X main.commitId=${COMMIT_ID} \
+COMMIT_NO := $(shell git rev-parse HEAD 2> /dev/null || true)
+COMMIT ?= $(if $(shell git status --porcelain --untracked-files=no),"$(COMMIT_NO)-dirty","$(COMMIT_NO)")
+
+LDFLAGS := '-X main.version=${VERSION} -X main.commitId=${COMMIT} \
 			-X "main.builtAt=${BUILT_AT}" -X main.builtBy=${BUILT_BY}'
 
 sysbox-fs: $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
