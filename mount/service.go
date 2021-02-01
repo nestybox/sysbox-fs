@@ -24,8 +24,9 @@ import (
 type MountService struct {
 	mh  *mountHelper                      // mountHelper instance for mount-clients
 	css domain.ContainerStateServiceIface // for container-state interactions
-	hds domain.HandlerServiceIface        // for handlerDB interactions
-	prs domain.ProcessServiceIface        // for process class interactions
+	hds domain.HandlerServiceIface        // for handler package interactions
+	prs domain.ProcessServiceIface        // for process package interactions
+	nss domain.NSenterServiceIface        // for nsexec package interactions
 }
 
 func NewMountService() *MountService {
@@ -34,25 +35,45 @@ func NewMountService() *MountService {
 
 func (mts *MountService) Setup(
 	css domain.ContainerStateServiceIface,
-	hds domain.HandlerServiceIface) {
+	hds domain.HandlerServiceIface,
+	prs domain.ProcessServiceIface,
+	nss domain.NSenterServiceIface) {
 
 	mts.css = css
 	mts.hds = hds
+	mts.prs = prs
+	mts.nss = nss
 }
 
 func (mts *MountService) NewMountInfoParser(
 	cntr domain.ContainerIface,
-	pid uint32,
-	deep bool) (domain.MountInfoParserIface, error) {
+	process domain.ProcessIface,
+	launchParser bool,
+	fetchOptions bool,
+	fetchInodes bool) (domain.MountInfoParserIface, error) {
 
 	if mts.mh == nil {
 		mts.NewMountHelper()
 	}
 
-	return newMountInfoParser(cntr, pid, deep, mts)
+	return newMountInfoParser(
+		cntr,
+		process,
+		launchParser,
+		fetchOptions,
+		fetchInodes,
+		mts,
+	)
 }
 
 func (mts *MountService) NewMountHelper() domain.MountHelperIface {
+
+	// Handler-service should be initialized by now, but there's one case
+	// (nsexec's mts utilization) where a mount-service instance may be
+	// partially initialized for reduced mts functionality.
+	if mts.hds == nil {
+		return nil
+	}
 
 	// Populate bind-mounts hashmap. Note that handlers are not operating at
 	// this point, so there's no need to acquire locks for this operation.

@@ -46,11 +46,14 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 		return nil, fmt.Errorf("unexpected mount-service-helper handler")
 	}
 
+	// Adjust mount attributes attending to the process' root path.
+	m.targetAdjust()
+
 	// Handle requests that create a new mountpoint for filesystems managed by
 	// sysbox-fs.
 	if mh.IsNewMount(m.Flags) {
 
-		mip, err := mts.NewMountInfoParser(m.cntr, m.pid, true)
+		mip, err := mts.NewMountInfoParser(m.cntr, m.processInfo, true, true, false)
 		if err != nil {
 			return nil, err
 		}
@@ -81,12 +84,12 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 	// Handle remount requests on filesystems managed by sysbox-fs
 	if mh.IsRemount(m.Flags) {
 
-		mip, err := mts.NewMountInfoParser(m.cntr, m.pid, true)
+		mip, err := mts.NewMountInfoParser(m.cntr, m.processInfo, true, true, false)
 		if err != nil {
 			return nil, err
 		}
 
-		if ok, resp := m.processRemountAllowed(mip); ok == false {
+		if ok, resp := m.remountAllowed(mip); ok == false {
 			return resp, nil
 		}
 
@@ -102,7 +105,7 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 	// Handle bind-mount requests on filesystems managed by sysbox-fs.
 	if mh.IsBind(m.Flags) {
 
-		mip, err := mts.NewMountInfoParser(m.cntr, m.pid, false)
+		mip, err := mts.NewMountInfoParser(m.cntr, m.processInfo, true, true, false)
 		if err != nil {
 			return nil, err
 		}
@@ -144,9 +147,6 @@ func (m *mountSyscallInfo) processProcMount(
 	mip domain.MountInfoParserIface) (*sysResponse, error) {
 
 	logrus.Debugf("Processing new procfs mount: %v", m)
-
-	// Adjust mount attributes attending to process' root path.
-	m.pathAdjust()
 
 	// Create instructions payload.
 	payload := m.createProcPayload(mip)
@@ -324,9 +324,6 @@ func (m *mountSyscallInfo) processSysMount(
 
 	logrus.Debugf("Processing new sysfs mount: %v", m)
 
-	// Adjust mount attributes attending to process' root path.
-	m.pathAdjust()
-
 	// Create instruction's payload.
 	payload := m.createSysPayload(mip)
 	if payload == nil {
@@ -434,8 +431,12 @@ func (m *mountSyscallInfo) processOverlayMount(
 
 	logrus.Debugf("Processing new overlayfs mount: %v", m)
 
-	// Notice that we are not calling rootAdjust() in this case coz the nsexec
-	// process will invoke 'chroot' as part of the personality-adjustment logic.
+	// Notice that, in chroot scenarios, we are undoing the previous call to
+	// targetAdjust() to avoid the need to mess around with the paths in the
+	// 'data' object. Once within the 'nsenter' context, we will adjust all
+	// path elements by doing a chroot() as part of the personality-adjustment
+	// logic.
+	m.targetUnadjust()
 
 	// Create instructions payload.
 	payload := m.createOverlayMountPayload(mip)
@@ -509,9 +510,6 @@ func (m *mountSyscallInfo) processNfsMount(
 
 	logrus.Debugf("Processing new nfs mount: %v", m)
 
-	// Adjust mount attributes attending to process' root path.
-	m.pathAdjust()
-
 	// Create instruction's payload.
 	payload := m.createNfsMountPayload(mip)
 	if payload == nil {
@@ -561,17 +559,167 @@ func (m *mountSyscallInfo) createNfsMountPayload(
 	return &payload
 }
 
-// processRemountAllowed purpose is to prevent certain remount operations to
-// succeed, such as preventing RO mountpoints to be remounted as RW.
+// // remountAllowed purpose is to prevent certain remount operations from
+// // succeeding, such as preventing RO mountpoints to be remounted as RW.
+// //
+// // Method will return 'true' when the remount operation is deemed legit, and
+// // will return 'false' otherwise.
+// func (m *mountSyscallInfo) remountAllowed(
+// 	mip domain.MountInfoParserIface) (bool, *sysResponse) {
+
+// 	mh := m.tracer.service.mts.MountHelper()
+
+// 	// Approve operation if it attempts to remount target as read-only.
+// 	if mh.IsReadOnlyMount(m.Flags) {
+// 		return true, nil
+// 	}
+
+// 	// There must be mountinfo state present for this target. Otherwise, let
+// 	// kernel handle the error.
+// 	info := mip.GetInfo(m.Target)
+// 	if info == nil {
+// 		return false, m.tracer.createContinueResponse(m.reqId)
+// 	}
+
+// 	// Approve operation if the remount target is a read-write mountpoint.
+// 	if !mip.IsRoMount(info) {
+// 		return true, nil
+// 	}
+
+// 	//
+// 	// The following scenarios are relevant within the context of this function
+// 	// and will be handled separately to ease the logic comprehension and its
+// 	// maintenability / debugability.
+// 	//
+// 	// 1) Process mount-ns == sys-container's initPid mount-ns AND isn't chroot'ed.
+// 	// 2) Process mount-ns == sys-container's initPid mount-ns AND is chroot'ed.
+// 	// 3) Process mount-ns != sys-container's initPid mount-ns AND isn't chroot'ed.
+// 	// 4) Process mount-ns != sys-container's initPid mount-ns AND is chroot'ed.
+// 	// 5) Process mount-ns != sys-container's initPid mount-ns AND it's
+// 	//    pivot-root'ed AND it's not chroot'ed.
+// 	// 6) Process mount-ns != sys-container's initPid mount-ns AND it's
+// 	//    pivot-root'ed and chroot'ed.
+// 	//
+
+// 	// Let's start by identifying the mount namespace of the process launching
+// 	// the remount to compare it with the one of the sys container's initpid.
+// 	// In the unlikely case of an error, let the kernel deal with it.
+// 	processMountNs, err := m.processInfo.MountNsInode()
+// 	if err != nil {
+// 		return false, m.tracer.createContinueResponse(m.reqId)
+// 	}
+// 	initProcMountNs, err := m.cntr.InitProc().MountNsInode()
+// 	if err != nil {
+// 		return false, m.tracer.createContinueResponse(m.reqId)
+// 	}
+
+// 	// If process' mount-ns matches the sys-container's one, then we can simply
+// 	// rely on the target's mountID to discern an immutable target from a
+// 	// regular one.
+// 	if processMountNs == initProcMountNs {
+
+// 		// Scenario 1)
+// 		if m.processInfo.RootInode() == m.cntr.InitProc().RootInode() {
+// 			if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
+// 				logrus.Debugf("Rejected remount operation on %s target (scenario 1)",
+// 					m.Target)
+// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+// 			}
+// 			if m.cntr.IsImmutableRoMount(info) {
+// 				logrus.Debugf("Rejected remount operation on %s target (scenario 1)",
+// 					m.Target)
+// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+// 			}
+// 			return true, nil
+// 		}
+
+// 		// Scenario 2: chroot()
+// 		if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
+// 			logrus.Debugf("Rejected remount operation on %s target (scenario 2)",
+// 				m.Target)
+// 			return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+// 		}
+// 		if m.cntr.IsImmutableRoMount(info) {
+// 			logrus.Debugf("Rejected remount operation on %s target (scenario 2)",
+// 				m.Target)
+// 			return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+// 		}
+// 		return true, nil
+
+// 	} else {
+// 		// Scenario 3): unshare(mnt)
+// 		if m.processInfo.RootInode() == m.cntr.InitProc().RootInode() {
+// 			if m.cntr.IsImmutableRoMount(info) {
+// 				logrus.Debugf("Rejected remount operation on %s target (scenario 3)",
+// 					m.Target)
+// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+// 			}
+// 			return true, nil
+// 		}
+
+// 		// Extract the inodes of the root-path (i.e. "/") of the process invoking
+// 		// the remount operation, and the one of the sys-container's initPid. By
+// 		// comparing these two, we
+// 		//
+// 		processRootInode, err := mip.ExtractInode("/")
+// 		if err != nil {
+// 			return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
+// 		}
+// 		syscntrRootInode, err := m.cntr.ExtractInode("/")
+// 		if err != nil {
+// 			return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
+// 		}
+
+// 		// Scenario 4): unshare(mnt) + chroot()
+// 		if m.processInfo.Root() != "/" && processRootInode == syscntrRootInode {
+// 			if m.cntr.IsImmutableRoMount(info) {
+// 				logrus.Debugf("Rejected remount operation on %s target (scenario 4)",
+// 					m.Target)
+// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+// 			}
+// 			return true, nil
+// 		}
+
+// 		// Scenario 5): unshare(mnt) + pivot()
+// 		if m.processInfo.Root() == "/" && processRootInode != syscntrRootInode {
+// 			if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+// 				logrus.Debugf("Rejected remount operation on %s target (scenario 5)",
+// 					m.Target)
+// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+// 			}
+// 			return true, nil
+// 		}
+
+// 		// Scenario 6): unshare(mnt) + pivot() + chroot()
+// 		if m.processInfo.Root() != "/" && processRootInode != syscntrRootInode {
+// 			if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+// 				logrus.Debugf("Rejected remount operation on %s target (scenario 6)",
+// 					m.Target)
+// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+// 			}
+// 			return true, nil
+// 		}
+// 	}
+
+// 	return true, nil
+// }
+
+// remountAllowed purpose is to prevent certain remount operations from
+// succeeding, such as preventing RO mountpoints to be remounted as RW.
 //
 // Method will return 'true' when the remount operation is deemed legit, and
 // will return 'false' otherwise.
-func (m *mountSyscallInfo) processRemountAllowed(
+func (m *mountSyscallInfo) remountAllowed(
 	mip domain.MountInfoParserIface) (bool, *sysResponse) {
 
 	mh := m.tracer.service.mts.MountHelper()
 
-	// Exclude read-only remount instructions.
+	// Skip file-systems explicitly handled by sysbox-fs.
+	if m.FsType == "proc" || m.FsType == "sysfs" {
+		return true, nil
+	}
+
+	// Approve operation if it attempts to remount target as read-only.
 	if mh.IsReadOnlyMount(m.Flags) {
 		return true, nil
 	}
@@ -583,15 +731,189 @@ func (m *mountSyscallInfo) processRemountAllowed(
 		return false, m.tracer.createContinueResponse(m.reqId)
 	}
 
-	// Return 'eperm' if the remount operation is over an immutable-ro mountpoint.
-	if ok := m.cntr.IsImmutableRoMountID(info.MountID); ok == true {
-		return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+	// Approve operation if the remount target is a read-write mountpoint.
+	if !mip.IsRoMount(info) {
+		return true, nil
 	}
 
-	// Return 'eperm' if the remount operation is over a mountpoint whose 'source'
-	// element corresponds to an immutable-ro mountpoint.
-	if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
-		return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+	//
+	// The following scenarios are relevant within the context of this function
+	// and will be handled separately to ease the logic comprehension and its
+	// maintenability / debugability.
+	//
+	// The different columns in this table denote the 'context' on which the
+	// remount process is executing, and thereby, dictates the logic chosen
+	// to handle each unmount request.
+	//
+	//    +-----------+--------------+--------------+----------+
+	//    | Scenarios | Unshare(mnt) | Pivot-root() | Chroot() |
+	//    +-----------+--------------+--------------+----------+
+	//    | 1         | no           | no           | no       |
+	//    | 2         | no           | yes          | no       |
+	//    | 3         | no           | no           | yes      |
+	//    | 4         | no           | yes          | yes      |
+	//    | 5         | yes          | no           | no       |
+	//    | 6         | yes          | yes          | no       |
+	//    | 7         | yes          | no           | yes      |
+	//    | 8         | yes          | yes          | yes      |
+	//    +-----------+--------------+--------------+----------+
+	//
+
+	// Identify the mount-ns of the process launching the remount to compare it
+	// with the one of the sys container's initpid. In the unlikely case of an
+	// error, let the kernel deal with it.
+	processMountNs, err := m.processInfo.MountNsInode()
+	if err != nil {
+		return false, m.tracer.createContinueResponse(m.reqId)
+	}
+	initProcMountNs, err := m.cntr.InitProc().MountNsInode()
+	if err != nil {
+		return false, m.tracer.createContinueResponse(m.reqId)
+	}
+
+	// Obtain the sys-container's root-path inode.
+	syscntrRootInode := m.cntr.InitProc().RootInode()
+
+	// If process' mount-ns matches the sys-container's one, then we can simply
+	// rely on the target's mountID to discern an immutable target from a
+	// regular one.
+	if processMountNs == initProcMountNs {
+
+		if m.processInfo.Root() == "/" {
+			processRootInode := m.processInfo.RootInode()
+
+			// Scenario 1): no-unshare(mnt) & no-privot() & no-chroot()
+			if processRootInode == syscntrRootInode {
+				if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 1)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+				if m.cntr.IsImmutableRoMount(info) {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 1)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+
+				return true, nil
+			}
+
+			// Scenario 2): no-unshare(mnt) & pivot() & no-chroot()
+			if processRootInode != syscntrRootInode {
+				if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 2)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+				if m.cntr.IsImmutableRoMount(info) {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 2)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+			}
+
+			return true, nil
+		}
+
+		if m.processInfo.Root() != "/" {
+			// We are dealing with a chroot'ed process, so obtain the inode of "/"
+			// instead of the one of the process' root-path.
+			processRootInode, err := mip.ExtractInode("/")
+			if err != nil {
+				return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
+			}
+
+			// Scenario 3): no-unshare(mnt) & no-pivot() & chroot()
+			if processRootInode == syscntrRootInode {
+				if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 3)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+				if m.cntr.IsImmutableRoMount(info) {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 3)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+
+				return true, nil
+			}
+
+			// Scenario 4): no-unshare(mnt) & pivot() & chroot()
+			if processRootInode != syscntrRootInode {
+				if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 4)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+				if m.cntr.IsImmutableRoMount(info) {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 4)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+
+				return true, nil
+			}
+		}
+
+	} else {
+
+		if m.processInfo.Root() == "/" {
+			processRootInode := m.processInfo.RootInode()
+
+			// Scenario 5): unshare(mnt) & no-pivot() & no-chroot()
+			if processRootInode == syscntrRootInode {
+				if m.cntr.IsImmutableRoMount(info) {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 5)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+				return true, nil
+			}
+
+			// Scenario 6): unshare(mnt) & pivot() & no-chroot()
+			if processRootInode != syscntrRootInode {
+				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 6)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+				return true, nil
+			}
+
+			return true, nil
+		}
+
+		if m.processInfo.Root() != "/" {
+			// We are dealing with a chroot'ed process, so obtain the inode of "/"
+			// instead of the one of the process' root-path.
+			processRootInode, err := mip.ExtractInode("/")
+			if err != nil {
+				return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
+			}
+
+			// Scenario 7): unshare(mnt) & no-pivot() & chroot()
+			if processRootInode == syscntrRootInode {
+				if m.cntr.IsImmutableRoMount(info) {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 7)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+				return true, nil
+			}
+
+			// Scenario 8): unshare(mnt) & pivot() & chroot()
+			if processRootInode != syscntrRootInode {
+				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+					logrus.Debugf("Rejected remount operation on %s target (scenario 8)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+				return true, nil
+			}
+
+			return true, nil
+		}
 	}
 
 	return true, nil
@@ -601,9 +923,6 @@ func (m *mountSyscallInfo) processRemount(
 	mip domain.MountInfoParserIface) (*sysResponse, error) {
 
 	logrus.Debugf("Processing re-mount: %v", m)
-
-	// Adjust mount attributes attending to process' root path.
-	m.pathAdjust()
 
 	// Create instruction's payload.
 	payload := m.createRemountPayload(mip)
@@ -729,9 +1048,6 @@ func (m *mountSyscallInfo) processBindMount(
 
 	logrus.Debugf("Processing bind mount: %v", m)
 
-	// Adjust mount attributes attending to process' root path.
-	m.pathAdjust()
-
 	// Create instruction's payload.
 	payload := m.createBindMountPayload(mip)
 	if payload == nil {
@@ -812,10 +1128,10 @@ func (m *mountSyscallInfo) createBindMountPayload(
 }
 
 // Method addresses scenarios where the process generating the mount syscall has
-// a 'root' attribute different than default one ("/"). This is typically the case
-// in 'chroot'ed environments. Method's goal is to make all the required adjustments
-// so that sysbox-fs can carry out the mount in the expected context.
-func (m *mountSyscallInfo) pathAdjust() {
+// a 'root' attribute different than default one ("/"). This is typically the
+// case in chroot'ed environments. Method's goal is to make the required target
+// adjustments so that sysbox-fs can carry out the mount in the expected context.
+func (m *mountSyscallInfo) targetAdjust() {
 
 	root := m.syscallCtx.root
 
@@ -823,18 +1139,19 @@ func (m *mountSyscallInfo) pathAdjust() {
 		return
 	}
 
-	// 'Target' attribute will always require adjustment in chroot'ed envs.
 	m.Target = filepath.Join(root, m.Target)
+}
 
-	// 'Source' attribute will be adjusted only when referring to a file-system
-	// path.
-	//
-	// Note: Commenting this one out for now. Notice that this logic is only
-	// applicable to chroot scenarios where a bind-mount operation is attempted
-	// over sysbox-fs' managed resources (kinda corner-case scenario).
-	// if m.tracer.mountHelper.isBind(m.Flags) {
-	// 	m.Source = filepath.Join(root, m.Source)
-	// }
+// Undo targetAdjust()
+func (m *mountSyscallInfo) targetUnadjust() {
+
+	root := m.syscallCtx.root
+
+	if root == "/" {
+		return
+	}
+
+	m.Target = strings.TrimPrefix(m.Target, m.root)
 }
 
 func (m *mountSyscallInfo) String() string {
