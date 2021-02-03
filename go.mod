@@ -16,10 +16,10 @@ require (
 	github.com/spf13/afero v1.4.1
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/stretchr/testify v1.6.1
-	github.com/urfave/cli v1.22.1
+	github.com/urfave/cli v1.22.5
 	github.com/vektra/mockery v1.1.2 // indirect
 	github.com/vishvananda/netlink v1.1.0
-	golang.org/x/sys v0.0.0-20201107080550-4d91cf3a1aaf
+	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
 	google.golang.org/grpc v1.34.1
 	gopkg.in/hlandau/service.v1 v1.0.7
 )

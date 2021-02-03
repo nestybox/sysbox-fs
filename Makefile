@@ -32,11 +32,11 @@ sysbox-fs: $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENT
 	$(GO) build -ldflags ${LDFLAGS}	-o sysbox-fs ./cmd/sysbox-fs
 
 sysbox-fs-debug: $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
-	$(GO) build -gcflags="all=-N -l" -o sysbox-fs ./cmd/sysbox-fs
+	$(GO) build -gcflags="all=-N -l" -ldflags ${LDFLAGS} -o sysbox-fs ./cmd/sysbox-fs
 
 sysbox-fs-static: $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
 	CGO_ENABLED=1 $(GO) build -tags "netgo osusergo static_build" \
-		-installsuffix netgo -ldflags "-w -extldflags -static" \
+		-installsuffix netgo -ldflags "-w -extldflags -static" -ldflags ${LDFLAGS} \
 		-o sysbox-fs ./cmd/sysbox-fs
 
 lint:
