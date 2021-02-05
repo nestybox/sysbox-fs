@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"sync"
+	"time"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
@@ -94,21 +96,23 @@ type seccompSession struct {
 
 // Seccomp's syscall-monitor/tracer.
 type syscallTracer struct {
-	sms              *SyscallMonitorService            // backpointer to syscall-monitor service
-	srv              *unixIpc.Server                   // unix server listening to seccomp-notifs
-	pollsrv          *unixIpc.PollServer               // unix pollserver for non-blocking i/o on seccomp-fd
-	syscalls         map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
-	mountHelper      *mountHelper                      // generic methods/state utilized for (u)mount ops.
-	seccompSessionCh chan seccompSession               // channel over which to communicate new tracee sessions
+	sms               *SyscallMonitorService            // backpointer to syscall-monitor service
+	srv               *unixIpc.Server                   // unix server listening to seccomp-notifs
+	pollsrv           *unixIpc.PollServer               // unix pollserver for non-blocking i/o on seccomp-fd
+	syscalls          map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
+	mountHelper       *mountHelper                      // generic methods/state utilized for (u)mount ops.
+	seccompSessionMap map[uint32]seccompSession         // Table of seccomp sessions
+	seccompSessionMu  sync.Mutex                        // Seccomp session table lock
+	pm                *pidmonitor.PidMon                // Pid monitor (so we get notified when processes traced by seccomp die)
 }
 
 // syscallTracer constructor.
 func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 
 	tracer := &syscallTracer{
-		sms:              sms,
-		syscalls:         make(map[libseccomp.ScmpSyscall]string),
-		seccompSessionCh: make(chan seccompSession),
+		sms:               sms,
+		syscalls:          make(map[libseccomp.ScmpSyscall]string),
+		seccompSessionMap: make(map[uint32]seccompSession),
 	}
 
 	// Populate hashmap of supported syscalls to monitor.
@@ -130,6 +134,20 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 		return nil
 	}
 	tracer.mountHelper = newMountHelper(handlerDB)
+
+	// The pid monitor tells us when processes traced by seccomp die; we use a
+	// 500ms sampling rate, so that if a process dies we get notified within
+	// 500ms at worst. If we make the delay shorter, we may get overwhelmed by
+	// notifications (for scenarios where lots of system containers are exiting
+	// at the same time). If we make the delay too long, we run the risk of the
+	// kernel reusing a pid and thus we don't notice that the pid died and end up
+	// with a stale seccomp fd.
+	pm, err := pidmonitor.New(&pidmonitor.Cfg{500})
+	if err != nil {
+		logrus.Warnf("Could not initialize pid monitor: %s", err)
+		return nil
+	}
+	tracer.pm = pm
 
 	return tracer
 }
@@ -171,59 +189,62 @@ func (t *syscallTracer) start() error {
 	return nil
 }
 
-// Method keeps track of all the 'tracee' processes served by a syscall tracer.
-// From a functional standpoint, this routine acts as a garbage-collector for
-// this class. Note that no concurrency management is needed here as this
-// method runs within its own execution context.
+func (t *syscallTracer) addSession(s seccompSession) error {
+
+	t.seccompSessionMu.Lock()
+	t.seccompSessionMap[s.pid] = s
+	t.seccompSessionMu.Unlock()
+
+	err := t.pm.AddEvent([]pidmonitor.PidEvent{
+		pidmonitor.PidEvent{
+			Pid:   s.pid,
+			Event: pidmonitor.Exit,
+			Err:   nil,
+		},
+	})
+
+	logrus.Debugf("Added session for seccomp-tracee: %v", s)
+	return err
+}
+
+func (t *syscallTracer) removeSession(pid uint32) {
+
+	t.seccompSessionMu.Lock()
+
+	s, ok := t.seccompSessionMap[pid]
+	if !ok {
+		logrus.Errorf("Unexpected error: seccomp fd not found for pid %d", pid)
+		t.seccompSessionMu.Unlock()
+		return
+	}
+
+	if err := syscall.Close(int(s.fd)); err != nil {
+		logrus.Fatal(err)
+	}
+
+	delete(t.seccompSessionMap, pid)
+	t.seccompSessionMu.Unlock()
+
+	t.pollsrv.StopWait(s.fd)
+
+	logrus.Debugf("Removed session for seccomp-tracee: %v", s)
+}
+
+// Go routine that tracks of all sessions traced by a syscall tracer. From a
+// functional standpoint, this routine acts as a garbage-collector, in the sense
+// that it detects when traced sessions are no longer valid (i.e., the associated
+// process has died) and removes them if so.
 func (t *syscallTracer) sessionsMonitor() error {
 
-	// seccompSession DB to store 'tracees' relevant information.
-	var seccompSessionMap = make(map[uint32]seccompSession)
-
-	// Launch pidmonitor task at 100ms sampling rate.
-	pm, err := pidmonitor.New(&pidmonitor.Cfg{100})
-	if err != nil {
-		logrus.Error("Could not initialize pidMonitor logic")
-		return err
-	}
-	defer pm.Close()
-
 	for {
-		select {
-		// syscall tracee additions
-		case elem := <-t.seccompSessionCh:
+		pidList := <-t.pm.EventCh
+		for _, pidEvent := range pidList {
+			t.removeSession(pidEvent.Pid)
 
-			logrus.Debugf("Received 'create' notification for seccomp-tracee: %v", elem)
-
-			seccompSessionMap[elem.pid] = elem
-			pm.AddEvent([]pidmonitor.PidEvent{
-				pidmonitor.PidEvent{
-					Pid:   elem.pid,
-					Event: pidmonitor.Exit,
-					Err:   nil,
-				},
-			})
-
-		// syscall tracee deletions
-		case pidList := <-pm.EventCh:
-
-			logrus.Debugf("Received 'delete' notification for seccomp-tracee: %v", pidList)
-
-			for _, pidEvent := range pidList {
-				elem, ok := seccompSessionMap[pidEvent.Pid]
-				if !ok {
-					logrus.Errorf("Unexpected error: file-descriptor not found for pid %d",
-						pidEvent.Pid)
-					continue
-				}
-
-				if err := syscall.Close(int(elem.fd)); err != nil {
-					logrus.Fatal(err)
-				}
-				delete(seccompSessionMap, pidEvent.Pid)
-
-				t.pollsrv.StopWait(elem.fd)
-			}
+			// This sleep prevents removeSession() from hogging the
+			// seccompSessionMu lock; this gives priority to function addSession()
+			// to get the lock when needed.
+			time.Sleep(10 * time.Microsecond)
 		}
 	}
 
@@ -243,8 +264,9 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 	logrus.Debugf("seccompTracer connection on fd %d from pid %d cntrId %s",
 		fd, pid, cntrID)
 
-	// Send seccompSession details to parent monitor-service for tracking purposes.
-	t.seccompSessionCh <- seccompSession{uint32(pid), fd}
+	if err := t.addSession(seccompSession{uint32(pid), fd}); err != nil {
+		return err
+	}
 
 	// Send Ack message back to sysbox-runc.
 	if err = unixIpc.SendSeccompInitAckMsg(c); err != nil {

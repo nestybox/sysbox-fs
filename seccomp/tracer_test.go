@@ -34,7 +34,6 @@ func Test_syscallTracer_createErrorResponse(t *testing.T) {
 		pollsrv          *unixIpc.PollServer
 		syscalls         map[libseccomp.ScmpSyscall]string
 		mountHelper      *mountHelper
-		seccompSessionCh chan seccompSession
 	}
 
 	var f1 = &fields{
@@ -43,7 +42,6 @@ func Test_syscallTracer_createErrorResponse(t *testing.T) {
 		pollsrv:          nil,
 		syscalls:         nil,
 		mountHelper:      nil,
-		seccompSessionCh: nil,
 	}
 
 	// Expected results.
@@ -88,7 +86,6 @@ func Test_syscallTracer_createErrorResponse(t *testing.T) {
 				pollsrv:          tt.fields.pollsrv,
 				syscalls:         tt.fields.syscalls,
 				mountHelper:      tt.fields.mountHelper,
-				seccompSessionCh: tt.fields.seccompSessionCh,
 			}
 			if got := tracer.createErrorResponse(tt.args.id, tt.args.err); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("syscallTracer.createErrorResponse() = %v, want %v", got, tt.want)
