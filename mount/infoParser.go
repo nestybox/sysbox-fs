@@ -145,7 +145,6 @@ func (mi *mountInfoParser) parseData(data []byte) error {
 		mi.mpInfo[parsedMounts.MountPoint] = parsedMounts
 		mi.idInfo[parsedMounts.MountID] = parsedMounts
 
-		//
 		devIdSlice, ok := mi.devIdInfo[parsedMounts.MajorMinorVer]
 		if ok {
 			mi.devIdInfo[parsedMounts.MajorMinorVer] =
@@ -276,6 +275,9 @@ func (mi *mountInfoParser) parseOptFieldsComponent(s []string) map[string]string
 
 func (mi *mountInfoParser) extractMountInfo() ([]byte, error) {
 
+	// In regular scenarios (i.e. mount/umount request launched by un-chroot'ed
+	// processes), we extract the mountInfo state by simply parsing the
+	// corresponding entry in procfs.
 	if mi.process.Root() == "/" {
 		data, err :=
 			ioutil.ReadFile(fmt.Sprintf("/proc/%d/mountinfo", mi.process.Pid()))
@@ -285,13 +287,15 @@ func (mi *mountInfoParser) extractMountInfo() ([]byte, error) {
 		return data, nil
 	}
 
-	// In chroot-jail setups, launch an asynchronous nsenter-event to enter
-	// the namespaces of the process that originated the mount/umount
-	// instruction. By having the 'root' path of this new nsexec process
-	// matching the default one ("/"), we can now launch a subsequent nsenter
-	// event to extract the mountinfo state present in the entire mount-ns.
-	// Having this complete picture will probe usual later on when trying to
-	// validate the legitimacy of the original mount/unmount request.
+	// In chroot-jail scenarios, launch an asynchronous nsenter-event to access
+	// the namespaces of the process that originated the mount/umount request.
+	// This initial nsenter process will not be chroot'ed, and as such, will not
+	// be constrained by the narrowed mountInfo view of the original process.
+	// We will then rely on this initial nsenter process to launch a subsequent
+	// nsenter-event to collect all the mountInfo state available within this
+	// process' mount namespace. Having this complete picture will probe usual
+	// later on when trying to validate the legitimacy of the mount/unmount
+	// request.
 	asyncEvent := mi.service.nss.NewEvent(
 		mi.process.Pid(),
 		&domain.AllNSs,
@@ -303,19 +307,20 @@ func (mi *mountInfoParser) extractMountInfo() ([]byte, error) {
 		true,
 	)
 
-	// Launch aync nsenter-event.
+	// Launch the async nsenter-event.
 	err := mi.service.nss.SendRequestEvent(asyncEvent)
 	if err != nil {
 		return nil, err
 	}
 	defer asyncEvent.TerminateRequest()
 
+	// Obtain the pid of the nsenter-event's process.
 	asyncEventPid := mi.service.nss.GetEventProcessID(asyncEvent)
 	if asyncEventPid == 0 {
 		return nil, fmt.Errorf("Invalid nsexec process agent")
 	}
 
-	// Create nsenter-event envelope. Notice that we are passing the async
+	// Create a new nsenter-event. Notice that we are passing the async
 	// event's pid as the one for which the mountInfo data will be collected.
 	event := mi.service.nss.NewEvent(
 		asyncEventPid,
@@ -345,7 +350,10 @@ func (mi *mountInfoParser) extractAllInodes() error {
 	var reqMounts []string
 
 	for _, info := range mi.idInfo {
-		//
+		// Skip sysbox-fs' emulated resources to avoid the hassle of dealing
+		// with nested accesses to sysbox-fs' fuse-server from nsenter's
+		// backend processes. No inode will be required for these mountpoints
+		// anyways as sysbox-fs handle these file-systems differently.
 		if _, ok := mi.service.mh.mapMounts[info.MountPoint]; ok == true {
 			continue
 		}
@@ -385,7 +393,10 @@ func (mi *mountInfoParser) extractAncestorInodes(info *domain.MountInfo) error {
 			break
 		}
 
-		//
+		// Skip sysbox-fs' emulated resources to avoid the hassle of dealing
+		// with nested accesses to sysbox-fs' fuse-server from nsenter's
+		// backend processes. No inode will be required for these mountpoints
+		// anyways as sysbox-fs handle these file-systems differently.
 		if _, ok := mi.service.mh.mapMounts[info.MountPoint]; ok == false {
 			reqMounts = append(reqMounts, info.MountPoint)
 		}
@@ -418,8 +429,7 @@ func (mi *mountInfoParser) extractAncestorInodes(info *domain.MountInfo) error {
 
 func (mi *mountInfoParser) extractInodes(mps []string) ([]domain.Inode, error) {
 
-	// Create nsenter-event envelope. Notice that we are passing the container's
-	// initPid as the pid over which to obtain the mountInfo data.
+	// Create nsenter-event.
 	nss := mi.service.nss
 	event := nss.NewEvent(
 		mi.process.Pid(),
@@ -558,18 +568,6 @@ func (mi *mountInfoParser) ExtractInode(mp string) (domain.Inode, error) {
 
 func (mi *mountInfoParser) ExtractAncestorInodes(info *domain.MountInfo) error {
 	return mi.extractAncestorInodes(info)
-}
-
-// GetIdInfoMap returns the content of the IdInfo map to caller.
-func (mi *mountInfoParser) ExtractMountDB() []domain.MountInfo {
-
-	var res []domain.MountInfo
-
-	for _, elem := range mi.idInfo {
-		res = append(res, *elem)
-	}
-
-	return res
 }
 
 // IsSysboxfsBaseMount checks if the given mountpoint is a sysbox-fs managed
@@ -720,10 +718,11 @@ func (mi *mountInfoParser) IsRoMount(info *domain.MountInfo) bool {
 // IsRecursiveBindMount verifies if the passed mountinfo entry is a recursive
 // bind-mount.
 //
-// Example: [ mouuntID-3413 is a recursive bind-mount of mountID-3544 ]
+// Example: [ mouuntID-3413 is a recursive mount of mountID-3544 ]
 //
 // 3544 3503 0:129 / /usr/src/linux-headers-5.4.0-48 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-48 rw
 // 3413 3544 0:129 / /usr/src/linux-headers-5.4.0-48 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-48 rw
+//
 func (mi *mountInfoParser) IsRecursiveBindMount(info *domain.MountInfo) bool {
 
 	if info == nil {
@@ -747,6 +746,19 @@ func (mi *mountInfoParser) IsRecursiveBindMount(info *domain.MountInfo) bool {
 	return false
 }
 
+// IsSelfMount identifies mountInfo entries that have been created by
+// self bind-mounting actions (i.e. "mount -o bind /x /x").
+//
+// Example 1: mountID-3074 is a 'self' mount of the original mountID-2712 entry.
+//
+// 2712 2192 0:153 / /usr/src/linux-headers-5.4.0-62 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-62 rw
+// 3074 2712 0:153 / /usr/src/linux-headers-5.4.0-62 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-62 rw
+//
+// Example 2: mountID-3074 is a 'self' mount of the original mountID-2706 entry.
+//
+// 2706 2192 0:155 /resolv.conf /etc/resolv.conf rw,relatime - shiftfs /var/lib/docker/containers... rw
+// 3074 2706 0:155 /resolv.conf /etc/resolv.conf rw,relatime - shiftfs /var/lib/docker/containers... rw
+//
 func (mi *mountInfoParser) IsSelfMount(info *domain.MountInfo) bool {
 	if info == nil {
 		return false
@@ -762,6 +774,20 @@ func (mi *mountInfoParser) IsSelfMount(info *domain.MountInfo) bool {
 		info.Source == infoParent.Source
 }
 
+// IsOverlapMount determines if the mountpoint associated to a mountInfo entry
+// overlaps with any other mountpoint in the mountInfo tree. A 'self' mount
+// is a special case (subset) of an 'overlap' one.
+//
+// Example 1: Same as as the above one (IsSelfMount method).
+//
+// 2712 2192 0:153 / /usr/src/linux-headers-5.4.0-62 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-62 rw
+// 3074 2712 0:153 / /usr/src/linux-headers-5.4.0-62 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-62 rw
+//
+// Example 2: mountID-3074 is an 'overlap' mount of the original mountID-2706 entry ]
+//
+// 2706 2192 0:155 /resolv.conf /etc/resolv.conf rw,relatime - shiftfs /var/lib/docker/containers... rw
+// 3074 2706 0:6 /null /etc/resolv.conf rw,nosuid,noexec,relatime master:2 - devtmpfs udev rw,size=4048120k,nr_inodes=1012030,mode=755
+//
 func (mi *mountInfoParser) IsOverlapMount(info *domain.MountInfo) bool {
 
 	if info == nil {
@@ -776,9 +802,7 @@ func (mi *mountInfoParser) IsOverlapMount(info *domain.MountInfo) bool {
 	return info.MountPoint == infoParent.MountPoint
 }
 
-// IsBindMount verifies if the passed mountinfo entry is potentially
-// a bind-mount
-// candidate.
+// IsBindMount verifies if the passed mountinfo entry is a bind-mount candidate.
 func (mi *mountInfoParser) IsBindMount(info *domain.MountInfo) bool {
 
 	if info == nil {
@@ -806,7 +830,6 @@ func (mi *mountInfoParser) IsBindMount(info *domain.MountInfo) bool {
 }
 
 // IsBindMount verifies if the passed mountinfo entry is a read-only bind-mount.
-
 func (mi *mountInfoParser) IsRoBindMount(info *domain.MountInfo) bool {
 
 	if info == nil {
