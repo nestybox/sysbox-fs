@@ -55,7 +55,6 @@ type MountInfoParserIface interface {
 	IsRoMount(info *MountInfo) bool
 	IsBindMount(info *MountInfo) bool
 	IsCloneMount(info *MountInfo, ronlyMatch bool) bool
-	IsRoCloneMount(info *MountInfo) bool
 	IsRoBindMount(info *MountInfo) bool
 	ExtractMountInfo() ([]byte, error)
 	ExtractInode(mp string) (Inode, error)

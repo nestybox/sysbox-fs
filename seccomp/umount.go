@@ -138,7 +138,7 @@ func (u *umountSyscallInfo) process() (*sysResponse, error) {
 func (u *umountSyscallInfo) umountAllowed(
 	mip domain.MountInfoParserIface) (bool, *sysResponse) {
 
-	// Skip procfs / sysfs related ops.
+	// Skip file-systems explicitly handled by sysbox-fs.
 	if u.FsType == "proc" || u.FsType == "sysfs" {
 		return true, nil
 	}
@@ -153,9 +153,9 @@ func (u *umountSyscallInfo) umountAllowed(
 	//
 	// The following scenarios are relevant within the context of this function
 	// and will be handled separately to ease the logic comprehension and its
-	// maintenability / debugability.
+	// maintenability / debuggability.
 	//
-	// The different columns in this table denote the 'context' on which the
+	// The different columns in this table denote the 'context' in which the
 	// unmount process is executing, and thereby, dictates the logic chosen
 	// to handle each unmount request.
 	//
@@ -190,7 +190,9 @@ func (u *umountSyscallInfo) umountAllowed(
 
 	// If process' mount-ns matches the sys-container's one, then we can simply
 	// rely on the target's mountID to discern an immutable target from a
-	// regular one.
+	// regular one. Otherwise, we cannot rely on the mountID field, as the values
+	// allocated by kernel for these very mountpoints will differ in other mount
+	// namespaces.
 	if processMountNs == initProcMountNs {
 
 		if u.processInfo.Root() == "/" {
@@ -221,7 +223,8 @@ func (u *umountSyscallInfo) umountAllowed(
 
 		if u.processInfo.Root() != "/" {
 			// We are dealing with a chroot'ed process, so obtain the inode of "/"
-			// instead of the one of the process' root-path.
+			// as seen within the process' namespaces, and *not* the one associated
+			// to the process' root-path.
 			processRootInode, err := mip.ExtractInode("/")
 			if err != nil {
 				return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
@@ -261,10 +264,10 @@ func (u *umountSyscallInfo) umountAllowed(
 					return true, nil
 				}
 
-				// Optimization to avoid the relative high-cost of the next
-				// function. Note that this one makes sense only in Scenario
-				// 5) and 7), where the unmount process has full access to all
-				// the mountpoints within the sys-container.
+				// In this scenario we have full access to all the mountpoints
+				// within the sys-container (different mount-id though), so we
+				// can safely rely on the mountpoints to determine resource's
+				// immutability.
 				if u.cntr.IsImmutableMountpoint(info.MountPoint) {
 					logrus.Debugf("Rejected unmount operation on %s target (scenario 5)",
 						u.Target)
@@ -293,7 +296,8 @@ func (u *umountSyscallInfo) umountAllowed(
 
 		if u.processInfo.Root() != "/" {
 			// We are dealing with a chroot'ed process, so obtain the inode of "/"
-			// instead of the one of the process' root-path.
+			// as seen within the process' namespaces, and *not* the one associated
+			// to the process' root-path.
 			processRootInode, err := mip.ExtractInode("/")
 			if err != nil {
 				return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
@@ -305,16 +309,11 @@ func (u *umountSyscallInfo) umountAllowed(
 					return true, nil
 				}
 
-				// Optimization to avoid the relative high-cost of the next
-				// function. Note that this one makes sense only in Scenario
-				// 5) and 7), where the unmount process has full access to all
-				// the mountpoints within the sys-container.
-				if !u.cntr.IsImmutableMountpoint(info.MountPoint) {
-					logrus.Info("UmountAllowed exit (7)")
-					return true, nil
-				}
-
-				if u.cntr.IsImmutableMount(info) {
+				// In this scenario we have full access to all the mountpoints
+				// within the sys-container (different mount-id though), so we
+				// can safely rely on the mountpoints to determine resource's
+				// immutability.
+				if u.cntr.IsImmutableMountpoint(info.MountPoint) {
 					logrus.Debugf("Rejected unmount operation on %s target (scenario 7)",
 						u.Target)
 					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)

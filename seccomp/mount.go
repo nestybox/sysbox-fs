@@ -559,151 +559,6 @@ func (m *mountSyscallInfo) createNfsMountPayload(
 	return &payload
 }
 
-// // remountAllowed purpose is to prevent certain remount operations from
-// // succeeding, such as preventing RO mountpoints to be remounted as RW.
-// //
-// // Method will return 'true' when the remount operation is deemed legit, and
-// // will return 'false' otherwise.
-// func (m *mountSyscallInfo) remountAllowed(
-// 	mip domain.MountInfoParserIface) (bool, *sysResponse) {
-
-// 	mh := m.tracer.service.mts.MountHelper()
-
-// 	// Approve operation if it attempts to remount target as read-only.
-// 	if mh.IsReadOnlyMount(m.Flags) {
-// 		return true, nil
-// 	}
-
-// 	// There must be mountinfo state present for this target. Otherwise, let
-// 	// kernel handle the error.
-// 	info := mip.GetInfo(m.Target)
-// 	if info == nil {
-// 		return false, m.tracer.createContinueResponse(m.reqId)
-// 	}
-
-// 	// Approve operation if the remount target is a read-write mountpoint.
-// 	if !mip.IsRoMount(info) {
-// 		return true, nil
-// 	}
-
-// 	//
-// 	// The following scenarios are relevant within the context of this function
-// 	// and will be handled separately to ease the logic comprehension and its
-// 	// maintenability / debugability.
-// 	//
-// 	// 1) Process mount-ns == sys-container's initPid mount-ns AND isn't chroot'ed.
-// 	// 2) Process mount-ns == sys-container's initPid mount-ns AND is chroot'ed.
-// 	// 3) Process mount-ns != sys-container's initPid mount-ns AND isn't chroot'ed.
-// 	// 4) Process mount-ns != sys-container's initPid mount-ns AND is chroot'ed.
-// 	// 5) Process mount-ns != sys-container's initPid mount-ns AND it's
-// 	//    pivot-root'ed AND it's not chroot'ed.
-// 	// 6) Process mount-ns != sys-container's initPid mount-ns AND it's
-// 	//    pivot-root'ed and chroot'ed.
-// 	//
-
-// 	// Let's start by identifying the mount namespace of the process launching
-// 	// the remount to compare it with the one of the sys container's initpid.
-// 	// In the unlikely case of an error, let the kernel deal with it.
-// 	processMountNs, err := m.processInfo.MountNsInode()
-// 	if err != nil {
-// 		return false, m.tracer.createContinueResponse(m.reqId)
-// 	}
-// 	initProcMountNs, err := m.cntr.InitProc().MountNsInode()
-// 	if err != nil {
-// 		return false, m.tracer.createContinueResponse(m.reqId)
-// 	}
-
-// 	// If process' mount-ns matches the sys-container's one, then we can simply
-// 	// rely on the target's mountID to discern an immutable target from a
-// 	// regular one.
-// 	if processMountNs == initProcMountNs {
-
-// 		// Scenario 1)
-// 		if m.processInfo.RootInode() == m.cntr.InitProc().RootInode() {
-// 			if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
-// 				logrus.Debugf("Rejected remount operation on %s target (scenario 1)",
-// 					m.Target)
-// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-// 			}
-// 			if m.cntr.IsImmutableRoMount(info) {
-// 				logrus.Debugf("Rejected remount operation on %s target (scenario 1)",
-// 					m.Target)
-// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-// 			}
-// 			return true, nil
-// 		}
-
-// 		// Scenario 2: chroot()
-// 		if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
-// 			logrus.Debugf("Rejected remount operation on %s target (scenario 2)",
-// 				m.Target)
-// 			return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-// 		}
-// 		if m.cntr.IsImmutableRoMount(info) {
-// 			logrus.Debugf("Rejected remount operation on %s target (scenario 2)",
-// 				m.Target)
-// 			return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-// 		}
-// 		return true, nil
-
-// 	} else {
-// 		// Scenario 3): unshare(mnt)
-// 		if m.processInfo.RootInode() == m.cntr.InitProc().RootInode() {
-// 			if m.cntr.IsImmutableRoMount(info) {
-// 				logrus.Debugf("Rejected remount operation on %s target (scenario 3)",
-// 					m.Target)
-// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-// 			}
-// 			return true, nil
-// 		}
-
-// 		// Extract the inodes of the root-path (i.e. "/") of the process invoking
-// 		// the remount operation, and the one of the sys-container's initPid. By
-// 		// comparing these two, we
-// 		//
-// 		processRootInode, err := mip.ExtractInode("/")
-// 		if err != nil {
-// 			return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
-// 		}
-// 		syscntrRootInode, err := m.cntr.ExtractInode("/")
-// 		if err != nil {
-// 			return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
-// 		}
-
-// 		// Scenario 4): unshare(mnt) + chroot()
-// 		if m.processInfo.Root() != "/" && processRootInode == syscntrRootInode {
-// 			if m.cntr.IsImmutableRoMount(info) {
-// 				logrus.Debugf("Rejected remount operation on %s target (scenario 4)",
-// 					m.Target)
-// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-// 			}
-// 			return true, nil
-// 		}
-
-// 		// Scenario 5): unshare(mnt) + pivot()
-// 		if m.processInfo.Root() == "/" && processRootInode != syscntrRootInode {
-// 			if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
-// 				logrus.Debugf("Rejected remount operation on %s target (scenario 5)",
-// 					m.Target)
-// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-// 			}
-// 			return true, nil
-// 		}
-
-// 		// Scenario 6): unshare(mnt) + pivot() + chroot()
-// 		if m.processInfo.Root() != "/" && processRootInode != syscntrRootInode {
-// 			if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
-// 				logrus.Debugf("Rejected remount operation on %s target (scenario 6)",
-// 					m.Target)
-// 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-// 			}
-// 			return true, nil
-// 		}
-// 	}
-
-// 	return true, nil
-// }
-
 // remountAllowed purpose is to prevent certain remount operations from
 // succeeding, such as preventing RO mountpoints to be remounted as RW.
 //
@@ -739,11 +594,11 @@ func (m *mountSyscallInfo) remountAllowed(
 	//
 	// The following scenarios are relevant within the context of this function
 	// and will be handled separately to ease the logic comprehension and its
-	// maintenability / debugability.
+	// maintenability / debuggability.
 	//
-	// The different columns in this table denote the 'context' on which the
+	// The different columns in this table denote the 'context' in which the
 	// remount process is executing, and thereby, dictates the logic chosen
-	// to handle each unmount request.
+	// to handle each remount request.
 	//
 	//    +-----------+--------------+--------------+----------+
 	//    | Scenarios | Unshare(mnt) | Pivot-root() | Chroot() |
@@ -776,7 +631,9 @@ func (m *mountSyscallInfo) remountAllowed(
 
 	// If process' mount-ns matches the sys-container's one, then we can simply
 	// rely on the target's mountID to discern an immutable target from a
-	// regular one.
+	// regular one. Otherwise, we cannot rely on the mountID field, as the values
+	// allocated by kernel for these very mountpoints will differ in other mount
+	// namespaces.
 	if processMountNs == initProcMountNs {
 
 		if m.processInfo.Root() == "/" {
@@ -817,7 +674,8 @@ func (m *mountSyscallInfo) remountAllowed(
 
 		if m.processInfo.Root() != "/" {
 			// We are dealing with a chroot'ed process, so obtain the inode of "/"
-			// instead of the one of the process' root-path.
+			// as seen within the process' namespaces, and *not* the one associated
+			// to the process' root-path.
 			processRootInode, err := mip.ExtractInode("/")
 			if err != nil {
 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
@@ -886,7 +744,8 @@ func (m *mountSyscallInfo) remountAllowed(
 
 		if m.processInfo.Root() != "/" {
 			// We are dealing with a chroot'ed process, so obtain the inode of "/"
-			// instead of the one of the process' root-path.
+			// as seen within the process' namespaces, and *not* the one associated
+			// to the process' root-path.
 			processRootInode, err := mip.ExtractInode("/")
 			if err != nil {
 				return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
