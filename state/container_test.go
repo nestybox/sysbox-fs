@@ -167,38 +167,6 @@ func Test_container_Data(t *testing.T) {
 	}
 }
 
-func Test_container_String(t *testing.T) {
-
-	var cs = &container{
-		id:      "1",
-		initPid: 1001,
-		ctime:   time.Time{},
-	}
-
-	var expectedResult = `
-		 id: 1
-		 initPid: 1001
-		 ctime: 0001-01-01 00:00:00 +0000 UTC
-		 UID: 0
-		 GID: 0`
-
-	tests := []struct {
-		name string
-		c    *container
-		want string
-	}{
-		{"1", cs, expectedResult},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.c.String(); got != tt.want {
-				t.Errorf("container.String() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func Test_container_SetCtime(t *testing.T) {
 
 	var cs1 = &container{
