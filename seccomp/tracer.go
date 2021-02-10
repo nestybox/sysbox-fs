@@ -23,8 +23,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/nestybox/sysbox-fs/domain"
@@ -219,7 +219,7 @@ func (t *syscallTracer) removeSession(pid uint32) {
 	}
 
 	if err := syscall.Close(int(s.fd)); err != nil {
-		logrus.Fatal(err)
+		logrus.Errorf("failed to close seccomp fd %v for pid %d: %v", s.fd, pid, err)
 	}
 
 	delete(t.seccompSessionMap, pid)
