@@ -36,6 +36,10 @@ import (
 // highest capability supported by the running kernel ('37' as of today's
 // latest / 5.X kernels ).
 //
+// This handler is used for performance reasons (rather than functional reasons),
+// as having it avoids using the /proc/sys common handler for accesses to
+// /proc/sys/kernel/cap_last_cap which is the most commonly accessed sysctl.
+//
 type KernelLastCapHandler struct {
 	domain.HandlerBase
 }
@@ -69,22 +73,12 @@ func (h *KernelLastCapHandler) Open(
 		return fuse.IOerror{Code: syscall.EACCES}
 	}
 
-	if err := n.Open(); err != nil {
-		logrus.Debugf("Error opening file %v", h.Path)
-		return fuse.IOerror{Code: syscall.EIO}
-	}
-
 	return nil
 }
 
 func (h *KernelLastCapHandler) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
-
-	if err := n.Close(); err != nil {
-		logrus.Debugf("Error closing file %v", h.Path)
-		return fuse.IOerror{Code: syscall.EIO}
-	}
 
 	return nil
 }
