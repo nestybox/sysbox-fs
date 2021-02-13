@@ -178,11 +178,11 @@ func (u *umountSyscallInfo) umountAllowed(
 	// error, let the kernel deal with it.
 	processMountNs, err := u.processInfo.MountNsInode()
 	if err != nil {
-		return false, u.tracer.createContinueResponse(u.reqId)
+		return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
 	}
 	initProcMountNs, err := u.cntr.InitProc().MountNsInode()
 	if err != nil {
-		return false, u.tracer.createContinueResponse(u.reqId)
+		return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
 	}
 
 	// Obtain the sys-container's root-path inode.
@@ -195,63 +195,47 @@ func (u *umountSyscallInfo) umountAllowed(
 	// namespaces.
 	if processMountNs == initProcMountNs {
 
-		if u.processInfo.Root() == "/" {
-			processRootInode := u.processInfo.RootInode()
+		if ok := u.cntr.IsImmutableMountID(info.MountID); ok == true {
 
-			// Scenario 1): no-unshare(mnt) & no-pivot() & no-chroot()
-			if processRootInode == syscntrRootInode {
-				if ok := u.cntr.IsImmutableMountID(info.MountID); ok == true {
-					logrus.Debugf("Rejected unmount operation on %s target (scenario 1)",
-						u.Target)
-					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
+			if logrus.IsLevelEnabled(logrus.DebugLevel) {
+				if u.processInfo.Root() == "/" {
+					processRootInode := u.processInfo.RootInode()
+
+					if processRootInode == syscntrRootInode {
+						// Scenario 1): no-unshare(mnt) & no-pivot() & no-chroot()
+						logrus.Debugf("Rejected unmount operation on immutable target %s (scenario 1)",
+							u.Target)
+					} else {
+						// Scenario 2): no-unshare(mnt) & pivot() & no-chroot()
+						logrus.Debugf("Rejected unmount operation on immutable target %s (scenario 2)",
+							u.Target)
+					}
+
+				} else {
+					// We are dealing with a chroot'ed process, so obtain the inode of "/"
+					// as seen within the process' namespaces, and *not* the one associated
+					// to the process' root-path.
+					processRootInode, err := mip.ExtractInode("/")
+					if err != nil {
+						return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
+					}
+
+					if processRootInode == syscntrRootInode {
+						// Scenario 3: no-unshare(mnt) & no-pivot() & chroot()
+						logrus.Debugf("Rejected unmount operation on immutable target %s (scenario 3)",
+							u.Target)
+					} else {
+						// Scenario 4: no-unshare(mnt) & pivot() & chroot()
+						logrus.Debugf("Rejected unmount operation on immutable target %s (scenario 4)",
+							u.Target)
+					}
 				}
-				return true, nil
 			}
 
-			// Scenario 2: no-unshare(mnt) & pivot() & no-chroot()
-			if processRootInode != syscntrRootInode {
-				if ok := u.cntr.IsImmutableMountID(info.MountID); ok == true {
-					logrus.Debugf("Rejected unmount operation on %s target (scenario 2)",
-						u.Target)
-					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
-				}
-				return true, nil
-			}
-
-			return true, nil
+			return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
 		}
 
-		if u.processInfo.Root() != "/" {
-			// We are dealing with a chroot'ed process, so obtain the inode of "/"
-			// as seen within the process' namespaces, and *not* the one associated
-			// to the process' root-path.
-			processRootInode, err := mip.ExtractInode("/")
-			if err != nil {
-				return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
-			}
-
-			// Scenario 3: no-unshare(mnt) & no-pivot() & chroot()
-			if processRootInode == syscntrRootInode {
-				if ok := u.cntr.IsImmutableMountID(info.MountID); ok == true {
-					logrus.Debugf("Rejected unmount operation on %s target (scenario 3)",
-						u.Target)
-					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
-				}
-				return true, nil
-			}
-
-			// Scenario 4: no-unshare(mnt) & pivot() & chroot()
-			if processRootInode != syscntrRootInode {
-				if ok := u.cntr.IsImmutableMountID(info.MountID); ok == true {
-					logrus.Debugf("Rejected unmount operation on %s target (scenario 4)",
-						u.Target)
-					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
-				}
-				return true, nil
-			}
-
-			return true, nil
-		}
+		return true, nil
 
 	} else {
 
@@ -269,7 +253,7 @@ func (u *umountSyscallInfo) umountAllowed(
 				// can safely rely on the mountpoints to determine resource's
 				// immutability.
 				if u.cntr.IsImmutableMountpoint(info.MountPoint) {
-					logrus.Debugf("Rejected unmount operation on %s target (scenario 5)",
+					logrus.Debugf("Rejected unmount operation on immutable target %s (scenario 5)",
 						u.Target)
 					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
 				}
@@ -284,7 +268,7 @@ func (u *umountSyscallInfo) umountAllowed(
 				}
 
 				if u.cntr.IsImmutableMount(info) {
-					logrus.Debugf("Rejected unmount operation on %s target (scenario 6)",
+					logrus.Debugf("Rejected unmount operation on immutable target %s (scenario 6)",
 						u.Target)
 					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
 				}
@@ -314,7 +298,7 @@ func (u *umountSyscallInfo) umountAllowed(
 				// can safely rely on the mountpoints to determine resource's
 				// immutability.
 				if u.cntr.IsImmutableMountpoint(info.MountPoint) {
-					logrus.Debugf("Rejected unmount operation on %s target (scenario 7)",
+					logrus.Debugf("Rejected unmount operation on immutable target %s (scenario 7)",
 						u.Target)
 					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
 				}
@@ -322,14 +306,14 @@ func (u *umountSyscallInfo) umountAllowed(
 				return true, nil
 			}
 
-			// Scenario 8): unshare(mnt) + pivot() + chroot()
+			// Scenario 8): unshare(mnt) & pivot() & chroot()
 			if processRootInode != syscntrRootInode {
 				if mip.IsOverlapMount(info) {
 					return true, nil
 				}
 
 				if u.cntr.IsImmutableMount(info) {
-					logrus.Debugf("Rejected unmount operation on %s target (scenario 8)",
+					logrus.Debugf("Rejected unmount operation on immutable target %s (scenario 8)",
 						u.Target)
 					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
 				}

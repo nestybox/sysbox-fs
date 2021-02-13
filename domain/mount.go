@@ -54,8 +54,8 @@ type MountInfoParserIface interface {
 	IsOverlapMount(info *MountInfo) bool
 	IsRoMount(info *MountInfo) bool
 	IsBindMount(info *MountInfo) bool
-	IsCloneMount(info *MountInfo, ronlyMatch bool) bool
 	IsRoBindMount(info *MountInfo) bool
+	IsCloneMount(info *MountInfo, readonly bool) bool
 	ExtractMountInfo() ([]byte, error)
 	ExtractInode(mp string) (Inode, error)
 	ExtractAncestorInodes(info *MountInfo) error

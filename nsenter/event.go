@@ -552,7 +552,9 @@ func (e *NSenterEvent) ReceiveResponse() *domain.NSenterMessage {
 }
 
 // TerminateRequest serves to unwind the nsenter-event FSM after the generation
-// of an asynchronous event through SendRequest(true) execution.
+// of an asynchronous event. This method is not required for regular nsenter
+// events, as in those cases the SendRequest() method itself takes care of
+// cleaning all the utilized resources.
 func (e *NSenterEvent) TerminateRequest() error {
 
 	logrus.Debug("Executing nsenterEvent's TerminateRequest() method")

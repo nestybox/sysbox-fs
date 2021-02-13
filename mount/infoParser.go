@@ -68,7 +68,7 @@ type mountInfoParser struct {
 	mpInfo       map[string]*domain.MountInfo         // mountinfo, indexed by mountpoint path
 	idInfo       map[int]*domain.MountInfo            // mountinfo, indexed by mount ID
 	inInfo       map[domain.Inode][]*domain.MountInfo // mountinfo, indexed by mountpoint inode
-	devIdInfo    map[string][]*domain.MountInfo       // mountinfo, indexed by mount major/minor ver
+	fsIdInfo     map[string][]*domain.MountInfo       // mountinfo, indexed by file-sys id (major/minor ver)
 	service      *MountService                        // backpointer to mount service
 }
 
@@ -90,7 +90,7 @@ func newMountInfoParser(
 		mpInfo:       make(map[string]*domain.MountInfo),
 		idInfo:       make(map[int]*domain.MountInfo),
 		inInfo:       make(map[domain.Inode][]*domain.MountInfo),
-		devIdInfo:    make(map[string][]*domain.MountInfo),
+		fsIdInfo:     make(map[string][]*domain.MountInfo),
 		service:      mts,
 	}
 
@@ -145,12 +145,13 @@ func (mi *mountInfoParser) parseData(data []byte) error {
 		mi.mpInfo[parsedMounts.MountPoint] = parsedMounts
 		mi.idInfo[parsedMounts.MountID] = parsedMounts
 
-		devIdSlice, ok := mi.devIdInfo[parsedMounts.MajorMinorVer]
+		// File-system-id map utilized for remount / unmount processing.
+		fsIdSlice, ok := mi.fsIdInfo[parsedMounts.MajorMinorVer]
 		if ok {
-			mi.devIdInfo[parsedMounts.MajorMinorVer] =
-				append(devIdSlice, parsedMounts)
+			mi.fsIdInfo[parsedMounts.MajorMinorVer] =
+				append(fsIdSlice, parsedMounts)
 		} else {
-			mi.devIdInfo[parsedMounts.MajorMinorVer] =
+			mi.fsIdInfo[parsedMounts.MajorMinorVer] =
 				[]*domain.MountInfo{parsedMounts}
 		}
 	}
@@ -718,7 +719,7 @@ func (mi *mountInfoParser) IsRoMount(info *domain.MountInfo) bool {
 // IsRecursiveBindMount verifies if the passed mountinfo entry is a recursive
 // bind-mount.
 //
-// Example: [ mouuntID-3413 is a recursive mount of mountID-3544 ]
+// Example: mountID-3413 is a recursive mount of mountID-3544
 //
 // 3544 3503 0:129 / /usr/src/linux-headers-5.4.0-48 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-48 rw
 // 3413 3544 0:129 / /usr/src/linux-headers-5.4.0-48 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-48 rw
@@ -729,9 +730,10 @@ func (mi *mountInfoParser) IsRecursiveBindMount(info *domain.MountInfo) bool {
 		return false
 	}
 
-	devIdSlice := mi.devIdInfo[info.MajorMinorVer]
+	// Extract all the mountpoints that match the fs-id of the 'info' object.
+	fsIdSlice := mi.fsIdInfo[info.MajorMinorVer]
 
-	for _, elem := range devIdSlice {
+	for _, elem := range fsIdSlice {
 		if elem.MountID == info.MountID {
 			continue
 		}
@@ -760,6 +762,7 @@ func (mi *mountInfoParser) IsRecursiveBindMount(info *domain.MountInfo) bool {
 // 3074 2706 0:155 /resolv.conf /etc/resolv.conf rw,relatime - shiftfs /var/lib/docker/containers... rw
 //
 func (mi *mountInfoParser) IsSelfMount(info *domain.MountInfo) bool {
+
 	if info == nil {
 		return false
 	}
@@ -778,12 +781,12 @@ func (mi *mountInfoParser) IsSelfMount(info *domain.MountInfo) bool {
 // overlaps with any other mountpoint in the mountInfo tree. A 'self' mount
 // is a special case (subset) of an 'overlap' one.
 //
-// Example 1: Same as as the above one (IsSelfMount method).
+// Example 1: Same as the above one (IsSelfMount method).
 //
 // 2712 2192 0:153 / /usr/src/linux-headers-5.4.0-62 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-62 rw
 // 3074 2712 0:153 / /usr/src/linux-headers-5.4.0-62 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-62 rw
 //
-// Example 2: mountID-3074 is an 'overlap' mount of the original mountID-2706 entry ]
+// Example 2: mountID-3074 is an 'overlap' mount of the original mountID-2706 entry
 //
 // 2706 2192 0:155 /resolv.conf /etc/resolv.conf rw,relatime - shiftfs /var/lib/docker/containers... rw
 // 3074 2706 0:6 /null /etc/resolv.conf rw,nosuid,noexec,relatime master:2 - devtmpfs udev rw,size=4048120k,nr_inodes=1012030,mode=755
@@ -802,7 +805,26 @@ func (mi *mountInfoParser) IsOverlapMount(info *domain.MountInfo) bool {
 	return info.MountPoint == infoParent.MountPoint
 }
 
-// IsBindMount verifies if the passed mountinfo entry is a bind-mount candidate.
+// IsBindMount verifies if the passed mountinfo entry is a 'bind-mount'. Notice
+// that the 'overlap' classification is orthogonal to the 'bind-mount' one (i.e.
+// an overlap may, or may not, fit the 'bind-mount' requirements). On the other
+// hand, a 'self' mount is always also a 'bind-mount'.
+//
+// This implementation relies on the basic assumption that both the 'source' and
+// the 'destination' mountpoints in a bind-mount share the same file-system-id
+// (major:minor number pair), which is something being imposed by kernel during
+// the bind-mount operation. Furthermore, this fs-id-based association is kept
+// consistent across (mount) namespaces, which allow us to identify bind-mount
+// associations between mountpoints seating in containers at different levels
+// of the nesting hierarchy.
+//
+// Now, there is one caveat: virtual file-systems such as the one associated to
+// '/dev/null', make use of a common fs-id to represent all the /dev/null
+// bind-mounts (i.e. mount -o bind /dev/null /tmp/example). Other virtual file
+// systems (e.g. 'tmpfs') allocate a unique fs-id for every tmpfs mountpoint
+// being created. In consequence, this method's logic has some limitations when
+// there's a need to identify bind-mounted resources across different namespaces.
+//
 func (mi *mountInfoParser) IsBindMount(info *domain.MountInfo) bool {
 
 	if info == nil {
@@ -814,13 +836,18 @@ func (mi *mountInfoParser) IsBindMount(info *domain.MountInfo) bool {
 		return false
 	}
 
-	devIdSlice := mi.devIdInfo[info.MajorMinorVer]
+	// Extract all the mountpoints that match the fs-id of the 'info' object.
+	fsIdSlice := mi.fsIdInfo[info.MajorMinorVer]
 
-	for _, elem := range devIdSlice {
+	// Iterate through this slice of mountpoints looking for one that qualifies
+	// as the 'source' of the 'info' mountpoint.
+	for _, elem := range fsIdSlice {
 		if elem.MountID == info.MountID {
 			continue
 		}
 
+		// To qualify as bind-mount 'source', candidates must meet this minimum
+		// criteria set.
 		if elem.Root == info.Root && elem.Source == info.Source {
 			return true
 		}
@@ -830,6 +857,7 @@ func (mi *mountInfoParser) IsBindMount(info *domain.MountInfo) bool {
 }
 
 // IsBindMount verifies if the passed mountinfo entry is a read-only bind-mount.
+// Refer to above method for implementation details.
 func (mi *mountInfoParser) IsRoBindMount(info *domain.MountInfo) bool {
 
 	if info == nil {
@@ -841,9 +869,9 @@ func (mi *mountInfoParser) IsRoBindMount(info *domain.MountInfo) bool {
 		return false
 	}
 
-	devIdSlice := mi.devIdInfo[info.MajorMinorVer]
+	fsIdSlice := mi.fsIdInfo[info.MajorMinorVer]
 
-	for _, elem := range devIdSlice {
+	for _, elem := range fsIdSlice {
 		if elem.MountID == info.MountID {
 			continue
 		}
@@ -856,46 +884,17 @@ func (mi *mountInfoParser) IsRoBindMount(info *domain.MountInfo) bool {
 	return false
 }
 
-func (mi *mountInfoParser) equivalentMounts(m1, m2 *domain.MountInfo) bool {
-
-	if m1 == nil && m2 == nil {
-		return true
-	} else if m1 == nil || m2 == nil {
-		return false
-	}
-
-	return m1.Root == m2.Root &&
-		m1.FsType == m2.FsType &&
-		m1.MajorMinorVer == m2.MajorMinorVer &&
-		m1.MountPoint == m2.MountPoint &&
-		m1.Source == m2.Source
-}
-
-func (mi *mountInfoParser) equivalentMountAncestors(m1, m2 *domain.MountInfo) bool {
-
-	if m1 == nil && m2 == nil {
-		return true
-	} else if m1 == nil || m2 == nil {
-		return false
-	}
-
-	p1 := m1.Mip.GetParentMount(m1)
-	if p1 != nil && m1.Mip.IsSysboxfsBaseMount(p1.MountPoint) {
-		p1 = m1.Mip.GetParentMount(p1)
-	}
-	p2 := m2.Mip.GetParentMount(m2)
-	if p2 != nil && m2.Mip.IsSysboxfsBaseMount(p2.MountPoint) {
-		p2 = m2.Mip.GetParentMount(p2)
-	}
-
-	return mi.equivalentMounts(p1, p2)
-}
-
-// IsCloneMount determines if the passed mountInfo entry is a 'clone' of an
-// entry in the sys-container's mount namespace.
+// IsCloneMount determines if the passed mountInfo entry is a 'clone' of any of
+// the entries in the 'mi' object. For this purpose we compare the attributes of
+// the given mountpoint with those of the entries in the 'mi' object. If the
+// mountpoint attributes are not sufficient (they all match), we also compare
+// the attributes of the parent/ancestor mounts.
+//
+// IsCloneMount exposes the 'readonly' parameter to allow callee to request
+// 'clone' elements that are necessarily read-only mountpoints.
 func (mi *mountInfoParser) IsCloneMount(
 	procInfo *domain.MountInfo,
-	ronlyMatch bool) bool {
+	readonly bool) bool {
 
 	mh := mi.service.mh
 	if mh == nil {
@@ -905,29 +904,35 @@ func (mi *mountInfoParser) IsCloneMount(
 	var candidateList []*domain.MountInfo
 
 	// Extract the list of mountpoints matching the incoming process' maj-min-id.
-	devIdSlice := mi.devIdInfo[procInfo.MajorMinorVer]
+	fsIdSlice := mi.fsIdInfo[procInfo.MajorMinorVer]
 
-	for _, cntrInfo := range devIdSlice {
+	// Extract procInfo flags
+	procInfoFlags := mh.StringToFlags(procInfo.Options)
+
+	for _, cntrInfo := range fsIdSlice {
+
+		// A mountpoint with the same ID can't be a clone (by definition)".
 		if cntrInfo.MountID == procInfo.MountID {
 			continue
 		}
 
-		// Skip readwrite candidates when operating in readonly mode.
-		if ronlyMatch && !mi.IsRoMount(cntrInfo) {
+		// Skip this candidate if it doesn't fit the readonly criteria.
+		cntrInfoFlags := mh.StringToFlags(cntrInfo.Options)
+		if readonly && !mh.IsReadOnlyMount(cntrInfoFlags) {
 			continue
 		}
 
 		// All candidates must meet a minimum set of criteria.
 		if cntrInfo.Root != procInfo.Root ||
 			cntrInfo.Source != procInfo.Source ||
-			mi.IsRoMount(cntrInfo) != mi.IsRoMount(procInfo) {
+			cntrInfoFlags&^unix.MS_RDONLY != procInfoFlags&^unix.MS_RDONLY {
 			continue
 		}
 
 		// If not already present, fetch the inodes of the elements being
 		// compared, and also those within their ancestry line. This last point
 		// is an optimization that takes into account the relatively-low cost
-		// of obtaining multiple-inodes vs the cost of collecting a single one
+		// of obtaining multiple inodes vs the cost of collecting a single one
 		// in various (nsenter) iterations.
 		if cntrInfo.MpInode == 0 {
 			err := mi.extractAncestorInodes(cntrInfo)
@@ -948,7 +953,7 @@ func (mi *mountInfoParser) IsCloneMount(
 	}
 
 	// Iterate through all the candidates to compare their ancestry line
-	// with the one of the entry in question.
+	// with the one of the entry in question (procInfo).
 	for _, cntrInfo := range candidateList {
 		if mi.ancestryLineMatch(procInfo, cntrInfo) {
 			return true
@@ -963,6 +968,11 @@ func (mi *mountInfoParser) IsCloneMount(
 // ancestry line of each mountpoint.
 func (mi *mountInfoParser) ancestryLineMatch(m1, m2 *domain.MountInfo) bool {
 
+	mh := mi.service.mh
+	if mh == nil {
+		return false
+	}
+
 	for {
 		m1 = m1.Mip.GetParentMount(m1)
 		m2 = m2.Mip.GetParentMount(m2)
@@ -971,17 +981,6 @@ func (mi *mountInfoParser) ancestryLineMatch(m1, m2 *domain.MountInfo) bool {
 		// compare in either ancestry line.
 		if m1 == nil || m2 == nil {
 			return true
-		}
-
-		// We must skip basemount components of sysbox-fs' managed file-systems
-		// (i.e. /proc & /sys), due to the particular hierarchy displayed by
-		// their submounts as a consequence of the specific approach sysbox-fs
-		// follows to bind-mount these resources during container initialization.
-		if mi.isSysboxfsBaseMount(m1) {
-			m1 = m1.Mip.GetParentMount(m1)
-		}
-		if mi.isSysboxfsBaseMount(m2) {
-			m2 = m2.Mip.GetParentMount(m2)
 		}
 
 		if m1.MpInode == 0 {
@@ -999,7 +998,10 @@ func (mi *mountInfoParser) ancestryLineMatch(m1, m2 *domain.MountInfo) bool {
 
 		// Return 'false' whenever a mismatch is found in any of the elements
 		// of the ancestry line.
-		if m1.MpInode != m2.MpInode {
+		if m1.MpInode != m2.MpInode ||
+			m1.Root != m2.Root ||
+			m1.Source != m2.Source ||
+			mh.StringToFlags(m1.Options)&^unix.MS_RDONLY != mh.StringToFlags(m2.Options)&^unix.MS_RDONLY {
 			return false
 		}
 	}

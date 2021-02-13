@@ -44,7 +44,6 @@ type ContainerIface interface {
 	IsImmutableMount(info *MountInfo) bool
 	IsImmutableRoMount(info *MountInfo) bool
 	IsImmutableBindMount(info *MountInfo) bool
-	// IsImmutableBindMount2(info *MountInfo) bool
 	IsImmutableRoBindMount(info *MountInfo) bool
 	//
 	// Setters
