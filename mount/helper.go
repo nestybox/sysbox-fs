@@ -125,7 +125,8 @@ func (m *mountHelper) IsMove(flags uint64) bool {
 	return flags&unix.MS_MOVE == unix.MS_MOVE
 }
 
-// IsRemount returns true if the mount flags indicate a mount propagation change.
+// HasPropagationFlag returns true if the mount flags indicate a mount
+// propagation change.
 func (m *mountHelper) HasPropagationFlag(flags uint64) bool {
 	return flags&mountPropFlags != 0
 }

@@ -619,11 +619,11 @@ func (m *mountSyscallInfo) remountAllowed(
 	// error, let the kernel deal with it.
 	processMountNs, err := m.processInfo.MountNsInode()
 	if err != nil {
-		return false, m.tracer.createContinueResponse(m.reqId)
+		return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
 	}
 	initProcMountNs, err := m.cntr.InitProc().MountNsInode()
 	if err != nil {
-		return false, m.tracer.createContinueResponse(m.reqId)
+		return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
 	}
 
 	// Obtain the sys-container's root-path inode.
@@ -636,83 +636,90 @@ func (m *mountSyscallInfo) remountAllowed(
 	// namespaces.
 	if processMountNs == initProcMountNs {
 
-		if m.processInfo.Root() == "/" {
-			processRootInode := m.processInfo.RootInode()
+		var (
+			immutable          bool
+			bindmountImmutable bool
+		)
 
-			// Scenario 1): no-unshare(mnt) & no-privot() & no-chroot()
-			if processRootInode == syscntrRootInode {
-				if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 1)",
-						m.Target)
-					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-				}
-				if m.cntr.IsImmutableRoMount(info) {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 1)",
-						m.Target)
-					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-				}
+		if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
+			logrus.Debugf("Rejected remount operation over immutable target %s (scenario 1)",
+				m.Target)
+			immutable = true
+		}
 
-				return true, nil
+		if !immutable {
+			if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+				logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 1)",
+					m.Target)
+				bindmountImmutable = true
 			}
+		}
 
-			// Scenario 2): no-unshare(mnt) & pivot() & no-chroot()
-			if processRootInode != syscntrRootInode {
-				if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 2)",
-						m.Target)
-					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-				}
-				if m.cntr.IsImmutableRoMount(info) {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 2)",
-						m.Target)
-					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-				}
-			}
-
+		if !immutable && !bindmountImmutable {
 			return true, nil
 		}
 
-		if m.processInfo.Root() != "/" {
-			// We are dealing with a chroot'ed process, so obtain the inode of "/"
-			// as seen within the process' namespaces, and *not* the one associated
-			// to the process' root-path.
-			processRootInode, err := mip.ExtractInode("/")
-			if err != nil {
-				return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			if m.processInfo.Root() == "/" {
+				processRootInode := m.processInfo.RootInode()
+
+				// Scenario 1): no-unshare(mnt) & no-privot() & no-chroot()
+				if processRootInode == syscntrRootInode {
+					if immutable {
+						logrus.Debugf("Rejected remount operation over immutable target %s (scenario 1)",
+							m.Target)
+					} else if bindmountImmutable {
+						logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 1)",
+							m.Target)
+					}
+				}
+
+				// Scenario 2): no-unshare(mnt) & pivot() & no-chroot()
+				if processRootInode == syscntrRootInode {
+					if immutable {
+						logrus.Debugf("Rejected remount operation over immutable target %s (scenario 2)",
+							m.Target)
+					} else if bindmountImmutable {
+						logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 2)",
+							m.Target)
+					}
+				}
 			}
 
-			// Scenario 3): no-unshare(mnt) & no-pivot() & chroot()
-			if processRootInode == syscntrRootInode {
-				if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 3)",
-						m.Target)
-					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-				}
-				if m.cntr.IsImmutableRoMount(info) {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 3)",
-						m.Target)
-					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+			if m.processInfo.Root() != "/" {
+				// We are dealing with a chroot'ed process, so obtain the inode of "/"
+				// as seen within the process' namespaces, and *not* the one associated
+				// to the process' root-path.
+				processRootInode, err := mip.ExtractInode("/")
+				if err != nil {
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
 				}
 
-				return true, nil
-			}
-
-			// Scenario 4): no-unshare(mnt) & pivot() & chroot()
-			if processRootInode != syscntrRootInode {
-				if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 4)",
-						m.Target)
-					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
-				}
-				if m.cntr.IsImmutableRoMount(info) {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 4)",
-						m.Target)
-					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				// Scenario 3): no-unshare(mnt) & no-pivot() & chroot()
+				if processRootInode == syscntrRootInode {
+					if immutable {
+						logrus.Debugf("Rejected remount operation over immutable target %s (scenario 3)",
+							m.Target)
+					} else if bindmountImmutable {
+						logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 3)",
+							m.Target)
+					}
 				}
 
-				return true, nil
+				// Scenario 4): no-unshare(mnt) & pivot() & chroot()
+				if processRootInode != syscntrRootInode {
+					if immutable {
+						logrus.Debugf("Rejected remount operation over immutable target %s (scenario 4)",
+							m.Target)
+					} else if bindmountImmutable {
+						logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 4)",
+							m.Target)
+					}
+				}
 			}
 		}
+
+		return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
 
 	} else {
 
@@ -721,25 +728,42 @@ func (m *mountSyscallInfo) remountAllowed(
 
 			// Scenario 5): unshare(mnt) & no-pivot() & no-chroot()
 			if processRootInode == syscntrRootInode {
-				if m.cntr.IsImmutableRoMount(info) {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 5)",
+
+				// In this scenario we have full access to all the mountpoints
+				// within the sys-container (different mount-id though), so we
+				// can safely rely on the mountpoints to determine resource's
+				// immutability.
+				if m.cntr.IsImmutableMountpoint(info.MountPoint) {
+					logrus.Debugf("Rejected remount operation over immutable target %s (scenario 5)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
 				}
+
+				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+					logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 5)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+
 				return true, nil
 			}
 
 			// Scenario 6): unshare(mnt) & pivot() & no-chroot()
 			if processRootInode != syscntrRootInode {
-				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 6)",
+				if m.cntr.IsImmutableRoMount(info) {
+					logrus.Debugf("Rejected remount operation over immutable target %s (scenario 6)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
 				}
+
+				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+					logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 6)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+
 				return true, nil
 			}
-
-			return true, nil
 		}
 
 		if m.processInfo.Root() != "/" {
@@ -753,25 +777,42 @@ func (m *mountSyscallInfo) remountAllowed(
 
 			// Scenario 7): unshare(mnt) & no-pivot() & chroot()
 			if processRootInode == syscntrRootInode {
-				if m.cntr.IsImmutableRoMount(info) {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 7)",
+
+				// In this scenario we have full access to all the mountpoints
+				// within the sys-container (different mount-id though), so we
+				// can safely rely on the mountpoints to determine resource's
+				// immutability.
+				if m.cntr.IsImmutableMountpoint(info.MountPoint) {
+					logrus.Debugf("Rejected remount operation over immutable target %s (scenario 7)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
 				}
+
+				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+					logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 7)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+
 				return true, nil
 			}
 
 			// Scenario 8): unshare(mnt) & pivot() & chroot()
 			if processRootInode != syscntrRootInode {
-				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
-					logrus.Debugf("Rejected remount operation on %s target (scenario 8)",
+				if m.cntr.IsImmutableRoMount(info) {
+					logrus.Debugf("Rejected remount operation over immutable target %s (scenario 8)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
 				}
+
+				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+					logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 8)",
+						m.Target)
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+				}
+
 				return true, nil
 			}
-
-			return true, nil
 		}
 	}
 

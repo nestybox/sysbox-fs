@@ -125,15 +125,6 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 		tracer.syscalls[syscallId] = syscall
 	}
 
-	// Populate bind-mounts hashmap. Note that handlers are not operating at
-	// this point, so there's no need to acquire locks for this operation.
-	handlerDB := sms.hds.HandlerDB()
-	if handlerDB == nil {
-		logrus.Warnf("Seccomp-tracer initialization error: missing handlerDB")
-		return nil
-	}
-	tracer.mountHelper = newMountHelper(handlerDB)
-
 	// The pid monitor tells us when processes traced by seccomp die; we use a
 	// 500ms sampling rate, so that if a process dies we get notified within
 	// 500ms at worst. If we make the delay shorter, we may get overwhelmed by
