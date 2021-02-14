@@ -574,7 +574,7 @@ func (m *mountSyscallInfo) remountAllowed(
 		return true, nil
 	}
 
-	// Approve operation if it attempts to remount target as read-only.
+	// Allow operation if it attempts to remount target as read-only.
 	if mh.IsReadOnlyMount(m.Flags) {
 		return true, nil
 	}
@@ -586,7 +586,7 @@ func (m *mountSyscallInfo) remountAllowed(
 		return false, m.tracer.createContinueResponse(m.reqId)
 	}
 
-	// Approve operation if the remount target is a read-write mountpoint.
+	// Allow operation if the remount target is a read-write mountpoint.
 	if !mip.IsRoMount(info) {
 		return true, nil
 	}
@@ -729,10 +729,25 @@ func (m *mountSyscallInfo) remountAllowed(
 			// Scenario 5): unshare(mnt) & no-pivot() & no-chroot()
 			if processRootInode == syscntrRootInode {
 
+				// We need to check if we're dealing with an overlapped mount, as
+				// this is a case that we usually (see exception below) want to
+				// allow.
+				if mip.IsOverlapMount(info) {
+					// The exception mentioned above refer to the scenario where
+					// the overlapped mountpoint is an immutable itself, hence the
+					// checkpoint below.
+					if m.cntr.IsImmutableOverlapMountpoint(info.MountPoint) {
+						logrus.Debugf("Rejected remount operation over immutable overlapped target %s (scenario 5)",
+							m.Target)
+						return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+					}
+					return true, nil
+				}
+
 				// In this scenario we have full access to all the mountpoints
 				// within the sys-container (different mount-id though), so we
-				// can safely rely on the mountpoints to determine resource's
-				// immutability.
+				// can safely rely on their mountinfo attributes to determine
+				// resource's immutability.
 				if m.cntr.IsImmutableMountpoint(info.MountPoint) {
 					logrus.Debugf("Rejected remount operation over immutable target %s (scenario 5)",
 						m.Target)
@@ -778,10 +793,25 @@ func (m *mountSyscallInfo) remountAllowed(
 			// Scenario 7): unshare(mnt) & no-pivot() & chroot()
 			if processRootInode == syscntrRootInode {
 
+				// We need to check if we're dealing with an overlapped mount, as
+				// this is a case that we usually (see exception below) want to
+				// allow.
+				if mip.IsOverlapMount(info) {
+					// The exception mentioned above refer to the scenario where
+					// the overlapped mountpoint is an immutable itself, hence the
+					// checkpoint below.
+					if m.cntr.IsImmutableOverlapMountpoint(info.MountPoint) {
+						logrus.Debugf("Rejected remount operation over immutable overlapped target %s (scenario 7)",
+							m.Target)
+						return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
+					}
+					return true, nil
+				}
+
 				// In this scenario we have full access to all the mountpoints
 				// within the sys-container (different mount-id though), so we
-				// can safely rely on the mountpoints to determine resource's
-				// immutability.
+				// can safely rely on their mountinfo attributes to determine
+				// resource's immutability.
 				if m.cntr.IsImmutableMountpoint(info.MountPoint) {
 					logrus.Debugf("Rejected remount operation over immutable target %s (scenario 7)",
 						m.Target)

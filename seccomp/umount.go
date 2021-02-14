@@ -244,14 +244,25 @@ func (u *umountSyscallInfo) umountAllowed(
 
 			// Scenario 5): unshare(mnt) & no-pivot() & no-chroot()
 			if processRootInode == syscntrRootInode {
+				// We need to check if we're dealing with an overlapped mount, as
+				// this is a case that we usually (see exception below) want to
+				// allow.
 				if mip.IsOverlapMount(info) {
+					// The exception mentioned above refer to the scenario where
+					// the overlapped mountpoint is an immutable itself, hence the
+					// checkpoint below.
+					if u.cntr.IsImmutableOverlapMountpoint(info.MountPoint) {
+						logrus.Debugf("Rejected unmount operation on immutable overlapped target %s (scenario 5)",
+							u.Target)
+						return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
+					}
 					return true, nil
 				}
 
 				// In this scenario we have full access to all the mountpoints
 				// within the sys-container (different mount-id though), so we
-				// can safely rely on the mountpoints to determine resource's
-				// immutability.
+				// can safely rely on their mountinfo attributes to determine
+				// resource's immutability.
 				if u.cntr.IsImmutableMountpoint(info.MountPoint) {
 					logrus.Debugf("Rejected unmount operation on immutable target %s (scenario 5)",
 						u.Target)
@@ -289,14 +300,25 @@ func (u *umountSyscallInfo) umountAllowed(
 
 			// Scenario 7): unshare(mnt) & no-pivot() & chroot()
 			if processRootInode == syscntrRootInode {
+				// We need to check if we're dealing with an overlapped mount, as
+				// this is a case that we usually (see exception below) want to
+				// allow.
 				if mip.IsOverlapMount(info) {
+					// The exception mentioned above refer to the scenario where
+					// the overlapped mountpoint is an immutable itself, hence the
+					// checkpoint below.
+					if u.cntr.IsImmutableOverlapMountpoint(info.MountPoint) {
+						logrus.Debugf("Rejected unmount operation on immutable overlapped target %s (scenario 7)",
+							u.Target)
+						return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
+					}
 					return true, nil
 				}
 
 				// In this scenario we have full access to all the mountpoints
 				// within the sys-container (different mount-id though), so we
-				// can safely rely on the mountpoints to determine resource's
-				// immutability.
+				// can safely rely on their mountinfo attributes to determine
+				// resource's immutability.
 				if u.cntr.IsImmutableMountpoint(info.MountPoint) {
 					logrus.Debugf("Rejected unmount operation on immutable target %s (scenario 7)",
 						u.Target)
@@ -309,6 +331,11 @@ func (u *umountSyscallInfo) umountAllowed(
 			// Scenario 8): unshare(mnt) & pivot() & chroot()
 			if processRootInode != syscntrRootInode {
 				if mip.IsOverlapMount(info) {
+					if u.cntr.IsImmutableMount(info) {
+						logrus.Debugf("Rejected unmount operation on immutable overlapped target %s (scenario 8)",
+							u.Target)
+						return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
+					}
 					return true, nil
 				}
 
