@@ -200,6 +200,18 @@ func (c *container) IsImmutableMountpoint(mp string) bool {
 	return false
 }
 
+func (c *container) IsImmutableOverlapMountpoint(mp string) bool {
+	c.intLock.RLock()
+	defer c.intLock.RUnlock()
+
+	info := c.mountInfoParser.LookupByMountpoint(mp)
+	if info == nil {
+		return false
+	}
+
+	return c.mountInfoParser.IsOverlapMount(info)
+}
+
 func (c *container) IsImmutableMount(info *domain.MountInfo) bool {
 	c.intLock.RLock()
 	defer c.intLock.RUnlock()

@@ -40,11 +40,12 @@ type ContainerIface interface {
 	ExtractInode(path string) (Inode, error)
 	IsImmutableMountID(id int) bool
 	IsImmutableRoMountID(id int) bool
-	IsImmutableMountpoint(mp string) bool
 	IsImmutableMount(info *MountInfo) bool
 	IsImmutableRoMount(info *MountInfo) bool
 	IsImmutableBindMount(info *MountInfo) bool
 	IsImmutableRoBindMount(info *MountInfo) bool
+	IsImmutableMountpoint(mp string) bool
+	IsImmutableOverlapMountpoint(mp string) bool
 	//
 	// Setters
 	//
