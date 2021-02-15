@@ -89,7 +89,7 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 			return nil, err
 		}
 
-		if ok, resp := m.remountAllowed(mip); ok == false {
+		if ok, resp := m.remountAllowed(mip); !ok {
 			return resp, nil
 		}
 
@@ -225,7 +225,7 @@ func (m *mountSyscallInfo) createProcPayload(
 	// denied from the kernel when doing the mount).
 	procInfo := mip.GetInfo("/proc")
 	if procInfo != nil {
-		if _, ok := procInfo.VfsOptions["ro"]; ok == true {
+		if _, ok := procInfo.VfsOptions["ro"]; ok {
 			payload[0].Flags |= unix.MS_RDONLY
 		}
 	}
@@ -375,7 +375,7 @@ func (m *mountSyscallInfo) createSysPayload(
 	// denied from the kernel when doing the mount).
 	procInfo := mip.GetInfo("/sys")
 	if procInfo != nil {
-		if _, ok := procInfo.VfsOptions["ro"]; ok == true {
+		if _, ok := procInfo.VfsOptions["ro"]; ok {
 			payload[0].Flags |= unix.MS_RDONLY
 		}
 	}
@@ -641,14 +641,14 @@ func (m *mountSyscallInfo) remountAllowed(
 			bindmountImmutable bool
 		)
 
-		if ok := m.cntr.IsImmutableMountID(info.MountID); ok == true {
+		if ok := m.cntr.IsImmutableMountID(info.MountID); ok {
 			logrus.Debugf("Rejected remount operation over immutable target %s (scenario 1)",
 				m.Target)
 			immutable = true
 		}
 
 		if !immutable {
-			if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+			if ok := m.cntr.IsImmutableRoBindMount(info); ok {
 				logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 1)",
 					m.Target)
 				bindmountImmutable = true
@@ -754,7 +754,7 @@ func (m *mountSyscallInfo) remountAllowed(
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
 				}
 
-				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+				if ok := m.cntr.IsImmutableRoBindMount(info); ok {
 					logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 5)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
@@ -771,7 +771,7 @@ func (m *mountSyscallInfo) remountAllowed(
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
 				}
 
-				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+				if ok := m.cntr.IsImmutableRoBindMount(info); ok {
 					logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 6)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
@@ -818,7 +818,7 @@ func (m *mountSyscallInfo) remountAllowed(
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
 				}
 
-				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+				if ok := m.cntr.IsImmutableRoBindMount(info); ok {
 					logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 7)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
@@ -835,7 +835,7 @@ func (m *mountSyscallInfo) remountAllowed(
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
 				}
 
-				if ok := m.cntr.IsImmutableRoBindMount(info); ok == true {
+				if ok := m.cntr.IsImmutableRoBindMount(info); ok {
 					logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 8)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)

@@ -355,7 +355,7 @@ func (mi *mountInfoParser) extractAllInodes() error {
 		// with nested accesses to sysbox-fs' fuse-server from nsenter's
 		// backend processes. No inode will be required for these mountpoints
 		// anyways as sysbox-fs handle these file-systems differently.
-		if _, ok := mi.service.mh.mapMounts[info.MountPoint]; ok == true {
+		if _, ok := mi.service.mh.mapMounts[info.MountPoint]; ok {
 			continue
 		}
 
@@ -398,7 +398,7 @@ func (mi *mountInfoParser) extractAncestorInodes(info *domain.MountInfo) error {
 		// with nested accesses to sysbox-fs' fuse-server from nsenter's
 		// backend processes. No inode will be required for these mountpoints
 		// anyways as sysbox-fs handle these file-systems differently.
-		if _, ok := mi.service.mh.mapMounts[info.MountPoint]; ok == false {
+		if _, ok := mi.service.mh.mapMounts[info.MountPoint]; !ok {
 			reqMounts = append(reqMounts, info.MountPoint)
 		}
 
@@ -1012,7 +1012,7 @@ func (mi *mountInfoParser) ancestryLineMatch(m1, m2 *domain.MountInfo) bool {
 // LookupByMountID does a simple lookup in IdInfo map.
 func (mi *mountInfoParser) LookupByMountID(id int) *domain.MountInfo {
 
-	if info, ok := mi.idInfo[id]; ok == true {
+	if info, ok := mi.idInfo[id]; ok {
 		return info
 	}
 
@@ -1022,7 +1022,7 @@ func (mi *mountInfoParser) LookupByMountID(id int) *domain.MountInfo {
 // LookupByMountpoint does a simple lookup in mpInfo map.
 func (mi *mountInfoParser) LookupByMountpoint(mp string) *domain.MountInfo {
 
-	if info, ok := mi.mpInfo[mp]; ok == true {
+	if info, ok := mi.mpInfo[mp]; ok {
 		return info
 	}
 
@@ -1031,7 +1031,7 @@ func (mi *mountInfoParser) LookupByMountpoint(mp string) *domain.MountInfo {
 
 func (mi *mountInfoParser) MountInode(mp string) uint64 {
 
-	if info, ok := mi.mpInfo[mp]; ok == true {
+	if info, ok := mi.mpInfo[mp]; ok {
 		return info.MpInode
 	}
 
