@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -257,7 +258,11 @@ func Test_container_update(t *testing.T) {
 		initProc      domain.ProcessIface
 		service       *containerStateService
 	}
-	f1 := fields{}
+	f1 := fields{
+		id:       "1",
+		initPid:  1011,
+		initProc: prs.ProcessCreate(1001, 0, 0),
+	}
 
 	// Create local css as it's required by cntr.update() method.
 	css := &containerStateService{
@@ -266,6 +271,7 @@ func Test_container_update(t *testing.T) {
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
+		mts:         &mocks.MountServiceIface{},
 	}
 
 	type args struct {
@@ -274,7 +280,7 @@ func Test_container_update(t *testing.T) {
 	a1 := args{
 		src: &container{
 			id:            "1",
-			initPid:       1001,
+			initPid:       1011,
 			ctime:         time.Time{},
 			uidFirst:      1,
 			uidSize:       65535,
@@ -283,7 +289,6 @@ func Test_container_update(t *testing.T) {
 			procRoPaths:   nil,
 			procMaskPaths: nil,
 			dataStore:     nil,
-			initProc:      nil,
 			service:       css,
 		},
 	}
@@ -311,8 +316,11 @@ func Test_container_update(t *testing.T) {
 				procMaskPaths: tt.fields.procMaskPaths,
 				dataStore:     tt.fields.dataStore,
 				initProc:      tt.fields.initProc,
-				service:       tt.fields.service,
+				service:       css,
 			}
+
+			c.service.MountService().(*mocks.MountServiceIface).On(
+				"NewMountInfoParser", c, c.initProc, true, true, true).Return(nil, nil)
 
 			if err := c.update(tt.args.src); (err != nil) != tt.wantErr {
 				t.Errorf("container.update() error = %v, wantErr %v",
@@ -321,7 +329,6 @@ func Test_container_update(t *testing.T) {
 
 			assert.Equal(t, c.initPid, tt.args.src.initPid)
 			assert.Equal(t, c.ctime, tt.args.src.ctime)
-			assert.NotEqual(t, c.initProc, tt.args.src.initProc)
 			assert.Equal(t, c.uidFirst, tt.args.src.uidFirst)
 			assert.Equal(t, c.uidSize, tt.args.src.uidSize)
 			assert.Equal(t, c.gidFirst, tt.args.src.gidFirst)

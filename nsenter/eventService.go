@@ -52,7 +52,7 @@ func (s *nsenterService) NewEvent(
 		Namespace: ns,
 		ReqMsg:    req,
 		ResMsg:    res,
-		async:     async,
+		Async:     async,
 		reaper:    s.reaper,
 	}
 

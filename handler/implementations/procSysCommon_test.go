@@ -63,7 +63,7 @@ func TestMain(m *testing.M) {
 
 	prs.Setup(ios)
 	css.Setup(nil, prs, ios, mts)
-	mts.Setup(css, hds)
+	mts.Setup(css, hds, prs, nss)
 
 	// HandlerService's common mocking instructions.
 	hds.On("NSenterService").Return(nss)
@@ -169,7 +169,8 @@ func TestProcSysCommonHandler_Lookup(t *testing.T) {
 					a1.req.Pid,
 					&domain.AllNSsButMount,
 					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil)).Return(nsenterEventReq)
+					(*domain.NSenterMessage)(nil),
+					false).Return(nsenterEventReq)
 
 				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
@@ -224,7 +225,8 @@ func TestProcSysCommonHandler_Lookup(t *testing.T) {
 					a1.req.Pid,
 					&domain.AllNSsButMount,
 					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil)).Return(nsenterEventReq)
+					(*domain.NSenterMessage)(nil),
+					false).Return(nsenterEventReq)
 
 				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
@@ -500,7 +502,8 @@ func TestProcSysCommonHandler_Open(t *testing.T) {
 					a1.req.Pid,
 					&domain.AllNSsButMount,
 					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil)).Return(nsenterEventReq)
+					(*domain.NSenterMessage)(nil),
+					false).Return(nsenterEventReq)
 
 				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
@@ -556,7 +559,8 @@ func TestProcSysCommonHandler_Open(t *testing.T) {
 					a1.req.Pid,
 					&domain.AllNSsButMount,
 					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil)).Return(nsenterEventReq)
+					(*domain.NSenterMessage)(nil),
+					false).Return(nsenterEventReq)
 
 				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
@@ -714,7 +718,8 @@ func TestProcSysCommonHandler_Read(t *testing.T) {
 					a1.req.Pid,
 					&domain.AllNSsButMount,
 					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil)).Return(nsenterEventReq)
+					(*domain.NSenterMessage)(nil),
+					false).Return(nsenterEventReq)
 
 				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
@@ -776,7 +781,8 @@ func TestProcSysCommonHandler_Read(t *testing.T) {
 					a1.req.Pid,
 					&domain.AllNSsButMount,
 					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil)).Return(nsenterEventReq)
+					(*domain.NSenterMessage)(nil),
+					false).Return(nsenterEventReq)
 
 				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
@@ -925,7 +931,8 @@ func TestProcSysCommonHandler_Write(t *testing.T) {
 					a1.req.Pid,
 					&domain.AllNSsButMount,
 					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil)).Return(nsenterEventReq)
+					(*domain.NSenterMessage)(nil),
+					false).Return(nsenterEventReq)
 
 				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
@@ -988,7 +995,8 @@ func TestProcSysCommonHandler_Write(t *testing.T) {
 					a1.req.Pid,
 					&domain.AllNSsButMount,
 					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil)).Return(nsenterEventReq)
+					(*domain.NSenterMessage)(nil),
+					false).Return(nsenterEventReq)
 
 				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
@@ -1152,7 +1160,8 @@ func TestProcSysCommonHandler_ReadDirAll(t *testing.T) {
 					a1.req.Pid,
 					&domain.AllNSsButMount,
 					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil)).Return(nsenterEventReq)
+					(*domain.NSenterMessage)(nil),
+					false).Return(nsenterEventReq)
 
 				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
@@ -1214,7 +1223,8 @@ func TestProcSysCommonHandler_ReadDirAll(t *testing.T) {
 					a1.req.Pid,
 					&domain.AllNSsButMount,
 					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil)).Return(nsenterEventReq)
+					(*domain.NSenterMessage)(nil),
+					false).Return(nsenterEventReq)
 
 				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
