@@ -29,19 +29,17 @@ import (
 
 func Test_syscallTracer_createErrorResponse(t *testing.T) {
 	type fields struct {
-		sms              *SyscallMonitorService
-		srv              *unixIpc.Server
-		pollsrv          *unixIpc.PollServer
-		syscalls         map[libseccomp.ScmpSyscall]string
-		mountHelper      *mountHelper
+		sms      *SyscallMonitorService
+		srv      *unixIpc.Server
+		pollsrv  *unixIpc.PollServer
+		syscalls map[libseccomp.ScmpSyscall]string
 	}
 
 	var f1 = &fields{
-		sms:              nil,
-		srv:              nil,
-		pollsrv:          nil,
-		syscalls:         nil,
-		mountHelper:      nil,
+		sms:      nil,
+		srv:      nil,
+		pollsrv:  nil,
+		syscalls: nil,
 	}
 
 	// Expected results.
@@ -81,11 +79,10 @@ func Test_syscallTracer_createErrorResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracer := &syscallTracer{
-				service:          tt.fields.sms,
-				srv:              tt.fields.srv,
-				pollsrv:          tt.fields.pollsrv,
-				syscalls:         tt.fields.syscalls,
-				mountHelper:      tt.fields.mountHelper,
+				service:  tt.fields.sms,
+				srv:      tt.fields.srv,
+				pollsrv:  tt.fields.pollsrv,
+				syscalls: tt.fields.syscalls,
 			}
 			if got := tracer.createErrorResponse(tt.args.id, tt.args.err); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("syscallTracer.createErrorResponse() = %v, want %v", got, tt.want)

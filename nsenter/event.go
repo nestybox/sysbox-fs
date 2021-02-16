@@ -87,11 +87,11 @@ type NSenterEvent struct {
 	// Sysbox-fs' spawned process carrying out the nsexec instruction.
 	Process *os.Process `json:"process"`
 
+	// Asynchronous flag to tag events for which no response is expected.
+	Async bool
+
 	// IPC pipes among sysbox-fs parent / child processes.
 	parentPipe *os.File
-
-	// Asynchronous flag to tag events for which no response is expected.
-	async bool
 
 	// Zombie Reaper (for left-over nsenter child processes)
 	reaper *zombieReaper
@@ -522,7 +522,7 @@ func (e *NSenterEvent) SendRequest() error {
 	}
 
 	// Return if dealing with an asynchronous request.
-	if e.async {
+	if e.Async {
 		return nil
 	}
 

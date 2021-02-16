@@ -85,12 +85,14 @@ var mountInfoData = []byte(`1526 1218 0:86 / / rw,relatime - shiftfs /var/lib/do
 func Benchmark_parseData(b *testing.B) {
 
 	mi := &mountInfoParser{
-		mh:     nil,
-		cntr:   nil,
-		pid:    0,
-		deep:   true,
-		mpInfo: make(map[string]*domain.MountInfo),
-		idInfo: make(map[int]*domain.MountInfo),
+		cntr:         nil,
+		process:      nil, //process,
+		launchParser: true,
+		fetchOptions: true,
+		fetchInodes:  true,
+		mpInfo:       make(map[string]*domain.MountInfo),
+		idInfo:       make(map[int]*domain.MountInfo),
+		fsIdInfo:     make(map[string][]*domain.MountInfo),
 	}
 
 	for i := 0; i < b.N; i++ {

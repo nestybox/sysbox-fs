@@ -387,12 +387,14 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			wantErr: false,
 			prepare: func(css *containerStateService) {
 
+				c1.service = css
+
 				c1.InitProc().CreateNsInodes(123456)
 
 				f1.idTable[c1.id] = c1
 
-				css.MountService().(*mocks.MountServiceIface).On(
-					"NewMountInfoParser", c1, c1.initPid, true).Return(nil, nil)
+				c1.service.MountService().(*mocks.MountServiceIface).On(
+					"NewMountInfoParser", c1, c1.initProc, true, true, true).Return(nil, nil)
 			},
 		},
 		{
@@ -418,10 +420,11 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			wantErr: true,
 			prepare: func(css *containerStateService) {
 
+				c3.service = css
 				f1.idTable[c3.id] = c3
 
 				css.MountService().(*mocks.MountServiceIface).On(
-					"NewMountInfoParser", c3, c3.initPid, true).Return(nil, nil)
+					"NewMountInfoParser", c3, c3.initProc, true, true, true).Return(nil, nil)
 			},
 		},
 		{
@@ -438,14 +441,16 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			wantErr: true,
 			prepare: func(css *containerStateService) {
 
+				c4.service = css
+
 				c4.InitProc().CreateNsInodes(123456)
 				inode, _ := c4.InitProc().UserNsInode()
 
 				f1.idTable[c4.id] = c4
 				f1.usernsTable[inode] = c4 // <-- unexpected instruction during registration
 
-				css.MountService().(*mocks.MountServiceIface).On(
-					"NewMountInfoParser", c4, c4.initPid, true).Return(nil, nil)
+				c4.service.MountService().(*mocks.MountServiceIface).On(
+					"NewMountInfoParser", c4, c4.initProc, true, true, true).Return(nil, nil)
 			},
 		},
 	}
@@ -489,6 +494,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
+		mts         domain.MountServiceIface
 	}
 
 	var f1 = fields{
@@ -497,6 +503,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
+		mts:         mts,
 	}
 
 	var c1 = &container{
@@ -518,7 +525,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 		fields  fields
 		args    args
 		wantErr bool
-		prepare func()
+		prepare func(css *containerStateService)
 	}{
 		{
 			//
@@ -528,13 +535,18 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 			fields:  f1,
 			args:    args{c1},
 			wantErr: false,
-			prepare: func() {
+			prepare: func(css *containerStateService) {
+
+				c1.service = css
 
 				c1.InitProc().CreateNsInodes(123456)
 				inode, _ := c1.InitProc().UserNsInode()
 
 				f1.idTable[c1.id] = c1
 				f1.usernsTable[inode] = c1
+
+				c1.service.MountService().(*mocks.MountServiceIface).On(
+					"NewMountInfoParser", c1, c1.initProc, true, true, true).Return(nil, nil)
 			},
 		},
 		{
@@ -546,12 +558,17 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 			fields:  f1,
 			args:    args{c2},
 			wantErr: true,
-			prepare: func() {
+			prepare: func(css *containerStateService) {
+
+				c2.service = css
 
 				c2.InitProc().CreateNsInodes(123456)
 				inode, _ := c2.InitProc().UserNsInode()
 
 				f1.usernsTable[inode] = c2
+
+				c2.service.MountService().(*mocks.MountServiceIface).On(
+					"NewMountInfoParser", c2, c2.initProc, true, true, true).Return(nil, nil)
 			},
 		},
 	}
@@ -568,6 +585,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 				fss:         tt.fields.fss,
 				prs:         tt.fields.prs,
 				ios:         tt.fields.ios,
+				mts:         tt.fields.mts,
 			}
 
 			// Initialize memory-based mock FS.
@@ -575,7 +593,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 
 			// Prepare the mocks.
 			if tt.prepare != nil {
-				tt.prepare()
+				tt.prepare(css)
 			}
 
 			if err := css.ContainerUpdate(tt.args.c); (err != nil) != tt.wantErr {
@@ -632,7 +650,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 		fields  fields
 		args    args
 		wantErr bool
-		prepare func(css domain.ContainerStateServiceIface)
+		prepare func(css *containerStateService)
 	}{
 		{
 			//
@@ -642,10 +660,12 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			fields:  f1,
 			args:    args{c1},
 			wantErr: false,
-			prepare: func(css domain.ContainerStateServiceIface) {
+			prepare: func(css *containerStateService) {
 
 				c1.InitProc().CreateNsInodes(123456)
 				inode, _ := c1.InitProc().UserNsInode()
+
+				c1.service = css
 
 				f1.idTable[c1.id] = c1
 				f1.usernsTable[inode] = c1
@@ -663,10 +683,12 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			fields:  f1,
 			args:    args{c2},
 			wantErr: true,
-			prepare: func(css domain.ContainerStateServiceIface) {
+			prepare: func(css *containerStateService) {
 
 				c2.initProc.CreateNsInodes(123456)
 				inode, _ := c2.InitProc().UserNsInode()
+
+				c2.service = css
 
 				f1.usernsTable[inode] = c2
 			},
@@ -680,7 +702,9 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			fields:  f1,
 			args:    args{c3},
 			wantErr: true,
-			prepare: func(css domain.ContainerStateServiceIface) {
+			prepare: func(css *containerStateService) {
+
+				c3.service = css
 
 				f1.idTable[c3.id] = c3
 			},
@@ -694,10 +718,12 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			fields:  f1,
 			args:    args{c4},
 			wantErr: true,
-			prepare: func(css domain.ContainerStateServiceIface) {
+			prepare: func(css *containerStateService) {
 
 				c4.InitProc().CreateNsInodes(123456)
 				inode, _ := c4.InitProc().UserNsInode()
+
+				c4.service = css
 
 				f1.idTable[c4.id] = c4
 
