@@ -31,7 +31,6 @@ type ContainerIface interface {
 	InitPid() uint32
 	Ctime() time.Time
 	Data(path string, name string) (string, bool)
-	String() string
 	UID() uint32
 	GID() uint32
 	ProcRoPaths() []string

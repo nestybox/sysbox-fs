@@ -152,14 +152,6 @@ func (c *container) InitProc() domain.ProcessIface {
 	return c.initProc
 }
 
-func (c *container) String() string {
-	c.intLock.RLock()
-	defer c.intLock.RUnlock()
-
-	return fmt.Sprintf("id = %s, initPid = %d, uid:gid = %v:%v",
-		c.id, int(c.initPid), c.uidFirst, c.gidFirst)
-}
-
 func (c *container) IsImmutableMountID(id int) bool {
 	c.intLock.RLock()
 	defer c.intLock.RUnlock()
@@ -301,6 +293,16 @@ func (c *container) update(src *container) error {
 	copy(c.procMaskPaths, src.procMaskPaths)
 
 	return nil
+}
+
+// Container's stringer method. Notice that no internal lock is being acquired
+// in this method to avoid collisions (and potential deadlocks) with Container's
+// public methods. In consequence, callee methods must ensure that container's
+// internal (read)lock is acquired prior to invoking this method.
+func (c *container) string() string {
+
+	return fmt.Sprintf("id = %s, initPid = %d, uid:gid = %v:%v",
+		c.id, int(c.initPid), c.uidFirst, c.gidFirst)
 }
 
 func (c *container) SetCtime(t time.Time) {
