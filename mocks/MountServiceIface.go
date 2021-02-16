@@ -44,13 +44,13 @@ func (_m *MountServiceIface) NewMountHelper() domain.MountHelperIface {
 	return r0
 }
 
-// NewMountInfoParser provides a mock function with given fields: c, pid, deep
-func (_m *MountServiceIface) NewMountInfoParser(c domain.ContainerIface, pid uint32, deep bool) (domain.MountInfoParserIface, error) {
-	ret := _m.Called(c, pid, deep)
+// NewMountInfoParser provides a mock function with given fields: c, process, launchParser, fetchOptions, fetchInodes
+func (_m *MountServiceIface) NewMountInfoParser(c domain.ContainerIface, process domain.ProcessIface, launchParser bool, fetchOptions bool, fetchInodes bool) (domain.MountInfoParserIface, error) {
+	ret := _m.Called(c, process, launchParser, fetchOptions, fetchInodes)
 
 	var r0 domain.MountInfoParserIface
-	if rf, ok := ret.Get(0).(func(domain.ContainerIface, uint32, bool) domain.MountInfoParserIface); ok {
-		r0 = rf(c, pid, deep)
+	if rf, ok := ret.Get(0).(func(domain.ContainerIface, domain.ProcessIface, bool, bool, bool) domain.MountInfoParserIface); ok {
+		r0 = rf(c, process, launchParser, fetchOptions, fetchInodes)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(domain.MountInfoParserIface)
@@ -58,8 +58,8 @@ func (_m *MountServiceIface) NewMountInfoParser(c domain.ContainerIface, pid uin
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(domain.ContainerIface, uint32, bool) error); ok {
-		r1 = rf(c, pid, deep)
+	if rf, ok := ret.Get(1).(func(domain.ContainerIface, domain.ProcessIface, bool, bool, bool) error); ok {
+		r1 = rf(c, process, launchParser, fetchOptions, fetchInodes)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -67,7 +67,7 @@ func (_m *MountServiceIface) NewMountInfoParser(c domain.ContainerIface, pid uin
 	return r0, r1
 }
 
-// Setup provides a mock function with given fields: css, hds
-func (_m *MountServiceIface) Setup(css domain.ContainerStateServiceIface, hds domain.HandlerServiceIface) {
-	_m.Called(css, hds)
+// Setup provides a mock function with given fields: css, hds, prs, nss
+func (_m *MountServiceIface) Setup(css domain.ContainerStateServiceIface, hds domain.HandlerServiceIface, prs domain.ProcessServiceIface, nss domain.NSenterServiceIface) {
+	_m.Called(css, hds, prs, nss)
 }

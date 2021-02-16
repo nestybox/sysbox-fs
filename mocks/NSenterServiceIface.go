@@ -12,13 +12,27 @@ type NSenterServiceIface struct {
 	mock.Mock
 }
 
-// NewEvent provides a mock function with given fields: pid, ns, req, res
-func (_m *NSenterServiceIface) NewEvent(pid uint32, ns *[]string, req *domain.NSenterMessage, res *domain.NSenterMessage) domain.NSenterEventIface {
-	ret := _m.Called(pid, ns, req, res)
+// GetEventProcessID provides a mock function with given fields: e
+func (_m *NSenterServiceIface) GetEventProcessID(e domain.NSenterEventIface) uint32 {
+	ret := _m.Called(e)
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func(domain.NSenterEventIface) uint32); ok {
+		r0 = rf(e)
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// NewEvent provides a mock function with given fields: pid, ns, req, res, async
+func (_m *NSenterServiceIface) NewEvent(pid uint32, ns *[]string, req *domain.NSenterMessage, res *domain.NSenterMessage, async bool) domain.NSenterEventIface {
+	ret := _m.Called(pid, ns, req, res, async)
 
 	var r0 domain.NSenterEventIface
-	if rf, ok := ret.Get(0).(func(uint32, *[]string, *domain.NSenterMessage, *domain.NSenterMessage) domain.NSenterEventIface); ok {
-		r0 = rf(pid, ns, req, res)
+	if rf, ok := ret.Get(0).(func(uint32, *[]string, *domain.NSenterMessage, *domain.NSenterMessage, bool) domain.NSenterEventIface); ok {
+		r0 = rf(pid, ns, req, res, async)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(domain.NSenterEventIface)
@@ -58,7 +72,21 @@ func (_m *NSenterServiceIface) SendRequestEvent(e domain.NSenterEventIface) erro
 	return r0
 }
 
-// Setup provides a mock function with given fields: prs
-func (_m *NSenterServiceIface) Setup(prs domain.ProcessServiceIface) {
-	_m.Called(prs)
+// Setup provides a mock function with given fields: prs, mts
+func (_m *NSenterServiceIface) Setup(prs domain.ProcessServiceIface, mts domain.MountServiceIface) {
+	_m.Called(prs, mts)
+}
+
+// TerminateRequestEvent provides a mock function with given fields: e
+func (_m *NSenterServiceIface) TerminateRequestEvent(e domain.NSenterEventIface) error {
+	ret := _m.Called(e)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(domain.NSenterEventIface) error); ok {
+		r0 = rf(e)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }

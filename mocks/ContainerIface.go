@@ -49,6 +49,27 @@ func (_m *ContainerIface) Data(path string, name string) (string, bool) {
 	return r0, r1
 }
 
+// ExtractInode provides a mock function with given fields: path
+func (_m *ContainerIface) ExtractInode(path string) (uint64, error) {
+	ret := _m.Called(path)
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func(string) uint64); ok {
+		r0 = rf(path)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(path)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GID provides a mock function with given fields:
 func (_m *ContainerIface) GID() uint32 {
 	ret := _m.Called()
@@ -121,6 +142,20 @@ func (_m *ContainerIface) IsImmutableBindMount(info *domain.MountInfo) bool {
 	return r0
 }
 
+// IsImmutableMount provides a mock function with given fields: info
+func (_m *ContainerIface) IsImmutableMount(info *domain.MountInfo) bool {
+	ret := _m.Called(info)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(*domain.MountInfo) bool); ok {
+		r0 = rf(info)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // IsImmutableMountID provides a mock function with given fields: id
 func (_m *ContainerIface) IsImmutableMountID(id int) bool {
 	ret := _m.Called(id)
@@ -149,8 +184,36 @@ func (_m *ContainerIface) IsImmutableMountpoint(mp string) bool {
 	return r0
 }
 
+// IsImmutableOverlapMountpoint provides a mock function with given fields: mp
+func (_m *ContainerIface) IsImmutableOverlapMountpoint(mp string) bool {
+	ret := _m.Called(mp)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(string) bool); ok {
+		r0 = rf(mp)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // IsImmutableRoBindMount provides a mock function with given fields: info
 func (_m *ContainerIface) IsImmutableRoBindMount(info *domain.MountInfo) bool {
+	ret := _m.Called(info)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(*domain.MountInfo) bool); ok {
+		r0 = rf(info)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// IsImmutableRoMount provides a mock function with given fields: info
+func (_m *ContainerIface) IsImmutableRoMount(info *domain.MountInfo) bool {
 	ret := _m.Called(info)
 
 	var r0 bool
