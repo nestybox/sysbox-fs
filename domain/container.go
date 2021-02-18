@@ -37,13 +37,14 @@ type ContainerIface interface {
 	ProcMaskPaths() []string
 	InitProc() ProcessIface
 	ExtractInode(path string) (Inode, error)
-	IsImmutableMountID(id int) bool
-	IsImmutableRoMountID(id int) bool
 	IsImmutableMount(info *MountInfo) bool
 	IsImmutableRoMount(info *MountInfo) bool
+	IsImmutableMountID(id int) bool
+	IsImmutableRoMountID(id int) bool
 	IsImmutableBindMount(info *MountInfo) bool
 	IsImmutableRoBindMount(info *MountInfo) bool
 	IsImmutableMountpoint(mp string) bool
+	IsImmutableRoMountpoint(mp string) bool
 	IsImmutableOverlapMountpoint(mp string) bool
 	//
 	// Setters

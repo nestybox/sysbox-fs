@@ -641,16 +641,12 @@ func (m *mountSyscallInfo) remountAllowed(
 			bindmountImmutable bool
 		)
 
-		if ok := m.cntr.IsImmutableMountID(info.MountID); ok {
-			logrus.Debugf("Rejected remount operation over immutable target %s (scenario 1)",
-				m.Target)
+		if ok := m.cntr.IsImmutableRoMountID(info.MountID); ok {
 			immutable = true
 		}
 
 		if !immutable {
 			if ok := m.cntr.IsImmutableRoBindMount(info); ok {
-				logrus.Debugf("Rejected remount operation over bind-mount to read-only-immutable target %s (scenario 1)",
-					m.Target)
 				bindmountImmutable = true
 			}
 		}
@@ -748,7 +744,7 @@ func (m *mountSyscallInfo) remountAllowed(
 				// within the sys-container (different mount-id though), so we
 				// can safely rely on their mountinfo attributes to determine
 				// resource's immutability.
-				if m.cntr.IsImmutableMountpoint(info.MountPoint) {
+				if m.cntr.IsImmutableRoMountpoint(info.MountPoint) {
 					logrus.Debugf("Rejected remount operation over immutable target %s (scenario 5)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
@@ -812,7 +808,7 @@ func (m *mountSyscallInfo) remountAllowed(
 				// within the sys-container (different mount-id though), so we
 				// can safely rely on their mountinfo attributes to determine
 				// resource's immutability.
-				if m.cntr.IsImmutableMountpoint(info.MountPoint) {
+				if m.cntr.IsImmutableRoMountpoint(info.MountPoint) {
 					logrus.Debugf("Rejected remount operation over immutable target %s (scenario 7)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
