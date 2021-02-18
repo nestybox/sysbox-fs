@@ -192,6 +192,18 @@ func (c *container) IsImmutableMountpoint(mp string) bool {
 	return false
 }
 
+func (c *container) IsImmutableRoMountpoint(mp string) bool {
+	c.intLock.RLock()
+	defer c.intLock.RUnlock()
+
+	if info := c.mountInfoParser.LookupByMountpoint(mp); info != nil {
+		mh := c.service.mts.MountHelper()
+		return mh.StringToFlags(info.Options)&unix.MS_RDONLY == unix.MS_RDONLY
+	}
+
+	return false
+}
+
 func (c *container) IsImmutableOverlapMountpoint(mp string) bool {
 	c.intLock.RLock()
 	defer c.intLock.RUnlock()
