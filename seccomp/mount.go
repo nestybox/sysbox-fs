@@ -675,7 +675,7 @@ func (m *mountSyscallInfo) remountAllowed(
 				}
 
 				// Scenario 2): no-unshare(mnt) & pivot() & no-chroot()
-				if processRootInode == syscntrRootInode {
+				if processRootInode != syscntrRootInode {
 					if immutable {
 						logrus.Debugf("Rejected remount operation over immutable target %s (scenario 2)",
 							m.Target)
