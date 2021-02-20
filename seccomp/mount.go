@@ -579,11 +579,11 @@ func (m *mountSyscallInfo) remountAllowed(
 		return true, nil
 	}
 
-	// There must be mountinfo state present for this target. Otherwise, let
-	// kernel handle the error.
+	// There must be mountinfo state present for this target. Otherwise, return
+	// error back to the user.
 	info := mip.GetInfo(m.Target)
 	if info == nil {
-		return false, m.tracer.createContinueResponse(m.reqId)
+		return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
 	}
 
 	// Allow operation if the remount target is a read-write mountpoint.
