@@ -143,11 +143,11 @@ func (u *umountSyscallInfo) umountAllowed(
 		return true, nil
 	}
 
-	// There must be mountinfo state present for this target. Otherwise, let
-	// kernel handle the error.
+	// There must be mountinfo state present for this target. Otherwise, return
+	// error back to the user.
 	info := mip.GetInfo(u.Target)
 	if info == nil {
-		return false, u.tracer.createContinueResponse(u.reqId)
+		return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
 	}
 
 	//
