@@ -176,6 +176,14 @@ func main() {
 			Value: "/var/lib/sysboxfs",
 			Usage: "mount-point location",
 		},
+		cli.BoolFlag{
+			Name:  "allow-immutable-remounts",
+			Usage: "sys container's initial mounts are considered immutable; this option allows them to be remounted from within the container (default: \"false\")",
+		},
+		cli.BoolTFlag{
+			Name:  "allow-immutable-unmounts",
+			Usage: "sys container's initial mounts are considered immutable; this option allows them to be unmounted from within the container (default: \"true\")",
+		},
 		cli.StringFlag{
 			Name:  "log",
 			Value: "/dev/stdout",
@@ -189,7 +197,7 @@ func main() {
 		cli.StringFlag{
 			Name:  "log-format",
 			Value: "text",
-			Usage: "log format; must be json or text (default = text)",
+			Usage: "log format; must be json or text",
 		},
 		cli.BoolFlag{
 			Name:   "ignore-handler-errors",
@@ -353,6 +361,8 @@ func main() {
 			containerStateService,
 			processService,
 			mountService,
+			ctx.BoolT("allow-immutable-remounts"),
+			ctx.Bool("allow-immutable-unmounts"),
 		)
 
 		ipcService.Setup(

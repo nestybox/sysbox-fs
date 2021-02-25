@@ -56,11 +56,13 @@ var monitoredSyscalls = []string{
 // Seccomp's syscall-monitoring/trapping service struct. External packages
 // will solely rely on this struct for their syscall-monitoring demands.
 type SyscallMonitorService struct {
-	nss    domain.NSenterServiceIface        // for nsenter functionality requirements
-	css    domain.ContainerStateServiceIface // for container-state interactions
-	prs    domain.ProcessServiceIface        // for process class interactions
-	mts    domain.MountServiceIface          // for mount-services purposes
-	tracer *syscallTracer                    // pointer to actual syscall-tracer instance
+	nss                    domain.NSenterServiceIface        // for nsenter functionality requirements
+	css                    domain.ContainerStateServiceIface // for container-state interactions
+	prs                    domain.ProcessServiceIface        // for process class interactions
+	mts                    domain.MountServiceIface          // for mount-services purposes
+	allowImmutableRemounts bool                              // allow immutable mounts to be remounted
+	allowImmutableUnmounts bool                              // allow immutable mounts to be unmounted
+	tracer                 *syscallTracer                    // pointer to actual syscall-tracer instance
 }
 
 func NewSyscallMonitorService() *SyscallMonitorService {
@@ -71,12 +73,16 @@ func (scs *SyscallMonitorService) Setup(
 	nss domain.NSenterServiceIface,
 	css domain.ContainerStateServiceIface,
 	prs domain.ProcessServiceIface,
-	mts domain.MountServiceIface) {
+	mts domain.MountServiceIface,
+	allowImmutableRemounts bool,
+	allowImmutableUnmounts bool) {
 
 	scs.nss = nss
 	scs.css = css
 	scs.prs = prs
 	scs.mts = mts
+	scs.allowImmutableRemounts = allowImmutableRemounts
+	scs.allowImmutableUnmounts = allowImmutableUnmounts
 
 	// Allocate a new syscall-tracer.
 	scs.tracer = newSyscallTracer(scs)
