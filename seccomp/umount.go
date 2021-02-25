@@ -138,7 +138,13 @@ func (u *umountSyscallInfo) process() (*sysResponse, error) {
 func (u *umountSyscallInfo) umountAllowed(
 	mip domain.MountInfoParserIface) (bool, *sysResponse) {
 
-	// Skip file-systems explicitly handled by sysbox-fs.
+	// Skip this verification process unless explicitly requested by the user.
+	// Notice that, currently, this is the default behavior.
+	if u.tracer.service.allowImmutableUnmounts {
+		return true, nil
+	}
+
+	// Skip instructions targetting file-systems explicitly handled by sysbox-fs.
 	if u.FsType == "proc" || u.FsType == "sysfs" {
 		return true, nil
 	}

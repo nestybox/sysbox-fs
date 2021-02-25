@@ -569,7 +569,13 @@ func (m *mountSyscallInfo) remountAllowed(
 
 	mh := m.tracer.service.mts.MountHelper()
 
-	// Skip file-systems explicitly handled by sysbox-fs.
+	// Skip verification process if explicitly requested by the user. By default,
+	// remount operations of RO immutables are not allowed.
+	if m.tracer.service.allowImmutableRemounts {
+		return true, nil
+	}
+
+	// Skip instructions targetting file-systems explicitly handled by sysbox-fs.
 	if m.FsType == "proc" || m.FsType == "sysfs" {
 		return true, nil
 	}

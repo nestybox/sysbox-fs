@@ -21,5 +21,7 @@ type SyscallMonitorServiceIface interface {
 		nss NSenterServiceIface,
 		css ContainerStateServiceIface,
 		prs ProcessServiceIface,
-		mts MountServiceIface)
+		mts MountServiceIface,
+		allowImmutableRemounts bool,
+		allowImmutableUnmounts bool)
 }
