@@ -101,6 +101,9 @@ func (css *containerStateService) ContainerCreate(
 }
 
 func (css *containerStateService) ContainerPreRegister(id string) error {
+
+	logrus.Debugf("Container pre-registration started: id = %s", id)
+
 	css.Lock()
 
 	// Ensure that new container's id is not already present.
@@ -136,13 +139,18 @@ func (css *containerStateService) ContainerPreRegister(id string) error {
 
 	css.Unlock()
 
+	logrus.Debugf("Container pre-registration completed: id = %s", id)
+
 	return nil
 }
 
 func (css *containerStateService) ContainerRegister(c domain.ContainerIface) error {
-	css.Lock()
 
 	cntr := c.(*container)
+
+	logrus.Debugf("Container registration started: id = %s", cntr.id)
+
+	css.Lock()
 
 	// Ensure that container's id is already present (pregistration completed).
 	currCntr, ok := css.idTable[cntr.id]
@@ -196,13 +204,19 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 	css.usernsTable[usernsInode] = currCntr
 	css.Unlock()
 
+	// No need to allocate cntr's locks as we're printing the temporary one.
+	logrus.Infof("Container registration completed: %v", cntr.string())
+
 	return nil
 }
 
 func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error {
-	css.Lock()
 
 	cntr := c.(*container)
+
+	logrus.Debugf("Container update started: id = %s", cntr.id)
+
+	css.Lock()
 
 	// Identify the inode associated to the user-ns of the container being
 	// updated.
@@ -222,13 +236,19 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	currCntr.SetCtime(cntr.ctime)
 
 	css.Unlock()
+
+	logrus.Debugf("Container update completed: id = %s", cntr.id)
+
 	return nil
 }
 
 func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) error {
-	css.Lock()
 
 	cntr := c.(*container)
+
+	logrus.Debugf("Container unregistration started: id = %s", cntr.id)
+
+	css.Lock()
 
 	// Identify the inode associated to the user-ns of the container being
 	// eliminated.
@@ -293,6 +313,8 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	delete(css.idTable, cntr.id)
 	delete(css.usernsTable, usernsInode)
 	css.Unlock()
+
+	logrus.Infof("Container unregistration completed: id = %s", cntr.id)
 
 	return nil
 }

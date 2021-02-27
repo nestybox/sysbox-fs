@@ -65,8 +65,6 @@ func (ips *ipcService) Init() error {
 
 func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 
-	logrus.Debugf("Container pre-registration started: id = %s", data.Id)
-
 	ipcService := ctx.(*ipcService)
 
 	err := ipcService.css.ContainerPreRegister(data.Id)
@@ -74,14 +72,10 @@ func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Debugf("Container pre-registration completed: id = %s", data.Id)
-
 	return nil
 }
 
 func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
-
-	logrus.Debugf("Container registration started: id = %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -105,14 +99,10 @@ func ContainerRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Infof("Container registration completed: %v", cntr)
-
 	return nil
 }
 
 func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
-
-	logrus.Debugf("Container unregistration started: id = %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -131,14 +121,10 @@ func ContainerUnregister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	logrus.Infof("Container unregistration completed: id = %s", data.Id)
-
 	return nil
 }
 
 func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
-
-	logrus.Debugf("Container update started: id = %s", data.Id)
 
 	ipcService := ctx.(*ipcService)
 
@@ -161,8 +147,6 @@ func ContainerUpdate(ctx interface{}, data *grpc.ContainerData) error {
 	if err != nil {
 		return err
 	}
-
-	logrus.Debugf("Container update completed: id = %s", data.Id)
 
 	return nil
 }
