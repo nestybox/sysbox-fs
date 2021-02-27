@@ -115,7 +115,7 @@ func exitHandler(
 	// Deferring exit() to allow FUSE to dump unnmount() logs
 	time.Sleep(2)
 
-	logrus.Info("Exiting.")
+	logrus.Info("Exiting ...")
 	os.Exit(0)
 }
 
@@ -309,6 +309,18 @@ func main() {
 	app.Action = func(ctx *cli.Context) error {
 
 		logrus.Info("Initiating sysbox-fs ...")
+
+		// Print key configuration knobs settings.
+		if ctx.BoolT("allow-immutable-remounts") {
+			logrus.Info("Initializing with 'allow-immutable-remounts' enabled")
+		} else {
+			logrus.Info("Initializing with 'allow-immutable-remounts' knob disabled (default)")
+		}
+		if ctx.Bool("allow-immutable-unmounts") {
+			logrus.Info("Initializing with 'allow-immutable-unmounts' knob enabled (default)")
+		} else {
+			logrus.Info("Initializing with 'allow-immutable-unmounts' knob disabled")
+		}
 
 		// Construct sysbox-fs services.
 		var nsenterService = nsenter.NewNSenterService()
