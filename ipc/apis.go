@@ -55,6 +55,8 @@ func (ips *ipcService) Setup(
 			grpc.ContainerUpdateMessage:      ContainerUpdate,
 		},
 	)
+
+	logrus.Infof("Listening on %v", ips.grpcServer.GetAddr())
 }
 
 func (ips *ipcService) Init() error {
