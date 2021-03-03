@@ -37,7 +37,7 @@ type containerStateService struct {
 
 	// Map to keep track of the association between container's user-namespaces
 	// (inode) and its corresponding container data structure.
-	usernsTable map[domain.Inode]*container
+	usernsTable map[domain.Inode][]*container
 
 	// Pointer to the fuse-server service engine.
 	fss domain.FuseServerServiceIface
@@ -56,7 +56,7 @@ func NewContainerStateService() domain.ContainerStateServiceIface {
 
 	newCss := &containerStateService{
 		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode]*container),
+		usernsTable: make(map[domain.Inode][]*container),
 	}
 
 	return newCss
@@ -101,7 +101,7 @@ func (css *containerStateService) ContainerCreate(
 	)
 }
 
-func (css *containerStateService) ContainerPreRegister(id string) error {
+func (css *containerStateService) ContainerPreRegister(id, userns string) error {
 
 	logrus.Debugf("Container pre-registration started: id = %s",
 		formatter.ContainerID{id})
@@ -124,14 +124,59 @@ func (css *containerStateService) ContainerPreRegister(id string) error {
 		id:      id,
 		service: css,
 	}
+
+	// If this container is entering an existing user-ns, store the info for that
+	// user-ns.
+	if userns != "" {
+
+		// Get the inode for the given userns
+		fnode := css.ios.NewIOnode("", userns, 0)
+		usernsInode, err := fnode.GetNsInode()
+		if err != nil {
+			css.Unlock()
+			logrus.Errorf("Container pre-registration error: container %s has invalid user-ns: %s",
+				cntr.id, err)
+			return grpcStatus.Errorf(
+				grpcCodes.NotFound,
+				"Container %s missing valid userns inode",
+				cntr.id,
+			)
+		}
+
+		cntr.usernsInode = usernsInode
+
+		// If the user-ns inode is already associated with other sys container(s)
+		// (e.g., as in a kubernetes pod), there is no need to create a fuse
+		// server for it (see comment below).
+		cntrSameUserns, ok := css.usernsTable[usernsInode]
+		if ok {
+			css.idTable[cntr.id] = cntr
+			cntrSameUserns = append(cntrSameUserns, cntr)
+			css.usernsTable[usernsInode] = cntrSameUserns
+			css.Unlock()
+			return nil
+		} else {
+			css.usernsTable[usernsInode] = []*container{cntr}
+		}
+	}
+
 	css.idTable[cntr.id] = cntr
 
 	// Create dedicated fuse-server for each sys container.
+	//
+	// The exception is for sys containers that share a user-ns (e.g., for K8s +
+	// sysbox pods): in that case all sys containers sharing the user-ns are
+	// associated with the same fuse-server; the cntr object for the first such
+	// container is the one tracking the container's emulation state.
+	//
+	// Sharing a fuse server among sys containers sharing a user-ns means they
+	// share the state for resources in /proc and /sys emulated by sysbox-fs
+	// (e.g., in a K8s pod, all Sysbox containers share the same /proc/uptime).
 	err := css.fss.CreateFuseServer(cntr)
 	if err != nil {
 		css.Unlock()
-		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container %s",
-			formatter.ContainerID{id})
+		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container %s: %s",
+			formatter.ContainerID{id}, err)
 		return grpcStatus.Errorf(
 			grpcCodes.Internal,
 			"Initialization error for container-id %s",
@@ -181,37 +226,31 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 		)
 	}
 
-	usernsInode, err := currCntr.InitProc().UserNsInode()
-	if err != nil {
-		css.Unlock()
-		logrus.Errorf("Container registration error: container %s with invalid user-ns",
-			formatter.ContainerID{cntr.id})
-		return grpcStatus.Errorf(
-			grpcCodes.NotFound,
-			"Container %s missing valid userns inode",
-			cntr.id,
-		)
+	// If we don't yet have the userns info for the container's init process
+	// (i.e., we didn't receive it during pre-registration), get it now.
+	if currCntr.usernsInode == 0 {
+		usernsInode, err := currCntr.InitProc().UserNsInode()
+		if err != nil {
+			css.Unlock()
+			logrus.Errorf("Container registration error: container %s has invalid user-ns: %s",
+				formatter.ContainerID{cntr.id}, err)
+			return grpcStatus.Errorf(
+				grpcCodes.NotFound,
+				"Container %s missing valid userns inode",
+				cntr.id,
+			)
+		}
+		currCntr.usernsInode = usernsInode
 	}
 
-	// Ensure that new container's init process userns inode is not already
-	// registered.
-	if _, ok := css.usernsTable[usernsInode]; ok {
-		css.Unlock()
-		logrus.Errorf("Container addition error: container %s with userns-inode %d already present",
-			formatter.ContainerID{cntr.id}, usernsInode)
-		return grpcStatus.Errorf(
-			grpcCodes.AlreadyExists,
-			"Container %s with userns inode already present",
-			cntr.id,
-		)
+	// If the usernsTable has no info about this container's userns, add it now.
+	if _, ok := css.usernsTable[currCntr.usernsInode]; !ok {
+		css.usernsTable[currCntr.usernsInode] = []*container{currCntr}
 	}
 
-	css.usernsTable[usernsInode] = currCntr
 	css.Unlock()
 
-	// No need to allocate cntr's locks as we're printing the temporary one.
 	logrus.Infof("Container registration completed: %v", cntr.string())
-
 	return nil
 }
 
@@ -241,7 +280,6 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	// Update the existing container-state struct with the one being received.
 	// Only 'creation-time' attribute is supported for now.
 	currCntr.SetCtime(cntr.ctime)
-
 	css.Unlock()
 
 	logrus.Debugf("Container update completed: id = %s",
@@ -259,24 +297,11 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 
 	css.Lock()
 
-	// Identify the inode associated to the user-ns of the container being
-	// eliminated.
-	currCntrIdTable, ok := css.idTable[cntr.id]
+	// Find all containers sharing the same userns
+	cntrSameUserns, ok := css.usernsTable[cntr.usernsInode]
 	if !ok {
 		css.Unlock()
-		logrus.Errorf("Container unregistration failure: container %s not found ",
-			formatter.ContainerID{cntr.id})
-		return grpcStatus.Errorf(
-			grpcCodes.NotFound,
-			"Container %s not found",
-			cntr.id,
-		)
-	}
-
-	usernsInode, err := cntr.InitProc().UserNsInode()
-	if err != nil {
-		css.Unlock()
-		logrus.Errorf("Container unregistration error: could not find userns-inode for container %s",
+		logrus.Errorf("Container unregistration error: could not find userns-inode in usernsTable for container %s",
 			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
 			grpcCodes.NotFound,
@@ -284,44 +309,40 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 			cntr.id,
 		)
 	}
-	currCntrUsernsTable, ok := css.usernsTable[usernsInode]
-	if !ok {
-		css.Unlock()
-		logrus.Errorf("Container unregistration error: could not find userns-inode %d for container %s",
-			usernsInode, formatter.ContainerID{cntr.id})
-		return grpcStatus.Errorf(
-			grpcCodes.NotFound,
-			"Container %s missing valid userns inode",
-			cntr.id,
-		)
+
+	// Remove the unregistered container from the list of containers sharing the
+	// same userns.
+	newCntrSameUserns := []*container{}
+	for _, c := range cntrSameUserns {
+		if c.id == cntr.id {
+			continue
+		}
+		newCntrSameUserns = append(newCntrSameUserns, c)
 	}
 
-	if currCntrIdTable != currCntrUsernsTable {
-		css.Unlock()
-		logrus.Errorf("Container unregistration error: inconsistent usernsTable entry for container %s",
-			formatter.ContainerID{cntr.id})
-		return grpcStatus.Errorf(
-			grpcCodes.Internal,
-			"Container %s with corrupted information",
-			cntr.id,
-		)
-	}
+	// If there are no more containers sharing the same user-ns, destroy the fuse
+	// server and remove the userns from the usernsTable.
+	if len(newCntrSameUserns) == 0 {
 
-	// Destroy fuse-server associated to this sys container.
-	err = css.fss.DestroyFuseServer(cntr.id)
-	if err != nil {
-		css.Unlock()
-		logrus.Errorf("Container unregistration error: unable to destroy fuseServer for container %s",
-			formatter.ContainerID{cntr.id})
-		return grpcStatus.Errorf(
-			grpcCodes.Internal,
-			"Container %s unable to destroy associated fuse-server",
-			cntr.id,
-		)
+		err := css.fss.DestroyFuseServer(cntr.id)
+		if err != nil {
+			css.Unlock()
+			logrus.Errorf("Container unregistration error: unable to destroy fuseServer for container %s",
+				formatter.ContainerID{cntr.id})
+			return grpcStatus.Errorf(
+				grpcCodes.Internal,
+				"Container %s unable to destroy associated fuse-server",
+				cntr.id,
+			)
+		}
+
+		delete(css.usernsTable, cntr.usernsInode)
+
+	} else {
+		css.usernsTable[cntr.usernsInode] = newCntrSameUserns
 	}
 
 	delete(css.idTable, cntr.id)
-	delete(css.usernsTable, usernsInode)
 	css.Unlock()
 
 	logrus.Infof("Container unregistration completed: id = %s",
@@ -337,72 +358,6 @@ func (css *containerStateService) ContainerLookupById(id string) domain.Containe
 	cntr, ok := css.idTable[id]
 	if !ok {
 		return nil
-	}
-
-	return cntr
-}
-
-func (css *containerStateService) ContainerLookupByInode(
-	usernsInode domain.Inode) domain.ContainerIface {
-
-	css.RLock()
-	defer css.RUnlock()
-
-	cntr, ok := css.usernsTable[usernsInode]
-	if !ok {
-		return nil
-	}
-
-	// Although not strictly needed, let's check in container's idTable too for
-	// data-consistency's sake.
-	cntrIdTable, ok := css.idTable[cntr.id]
-	if !ok {
-		return nil
-	}
-
-	if cntr != cntrIdTable {
-		return nil
-	}
-
-	return cntr
-}
-
-func (css *containerStateService) ContainerLookupByProcess(
-	p domain.ProcessIface) domain.ContainerIface {
-
-	// Identify the userNsInode corresponding to this process.
-	usernsInode, err := p.UserNsInode()
-	if err != nil {
-		logrus.Errorf("Could not find a user-namespace for pid %d", p.Pid())
-		return nil
-	}
-
-	// Find the container-state corresponding to the container hosting this
-	// user-ns-inode.
-	cntr := css.ContainerLookupByInode(usernsInode)
-	if cntr == nil {
-		// If no container is found then determine if we are dealing with a nested
-		// container scenario. If that's the case, it's natural to expect sysbox-fs
-		// to be totally unaware of L2 containers launching this request, so we
-		// would be tempted to discard it. To avoid that we obtain the parent user
-		// namespace (and its associated inode), and we search through containerDB
-		// once again. If there's a match then we serve this request making use of
-		// the parent (L1) system container state.
-		parentUsernsInode, err := p.UserNsInodeParent()
-		if err != nil {
-			logrus.Errorf("Could not identify a parent user-namespace for pid %d",
-				p.Pid())
-			return nil
-		}
-
-		parentCntr := css.ContainerLookupByInode(parentUsernsInode)
-		if parentCntr == nil {
-			logrus.Infof("Could not find the container originating this request (userNsInode %d)",
-				usernsInode)
-			return nil
-		}
-
-		return parentCntr
 	}
 
 	return cntr

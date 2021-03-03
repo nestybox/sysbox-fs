@@ -67,9 +67,15 @@ func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 
 	ipcService := ctx.(*ipcService)
 
-	err := ipcService.css.ContainerPreRegister(data.Id)
+	err := ipcService.css.ContainerPreRegister(data.Id, data.Userns)
 	if err != nil {
 		return err
+	}
+
+	if data.Userns == "" {
+		logrus.Debugf("Container pre-registration completed: id = %s", data.Id)
+	} else {
+		logrus.Debugf("Container pre-registration completed: id = %s, userns = %s", data.Id, data.Userns)
 	}
 
 	return nil
