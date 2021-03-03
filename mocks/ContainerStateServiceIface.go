@@ -76,24 +76,8 @@ func (_m *ContainerStateServiceIface) ContainerLookupByInode(usernsInode uint64)
 	return r0
 }
 
-// ContainerLookupByProcess provides a mock function with given fields: process
-func (_m *ContainerStateServiceIface) ContainerLookupByProcess(process domain.ProcessIface) domain.ContainerIface {
-	ret := _m.Called(process)
-
-	var r0 domain.ContainerIface
-	if rf, ok := ret.Get(0).(func(domain.ProcessIface) domain.ContainerIface); ok {
-		r0 = rf(process)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(domain.ContainerIface)
-		}
-	}
-
-	return r0
-}
-
-// ContainerPreRegister provides a mock function with given fields: id
-func (_m *ContainerStateServiceIface) ContainerPreRegister(id string) error {
+// ContainerPreRegister provides a mock function with given fields: id, userns
+func (_m *ContainerStateServiceIface) ContainerPreRegister(id, userns string) error {
 	ret := _m.Called(id)
 
 	var r0 error

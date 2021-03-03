@@ -583,7 +583,7 @@ func (hs *handlerService) Setup(
 	// emulated resource paths, and the parent directory hosting them.
 	hs.createDirHandlerMap()
 
-	// Obtain user-ns inode corresponding to the host fs (root user-ns).
+	// Obtain user-ns inode corresponding to sysbox-fs.
 	hostUserNsInode, err := hs.FindUserNsInode(uint32(os.Getpid()))
 	if err != nil {
 		logrus.Fatalf("Invalid init user-namespace found")
@@ -600,7 +600,7 @@ func (hs *handlerService) createDirHandlerMap() {
 	// Iterate through all the registered handlers to populate the dirHandlerMap
 	// structure. Even though this is an O(n^2) logic, notice that 'n' here is
 	// very small (number of handlers), and that this is only executed during
-	// process initialization.
+	// sysbox-fs initialization.
 	for h1, _ := range hs.handlerDB {
 		dir_h1 := path.Dir(h1)
 

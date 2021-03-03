@@ -89,13 +89,11 @@ type ContainerStateServiceIface interface {
 		procMaskPaths []string,
 		service ContainerStateServiceIface) ContainerIface
 
-	ContainerPreRegister(id string) error
+	ContainerPreRegister(id, userns string) error
 	ContainerRegister(c ContainerIface) error
 	ContainerUpdate(c ContainerIface) error
 	ContainerUnregister(c ContainerIface) error
 	ContainerLookupById(id string) ContainerIface
-	ContainerLookupByInode(usernsInode Inode) ContainerIface
-	ContainerLookupByProcess(process ProcessIface) ContainerIface
 	FuseServerService() FuseServerServiceIface
 	ProcessService() ProcessServiceIface
 	MountService() MountServiceIface

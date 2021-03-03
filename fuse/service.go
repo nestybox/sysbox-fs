@@ -73,7 +73,7 @@ func (fss *FuseServerService) CreateFuseServer(cntr domain.ContainerIface) error
 
 	cntrId := cntr.ID()
 
-	// Ensure no fuse-server already exists for this cntr.
+	// Ensure a fuse-server does not exist for this cntr.
 	fss.RLock()
 	if _, ok := fss.serversMap[cntrId]; ok {
 		fss.RUnlock()
