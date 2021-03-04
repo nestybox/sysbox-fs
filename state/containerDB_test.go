@@ -63,7 +63,7 @@ func Test_containerStateService_Setup(t *testing.T) {
 	type fields struct {
 		RWMutex     sync.RWMutex
 		idTable     map[string]*container
-		usernsTable map[domain.Inode]*container
+		usernsTable map[domain.Inode][]*container
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
@@ -72,7 +72,7 @@ func Test_containerStateService_Setup(t *testing.T) {
 
 	var f1 = fields{
 		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode]*container),
+		usernsTable: make(map[domain.Inode][]*container),
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
@@ -123,7 +123,7 @@ func Test_containerStateService_ContainerCreate(t *testing.T) {
 
 	type fields struct {
 		idTable     map[string]*container
-		usernsTable map[domain.Inode]*container
+		usernsTable map[domain.Inode][]*container
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
@@ -132,7 +132,7 @@ func Test_containerStateService_ContainerCreate(t *testing.T) {
 
 	var f1 = fields{
 		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode]*container),
+		usernsTable: make(map[domain.Inode][]*container),
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
@@ -226,7 +226,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 
 	type fields struct {
 		idTable     map[string]*container
-		usernsTable map[domain.Inode]*container
+		usernsTable map[domain.Inode][]*container
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
@@ -235,7 +235,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 
 	var f1 = fields{
 		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode]*container),
+		usernsTable: make(map[domain.Inode][]*container),
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
@@ -327,7 +327,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 	type fields struct {
 		RWMutex     sync.RWMutex
 		idTable     map[string]*container
-		usernsTable map[domain.Inode]*container
+		usernsTable map[domain.Inode][]*container
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
@@ -336,7 +336,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 
 	var f1 = fields{
 		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode]*container),
+		usernsTable: make(map[domain.Inode][]*container),
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
@@ -428,6 +428,8 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			},
 		},
 		{
+			// TODO: FIXME
+
 			//
 			// Test-case 4: Register a pre-registered container with an existing
 			// user-ns inode (i.e. /proc/pid/ns/<namespaces>). However, this inode
@@ -447,7 +449,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 				inode, _ := c4.InitProc().UserNsInode()
 
 				f1.idTable[c4.id] = c4
-				f1.usernsTable[inode] = c4 // <-- unexpected instruction during registration
+				f1.usernsTable[inode] = []*container{c4} // <-- unexpected instruction during registration
 
 				c4.service.MountService().(*mocks.MountServiceIface).On(
 					"NewMountInfoParser", c4, c4.initProc, true, true, true).Return(nil, nil)
@@ -490,7 +492,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 	type fields struct {
 		RWMutex     sync.RWMutex
 		idTable     map[string]*container
-		usernsTable map[domain.Inode]*container
+		usernsTable map[domain.Inode][]*container
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
@@ -499,7 +501,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 
 	var f1 = fields{
 		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode]*container),
+		usernsTable: make(map[domain.Inode][]*container),
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
@@ -543,7 +545,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 				inode, _ := c1.InitProc().UserNsInode()
 
 				f1.idTable[c1.id] = c1
-				f1.usernsTable[inode] = c1
+				f1.usernsTable[inode] = []*container{c1}
 
 				c1.service.MountService().(*mocks.MountServiceIface).On(
 					"NewMountInfoParser", c1, c1.initProc, true, true, true).Return(nil, nil)
@@ -565,7 +567,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 				c2.InitProc().CreateNsInodes(123456)
 				inode, _ := c2.InitProc().UserNsInode()
 
-				f1.usernsTable[inode] = c2
+				f1.usernsTable[inode] = []*container{c2}
 
 				c2.service.MountService().(*mocks.MountServiceIface).On(
 					"NewMountInfoParser", c2, c2.initProc, true, true, true).Return(nil, nil)
@@ -608,7 +610,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 	type fields struct {
 		RWMutex     sync.RWMutex
 		idTable     map[string]*container
-		usernsTable map[domain.Inode]*container
+		usernsTable map[domain.Inode][]*container
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
@@ -616,7 +618,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 
 	var f1 = fields{
 		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode]*container),
+		usernsTable: make(map[domain.Inode][]*container),
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
@@ -668,7 +670,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 				c1.service = css
 
 				f1.idTable[c1.id] = c1
-				f1.usernsTable[inode] = c1
+				f1.usernsTable[inode] = []*container{c1}
 
 				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
 					"DestroyFuseServer", c1.id).Return(nil)
@@ -690,7 +692,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 
 				c2.service = css
 
-				f1.usernsTable[inode] = c2
+				f1.usernsTable[inode] = []*container{c2}
 			},
 		},
 		{
@@ -730,7 +732,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 				// Artificial error to exercise all code paths -- can't happen
 				// w/o a memory corruption bug or alike, under no other
 				//circumstance this would be ever reproduced.
-				f1.usernsTable[inode] = c3 // <-- see we're pointing to c3 and not c4
+				f1.usernsTable[inode] = []*container{c3} // <-- see we're pointing to c3 and not c4
 			},
 		},
 	}
@@ -769,7 +771,7 @@ func Test_containerStateService_ContainerLookupById(t *testing.T) {
 	type fields struct {
 		RWMutex     sync.RWMutex
 		idTable     map[string]*container
-		usernsTable map[domain.Inode]*container
+		usernsTable map[domain.Inode][]*container
 		fss         domain.FuseServerServiceIface
 		prs         domain.ProcessServiceIface
 		ios         domain.IOServiceIface
@@ -777,7 +779,7 @@ func Test_containerStateService_ContainerLookupById(t *testing.T) {
 
 	var f1 = fields{
 		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode]*container),
+		usernsTable: make(map[domain.Inode][]*container),
 		fss:         fss,
 		prs:         prs,
 		ios:         ios,
@@ -822,129 +824,6 @@ func Test_containerStateService_ContainerLookupById(t *testing.T) {
 
 			if got := css.ContainerLookupById(tt.args.id); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("containerStateService.ContainerLookupById() = %v, want %v",
-					got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_containerStateService_ContainerLookupByInode(t *testing.T) {
-	type fields struct {
-		RWMutex     sync.RWMutex
-		idTable     map[string]*container
-		usernsTable map[domain.Inode]*container
-		fss         domain.FuseServerServiceIface
-		prs         domain.ProcessServiceIface
-		ios         domain.IOServiceIface
-	}
-
-	var f1 = fields{
-		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode]*container),
-		fss:         fss,
-		prs:         prs,
-		ios:         ios,
-	}
-
-	var c1 = &container{
-		id:       "c1",
-		initProc: f1.prs.ProcessCreate(1001, 0, 0),
-	}
-
-	var c2 = &container{
-		id: "c2",
-	}
-
-	var c3 = &container{
-		id:       "c3",
-		initProc: f1.prs.ProcessCreate(3003, 0, 0),
-	}
-
-	type args struct {
-		usernsInode domain.Inode
-	}
-
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    domain.ContainerIface
-		prepare func()
-	}{
-		{
-			//
-			// Test-case 1: Lookup a valid/registed container.
-			//
-			name:   "1",
-			fields: f1,
-			args:   args{123456},
-			want:   c1,
-			prepare: func() {
-
-				c1.InitProc().CreateNsInodes(123456)
-				inode, _ := c1.InitProc().UserNsInode()
-
-				f1.idTable[c1.id] = c1
-				f1.usernsTable[inode] = c1
-			},
-		},
-		{
-			//
-			// Test-case 2: Lookup a container with no matching entry in the
-			// usernsTable. Error expected.
-			//
-			name:   "2",
-			fields: f1,
-			args:   args{1234567}, // see that is a new inode -- diff from testcase #1
-			want:   nil,
-			prepare: func() {
-
-				f1.idTable[c2.id] = c2
-			},
-		},
-		{
-			//
-			// Test-case 3: Lookup a container with no matching entry in the
-			// idTable. Error expected.
-			//
-			name:   "3",
-			fields: f1,
-			args:   args{123456},
-			want:   nil,
-			prepare: func() {
-
-				c3.InitProc().CreateNsInodes(123456)
-				inode, _ := c3.InitProc().UserNsInode()
-
-				f1.usernsTable[inode] = c3
-			},
-		},
-	}
-
-	//
-	// Testcase executions.
-	//
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			css := &containerStateService{
-				RWMutex:     tt.fields.RWMutex,
-				idTable:     tt.fields.idTable,
-				usernsTable: tt.fields.usernsTable,
-				fss:         tt.fields.fss,
-				prs:         tt.fields.prs,
-				ios:         tt.fields.ios,
-			}
-
-			// Initialize memory-based mock FS.
-			css.ios.RemoveAllIOnodes()
-
-			// Prepare the mocks.
-			if tt.prepare != nil {
-				tt.prepare()
-			}
-
-			if got := css.ContainerLookupByInode(tt.args.usernsInode); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("containerStateService.ContainerLookupByInode() = %v, want %v",
 					got, tt.want)
 			}
 		})
