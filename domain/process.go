@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	cap "github.com/nestybox/sysbox-libs/capability"
+	"github.com/nestybox/sysbox-runc/libcontainer/user"
 )
 
 const (
@@ -42,12 +43,15 @@ type ProcessIface interface {
 	Root() string
 	RootInode() uint64
 	SGid() []uint32
+	UidMap() ([]user.IDMap, error)
+	GidMap() ([]user.IDMap, error)
 	IsCapabilitySet(cap.CapType, cap.Cap) bool
 	IsSysAdminCapabilitySet() bool
 	NsInodes() (map[string]Inode, error)
 	MountNsInode() (Inode, error)
 	UserNsInode() (Inode, error)
 	UserNsInodeParent() (Inode, error)
+	UsernsRootUidGid() (uint32, uint32, error)
 	CreateNsInodes(Inode) error
 	PathAccess(path string, accessFlags AccessMode) error
 	ResolveProcSelf(string) (string, error)

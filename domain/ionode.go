@@ -18,7 +18,7 @@ package domain
 
 import "os"
 
-type Inode = uint64
+type Inode = uint64 // 0 = invalid inode
 
 //
 // ioNode interface serves as an abstract-class to represent all I/O resources

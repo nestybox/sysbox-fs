@@ -29,6 +29,7 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 	cap "github.com/nestybox/sysbox-libs/capability"
+	"github.com/nestybox/sysbox-runc/libcontainer/user"
 	"golang.org/x/sys/unix"
 	setxid "gopkg.in/hlandau/service.v1/daemon/setuid"
 )
@@ -99,6 +100,16 @@ func (p *process) Gid() uint32 {
 	}
 
 	return p.gid
+}
+
+func (p *process) UidMap() ([]user.IDMap, error) {
+	f := fmt.Sprintf("/proc/%d/uid_map", p.pid)
+	return user.ParseIDMapFile(f)
+}
+
+func (p *process) GidMap() ([]user.IDMap, error) {
+	f := fmt.Sprintf("/proc/%d/gid_map", p.pid)
+	return user.ParseIDMapFile(f)
 }
 
 func (p *process) Cwd() string {
@@ -389,6 +400,53 @@ func (p *process) CreateNsInodes(inode domain.Inode) error {
 	}
 
 	return nil
+}
+
+// UsernsRootUidGid returns the uid and gid for the root user in the user-ns associated
+// with the process. If the user-ns has no mapping for the root user, the overflow
+// uid & gid are returned (e.g., uid = gid = 65534).
+func (p *process) UsernsRootUidGid() (uint32, uint32, error) {
+	var uid, gid uint32
+	var found bool
+	var err error
+
+	found = false
+	uidMap, err := p.UidMap()
+	if err == nil {
+		for _, m := range uidMap {
+			if m.ID == 0 {
+				uid = uint32(m.ParentID)
+				found = true
+			}
+		}
+	}
+
+	if !found {
+		uid, err = overflowUid()
+		if err != nil {
+			uid = 65534
+		}
+	}
+
+	found = false
+	gidMap, err := p.GidMap()
+	if err == nil {
+		for _, m := range gidMap {
+			if m.ID == 0 {
+				gid = uint32(m.ParentID)
+				found = true
+			}
+		}
+	}
+
+	if !found {
+		gid, err = overflowGid()
+		if err != nil {
+			uid = 65534
+		}
+	}
+
+	return uid, gid, nil
 }
 
 // PathAccess emulates the path resolution and permission checking process done by
@@ -832,4 +890,33 @@ func uint32SliceContains(a []uint32, x uint32) bool {
 		}
 	}
 	return false
+}
+
+func readOverflowID(path string) (uint32, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	str, err := bufio.NewReader(f).ReadString('\n')
+	if err != nil {
+		return 0, err
+	}
+	str = strings.Trim(str, "\n")
+
+	val, err := strconv.Atoi(str)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint32(val), nil
+}
+
+func overflowUid() (uint32, error) {
+	return readOverflowID("/proc/sys/fs/overflowuid")
+}
+
+func overflowGid() (uint32, error) {
+	return readOverflowID("/proc/sys/fs/overflowgid")
 }

@@ -81,6 +81,14 @@ func (d *Dir) Lookup(
 
 	path := filepath.Join(d.path, req.Name)
 
+	prs := d.server.service.hds.ProcessService()
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
+
+	rootUid, rootGid, err := process.UsernsRootUidGid()
+	if err != nil {
+		return nil, err
+	}
+
 	//
 	// nodeDB caches the attributes associated with each file. This way, we perform the
 	// lookup of a given procfs/sysfs dir/file only once, improving performance. This works
@@ -95,19 +103,13 @@ func (d *Dir) Lookup(
 	if ok == true {
 		d.server.RUnlock()
 
-		// The uid & gid attributes must be obtained from the request.
-		uid, gid, err := d.getUsernsRootUid(req.Pid, req.Uid, req.Gid)
-		if err != nil {
-			return nil, err
-		}
-
-		// Identify node type and overwrite uid & gid values.
+		// Overwrite uid & gid values with those of the root in the userns.
 		if file, ok := (*node).(*File); ok {
-			file.attr.Uid = uid
-			file.attr.Gid = gid
+			file.attr.Uid = rootUid
+			file.attr.Gid = rootGid
 		} else if dir, ok := (*node).(*Dir); ok {
-			dir.attr.Uid = uid
-			dir.attr.Gid = gid
+			dir.attr.Uid = rootUid
+			dir.attr.Gid = rootGid
 		}
 
 		return *node, nil
@@ -148,12 +150,8 @@ func (d *Dir) Lookup(
 
 	// Override the uid & gid attributes with the root uid & gid in the
 	// requester's user-ns.
-	uid, gid, err := d.getUsernsRootUid(req.Pid, req.Uid, req.Gid)
-	if err != nil {
-		return nil, err
-	}
-	attr.Uid = uid
-	attr.Gid = gid
+	attr.Uid = rootUid
+	attr.Gid = rootGid
 
 	var newNode fs.Node
 
