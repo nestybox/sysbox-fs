@@ -18,7 +18,6 @@ package fuse
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -332,36 +331,6 @@ func (f *File) Mode() os.FileMode {
 //
 func (f *File) ModTime() time.Time {
 	return f.attr.Mtime
-}
-
-// getUsernsRootUid returns the uid and gid for the root user in the user-ns associated
-// with the given request.
-func (f *File) getUsernsRootUid(reqPid, reqUid, reqGid uint32) (uint32, uint32, error) {
-
-	usernsInode, err := f.server.service.hds.FindUserNsInode(reqPid)
-	if err != nil {
-		return 0, 0, errors.New("Could not identify userNsInode")
-	}
-
-	if usernsInode == f.server.service.hds.HostUserNsInode() {
-		return 0, 0, nil
-	}
-
-	// TODO: for now we return the root uid and gid associated with the the sys container.
-	// in the future we should return the requester's user-ns root uid & gid instead; this
-	// will help us to support "unshare -U -m --mount-proc" inside a sys container.
-
-	prs := f.server.service.hds.ProcessService()
-	css := f.server.service.hds.StateService()
-
-	process := prs.ProcessCreate(reqPid, reqUid, reqGid)
-	cntr := css.ContainerLookupByProcess(process)
-
-	if cntr == nil {
-		return 0, 0, errors.New("Could not find container")
-	}
-
-	return cntr.UID(), cntr.GID(), nil
 }
 
 //
