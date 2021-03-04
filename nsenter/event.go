@@ -379,20 +379,28 @@ func (e *NSenterEvent) SendRequest() error {
 
 	// Alert the zombie reaper that nsenter is about to start
 	e.reaper.nsenterStarted()
+	defer func() {
+		if !e.Async {
+			 e.reaper.nsenterEnded()
+		}
+	}()
 
 	// Create a socket pair
 	parentPipe, childPipe, err := utils.NewSockPair("nsenterPipe")
 	if err != nil {
-		e.reaper.nsenterEnded()
 		return errors.New("Error creating sysbox-fs nsenter pipe")
 	}
 	e.parentPipe = parentPipe
+	defer func() {
+		if !e.Async {
+			 e.parentPipe.Close()
+		}
+	}()
 
 	// Set the SO_PASSCRED on the socket (so we can pass process credentials across it)
 	socket := int(parentPipe.Fd())
 	err = syscall.SetsockoptInt(socket, syscall.SOL_SOCKET, syscall.SO_PASSCRED, 1)
 	if err != nil {
-		parentPipe.Close()
 		return fmt.Errorf("Error setting socket options on nsenter pipe: %v", err)
 	}
 
@@ -424,17 +432,13 @@ func (e *NSenterEvent) SendRequest() error {
 	childPipe.Close()
 	if err != nil {
 		logrus.Errorf("Error launching sysbox-fs first child process: %s", err)
-		parentPipe.Close()
-		e.reaper.nsenterEnded()
 		return errors.New("Error launching sysbox-fs first child process")
 	}
 
 	// Send the config to child process.
 	if _, err := io.Copy(e.parentPipe, bytes.NewReader(r.Serialize())); err != nil {
 		logrus.Warnf("Error copying payload to pipe: %s", err)
-		parentPipe.Close()
 		e.reaper.nsenterReapReq()
-		e.reaper.nsenterEnded()
 		return errors.New("Error copying payload to pipe")
 	}
 
@@ -442,16 +446,12 @@ func (e *NSenterEvent) SendRequest() error {
 	status, err := cmd.Process.Wait()
 	if err != nil {
 		logrus.Warnf("Error waiting for sysbox-fs first child process %d: %s", cmd.Process.Pid, err)
-		parentPipe.Close()
 		e.reaper.nsenterReapReq()
-		e.reaper.nsenterEnded()
 		return err
 	}
 	if !status.Success() {
 		logrus.Warnf("Sysbox-fs first child process error status: pid = %d", cmd.Process.Pid)
-		parentPipe.Close()
 		e.reaper.nsenterReapReq()
-		e.reaper.nsenterEnded()
 		return errors.New("Error waiting for sysbox-fs first child process")
 	}
 
@@ -460,16 +460,12 @@ func (e *NSenterEvent) SendRequest() error {
 	decoder := json.NewDecoder(e.parentPipe)
 	if err := decoder.Decode(&pid); err != nil {
 		logrus.Warnf("Error receiving first-child pid: %s", err)
-		parentPipe.Close()
-		e.reaper.nsenterEnded()
 		return errors.New("Error receiving first-child pid")
 	}
 
 	firstChildProcess, err := os.FindProcess(pid.PidFirstChild)
 	if err != nil {
 		logrus.Warnf("Error finding first-child pid: %s", err)
-		parentPipe.Close()
-		e.reaper.nsenterEnded()
 		return err
 	}
 
@@ -482,8 +478,6 @@ func (e *NSenterEvent) SendRequest() error {
 	process, err := os.FindProcess(pid.Pid)
 	if err != nil {
 		logrus.Warnf("Error finding grand-child pid %d: %s", pid.Pid, err)
-		parentPipe.Close()
-		e.reaper.nsenterEnded()
 		return err
 	}
 	e.Process = process
@@ -508,7 +502,6 @@ func (e *NSenterEvent) SendRequest() error {
 	credMsg := syscall.UnixCredentials(reqCred)
 	if err := syscall.Sendmsg(socket, nil, credMsg, nil, 0); err != nil {
 		logrus.Warnf("Error while sending process credentials to nsenter (%v).", err)
-		parentPipe.Close()
 		e.reaper.nsenterReapReq()
 		return err
 	}
@@ -517,17 +510,13 @@ func (e *NSenterEvent) SendRequest() error {
 	data, err := json.Marshal(*(e.ReqMsg))
 	if err != nil {
 		logrus.Warnf("Error while encoding nsenter payload (%v).", err)
-		parentPipe.Close()
 		e.reaper.nsenterReapReq()
-		e.reaper.nsenterEnded()
 		return err
 	}
 	_, err = e.parentPipe.Write(data)
 	if err != nil {
 		logrus.Warnf("Error while writing nsenter payload into pipeline (%v)", err)
-		parentPipe.Close()
 		e.reaper.nsenterReapReq()
-		e.reaper.nsenterEnded()
 		return err
 	}
 
@@ -545,16 +534,11 @@ func (e *NSenterEvent) SendRequest() error {
 	}
 
 	if ierr != nil {
-		parentPipe.Close()
 		e.reaper.nsenterReapReq()
-		e.reaper.nsenterEnded()
 		return ierr
 	}
 
 	e.Process.Wait()
-	parentPipe.Close()
-	e.reaper.nsenterEnded()
-
 
 	return nil
 }
