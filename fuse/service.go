@@ -69,11 +69,19 @@ func (fss *FuseServerService) DestroyFuseService() {
 }
 
 // Creates new fuse-server.
-func (fss *FuseServerService) CreateFuseServer(cntr domain.ContainerIface) error {
+//
+// serveCntr is the container on which the fuse server will listen.
+// stateCntr is the container object tracking the state for the fuse accesses.
+//
+// Normally serveCntr and stateCntr refer to the same cntr object. However, if
+// multiple containers want to share the same fuse state (as sysbox-fs does for
+// kubernetes pods), then this function may be called with different serveCntr
+// objects but the same stateCntr object.
+func (fss *FuseServerService) CreateFuseServer(serveCntr, stateCntr domain.ContainerIface) error {
 
-	cntrId := cntr.ID()
+	cntrId := serveCntr.ID()
 
-	// Ensure a fuse-server does not exist for this cntr.
+	// Ensure a fuse-server does not exist for this serveCntr.
 	fss.RLock()
 	if _, ok := fss.serversMap[cntrId]; ok {
 		fss.RUnlock()
@@ -93,7 +101,7 @@ func (fss *FuseServerService) CreateFuseServer(cntr domain.ContainerIface) error
 	srv := NewFuseServer(
 		"/",
 		cntrMountpoint,
-		cntr,
+		stateCntr,
 		fss,
 	)
 
@@ -111,6 +119,12 @@ func (fss *FuseServerService) CreateFuseServer(cntr domain.ContainerIface) error
 	fss.Lock()
 	fss.serversMap[cntrId] = srv.(*fuseServer)
 	fss.Unlock()
+
+	logrus.Debugf("Created fuse server for container %s", cntrId)
+
+	if serveCntr != stateCntr {
+		logrus.Debugf("Fuse server for container %s shares state with container %s", cntrId, stateCntr.ID())
+	}
 
 	return nil
 }
@@ -148,6 +162,8 @@ func (fss *FuseServerService) DestroyFuseServer(cntrId string) error {
 	fss.Lock()
 	delete(fss.serversMap, cntrId)
 	fss.Unlock()
+
+	logrus.Debugf("Destroyed fuse server for container %s", cntrId)
 
 	return nil
 }

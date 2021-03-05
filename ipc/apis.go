@@ -72,12 +72,6 @@ func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 		return err
 	}
 
-	if data.Userns == "" {
-		logrus.Debugf("Container pre-registration completed: id = %s", data.Id)
-	} else {
-		logrus.Debugf("Container pre-registration completed: id = %s, userns = %s", data.Id, data.Userns)
-	}
-
 	return nil
 }
 
