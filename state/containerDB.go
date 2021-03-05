@@ -102,9 +102,13 @@ func (css *containerStateService) ContainerCreate(
 }
 
 func (css *containerStateService) ContainerPreRegister(id, userns string) error {
+	var stateCntr *container
 
-	logrus.Debugf("Container pre-registration started: id = %s",
-		formatter.ContainerID{id})
+	if userns == "" {
+		logrus.Debugf("Container pre-registration started: id = %s", id)
+	} else {
+		logrus.Debugf("Container pre-registration started: id = %s, userns = %s", id, userns)
+	}
 
 	css.Lock()
 
@@ -125,8 +129,9 @@ func (css *containerStateService) ContainerPreRegister(id, userns string) error 
 		service: css,
 	}
 
-	// If this container is entering an existing user-ns, store the info for that
-	// user-ns.
+	stateCntr = cntr
+
+	// If this container is entering an existing user-ns, record this
 	if userns != "" {
 
 		// Get the inode for the given userns
@@ -145,16 +150,12 @@ func (css *containerStateService) ContainerPreRegister(id, userns string) error 
 
 		cntr.usernsInode = usernsInode
 
-		// If the user-ns inode is already associated with other sys container(s)
-		// (e.g., as in a kubernetes pod), there is no need to create a fuse
-		// server for it (see comment below).
+		// Update the usernsTable with this container's info
 		cntrSameUserns, ok := css.usernsTable[usernsInode]
 		if ok {
-			css.idTable[cntr.id] = cntr
 			cntrSameUserns = append(cntrSameUserns, cntr)
 			css.usernsTable[usernsInode] = cntrSameUserns
-			css.Unlock()
-			return nil
+			stateCntr = cntrSameUserns[0]
 		} else {
 			css.usernsTable[usernsInode] = []*container{cntr}
 		}
@@ -164,15 +165,22 @@ func (css *containerStateService) ContainerPreRegister(id, userns string) error 
 
 	// Create dedicated fuse-server for each sys container.
 	//
-	// The exception is for sys containers that share a user-ns (e.g., for K8s +
-	// sysbox pods): in that case all sys containers sharing the user-ns are
-	// associated with the same fuse-server; the cntr object for the first such
-	// container is the one tracking the container's emulation state.
+	// Note: for sys containers that share a user-ns (e.g., for K8s + sysbox
+	// pods), each sys container has a dedicated fuse-server. However, all
+	// fuse-servers are given the same container state object (the container
+	// struct associated with the first container in the user-ns).
 	//
-	// Sharing a fuse server among sys containers sharing a user-ns means they
-	// share the state for resources in /proc and /sys emulated by sysbox-fs
-	// (e.g., in a K8s pod, all Sysbox containers share the same /proc/uptime).
-	err := css.fss.CreateFuseServer(cntr)
+	// This means that all containers sharing a user-ns will share the state for
+	// resources in procfs and sysfs emulated by sysbox-fs (e.g., in a K8s pod, all
+	// Sysbox containers share the same /proc/uptime).
+	//
+	// Note that even if the first container is destroyed, a reference to its
+	// container state object will be held by the fuse servers associated with
+	// the other containers in the same user-ns. Therefore those will continue to
+	// operate properly. Only when all containers sharing the user-ns are
+	// destroyed will the container state object be garbage collected.
+
+	err := css.fss.CreateFuseServer(cntr, stateCntr)
 	if err != nil {
 		css.Unlock()
 		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container %s: %s",
@@ -186,8 +194,11 @@ func (css *containerStateService) ContainerPreRegister(id, userns string) error 
 
 	css.Unlock()
 
-	logrus.Debugf("Container pre-registration completed: id = %s",
-		formatter.ContainerID{id})
+	if userns == "" {
+		logrus.Debugf("Container pre-registration completed: id = %s", id)
+	} else {
+		logrus.Debugf("Container pre-registration completed: id = %s, userns = %s", id, userns)
+	}
 
 	return nil
 }
@@ -310,8 +321,7 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 		)
 	}
 
-	// Remove the unregistered container from the list of containers sharing the
-	// same userns.
+	// Remove the unregistered container from the list of containers sharing the userns.
 	newCntrSameUserns := []*container{}
 	for _, c := range cntrSameUserns {
 		if c.id == cntr.id {
@@ -320,26 +330,23 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 		newCntrSameUserns = append(newCntrSameUserns, c)
 	}
 
-	// If there are no more containers sharing the same user-ns, destroy the fuse
-	// server and remove the userns from the usernsTable.
-	if len(newCntrSameUserns) == 0 {
-
-		err := css.fss.DestroyFuseServer(cntr.id)
-		if err != nil {
-			css.Unlock()
-			logrus.Errorf("Container unregistration error: unable to destroy fuseServer for container %s",
-				formatter.ContainerID{cntr.id})
-			return grpcStatus.Errorf(
-				grpcCodes.Internal,
-				"Container %s unable to destroy associated fuse-server",
-				cntr.id,
-			)
-		}
-
-		delete(css.usernsTable, cntr.usernsInode)
-
-	} else {
+	if len(newCntrSameUserns) > 0 {
 		css.usernsTable[cntr.usernsInode] = newCntrSameUserns
+	} else {
+		delete(css.usernsTable, cntr.usernsInode)
+	}
+
+	// Destroy the fuse server for the container
+	err := css.fss.DestroyFuseServer(cntr.id)
+	if err != nil {
+		css.Unlock()
+		logrus.Errorf("Container unregistration error: unable to destroy fuseServer for container %s",
+			cntr.id)
+		return grpcStatus.Errorf(
+			grpcCodes.Internal,
+			"Container %s unable to destroy associated fuse-server",
+			cntr.id,
+		)
 	}
 
 	delete(css.idTable, cntr.id)

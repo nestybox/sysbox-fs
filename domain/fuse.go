@@ -23,7 +23,7 @@ type FuseServerServiceIface interface {
 		ios IOServiceIface,
 		hds HandlerServiceIface)
 
-	CreateFuseServer(cntr ContainerIface) error
+	CreateFuseServer(serveCntr, stateCntr ContainerIface) error
 	DestroyFuseServer(mp string) error
 	DestroyFuseService()
 }
