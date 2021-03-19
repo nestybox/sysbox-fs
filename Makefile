@@ -27,7 +27,7 @@ COMMIT ?= $(if $(shell git status --porcelain --untracked-files=no),$(COMMIT_NO)
 BUILT_AT := $(shell date)
 BUILT_BY := $(shell git config user.name)
 
-LDFLAGS := '-X "main.platform=${PLATFORM}" -X main.version=${VERSION} \
+LDFLAGS := '-X "main.edition=${EDITION}" -X main.version=${VERSION} \
 		-X main.commitId=$(COMMIT) -X "main.builtAt=$(BUILT_AT)" \
 		-X "main.builtBy=$(BUILT_BY)"'
 
