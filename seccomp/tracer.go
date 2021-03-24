@@ -106,7 +106,7 @@ type syscallTracer struct {
 	pollsrv           *unixIpc.PollServer               // unix pollserver for non-blocking i/o on seccomp-fd
 	syscalls          map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
 	seccompSessionMap map[uint32]seccompSession         // Table of seccomp sessions
-	seccompSessionMu  sync.Mutex                        // Seccomp session table lock
+	seccompSessionMu  sync.RWMutex                      // Seccomp session table lock
 	pm                *pidmonitor.PidMon                // Pid monitor (so we get notified when processes traced by seccomp die)
 	service           *SyscallMonitorService            // backpointer to syscall-monitor service
 }
@@ -180,12 +180,12 @@ func (t *syscallTracer) start() error {
 	}
 	t.pollsrv = pollsrv
 
-	go t.sessionsMonitor()
+	go t.seccompSessionsMonitor()
 
 	return nil
 }
 
-func (t *syscallTracer) addSession(s seccompSession) error {
+func (t *syscallTracer) seccompSessionAdd(s seccompSession) error {
 
 	t.seccompSessionMu.Lock()
 	t.seccompSessionMap[s.pid] = s
@@ -203,43 +203,75 @@ func (t *syscallTracer) addSession(s seccompSession) error {
 	return err
 }
 
-func (t *syscallTracer) removeSession(pid uint32) {
+func (t *syscallTracer) seccompSessionDelete(pid uint32) {
 
 	t.seccompSessionMu.Lock()
 
 	s, ok := t.seccompSessionMap[pid]
 	if !ok {
-		logrus.Errorf("Unexpected error: seccomp fd not found for pid %d", pid)
 		t.seccompSessionMu.Unlock()
+		logrus.Warnf("Unexpected error: seccomp fd not found for pid %d", pid)
 		return
 	}
 
+	// From the moment in which we delete a given seccompSession from the
+	// sessions map, no new read-operation can be launched from the tracer
+	// for this very fd being eliminated. That's to say that the order of
+	// instructions in this block is important: "delete" first, StopWait()
+	// second.
+	delete(t.seccompSessionMap, pid)
+	t.seccompSessionMu.Unlock()
+
+	// Alert the tracer's pollServer to stop polling on this seccomp-fd.
+	if err := t.pollsrv.StopWait(s.fd); err != nil {
+		logrus.Errorf("failed StopWait execution of seccomp fd %d for pid %d: %v",
+			s.fd, pid, err)
+	}
+
+	// Now we are finally ready to close the seccomp-fd. We don't want to do
+	// this any earlier as kernel could potentially re-assign the same fd to
+	// new seccomp-bpf sessions without giving us a chance to complete the fd
+	// unregistration process.
 	if err := syscall.Close(int(s.fd)); err != nil {
 		logrus.Errorf("failed to close seccomp fd %v for pid %d: %v", s.fd, pid, err)
 	}
 
-	delete(t.seccompSessionMap, pid)
-	t.seccompSessionMu.Unlock()
-
-	t.pollsrv.StopWait(s.fd)
-
 	logrus.Debugf("Removed session for seccomp-tracee: %v", s)
+}
+
+func (t *syscallTracer) seccompSessionRead(s seccompSession) error {
+
+	t.seccompSessionMu.RLock()
+	s, ok := t.seccompSessionMap[s.pid]
+	if !ok {
+		t.seccompSessionMu.RUnlock()
+		return fmt.Errorf("SeccompSession not found for pid %d fd %d", s.pid, s.fd)
+	}
+	t.seccompSessionMu.RUnlock()
+
+	if err := t.pollsrv.StartWaitRead(s.fd); err != nil {
+		logrus.Debugf("Seccomp-fd i/o error returned (%v). Exiting seccomp-tracer processing on fd %d pid %d",
+			err, s.fd, s.pid)
+		return err
+	}
+
+	return nil
 }
 
 // Go routine that tracks of all sessions traced by a syscall tracer. From a
 // functional standpoint, this routine acts as a garbage-collector, in the sense
 // that it detects when traced sessions are no longer valid (i.e., the associated
 // process has died) and removes them if so.
-func (t *syscallTracer) sessionsMonitor() error {
+func (t *syscallTracer) seccompSessionsMonitor() error {
 
 	for {
 		pidList := <-t.pm.EventCh
 		for _, pidEvent := range pidList {
-			t.removeSession(pidEvent.Pid)
+			t.seccompSessionDelete(pidEvent.Pid)
 
-			// This sleep prevents removeSession() from hogging the
-			// seccompSessionMu lock; this gives priority to function addSession()
-			// to get the lock when needed.
+			// This sleep prevents seccompSessionDelete() from hogging the
+			// seccompSessionMu lock; this gives priority to function
+			// seccompSessionAdd() to get the lock when needed.
 			time.Sleep(10 * time.Microsecond)
 		}
 	}
@@ -260,7 +292,8 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 	logrus.Debugf("seccompTracer connection on fd %d from pid %d cntrId %s",
 		fd, pid, cntrID)
 
-	if err := t.addSession(seccompSession{uint32(pid), fd}); err != nil {
+	seccompSession := seccompSession{uint32(pid), fd}
+	if err := t.seccompSessionAdd(seccompSession); err != nil {
 		return err
 	}
 
@@ -270,12 +303,10 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 	}
 
 	for {
-		// Wait for incoming seccomp-notification msg to be available.
-		// Return here to exit this goroutine in case of error as that
-		// implies that seccomp-fd is not valid anymore.
-		if err := t.pollsrv.StartWaitRead(fd); err != nil {
-			logrus.Debugf("Seccomp-fd i/o error returned (%v). Exiting seccomp-tracer processing on fd %d pid %d",
-				err, fd, pid)
+		// Wait for an incoming seccomp-notification msg to be available.
+		// Return here to exit this goroutine in case of error as that implies
+		// that the seccomp-fd is not valid anymore.
+		if err := t.seccompSessionRead(seccompSession); err != nil {
 			return err
 		}
 
