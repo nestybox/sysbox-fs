@@ -212,12 +212,10 @@ func (u *umountSyscallInfo) umountAllowed(
 
 					if processRootInode == syscntrRootInode {
 						// Scenario 1): no-unshare(mnt) & no-pivot() & no-chroot()
-						logrus.Infof("Rejected unmount operation -- scenario 1",
-							u.Target)
+						logrus.Info("Rejected unmount operation -- scenario 1")
 					} else {
 						// Scenario 2): no-unshare(mnt) & pivot() & no-chroot()
-						logrus.Infof("Rejected unmount operation -- scenario 2",
-							u.Target)
+						logrus.Info("Rejected unmount operation -- scenario 2")
 					}
 
 				} else {
@@ -231,12 +229,10 @@ func (u *umountSyscallInfo) umountAllowed(
 
 					if processRootInode == syscntrRootInode {
 						// Scenario 3: no-unshare(mnt) & no-pivot() & chroot()
-						logrus.Infof("Rejected unmount operation -- scenario 3",
-							u.Target)
+						logrus.Info("Rejected unmount operation -- scenario 3")
 					} else {
 						// Scenario 4: no-unshare(mnt) & pivot() & chroot()
-						logrus.Infof("Rejected unmount operation -- scenario 4",
-							u.Target)
+						logrus.Info("Rejected unmount operation -- scenario 4")
 					}
 				}
 			}

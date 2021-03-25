@@ -671,12 +671,12 @@ func (m *mountSyscallInfo) remountAllowed(
 
 				// Scenario 1): no-unshare(mnt) & no-privot() & no-chroot()
 				if processRootInode == syscntrRootInode {
-					logrus.Debugf("Rejected remount operation -- scenario 1")
+					logrus.Debug("Rejected remount operation -- scenario 1")
 				}
 
 				// Scenario 2): no-unshare(mnt) & pivot() & no-chroot()
 				if processRootInode != syscntrRootInode {
-					logrus.Debugf("Rejected remount operation -- scenario 2")
+					logrus.Debug("Rejected remount operation -- scenario 2")
 				}
 			}
 
@@ -691,12 +691,12 @@ func (m *mountSyscallInfo) remountAllowed(
 
 				// Scenario 3): no-unshare(mnt) & no-pivot() & chroot()
 				if processRootInode == syscntrRootInode {
-					logrus.Debugf("Rejected remount operation -- scenario 3")
+					logrus.Debug("Rejected remount operation -- scenario 3")
 				}
 
 				// Scenario 4): no-unshare(mnt) & pivot() & chroot()
 				if processRootInode != syscntrRootInode {
-					logrus.Debugf("Rejected remount operation -- scenario 4")
+					logrus.Debug("Rejected remount operation -- scenario 4")
 				}
 			}
 		}
