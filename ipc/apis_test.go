@@ -146,7 +146,8 @@ func TestContainerPreRegister(t *testing.T) {
 	var a1 = args{
 		ctx: ctx,
 		data: &grpc.ContainerData{
-			Id: "c1",
+			Id:    "c1",
+			Netns: "",
 		},
 	}
 
@@ -164,7 +165,7 @@ func TestContainerPreRegister(t *testing.T) {
 			args:    a1,
 			wantErr: false,
 			prepare: func() {
-				css.On("ContainerPreRegister", a1.data.Id).Return(nil)
+				css.On("ContainerPreRegister", a1.data.Id, a1.data.Netns).Return(nil)
 			},
 		},
 		{
@@ -176,7 +177,7 @@ func TestContainerPreRegister(t *testing.T) {
 			args:    a1,
 			wantErr: true,
 			prepare: func() {
-				css.On("ContainerPreRegister", a1.data.Id).Return(
+				css.On("ContainerPreRegister", a1.data.Id, a1.data.Netns).Return(
 					errors.New("Container pre-registration error: container %s already present"))
 			},
 		},

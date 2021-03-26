@@ -47,7 +47,8 @@ type container struct {
 	service         *containerStateService      // backpointer to service
 	intLock         sync.RWMutex                // internal lock
 	extLock         sync.Mutex                  // external lock (exposed via Lock() and Unlock() methods)
-	usernsInode     domain.Inode                // inode associated with the container's user-namespace
+	usernsInode     domain.Inode                // inode associated with the container's user namespace
+	netnsInode      domain.Inode                // inode associated with the container's network namespace
 }
 
 func newContainer(

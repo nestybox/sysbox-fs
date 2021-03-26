@@ -49,6 +49,7 @@ type ProcessIface interface {
 	IsSysAdminCapabilitySet() bool
 	NsInodes() (map[string]Inode, error)
 	MountNsInode() (Inode, error)
+	NetNsInode() (Inode, error)
 	UserNsInode() (Inode, error)
 	UserNsInodeParent() (Inode, error)
 	UsernsRootUidGid() (uint32, uint32, error)

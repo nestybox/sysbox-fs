@@ -61,21 +61,21 @@ func TestMain(m *testing.M) {
 
 func Test_containerStateService_Setup(t *testing.T) {
 	type fields struct {
-		RWMutex     sync.RWMutex
-		idTable     map[string]*container
-		usernsTable map[domain.Inode][]*container
-		fss         domain.FuseServerServiceIface
-		prs         domain.ProcessServiceIface
-		ios         domain.IOServiceIface
-		mts         domain.MountServiceIface
+		RWMutex    sync.RWMutex
+		idTable    map[string]*container
+		netnsTable map[domain.Inode][]*container
+		fss        domain.FuseServerServiceIface
+		prs        domain.ProcessServiceIface
+		ios        domain.IOServiceIface
+		mts        domain.MountServiceIface
 	}
 
 	var f1 = fields{
-		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode][]*container),
-		fss:         fss,
-		prs:         prs,
-		ios:         ios,
+		idTable:    make(map[string]*container),
+		netnsTable: make(map[domain.Inode][]*container),
+		fss:        fss,
+		prs:        prs,
+		ios:        ios,
 	}
 
 	type args struct {
@@ -106,13 +106,13 @@ func Test_containerStateService_Setup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			css := &containerStateService{
-				RWMutex:     tt.fields.RWMutex,
-				idTable:     tt.fields.idTable,
-				usernsTable: tt.fields.usernsTable,
-				fss:         tt.fields.fss,
-				prs:         tt.fields.prs,
-				ios:         tt.fields.ios,
-				mts:         tt.fields.mts,
+				RWMutex:    tt.fields.RWMutex,
+				idTable:    tt.fields.idTable,
+				netnsTable: tt.fields.netnsTable,
+				fss:        tt.fields.fss,
+				prs:        tt.fields.prs,
+				ios:        tt.fields.ios,
+				mts:        tt.fields.mts,
 			}
 			css.Setup(tt.args.fss, tt.args.prs, tt.args.ios, tt.args.mts)
 		})
@@ -122,30 +122,30 @@ func Test_containerStateService_Setup(t *testing.T) {
 func Test_containerStateService_ContainerCreate(t *testing.T) {
 
 	type fields struct {
-		idTable     map[string]*container
-		usernsTable map[domain.Inode][]*container
-		fss         domain.FuseServerServiceIface
-		prs         domain.ProcessServiceIface
-		ios         domain.IOServiceIface
-		mts         domain.MountServiceIface
+		idTable    map[string]*container
+		netnsTable map[domain.Inode][]*container
+		fss        domain.FuseServerServiceIface
+		prs        domain.ProcessServiceIface
+		ios        domain.IOServiceIface
+		mts        domain.MountServiceIface
 	}
 
 	var f1 = fields{
-		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode][]*container),
-		fss:         fss,
-		prs:         prs,
-		ios:         ios,
-		mts:         mts,
+		idTable:    make(map[string]*container),
+		netnsTable: make(map[domain.Inode][]*container),
+		fss:        fss,
+		prs:        prs,
+		ios:        ios,
+		mts:        mts,
 	}
 
 	css := &containerStateService{
-		idTable:     f1.idTable,
-		usernsTable: f1.usernsTable,
-		fss:         f1.fss,
-		prs:         f1.prs,
-		ios:         f1.ios,
-		mts:         f1.mts,
+		idTable:    f1.idTable,
+		netnsTable: f1.netnsTable,
+		fss:        f1.fss,
+		prs:        f1.prs,
+		ios:        f1.ios,
+		mts:        f1.mts,
 	}
 	type args struct {
 		id            string
@@ -225,30 +225,30 @@ func Test_containerStateService_ContainerCreate(t *testing.T) {
 func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 
 	type fields struct {
-		idTable     map[string]*container
-		usernsTable map[domain.Inode][]*container
-		fss         domain.FuseServerServiceIface
-		prs         domain.ProcessServiceIface
-		ios         domain.IOServiceIface
-		mts         domain.MountServiceIface
+		idTable    map[string]*container
+		netnsTable map[domain.Inode][]*container
+		fss        domain.FuseServerServiceIface
+		prs        domain.ProcessServiceIface
+		ios        domain.IOServiceIface
+		mts        domain.MountServiceIface
 	}
 
 	var f1 = fields{
-		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode][]*container),
-		fss:         fss,
-		prs:         prs,
-		ios:         ios,
-		mts:         mts,
+		idTable:    make(map[string]*container),
+		netnsTable: make(map[domain.Inode][]*container),
+		fss:        fss,
+		prs:        prs,
+		ios:        ios,
+		mts:        mts,
 	}
 
 	css := &containerStateService{
-		idTable:     f1.idTable,
-		usernsTable: f1.usernsTable,
-		fss:         f1.fss,
-		prs:         f1.prs,
-		ios:         f1.ios,
-		mts:         f1.mts,
+		idTable:    f1.idTable,
+		netnsTable: f1.netnsTable,
+		fss:        f1.fss,
+		prs:        f1.prs,
+		ios:        f1.ios,
+		mts:        f1.mts,
 	}
 
 	var c1 = &container{
@@ -262,7 +262,8 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 	}
 
 	type args struct {
-		id string
+		id  string
+		id2 string
 	}
 	tests := []struct {
 		name    string
@@ -277,12 +278,12 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 			//
 			name:    "1",
 			fields:  f1,
-			args:    args{"c1"},
+			args:    args{"c1", "c1"},
 			wantErr: false,
 			prepare: func() {
 
 				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
-					"CreateFuseServer", c1).Return(nil)
+					"CreateFuseServer", c1, c1).Return(nil)
 			},
 		},
 		{
@@ -292,13 +293,13 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 			//
 			name:    "2",
 			fields:  f1,
-			args:    args{"c2"},
+			args:    args{"c2", "c2"},
 			wantErr: true,
 			prepare: func() {
 
 				f1.idTable[c2.id] = c2
 				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
-					"CreateFuseServer", c2).Return(nil)
+					"CreateFuseServer", c2, c2).Return(nil)
 			},
 		},
 	}
@@ -325,22 +326,22 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 func Test_containerStateService_ContainerRegister(t *testing.T) {
 
 	type fields struct {
-		RWMutex     sync.RWMutex
-		idTable     map[string]*container
-		usernsTable map[domain.Inode][]*container
-		fss         domain.FuseServerServiceIface
-		prs         domain.ProcessServiceIface
-		ios         domain.IOServiceIface
-		mts         domain.MountServiceIface
+		RWMutex    sync.RWMutex
+		idTable    map[string]*container
+		netnsTable map[domain.Inode][]*container
+		fss        domain.FuseServerServiceIface
+		prs        domain.ProcessServiceIface
+		ios        domain.IOServiceIface
+		mts        domain.MountServiceIface
 	}
 
 	var f1 = fields{
-		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode][]*container),
-		fss:         fss,
-		prs:         prs,
-		ios:         ios,
-		mts:         mts,
+		idTable:    make(map[string]*container),
+		netnsTable: make(map[domain.Inode][]*container),
+		fss:        fss,
+		prs:        prs,
+		ios:        ios,
+		mts:        mts,
 	}
 
 	var c1 = &container{
@@ -433,7 +434,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 			//
 			// Test-case 4: Register a pre-registered container with an existing
 			// user-ns inode (i.e. /proc/pid/ns/<namespaces>). However, this inode
-			// value is present in usernsTable by the time the registration begins,
+			// value is present in netnsTable by the time the registration begins,
 			// which is an unexpected error, as it indicates "overlapping"
 			// condition. Error expected.
 			//
@@ -449,7 +450,7 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 				inode, _ := c4.InitProc().UserNsInode()
 
 				f1.idTable[c4.id] = c4
-				f1.usernsTable[inode] = []*container{c4} // <-- unexpected instruction during registration
+				f1.netnsTable[inode] = []*container{c4} // <-- unexpected instruction during registration
 
 				c4.service.MountService().(*mocks.MountServiceIface).On(
 					"NewMountInfoParser", c4, c4.initProc, true, true, true).Return(nil, nil)
@@ -463,13 +464,13 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			css := &containerStateService{
-				RWMutex:     tt.fields.RWMutex,
-				idTable:     tt.fields.idTable,
-				usernsTable: tt.fields.usernsTable,
-				fss:         tt.fields.fss,
-				prs:         tt.fields.prs,
-				ios:         tt.fields.ios,
-				mts:         tt.fields.mts,
+				RWMutex:    tt.fields.RWMutex,
+				idTable:    tt.fields.idTable,
+				netnsTable: tt.fields.netnsTable,
+				fss:        tt.fields.fss,
+				prs:        tt.fields.prs,
+				ios:        tt.fields.ios,
+				mts:        tt.fields.mts,
 			}
 
 			// Initialize memory-based mock FS.
@@ -490,22 +491,22 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 
 func Test_containerStateService_ContainerUpdate(t *testing.T) {
 	type fields struct {
-		RWMutex     sync.RWMutex
-		idTable     map[string]*container
-		usernsTable map[domain.Inode][]*container
-		fss         domain.FuseServerServiceIface
-		prs         domain.ProcessServiceIface
-		ios         domain.IOServiceIface
-		mts         domain.MountServiceIface
+		RWMutex    sync.RWMutex
+		idTable    map[string]*container
+		netnsTable map[domain.Inode][]*container
+		fss        domain.FuseServerServiceIface
+		prs        domain.ProcessServiceIface
+		ios        domain.IOServiceIface
+		mts        domain.MountServiceIface
 	}
 
 	var f1 = fields{
-		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode][]*container),
-		fss:         fss,
-		prs:         prs,
-		ios:         ios,
-		mts:         mts,
+		idTable:    make(map[string]*container),
+		netnsTable: make(map[domain.Inode][]*container),
+		fss:        fss,
+		prs:        prs,
+		ios:        ios,
+		mts:        mts,
 	}
 
 	var c1 = &container{
@@ -545,7 +546,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 				inode, _ := c1.InitProc().UserNsInode()
 
 				f1.idTable[c1.id] = c1
-				f1.usernsTable[inode] = []*container{c1}
+				f1.netnsTable[inode] = []*container{c1}
 
 				c1.service.MountService().(*mocks.MountServiceIface).On(
 					"NewMountInfoParser", c1, c1.initProc, true, true, true).Return(nil, nil)
@@ -567,7 +568,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 				c2.InitProc().CreateNsInodes(123456)
 				inode, _ := c2.InitProc().UserNsInode()
 
-				f1.usernsTable[inode] = []*container{c2}
+				f1.netnsTable[inode] = []*container{c2}
 
 				c2.service.MountService().(*mocks.MountServiceIface).On(
 					"NewMountInfoParser", c2, c2.initProc, true, true, true).Return(nil, nil)
@@ -581,13 +582,13 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			css := &containerStateService{
-				RWMutex:     tt.fields.RWMutex,
-				idTable:     tt.fields.idTable,
-				usernsTable: tt.fields.usernsTable,
-				fss:         tt.fields.fss,
-				prs:         tt.fields.prs,
-				ios:         tt.fields.ios,
-				mts:         tt.fields.mts,
+				RWMutex:    tt.fields.RWMutex,
+				idTable:    tt.fields.idTable,
+				netnsTable: tt.fields.netnsTable,
+				fss:        tt.fields.fss,
+				prs:        tt.fields.prs,
+				ios:        tt.fields.ios,
+				mts:        tt.fields.mts,
 			}
 
 			// Initialize memory-based mock FS.
@@ -608,20 +609,20 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 
 func Test_containerStateService_ContainerUnregister(t *testing.T) {
 	type fields struct {
-		RWMutex     sync.RWMutex
-		idTable     map[string]*container
-		usernsTable map[domain.Inode][]*container
-		fss         domain.FuseServerServiceIface
-		prs         domain.ProcessServiceIface
-		ios         domain.IOServiceIface
+		RWMutex    sync.RWMutex
+		idTable    map[string]*container
+		netnsTable map[domain.Inode][]*container
+		fss        domain.FuseServerServiceIface
+		prs        domain.ProcessServiceIface
+		ios        domain.IOServiceIface
 	}
 
 	var f1 = fields{
-		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode][]*container),
-		fss:         fss,
-		prs:         prs,
-		ios:         ios,
+		idTable:    make(map[string]*container),
+		netnsTable: make(map[domain.Inode][]*container),
+		fss:        fss,
+		prs:        prs,
+		ios:        ios,
 	}
 
 	var c1 = &container{
@@ -670,7 +671,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 				c1.service = css
 
 				f1.idTable[c1.id] = c1
-				f1.usernsTable[inode] = []*container{c1}
+				f1.netnsTable[inode] = []*container{c1}
 
 				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
 					"DestroyFuseServer", c1.id).Return(nil)
@@ -692,7 +693,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 
 				c2.service = css
 
-				f1.usernsTable[inode] = []*container{c2}
+				f1.netnsTable[inode] = []*container{c2}
 			},
 		},
 		{
@@ -732,7 +733,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 				// Artificial error to exercise all code paths -- can't happen
 				// w/o a memory corruption bug or alike, under no other
 				//circumstance this would be ever reproduced.
-				f1.usernsTable[inode] = []*container{c3} // <-- see we're pointing to c3 and not c4
+				f1.netnsTable[inode] = []*container{c3} // <-- see we're pointing to c3 and not c4
 			},
 		},
 	}
@@ -743,12 +744,12 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			css := &containerStateService{
-				RWMutex:     tt.fields.RWMutex,
-				idTable:     tt.fields.idTable,
-				usernsTable: tt.fields.usernsTable,
-				fss:         tt.fields.fss,
-				prs:         tt.fields.prs,
-				ios:         tt.fields.ios,
+				RWMutex:    tt.fields.RWMutex,
+				idTable:    tt.fields.idTable,
+				netnsTable: tt.fields.netnsTable,
+				fss:        tt.fields.fss,
+				prs:        tt.fields.prs,
+				ios:        tt.fields.ios,
 			}
 
 			// Initialize memory-based mock FS.
@@ -769,20 +770,20 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 
 func Test_containerStateService_ContainerLookupById(t *testing.T) {
 	type fields struct {
-		RWMutex     sync.RWMutex
-		idTable     map[string]*container
-		usernsTable map[domain.Inode][]*container
-		fss         domain.FuseServerServiceIface
-		prs         domain.ProcessServiceIface
-		ios         domain.IOServiceIface
+		RWMutex    sync.RWMutex
+		idTable    map[string]*container
+		netnsTable map[domain.Inode][]*container
+		fss        domain.FuseServerServiceIface
+		prs        domain.ProcessServiceIface
+		ios        domain.IOServiceIface
 	}
 
 	var f1 = fields{
-		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode][]*container),
-		fss:         fss,
-		prs:         prs,
-		ios:         ios,
+		idTable:    make(map[string]*container),
+		netnsTable: make(map[domain.Inode][]*container),
+		fss:        fss,
+		prs:        prs,
+		ios:        ios,
 	}
 
 	var c1 = &container{
@@ -814,12 +815,12 @@ func Test_containerStateService_ContainerLookupById(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			css := &containerStateService{
-				RWMutex:     tt.fields.RWMutex,
-				idTable:     tt.fields.idTable,
-				usernsTable: tt.fields.usernsTable,
-				fss:         tt.fields.fss,
-				prs:         tt.fields.prs,
-				ios:         tt.fields.ios,
+				RWMutex:    tt.fields.RWMutex,
+				idTable:    tt.fields.idTable,
+				netnsTable: tt.fields.netnsTable,
+				fss:        tt.fields.fss,
+				prs:        tt.fields.prs,
+				ios:        tt.fields.ios,
 			}
 
 			if got := css.ContainerLookupById(tt.args.id); !reflect.DeepEqual(got, tt.want) {
