@@ -67,7 +67,7 @@ func ContainerPreRegister(ctx interface{}, data *grpc.ContainerData) error {
 
 	ipcService := ctx.(*ipcService)
 
-	err := ipcService.css.ContainerPreRegister(data.Id, data.Userns)
+	err := ipcService.css.ContainerPreRegister(data.Id, data.Netns)
 	if err != nil {
 		return err
 	}

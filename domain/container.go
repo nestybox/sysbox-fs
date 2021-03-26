@@ -89,7 +89,7 @@ type ContainerStateServiceIface interface {
 		procMaskPaths []string,
 		service ContainerStateServiceIface) ContainerIface
 
-	ContainerPreRegister(id, userns string) error
+	ContainerPreRegister(id, netns string) error
 	ContainerRegister(c ContainerIface) error
 	ContainerUpdate(c ContainerIface) error
 	ContainerUnregister(c ContainerIface) error

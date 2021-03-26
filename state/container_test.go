@@ -266,12 +266,12 @@ func Test_container_update(t *testing.T) {
 
 	// Create local css as it's required by cntr.update() method.
 	css := &containerStateService{
-		idTable:     nil,
-		usernsTable: nil,
-		fss:         fss,
-		prs:         prs,
-		ios:         ios,
-		mts:         &mocks.MountServiceIface{},
+		idTable:    nil,
+		netnsTable: nil,
+		fss:        fss,
+		prs:        prs,
+		ios:        ios,
+		mts:        &mocks.MountServiceIface{},
 	}
 
 	type args struct {

@@ -76,9 +76,9 @@ func (_m *ContainerStateServiceIface) ContainerLookupByInode(usernsInode uint64)
 	return r0
 }
 
-// ContainerPreRegister provides a mock function with given fields: id, userns
-func (_m *ContainerStateServiceIface) ContainerPreRegister(id, userns string) error {
-	ret := _m.Called(id)
+// ContainerPreRegister provides a mock function with given fields: id, netns
+func (_m *ContainerStateServiceIface) ContainerPreRegister(id, netns string) error {
+	ret := _m.Called(id, netns)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(string) error); ok {

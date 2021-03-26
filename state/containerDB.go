@@ -17,6 +17,7 @@
 package state
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -35,9 +36,8 @@ type containerStateService struct {
 	// corresponding container data structure.
 	idTable map[string]*container
 
-	// Map to keep track of the association between container's user-namespaces
-	// (inode) and its corresponding container data structure.
-	usernsTable map[domain.Inode][]*container
+	// Map to keep track of containers sharing the same net-ns.
+	netnsTable map[domain.Inode][]*container
 
 	// Pointer to the fuse-server service engine.
 	fss domain.FuseServerServiceIface
@@ -55,8 +55,8 @@ type containerStateService struct {
 func NewContainerStateService() domain.ContainerStateServiceIface {
 
 	newCss := &containerStateService{
-		idTable:     make(map[string]*container),
-		usernsTable: make(map[domain.Inode][]*container),
+		idTable:    make(map[string]*container),
+		netnsTable: make(map[domain.Inode][]*container),
 	}
 
 	return newCss
@@ -101,15 +101,10 @@ func (css *containerStateService) ContainerCreate(
 	)
 }
 
-func (css *containerStateService) ContainerPreRegister(id, userns string) error {
+func (css *containerStateService) ContainerPreRegister(id, netns string) error {
 	var stateCntr *container
 
-	if userns == "" {
-		logrus.Debugf("Container pre-registration started: id = %s", id)
-	} else {
-		logrus.Debugf("Container pre-registration started: id = %s, userns = %s", id, userns)
-	}
-
+	logrus.Debugf("Container pre-registration started: id = %s", id)
 	css.Lock()
 
 	// Ensure that new container's id is not already present.
@@ -131,54 +126,47 @@ func (css *containerStateService) ContainerPreRegister(id, userns string) error 
 
 	stateCntr = cntr
 
-	// If this container is entering an existing user-ns, record this
-	if userns != "" {
+	// Track sharing of the container's net-ns
+	cntrSameNetns := []*container{}
 
-		// Get the inode for the given userns
-		fnode := css.ios.NewIOnode("", userns, 0)
-		usernsInode, err := fnode.GetNsInode()
+	if netns != "" {
+		var err error
+		cntrSameNetns, err = css.trackNetns(cntr, netns)
 		if err != nil {
 			css.Unlock()
-			logrus.Errorf("Container pre-registration error: container %s has invalid user-ns: %s",
-				cntr.id, err)
-			return grpcStatus.Errorf(
-				grpcCodes.NotFound,
-				"Container %s missing valid userns inode",
-				cntr.id,
-			)
-		}
-
-		cntr.usernsInode = usernsInode
-
-		// Update the usernsTable with this container's info
-		cntrSameUserns, ok := css.usernsTable[usernsInode]
-		if ok {
-			cntrSameUserns = append(cntrSameUserns, cntr)
-			css.usernsTable[usernsInode] = cntrSameUserns
-			stateCntr = cntrSameUserns[0]
-		} else {
-			css.usernsTable[usernsInode] = []*container{cntr}
+			logrus.Errorf("Container pre-registration error: %s has invalid net-ns: %s", cntr.id, err)
+			return grpcStatus.Errorf(grpcCodes.NotFound, err.Error(), cntr.id)
 		}
 	}
 
 	css.idTable[cntr.id] = cntr
 
-	// Create dedicated fuse-server for each sys container.
+	// Create a dedicated fuse-server for each sys container.
 	//
-	// Note: for sys containers that share a user-ns (e.g., for K8s + sysbox
-	// pods), each sys container has a dedicated fuse-server. However, all
-	// fuse-servers are given the same container state object (the container
-	// struct associated with the first container in the user-ns).
+	// Each sys container has a dedicated fuse-server. However, for sys
+	// containers that share the same net-ns (e.g., for K8s + sysbox pods), the
+	// fuse-servers for each are passed the same container state object (the
+	// container struct associated with the first container in the net-ns).
 	//
-	// This means that all containers sharing a user-ns will share the state for
-	// resources in procfs and sysfs emulated by sysbox-fs (e.g., in a K8s pod, all
-	// Sysbox containers share the same /proc/uptime).
+	// This means that all containers sharing the same net-ns will share the
+	// state for resources in the container's procfs and sysfs emulated by
+	// sysbox-fs (e.g., in a K8s + Sysbox pod, all containers see the same
+	// /proc/uptime).
 	//
-	// Note that even if the first container is destroyed, a reference to its
-	// container state object will be held by the fuse servers associated with
-	// the other containers in the same user-ns. Therefore those will continue to
-	// operate properly. Only when all containers sharing the user-ns are
+	// Note that sharing a net-ns implies sharing a user-ns, because the net-ns
+	// is "owned" by it's associated user-ns (see user_namespaces (7)).
+	//
+	// Design detail: when multiple containers share sysbox-fs emulation state,
+	// even if the first container is destroyed, a reference to its container
+	// state object will be held by the fuse servers associated with the other
+	// containers sharing the fuse state. Therefore those will continue to
+	// operate properly. Only when all containers sharing the same fuse state are
 	// destroyed will the container state object be garbage collected.
+
+	if len(cntrSameNetns) > 1 {
+		stateCntr = cntrSameNetns[0]
+		logrus.Debugf("Container %s will share sysbox-fs state with %v", id, cntrSameNetns)
+	}
 
 	err := css.fss.CreateFuseServer(cntr, stateCntr)
 	if err != nil {
@@ -194,12 +182,7 @@ func (css *containerStateService) ContainerPreRegister(id, userns string) error 
 
 	css.Unlock()
 
-	if userns == "" {
-		logrus.Debugf("Container pre-registration completed: id = %s", id)
-	} else {
-		logrus.Debugf("Container pre-registration completed: id = %s, userns = %s", id, userns)
-	}
-
+	logrus.Debugf("Container pre-registration completed: id = %s", id)
 	return nil
 }
 
@@ -237,26 +220,14 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 		)
 	}
 
-	// If we don't yet have the userns info for the container's init process
-	// (i.e., we didn't receive it during pre-registration), get it now.
-	if currCntr.usernsInode == 0 {
-		usernsInode, err := currCntr.InitProc().UserNsInode()
-		if err != nil {
-			css.Unlock()
-			logrus.Errorf("Container registration error: container %s has invalid user-ns: %s",
-				formatter.ContainerID{cntr.id}, err)
-			return grpcStatus.Errorf(
-				grpcCodes.NotFound,
-				"Container %s missing valid userns inode",
-				cntr.id,
-			)
-		}
-		currCntr.usernsInode = usernsInode
-	}
-
-	// If the usernsTable has no info about this container's userns, add it now.
-	if _, ok := css.usernsTable[currCntr.usernsInode]; !ok {
-		css.usernsTable[currCntr.usernsInode] = []*container{currCntr}
+	// In case we don't yet have the netns info for the container's
+	// init process (e.g., we didn't receive it during pre-registration because
+	// the container is not in a pod), get it now.
+	if _, err := css.trackNetns(currCntr, ""); err != nil {
+		css.Unlock()
+		logrus.Errorf("Container registration error: %s has invalid user-ns: %s",
+			formatter.ContainerID{cntr.id}, err)
+		return grpcStatus.Errorf(grpcCodes.NotFound, err.Error(), cntr.id)
 	}
 
 	css.Unlock()
@@ -274,8 +245,7 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 
 	css.Lock()
 
-	// Identify the inode associated to the user-ns of the container being
-	// updated.
+	// Identify the container being updated.
 	currCntr, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
@@ -308,32 +278,11 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 
 	css.Lock()
 
-	// Find all containers sharing the same userns
-	cntrSameUserns, ok := css.usernsTable[cntr.usernsInode]
-	if !ok {
+	// Remove the net-ns tracking info for the unregistered container
+	if err := css.untrackNetns(cntr); err != nil {
 		css.Unlock()
-		logrus.Errorf("Container unregistration error: could not find userns-inode in usernsTable for container %s",
-			formatter.ContainerID{cntr.id})
-		return grpcStatus.Errorf(
-			grpcCodes.NotFound,
-			"Container %s missing userns inode",
-			cntr.id,
-		)
-	}
-
-	// Remove the unregistered container from the list of containers sharing the userns.
-	newCntrSameUserns := []*container{}
-	for _, c := range cntrSameUserns {
-		if c.id == cntr.id {
-			continue
-		}
-		newCntrSameUserns = append(newCntrSameUserns, c)
-	}
-
-	if len(newCntrSameUserns) > 0 {
-		css.usernsTable[cntr.usernsInode] = newCntrSameUserns
-	} else {
-		delete(css.usernsTable, cntr.usernsInode)
+		logrus.Errorf("Container unregistration error: %s", err.Error())
+		return grpcStatus.Errorf(grpcCodes.NotFound, err.Error(), cntr.id)
 	}
 
 	// Destroy the fuse server for the container
@@ -387,4 +336,69 @@ func (css *containerStateService) ContainerDBSize() int {
 	defer css.RUnlock()
 
 	return len(css.idTable)
+}
+
+// trackNetns is the same as trackUserns, but for the network namespace.
+func (css *containerStateService) trackNetns(cntr *container, netns string) ([]*container, error) {
+
+	var cntrSameNetns []*container
+	var netnsInode uint64
+	var err error
+	var ok bool
+
+	if cntr.netnsInode == 0 {
+
+		if netns != "" {
+			fnode := css.ios.NewIOnode("", netns, 0)
+			netnsInode, err = fnode.GetNsInode()
+			if err != nil {
+				return nil, fmt.Errorf("Error getting netns inode: %v", err)
+			}
+		} else {
+			netnsInode, err = cntr.InitProc().NetNsInode()
+			if err != nil {
+				return nil, fmt.Errorf("Error getting netns inode: %v", err)
+			}
+		}
+
+		cntr.netnsInode = netnsInode
+
+		// Update the netnsTable with this container's info
+		cntrSameNetns, ok = css.netnsTable[netnsInode]
+		if ok {
+			cntrSameNetns = append(cntrSameNetns, cntr)
+		} else {
+			cntrSameNetns = []*container{cntr}
+		}
+		css.netnsTable[netnsInode] = cntrSameNetns
+	}
+
+	return cntrSameNetns, nil
+}
+
+// untrackNetns removes tracking info for the given container's net-namespace.
+func (css *containerStateService) untrackNetns(cntr *container) error {
+
+	// Find all containers sharing the same netns.
+	cntrSameNetns, ok := css.netnsTable[cntr.netnsInode]
+	if !ok {
+		return fmt.Errorf("could not find entry in netnsTable for container %s", cntr.id)
+	}
+
+	// Remove the unregistered container from the list of containers sharing the netns.
+	newCntrSameNetns := []*container{}
+	for _, c := range cntrSameNetns {
+		if c.id == cntr.id {
+			continue
+		}
+		newCntrSameNetns = append(newCntrSameNetns, c)
+	}
+
+	if len(newCntrSameNetns) > 0 {
+		css.netnsTable[cntr.netnsInode] = newCntrSameNetns
+	} else {
+		delete(css.netnsTable, cntr.netnsInode)
+	}
+
+	return nil
 }

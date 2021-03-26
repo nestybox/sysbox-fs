@@ -303,6 +303,20 @@ func (p *process) MountNsInode() (domain.Inode, error) {
 	return mountns, nil
 }
 
+func (p *process) NetNsInode() (domain.Inode, error) {
+	nsInodes, err := p.NsInodes()
+	if err != nil {
+		return 0, err
+	}
+
+	netns, found := nsInodes["net"]
+	if !found {
+		return 0, fmt.Errorf("netns not found")
+	}
+
+	return netns, nil
+}
+
 func (p *process) UserNsInode() (domain.Inode, error) {
 	nsInodes, err := p.NsInodes()
 	if err != nil {
