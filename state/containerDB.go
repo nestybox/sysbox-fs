@@ -182,7 +182,7 @@ func (css *containerStateService) ContainerPreRegister(id, netns string) error {
 
 	css.Unlock()
 
-	logrus.Debugf("Container pre-registration completed: id = %s", id)
+	logrus.Infof("Container pre-registration completed: id = %s", id)
 	return nil
 }
 
@@ -278,12 +278,12 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 
 	css.Lock()
 
-	// Remove the net-ns tracking info for the unregistered container
-	if err := css.untrackNetns(cntr); err != nil {
-		css.Unlock()
-		logrus.Errorf("Container unregistration error: %s", err.Error())
-		return grpcStatus.Errorf(grpcCodes.NotFound, err.Error(), cntr.id)
-	}
+	// Remove the net-ns tracking info for the unregistered container.
+	//
+	// Note: we don't do error checking because this can fail if the netns is not
+	// yet tracked for the container (e.g., if a container is pre-registered and
+	// then unregistered because the container failed to start for some reason).
+	css.untrackNetns(cntr)
 
 	// Destroy the fuse server for the container
 	err := css.fss.DestroyFuseServer(cntr.id)
