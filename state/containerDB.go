@@ -225,7 +225,7 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 	// the container is not in a pod), get it now.
 	if _, err := css.trackNetns(currCntr, ""); err != nil {
 		css.Unlock()
-		logrus.Errorf("Container registration error: %s has invalid user-ns: %s",
+		logrus.Errorf("Container registration error: %s has invalid net-ns: %s",
 			formatter.ContainerID{cntr.id}, err)
 		return grpcStatus.Errorf(grpcCodes.NotFound, err.Error(), cntr.id)
 	}
@@ -277,6 +277,19 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 		formatter.ContainerID{cntr.id})
 
 	css.Lock()
+
+	// Ensure that container's id is already present
+	_, ok := css.idTable[cntr.id]
+	if !ok {
+		css.Unlock()
+		logrus.Errorf("Container unregistration error: container %s not present",
+			cntr.id)
+		return grpcStatus.Errorf(
+			grpcCodes.NotFound,
+			"Container %s not found",
+			cntr.id,
+		)
+	}
 
 	// Remove the net-ns tracking info for the unregistered container.
 	//
@@ -338,7 +351,7 @@ func (css *containerStateService) ContainerDBSize() int {
 	return len(css.idTable)
 }
 
-// trackNetns is the same as trackUserns, but for the network namespace.
+// trackNetns keeps track of the container's network namespace.
 func (css *containerStateService) trackNetns(cntr *container, netns string) ([]*container, error) {
 
 	var cntrSameNetns []*container
