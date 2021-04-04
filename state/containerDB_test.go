@@ -360,12 +360,6 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 		initProc: f1.prs.ProcessCreate(3003, 0, 0),
 	}
 
-	var c4 = &container{
-		id:       "c4",
-		initPid:  4004,
-		initProc: f1.prs.ProcessCreate(4004, 0, 0),
-	}
-
 	type args struct {
 		c domain.ContainerIface
 	}
@@ -426,34 +420,6 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 
 				css.MountService().(*mocks.MountServiceIface).On(
 					"NewMountInfoParser", c3, c3.initProc, true, true, true).Return(nil, nil)
-			},
-		},
-		{
-			// TODO: FIXME
-
-			//
-			// Test-case 4: Register a pre-registered container with an existing
-			// user-ns inode (i.e. /proc/pid/ns/<namespaces>). However, this inode
-			// value is present in netnsTable by the time the registration begins,
-			// which is an unexpected error, as it indicates "overlapping"
-			// condition. Error expected.
-			//
-			name:    "4",
-			fields:  f1,
-			args:    args{c4},
-			wantErr: true,
-			prepare: func(css *containerStateService) {
-
-				c4.service = css
-
-				c4.InitProc().CreateNsInodes(123456)
-				inode, _ := c4.InitProc().UserNsInode()
-
-				f1.idTable[c4.id] = c4
-				f1.netnsTable[inode] = []*container{c4} // <-- unexpected instruction during registration
-
-				c4.service.MountService().(*mocks.MountServiceIface).On(
-					"NewMountInfoParser", c4, c4.initProc, true, true, true).Return(nil, nil)
 			},
 		},
 	}
@@ -543,7 +509,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 				c1.service = css
 
 				c1.InitProc().CreateNsInodes(123456)
-				inode, _ := c1.InitProc().UserNsInode()
+				inode, _ := c1.InitProc().NetNsInode()
 
 				f1.idTable[c1.id] = c1
 				f1.netnsTable[inode] = []*container{c1}
@@ -566,7 +532,7 @@ func Test_containerStateService_ContainerUpdate(t *testing.T) {
 				c2.service = css
 
 				c2.InitProc().CreateNsInodes(123456)
-				inode, _ := c2.InitProc().UserNsInode()
+				inode, _ := c2.InitProc().NetNsInode()
 
 				f1.netnsTable[inode] = []*container{c2}
 
@@ -635,16 +601,6 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 		initProc: f1.prs.ProcessCreate(2002, 0, 0),
 	}
 
-	var c3 = &container{
-		id:       "c3",
-		initProc: f1.prs.ProcessCreate(3003, 0, 0),
-	}
-
-	var c4 = &container{
-		id:       "c4",
-		initProc: f1.prs.ProcessCreate(4004, 0, 0),
-	}
-
 	type args struct {
 		c domain.ContainerIface
 	}
@@ -666,7 +622,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			prepare: func(css *containerStateService) {
 
 				c1.InitProc().CreateNsInodes(123456)
-				inode, _ := c1.InitProc().UserNsInode()
+				inode, _ := c1.InitProc().NetNsInode()
 
 				c1.service = css
 
@@ -689,7 +645,7 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 			prepare: func(css *containerStateService) {
 
 				c2.initProc.CreateNsInodes(123456)
-				inode, _ := c2.InitProc().UserNsInode()
+				inode, _ := c2.InitProc().NetNsInode()
 
 				c2.service = css
 
@@ -699,41 +655,22 @@ func Test_containerStateService_ContainerUnregister(t *testing.T) {
 		{
 			//
 			// Test-case 3: Unregister a container with valid ID but with missing
-			// user-ns. Error expected.
+			// netns. Error not expected (this can happen when a container pre-registers
+			// and immediately unregisters due to some error in sysbox-runc).
 			//
 			name:    "3",
 			fields:  f1,
-			args:    args{c3},
-			wantErr: true,
+			args:    args{c1},
+			wantErr: false,
 			prepare: func(css *containerStateService) {
 
-				c3.service = css
+				c1.service = css
+				f1.idTable[c1.id] = c1
 
-				f1.idTable[c3.id] = c3
-			},
-		},
-		{
-			//
-			// Test-case 4: Unregister a container with valid ID and present
-			// (but not valid) user-ns entry. Error expected.
-			//
-			name:    "4",
-			fields:  f1,
-			args:    args{c4},
-			wantErr: true,
-			prepare: func(css *containerStateService) {
-
-				c4.InitProc().CreateNsInodes(123456)
-				inode, _ := c4.InitProc().UserNsInode()
-
-				c4.service = css
-
-				f1.idTable[c4.id] = c4
-
-				// Artificial error to exercise all code paths -- can't happen
-				// w/o a memory corruption bug or alike, under no other
-				//circumstance this would be ever reproduced.
-				f1.netnsTable[inode] = []*container{c3} // <-- see we're pointing to c3 and not c4
+				// clear the netns map
+				for entry := range f1.netnsTable {
+					delete(f1.netnsTable, entry)
+				}
 			},
 		},
 	}
