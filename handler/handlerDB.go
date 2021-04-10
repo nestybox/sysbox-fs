@@ -339,6 +339,15 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: true,
 		},
 	},
+	&implementations.MaxIntBaseHandler{
+		domain.HandlerBase{
+			Name:      "somaxconn",
+			Path:      "/proc/sys/net/core/somaxconn",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
+	},
 	//
 	// /proc/sys/net/netfilter handlers
 	//
@@ -364,6 +373,24 @@ var DefaultHandlers = []domain.HandlerIface{
 		domain.HandlerBase{
 			Name:      "nfConntrackTcpTimeoutCWait",
 			Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_close_wait",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
+	},
+	&implementations.MaxIntBaseHandler{
+		domain.HandlerBase{
+			Name:      "nfConntrackGenericTimeout",
+			Path:      "/proc/sys/net/netfilter/nf_conntrack_generic_timeout",
+			Type:      domain.NODE_SUBSTITUTION,
+			Enabled:   true,
+			Cacheable: true,
+		},
+	},
+	&implementations.NfConntrackTcpLiberalHandler{
+		domain.HandlerBase{
+			Name:      "nfConntrackTcpBeLiberal",
+			Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal",
 			Type:      domain.NODE_SUBSTITUTION,
 			Enabled:   true,
 			Cacheable: true,
