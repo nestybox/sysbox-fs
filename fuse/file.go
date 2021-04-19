@@ -334,32 +334,45 @@ func (f *File) ModTime() time.Time {
 }
 
 //
-// statToAttr helper function to translate FS node-parameters from unix/kernel
-// format to FUSE ones.
+// convertFileInfoToFuse function translates FS node-attributes from a kernel
+// friendly DS type, to those expected by Bazil-FUSE-lib to interact with
+// FUSE-clients.
 //
-// Kernel FS node attribs:  fuse.attr (fuse_kernel*.go)
-// FUSE node attribs:       fuse.Attr (fuse.go)
+// Function takes as parameter the os.FileInfo object holding the attributes
+// that we want to convert, and then place the converted attributes into a
+// new DS which later on will be processed by Bazil FUSE-lib.
 //
-// TODO: Place me in a more appropriate location
+// For reference, the attributes' format expected by Bazil-FUSE-lib are defined
+// here: bazil/fuse.go (fuse.Attr DS).
 //
-func statToAttr(s *syscall.Stat_t) fuse.Attr {
+func convertFileInfoToFuse(info os.FileInfo) fuse.Attr {
 
 	var a fuse.Attr
 
-	a.Inode = uint64(s.Ino)
-	a.Size = uint64(s.Size)
-	a.Blocks = uint64(s.Blocks)
+	// Rely in os.FileInfo interface methods if lower-level details are not
+	// present (typically the case in virtual fs entries).
+	stat := info.Sys().(*syscall.Stat_t)
+	if stat == nil {
+		a.Size = uint64(info.Size())
+		a.Mode = info.Mode()
+		a.Mtime = info.ModTime()
+		return a
+	}
 
-	a.Atime = time.Unix(s.Atim.Sec, s.Atim.Nsec)
-	a.Mtime = time.Unix(s.Mtim.Sec, s.Mtim.Nsec)
-	a.Ctime = time.Unix(s.Ctim.Sec, s.Ctim.Nsec)
+	a.Inode = uint64(stat.Ino)
+	a.Size = uint64(stat.Size)
+	a.Blocks = uint64(stat.Blocks)
 
-	a.Mode = os.FileMode(s.Mode)
-	a.Nlink = uint32(s.Nlink)
-	a.Uid = uint32(s.Uid)
-	a.Gid = uint32(s.Gid)
-	a.Rdev = uint32(s.Rdev)
-	a.BlockSize = uint32(s.Blksize)
+	a.Atime = time.Unix(stat.Atim.Sec, stat.Atim.Nsec)
+	a.Mtime = time.Unix(stat.Mtim.Sec, stat.Mtim.Nsec)
+	a.Ctime = time.Unix(stat.Ctim.Sec, stat.Ctim.Nsec)
+
+	a.Mode = os.FileMode(stat.Mode)
+	a.Nlink = uint32(stat.Nlink)
+	a.Uid = uint32(stat.Uid)
+	a.Gid = uint32(stat.Gid)
+	a.Rdev = uint32(stat.Rdev)
+	a.BlockSize = uint32(stat.Blksize)
 
 	return a
 }

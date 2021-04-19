@@ -22,6 +22,8 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"golang.org/x/sys/unix"
+
+	iradix "github.com/hashicorp/go-immutable-radix"
 )
 
 // The mountPropFlags in a mount syscall indicate a change in the propagation type of an
@@ -41,7 +43,7 @@ type mountHelper struct {
 	flagsMap   map[string]uint64   // helper map to aid in flag conversion
 }
 
-func newMountHelper(hdb map[string]domain.HandlerIface) *mountHelper {
+func newMountHelper(hdb *iradix.Tree) *mountHelper {
 
 	info := &mountHelper{
 		mapMounts: make(map[string]struct{}),
@@ -49,7 +51,8 @@ func newMountHelper(hdb map[string]domain.HandlerIface) *mountHelper {
 
 	// Iterate through the handlerDB to extract the set of bindmounts that need
 	// to be exported (propagated) to L2 containers or L1 chrooted envs.
-	for _, h := range hdb {
+	hdb.Root().Walk(func(key []byte, val interface{}) bool {
+		h := val.(domain.HandlerIface)
 		nodeType := h.GetType()
 		nodePath := h.GetPath()
 
@@ -65,7 +68,9 @@ func newMountHelper(hdb map[string]domain.HandlerIface) *mountHelper {
 				info.sysMounts = append(info.sysMounts, nodePath)
 			}
 		}
-	}
+
+		return false
+	})
 
 	// Both procMounts and sysMounts slices should be sorted (alphanumerically
 	// in this case), for mount / umount operations to succeed.

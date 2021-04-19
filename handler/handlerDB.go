@@ -20,6 +20,7 @@ import (
 	"errors"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -27,6 +28,8 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/handler/implementations"
+
+	iradix "github.com/hashicorp/go-immutable-radix"
 )
 
 //
@@ -34,6 +37,7 @@ import (
 // ordered within each functional bucket.
 //
 var DefaultHandlers = []domain.HandlerIface{
+
 	//
 	// / handler
 	//
@@ -45,6 +49,7 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: true,
 		},
 	},
+
 	//
 	// /proc handlers
 	//
@@ -165,17 +170,19 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: false,
 		},
 	},
+
 	//
 	// Handler for all non-emulated resources under /proc/sys.
 	//
 	&implementations.ProcSysCommonHandler{
 		domain.HandlerBase{
 			Name:      "procSysCommon",
-			Path:      "procSysCommonHandler",
+			Path:      "/proc/sys/",
 			Enabled:   true,
 			Cacheable: true,
 		},
 	},
+
 	//
 	// /proc/sys/fs handlers
 	//
@@ -327,6 +334,7 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: true,
 		},
 	},
+
 	//
 	// /proc/sys/net/core handlers
 	//
@@ -339,15 +347,7 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: true,
 		},
 	},
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "somaxconn",
-			Path:      "/proc/sys/net/core/somaxconn",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
+
 	//
 	// /proc/sys/net/netfilter handlers
 	//
@@ -378,24 +378,7 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: true,
 		},
 	},
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "nfConntrackGenericTimeout",
-			Path:      "/proc/sys/net/netfilter/nf_conntrack_generic_timeout",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.NfConntrackTcpLiberalHandler{
-		domain.HandlerBase{
-			Name:      "nfConntrackTcpBeLiberal",
-			Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
+
 	//
 	// /proc/sys/net/ipv4/vs handlers
 	//
@@ -435,6 +418,7 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: true,
 		},
 	},
+
 	//
 	// /proc/sys/net/ipv4/neigh/default handlers
 	//
@@ -487,6 +471,7 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: true,
 		},
 	},
+
 	//
 	// /proc/sys/vm handlers
 	//
@@ -508,13 +493,15 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: true,
 		},
 	},
+
 	//
 	// /sys handlers
 	//
 	&implementations.SysHandler{
 		domain.HandlerBase{
-			Name:      "sys",
-			Path:      "sysHandler",
+			Name: "sys",
+			//Path:      "sysHandler",
+			Path:      "/sys",
 			Enabled:   true,
 			Cacheable: false,
 		},
@@ -554,6 +541,12 @@ type handlerService struct {
 	// the emulated resources seating in each directory.
 	dirHandlerMap map[string][]string
 
+	// Radix-tree indexed by node FS path. Tree serves as an ordered DB where to
+	// keep track of the association between resources being emulated, and its
+	// matching handler object, which ultimately defines the emulation approach
+	// to execute for every sysbox-fs' emulated node.
+	handlerTree *iradix.Tree
+
 	// Pointer to the service providing container-state storage functionality.
 	css domain.ContainerStateServiceIface
 
@@ -578,7 +571,6 @@ type handlerService struct {
 func NewHandlerService() domain.HandlerServiceIface {
 
 	newhs := &handlerService{
-		handlerDB:     make(map[string]domain.HandlerIface),
 		dirHandlerMap: make(map[string][]string),
 	}
 
@@ -598,6 +590,11 @@ func (hs *handlerService) Setup(
 	hs.prs = prs
 	hs.ios = ios
 	hs.ignoreErrors = ignoreErrors
+
+	hs.handlerTree = iradix.New()
+	if hs.handlerTree == nil {
+		logrus.Fatalf("Unable to allocate handler radix-tree")
+	}
 
 	// Register all handlers declared as 'enabled'.
 	for _, h := range hdlrs {
@@ -666,14 +663,21 @@ func (hs *handlerService) RegisterHandler(h domain.HandlerIface) error {
 	name := h.GetName()
 	path := h.GetPath()
 
-	if _, ok := hs.handlerDB[path]; ok {
+	if _, ok := hs.handlerTree.Get([]byte(path)); ok {
 		hs.Unlock()
 		logrus.Errorf("Handler %v already registered", name)
 		return errors.New("Handler already registered")
 	}
 
 	h.SetService(hs)
-	hs.handlerDB[path] = h
+
+	tree, _, ok := hs.handlerTree.Insert([]byte(path), h)
+	if ok {
+		hs.Unlock()
+		logrus.Errorf("Handler %v already registered", name)
+		return errors.New("Handler already registered")
+	}
+	hs.handlerTree = tree
 	hs.Unlock()
 
 	return nil
@@ -685,13 +689,13 @@ func (hs *handlerService) UnregisterHandler(h domain.HandlerIface) error {
 	name := h.GetName()
 	path := h.GetPath()
 
-	if _, ok := hs.handlerDB[path]; !ok {
+	if _, ok := hs.handlerTree.Get([]byte(path)); !ok {
 		hs.Unlock()
 		logrus.Errorf("Handler %v not previously registered", name)
 		return errors.New("Handler not previously registered")
 	}
 
-	delete(hs.handlerDB, name)
+	hs.handlerTree, _, _ = hs.handlerTree.Delete([]byte(path))
 	hs.Unlock()
 
 	return nil
@@ -703,32 +707,50 @@ func (hs *handlerService) LookupHandler(
 	hs.RLock()
 	defer hs.RUnlock()
 
-	// If the /proc or /sys resource being accessed is emulated by sysbox-fs,
-	// we will find it in the handlerDB. Otherwise, it's handled by one
-	// of the generic handlers.
+	var (
+		h       domain.HandlerIface
+		path    string
+		pathDir string
+	)
 
-	h, ok := hs.handlerDB[i.Path()]
-	if !ok {
-		if strings.HasPrefix(i.Path(), "/proc/sys") {
-			h, ok = hs.handlerDB["procSysCommonHandler"]
-			if !ok {
-				return nil, false
-			}
-		} else if strings.HasPrefix(i.Path(), "/proc") {
-			h, ok = hs.handlerDB["procHandler"]
-			if !ok {
-				return nil, false
-			}
-		} else if strings.HasPrefix(i.Path(), "/sys") {
-			h, ok = hs.handlerDB["sysHandler"]
-			if !ok {
-				return nil, false
-			}
-		} else {
+	path = i.Path()
+	pathDir = filepath.Dir(path)
+
+	for {
+
+		// Iterate the handler's radix-tree looking for the handler that better
+		// match the fs node being operated on.
+		_, node, ok := hs.handlerTree.Root().LongestPrefix([]byte(path))
+		if !ok {
 			return nil, false
 		}
 
-		return h, true
+		h = node.(domain.HandlerIface)
+
+		// Stop iteration if a handler is found that fully matches the path of the
+		// node being operated on (e.g., fs node: /proc/sys, handler: /proc/sys).
+		if path == h.GetPath() {
+			break
+		}
+
+		// Repeat the radix-tree iteration if the found handler doesn't truly
+		// represent the node in question. This is a corner-case scenario that
+		// should be very seldomly reproduced (e.g., fs node /proc/sys/kernel/panic_*,
+		// handler: /proc/sys/kernel/panic). In most cases we will only do one
+		// radix-tree iteration.
+		currPathDir := filepath.Dir(h.GetPath())
+		if currPathDir == pathDir && currPathDir != "/" {
+			prevPathBase := filepath.Base(path)
+			currPathBase := filepath.Base(h.GetPath())
+
+			if strings.HasPrefix(prevPathBase, currPathBase) {
+				path = currPathDir
+				pathDir = filepath.Dir(currPathDir)
+				continue
+			}
+		}
+
+		break
 	}
 
 	return h, true
@@ -739,12 +761,12 @@ func (hs *handlerService) FindHandler(s string) (domain.HandlerIface, bool) {
 	hs.RLock()
 	defer hs.RUnlock()
 
-	h, ok := hs.handlerDB[s]
+	h, ok := hs.handlerTree.Get([]byte(s))
 	if !ok {
 		return nil, false
 	}
 
-	return h, true
+	return h.(domain.HandlerIface), true
 }
 
 func (hs *handlerService) EnableHandler(h domain.HandlerIface) error {
@@ -790,8 +812,8 @@ func (hs *handlerService) DirHandlerEntries(s string) []string {
 	return hs.dirHandlerMap[s]
 }
 
-func (hs *handlerService) HandlerDB() map[string]domain.HandlerIface {
-	return hs.handlerDB
+func (hs *handlerService) HandlerDB() *iradix.Tree {
+	return hs.handlerTree
 }
 
 func (hs *handlerService) StateService() domain.ContainerStateServiceIface {

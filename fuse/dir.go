@@ -22,7 +22,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/nestybox/sysbox-fs/domain"
@@ -141,31 +140,31 @@ func (d *Dir) Lookup(
 		return nil, fuse.ENOENT
 	}
 
-	// Extract received file attributes and create a new element within
-	// sysbox file-system.
-	attr := statToAttr(info.Sys().(*syscall.Stat_t))
-
-	// Adjust response to carry the proper dentry-cache-timeout value.
-	resp.EntryValid = time.Duration(DentryCacheTimeout)
+	// Convert os.FileInfo attributes to fuseAttr format.
+	fuseAttrs := convertFileInfoToFuse(info)
 
 	// Override the uid & gid attributes with the root uid & gid in the
 	// requester's user-ns.
-	attr.Uid = rootUid
-	attr.Gid = rootGid
+	fuseAttrs.Uid = rootUid
+	fuseAttrs.Gid = rootGid	
 
 	var newNode fs.Node
 
+	// Create a new file/dir entry associated to the received os.FileInfo.
 	if info.IsDir() {
-		attr.Mode = os.ModeDir | attr.Mode
-		newNode = NewDir(req.Name, path, &attr, d.File.server)
+		fuseAttrs.Mode |= os.ModeDir
+		newNode = NewDir(req.Name, path, &fuseAttrs, d.File.server)
 	} else {
-		newNode = NewFile(req.Name, path, &attr, d.File.server)
+		newNode = NewFile(req.Name, path, &fuseAttrs, d.File.server)
 	}
 
 	// Insert new fs node into nodeDB.
 	d.server.Lock()
 	d.server.nodeDB[path] = &newNode
 	d.server.Unlock()
+
+	// Adjust response to carry the proper dentry-cache-timeout value.
+	resp.EntryValid = time.Duration(DentryCacheTimeout)
 
 	return newNode, nil
 }
@@ -235,13 +234,13 @@ func (d *Dir) Create(
 	}
 
 	// Extract received file attributes.
-	attr := statToAttr(info.Sys().(*syscall.Stat_t))
+	fuseAttrs := convertFileInfoToFuse(info)
 
 	// Adjust response to carry the proper dentry-cache-timeout value.
 	resp.EntryValid = time.Duration(DentryCacheTimeout)
 
 	var newNode fs.Node
-	newNode = NewFile(req.Name, path, &attr, d.File.server)
+	newNode = NewFile(req.Name, path, &fuseAttrs, d.File.server)
 
 	// Insert new fs node into nodeDB.
 	d.server.Lock()

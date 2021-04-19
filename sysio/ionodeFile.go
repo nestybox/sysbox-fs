@@ -294,6 +294,10 @@ func (i *IOnodeFile) OpenMode() os.FileMode {
 	return i.mode
 }
 
+func (i *IOnodeFile) SetPath(s string) {
+	i.path = s
+}
+
 func (i *IOnodeFile) SetOpenFlags(flags int) {
 	i.flags = flags
 }
