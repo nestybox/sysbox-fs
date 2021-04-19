@@ -70,6 +70,7 @@ type IOnodeIface interface {
 	OpenFlags() int
 	OpenMode() os.FileMode
 	GetNsInode() (Inode, error)
+	SetPath(s string)
 	SetOpenFlags(flags int)
 	SetOpenMode(mode os.FileMode)
 }

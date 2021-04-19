@@ -20,6 +20,8 @@ import (
 	"os"
 	"sync"
 	"syscall"
+
+	iradix "github.com/hashicorp/go-immutable-radix"
 )
 
 type HandlerType int
@@ -65,13 +67,15 @@ const (
 // handler lock. Violating this rule may result in deadlocks.
 
 type HandlerBase struct {
-	Name      string
-	Path      string
-	Type      HandlerType
-	Enabled   bool
-	Cacheable bool
-	Lock      sync.Mutex
-	Service   HandlerServiceIface
+	Name        string
+	Path        string
+	Vcomponents []string
+	Type        HandlerType
+	Enabled     bool
+	Cacheable   bool
+	KernelSync  bool
+	Lock        sync.Mutex
+	Service     HandlerServiceIface
 }
 
 // HandlerRequest represents a request to be processed by a handler
@@ -124,7 +128,7 @@ type HandlerServiceIface interface {
 	DirHandlerEntries(s string) []string
 
 	// getters/setter
-	HandlerDB() map[string]HandlerIface
+	HandlerDB() *iradix.Tree
 	StateService() ContainerStateServiceIface
 	SetStateService(css ContainerStateServiceIface)
 	ProcessService() ProcessServiceIface

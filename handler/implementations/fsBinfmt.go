@@ -48,9 +48,9 @@ func (h *FsBinfmtHandler) Getattr(
 
 	logrus.Debugf("Executing Getattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	procSysCommonHandler, ok := h.Service.FindHandler("procSysCommonHandler")
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
 	if !ok {
-		return nil, fmt.Errorf("No procSysCommonHandler found")
+		return nil, fmt.Errorf("No /proc/sys/ handler found")
 	}
 
 	return procSysCommonHandler.Getattr(n, req)
@@ -96,9 +96,9 @@ func (h *FsBinfmtHandler) ReadDirAll(
 
 	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler", req.ID, h.Name)
 
-	procSysCommonHandler, ok := h.Service.FindHandler("procSysCommonHandler")
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
 	if !ok {
-		return nil, fmt.Errorf("No procSysCommonHandler found")
+		return nil, fmt.Errorf("No /proc/sys/ handler found")
 	}
 
 	return procSysCommonHandler.ReadDirAll(n, req)

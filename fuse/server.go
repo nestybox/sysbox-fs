@@ -20,7 +20,6 @@ import (
 	"errors"
 	"os"
 	"sync"
-	"syscall"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
@@ -98,7 +97,7 @@ func (s *fuseServer) Create() error {
 	if s.service.ios.GetServiceType() == domain.IOMemFileService {
 		attr = fuse.Attr{}
 	} else {
-		attr = statToAttr(pathInfo.Sys().(*syscall.Stat_t))
+		attr = convertFileInfoToFuse(pathInfo)
 	}
 	attr.Mode = os.ModeDir | os.FileMode(int(0600))
 

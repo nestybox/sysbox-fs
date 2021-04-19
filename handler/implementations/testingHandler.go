@@ -94,9 +94,9 @@ func (h *TestingHandler) ReadDirAll(
 
 	logrus.Debugf("Executing ReadDirAll() method on %v handler", h.Name)
 
-	procSysCommonHandler, ok := h.Service.FindHandler("procSysCommonHandler")
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
 	if !ok {
-		return nil, fmt.Errorf("No procSysCommonHandler found")
+		return nil, fmt.Errorf("No /proc/sys/ handler found")
 	}
 
 	return procSysCommonHandler.ReadDirAll(n, req)
