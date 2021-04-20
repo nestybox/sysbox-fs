@@ -354,10 +354,12 @@ func (css *containerStateService) ContainerDBSize() int {
 // trackNetns keeps track of the container's network namespace.
 func (css *containerStateService) trackNetns(cntr *container, netns string) ([]*container, error) {
 
-	var cntrSameNetns []*container
-	var netnsInode uint64
-	var err error
-	var ok bool
+	var (
+		cntrSameNetns []*container
+		netnsInode    uint64
+		err           error
+		ok            bool
+	)
 
 	if cntr.netnsInode == 0 {
 
