@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2021 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -420,9 +420,11 @@ func (p *process) CreateNsInodes(inode domain.Inode) error {
 // with the process. If the user-ns has no mapping for the root user, the overflow
 // uid & gid are returned (e.g., uid = gid = 65534).
 func (p *process) UsernsRootUidGid() (uint32, uint32, error) {
-	var uid, gid uint32
-	var found bool
-	var err error
+	var (
+		uid, gid uint32
+		found    bool
+		err      error
+	)
 
 	found = false
 	uidMap, err := p.UidMap()
