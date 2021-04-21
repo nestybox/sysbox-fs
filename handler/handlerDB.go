@@ -422,43 +422,8 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /proc/sys/net/ipv4/neigh/default handlers
 	//
-	// TODO: use a common dir handler here ...
-	&implementations.NeighDefaultHandler{
-		domain.HandlerBase{
-			Name:      "neighDefault",
-			Path:      "/proc/sys/net/ipv4/neigh/default",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "neighDefaultGcThresh1",
-			Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh1",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "neighDefaultGcThresh2",
-			Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh2",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "neighDefaultGcThresh3",
-			Path:      "/proc/sys/net/ipv4/neigh/default/gc_thresh3",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
+	implementations.ProcSysNetIpv4Neigh_Handler,
+
 	//
 	// /proc/sys/net/unix handlers
 	//
