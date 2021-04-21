@@ -54,6 +54,22 @@ const (
 	NODE_PROPAGATE = 0x8
 )
 
+//
+type HandlerGroup struct {
+	Path     string
+	Handlers []HandlerBase
+	Enabled  bool
+	Service  HandlerServiceIface
+}
+
+type VcompsType int
+
+const (
+	VcompUnknown VcompsType = iota
+	VcompDir
+	VcompFile
+)
+
 // HandlerBase is a type common to all handlers
 //
 // Note: the "Lock" variable can be used to synchronize across concurrent
@@ -67,15 +83,15 @@ const (
 // handler lock. Violating this rule may result in deadlocks.
 
 type HandlerBase struct {
-	Name        string
-	Path        string
-	Vcomponents []string
-	Type        HandlerType
-	Enabled     bool
-	Cacheable   bool
-	KernelSync  bool
-	Lock        sync.Mutex
-	Service     HandlerServiceIface
+	Name       string
+	Path       string
+	VcompsMap  map[string]VcompsType
+	Type       HandlerType
+	Enabled    bool
+	Cacheable  bool
+	KernelSync bool
+	Lock       sync.Mutex
+	Service    HandlerServiceIface
 }
 
 // HandlerRequest represents a request to be processed by a handler
