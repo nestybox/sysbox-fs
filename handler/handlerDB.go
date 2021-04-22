@@ -382,42 +382,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /proc/sys/net/ipv4/vs handlers
 	//
-	&implementations.VsConntrackHandler{
-		domain.HandlerBase{
-			Name:      "vsConntrack",
-			Path:      "/proc/sys/net/ipv4/vs/conntrack",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.VsConnReuseModeHandler{
-		domain.HandlerBase{
-			Name:      "vsConnReuseMode",
-			Path:      "/proc/sys/net/ipv4/vs/conn_reuse_mode",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.VsExpireNoDestConnHandler{
-		domain.HandlerBase{
-			Name:      "vsExpireNoDestConn",
-			Path:      "/proc/sys/net/ipv4/vs/expire_nodest_conn",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.VsExpireQuiescentTemplateHandler{
-		domain.HandlerBase{
-			Name:      "vsExpireQuiescentTemplate",
-			Path:      "/proc/sys/net/ipv4/vs/expire_quiescent_template",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
+	implementations.ProcSysNetIpv4Vs_Handler,
 
 	//
 	// /proc/sys/net/ipv4/neigh/default handlers
