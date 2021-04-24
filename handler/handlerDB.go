@@ -351,33 +351,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	//
 	// /proc/sys/net/netfilter handlers
 	//
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "nfConntrackMax",
-			Path:      "/proc/sys/net/netfilter/nf_conntrack_max",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "nfConntrackTcpTimeoutEst",
-			Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "nfConntrackTcpTimeoutCWait",
-			Path:      "/proc/sys/net/netfilter/nf_conntrack_tcp_timeout_close_wait",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
+	implementations.ProcSysNetNetfilter_Handler,
 
 	//
 	// /proc/sys/net/ipv4/vs handlers
