@@ -62,13 +62,18 @@ type HandlerGroup struct {
 	Service  HandlerServiceIface
 }
 
-type VcompsType int
+type EmuNodeType int
 
 const (
-	VcompUnknown VcompsType = iota
-	VcompDir
-	VcompFile
+	EmuNodeUnknown EmuNodeType = iota
+	EmuNodeDir
+	EmuNodeFile
 )
+
+type EmuNode struct {
+	Kind EmuNodeType
+	Mode os.FileMode
+}
 
 // HandlerBase is a type common to all handlers
 //
@@ -83,15 +88,15 @@ const (
 // handler lock. Violating this rule may result in deadlocks.
 
 type HandlerBase struct {
-	Name       string
-	Path       string
-	VcompsMap  map[string]VcompsType
-	Type       HandlerType
-	Enabled    bool
-	Cacheable  bool
-	KernelSync bool
-	Lock       sync.Mutex
-	Service    HandlerServiceIface
+	Name        string
+	Path        string
+	EmuNodesMap map[string]EmuNode
+	Type        HandlerType
+	Enabled     bool
+	Cacheable   bool
+	KernelSync  bool
+	Mutex       sync.Mutex
+	Service     HandlerServiceIface
 }
 
 // HandlerRequest represents a request to be processed by a handler
@@ -124,6 +129,7 @@ type HandlerIface interface {
 	SetEnabled(val bool)
 	GetService() HandlerServiceIface
 	SetService(hs HandlerServiceIface)
+	GetMutex() sync.Mutex
 }
 
 type HandlerServiceIface interface {
