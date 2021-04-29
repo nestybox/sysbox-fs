@@ -22,8 +22,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -68,6 +67,11 @@ import (
 // under "/proc/sys/net/ipv4/vs/", though this handler only deals with "expire_quiescent_template".
 //
 
+const (
+	minConnReuseMode = 0
+	maxConnReuseMode = 1
+)
+
 type ProcSysNetIpv4Vs struct {
 	domain.HandlerBase
 }
@@ -76,11 +80,11 @@ var ProcSysNetIpv4Vs_Handler = &ProcSysNetIpv4Vs{
 	domain.HandlerBase{
 		Name: "ProcSysNetIpv4Vs",
 		Path: "/proc/sys/net/ipv4/vs",
-		VcompsMap: map[string]domain.VcompsType{
-			"conntrack":                 domain.VcompFile,
-			"conn_reuse_mode":           domain.VcompFile,
-			"expire_nodest_conn":        domain.VcompFile,
-			"expire_quiescent_template": domain.VcompFile,
+		EmuNodesMap: map[string]domain.EmuNode{
+			"conntrack":                 domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"conn_reuse_mode":           domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"expire_nodest_conn":        domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"expire_quiescent_template": domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -98,11 +102,11 @@ func (h *ProcSysNetIpv4Vs) Lookup(
 	var lookupNode = filepath.Base(n.Path())
 
 	// Return an artificial fileInfo if looked-up element matches any of the
-	// virtual-components.
-	if _, ok := h.VcompsMap[lookupNode]; ok {
+	// emulated components.
+	if v, ok := h.EmuNodesMap[lookupNode]; ok {
 		info := &domain.FileInfo{
 			Fname:    lookupNode,
-			Fmode:    os.FileMode(uint32(0644)),
+			Fmode:    v.Mode,
 			FmodTime: time.Now(),
 		}
 
@@ -115,11 +119,8 @@ func (h *ProcSysNetIpv4Vs) Lookup(
 	if !ok {
 		return nil, fmt.Errorf("No /proc/sys/ handler found")
 	}
-	if info, err := procSysCommonHandler.Lookup(n, req); err == nil {
-		return info, nil
-	}
 
-	return nil, syscall.ENOENT
+	return procSysCommonHandler.Lookup(n, req)
 }
 
 func (h *ProcSysNetIpv4Vs) Getattr(
@@ -155,7 +156,6 @@ func (h *ProcSysNetIpv4Vs) Read(
 	}
 
 	name := n.Name()
-	path := n.Path()
 	cntr := req.Container
 
 	// Ensure operation is generated from within a registered sys container.
@@ -165,27 +165,27 @@ func (h *ProcSysNetIpv4Vs) Read(
 		return 0, errors.New("Container not found")
 	}
 
-	var err error
+	switch name {
+	case "conntrack":
+		return readFileInt(h, n, req)
 
-	// Check if this resource has been initialized for this container. Otherwise,
-	// fetch the information from the host FS and store it accordingly within
-	// the container struct.
-	cntr.Lock()
-	data, ok := cntr.Data(path, name)
-	if !ok {
-		data, err = h.fetchFile(n, cntr)
-		if err != nil && err != io.EOF {
-			cntr.Unlock()
-			return 0, err
-		}
+	case "conn_reuse_mode":
+		return readFileInt(h, n, req)
 
-		cntr.SetData(path, name, data)
+	case "expire_nodest_conn":
+		return readFileInt(h, n, req)
+
+	case "expire_quiescent_template":
+		return readFileInt(h, n, req)
 	}
-	cntr.Unlock()
 
-	data += "\n"
+	// Refer to generic handler if no node match is found above.
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
+	if !ok {
+		return 0, fmt.Errorf("No /proc/sys/ handler found")
+	}
 
-	return copyResultBuffer(req.Data, []byte(data))
+	return procSysCommonHandler.Read(n, req)
 }
 
 func (h *ProcSysNetIpv4Vs) Write(
@@ -196,7 +196,6 @@ func (h *ProcSysNetIpv4Vs) Write(
 		req.ID, h.Name)
 
 	name := n.Name()
-	path := n.Path()
 	cntr := req.Container
 
 	// Ensure operation is generated from within a registered sys container.
@@ -206,21 +205,27 @@ func (h *ProcSysNetIpv4Vs) Write(
 		return 0, errors.New("Container not found")
 	}
 
-	newVal := strings.TrimSpace(string(req.Data))
-	newValInt, err := strconv.Atoi(newVal)
-	if err != nil {
-		logrus.Errorf("Unexpected error: %v", err)
-		return 0, err
+	switch name {
+	case "conntrack":
+		return writeMaxInt(h, n, req, true)
+
+	case "conn_reuse_mode":
+		return writeInt(h, n, req, minConnReuseMode, maxConnReuseMode, false)
+
+	case "expire_nodest_conn":
+		return writeInt(h, n, req, MinInt, MaxInt, false)
+
+	case "expire_quiescent_template":
+		return writeInt(h, n, req, MinInt, MaxInt, false)
 	}
 
-	cntr.Lock()
-	defer cntr.Unlock()
-
-	if err := h.pushFile(n, cntr, newValInt); err != nil {
-		return 0, err
+	// Refer to generic handler if no node match is found above.
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
+	if !ok {
+		return 0, fmt.Errorf("No /proc/sys/ handler found")
 	}
-	cntr.SetData(path, name, newVal)
-	return len(req.Data), nil
+
+	return procSysCommonHandler.Write(n, req)
 }
 
 func (h *ProcSysNetIpv4Vs) ReadDirAll(
@@ -243,7 +248,7 @@ func (h *ProcSysNetIpv4Vs) ReadDirAll(
 	)
 
 	// Iterate through map of virtual components.
-	for k, _ := range h.VcompsMap {
+	for k, _ := range h.EmuNodesMap {
 		info = &domain.FileInfo{
 			Fname:    k,
 			FmodTime: time.Now(),
@@ -252,43 +257,19 @@ func (h *ProcSysNetIpv4Vs) ReadDirAll(
 		fileEntries = append(fileEntries, info)
 	}
 
+	// Also collect procfs entries as seen within container's namespaces.
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
+	if !ok {
+		return nil, fmt.Errorf("No /proc/sys/ handler found")
+	}
+	commonNeigh, err := procSysCommonHandler.ReadDirAll(n, req)
+	if err == nil {
+		for _, entry := range commonNeigh {
+			fileEntries = append(fileEntries, entry)
+		}
+	}
+
 	return fileEntries, nil
-}
-
-func (h *ProcSysNetIpv4Vs) fetchFile(
-	n domain.IOnodeIface,
-	c domain.ContainerIface) (string, error) {
-
-	// Read from kernel to extract the existing conntrack value.
-	curHostVal, err := n.ReadLine()
-	if err != nil && err != io.EOF {
-		logrus.Errorf("Could not read from file %v", h.Path)
-		return "", err
-	}
-
-	// High-level verification to ensure that format is the expected one.
-	_, err = strconv.Atoi(curHostVal)
-	if err != nil {
-		logrus.Errorf("Unexpected content read from file %v, error %v", h.Path, err)
-		return "", err
-	}
-
-	return curHostVal, nil
-}
-
-func (h *ProcSysNetIpv4Vs) pushFile(
-	n domain.IOnodeIface,
-	c domain.ContainerIface, newValInt int) error {
-
-	// Push down to kernel the new value.
-	msg := []byte(strconv.Itoa(newValInt))
-	err := n.WriteFile(msg)
-	if err != nil {
-		logrus.Errorf("Could not write to file: %v", err)
-		return err
-	}
-
-	return nil
 }
 
 func (h *ProcSysNetIpv4Vs) GetName() string {
@@ -309,6 +290,10 @@ func (h *ProcSysNetIpv4Vs) GetType() domain.HandlerType {
 
 func (h *ProcSysNetIpv4Vs) GetService() domain.HandlerServiceIface {
 	return h.Service
+}
+
+func (h *ProcSysNetIpv4Vs) GetMutex() sync.Mutex {
+	return h.Mutex
 }
 
 func (h *ProcSysNetIpv4Vs) SetEnabled(val bool) {

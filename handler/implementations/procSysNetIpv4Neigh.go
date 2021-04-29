@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -46,11 +47,11 @@ var ProcSysNetIpv4Neigh_Handler = &ProcSysNetIpv4Neigh{
 	domain.HandlerBase{
 		Name: "ProcSysNetIpv4Neigh",
 		Path: "/proc/sys/net/ipv4/neigh",
-		VcompsMap: map[string]domain.VcompsType{
-			"default":            domain.VcompDir,
-			"default/gc_thresh1": domain.VcompFile,
-			"default/gc_thresh2": domain.VcompFile,
-			"default/gc_thresh3": domain.VcompFile,
+		EmuNodesMap: map[string]domain.EmuNode{
+			"default":            domain.EmuNode{domain.EmuNodeDir, os.FileMode(uint32(0555))},
+			"default/gc_thresh1": domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"default/gc_thresh2": domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"default/gc_thresh3": domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -82,17 +83,17 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// virtual-components.
-	if val, ok := h.VcompsMap[lookupEntry]; ok {
+	if v, ok := h.EmuNodesMap[lookupEntry]; ok {
 		info := &domain.FileInfo{
 			Fname:    lookupEntry,
 			FmodTime: time.Now(),
 		}
 
-		if val == domain.VcompDir {
-			info.Fmode = os.FileMode(uint32(os.ModeDir) | uint32(0555))
+		if v.Kind == domain.EmuNodeDir {
+			info.Fmode = os.FileMode(uint32(os.ModeDir)) | v.Mode
 			info.FisDir = true
-		} else if val == domain.VcompFile {
-			info.Fmode = os.FileMode(uint32(0644))
+		} else if v.Kind == domain.EmuNodeFile {
+			info.Fmode = v.Mode
 		}
 
 		return info, nil
@@ -104,11 +105,8 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 	if !ok {
 		return nil, fmt.Errorf("No /proc/sys/ handler found")
 	}
-	if info, err := procSysCommonHandler.Lookup(n, req); err == nil {
-		return info, nil
-	}
 
-	return nil, syscall.ENOENT
+	return procSysCommonHandler.Lookup(n, req)
 }
 
 func (h *ProcSysNetIpv4Neigh) Getattr(
@@ -148,9 +146,8 @@ func (h *ProcSysNetIpv4Neigh) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	var err error
-
-	logrus.Debugf("Executing %v Read() method", h.Name)
+	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler",
+		req.ID, h.Name)
 
 	// We are dealing with a single integer element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -167,25 +164,15 @@ func (h *ProcSysNetIpv4Neigh) Read(
 		return 0, errors.New("Container not found")
 	}
 
-	// Check if this resource has been initialized for this container.
-	// Otherwise, fetch the information from the host FS' default values and
-	// store it accordingly within the container struct.
-	cntr.Lock()
-	data, ok := cntr.Data(h.Path, h.Name)
-	if !ok {
-		data, err = h.fetchFile(n, cntr)
-		if err != nil && err != io.EOF {
-			cntr.Unlock()
-			return 0, err
-		}
-
-		cntr.SetData(h.Path, h.Name, data)
+	// As the "neighbor" node isn't exposed within containers, sysbox's integration
+	// testsuites will fail when executing within the test framework. In these cases,
+	// we will redirect all "neighbor" queries to a static node that is always present
+	// in the testing environment.
+	if h.GetService().IgnoreErrors() {
+		n.SetPath("/proc/sys/net/ipv4/neigh/lo/retrans_time")
 	}
-	cntr.Unlock()
 
-	data += "\n"
-
-	return copyResultBuffer(req.Data, []byte(data))
+	return readFileInt(h, n, req)
 }
 
 // FIXME: We should write the max default vals down to kernel.
@@ -213,14 +200,15 @@ func (h *ProcSysNetIpv4Neigh) Write(
 		return 0, errors.New("Container not found")
 	}
 
-	cntr.Lock()
-	defer cntr.Unlock()
+	// As the "neighbor" node isn't exposed within containers, sysbox's integration
+	// testsuites will fail when executing within the test framework. In these cases,
+	// we will redirect all "neighbor" queries to a static node that is always present
+	// in the testing environment.
+	if h.GetService().IgnoreErrors() {
+		n.SetPath("/proc/sys/net/ipv4/neigh/lo/retrans_time")
+	}
 
-	// Store new data within the container struct. No change is pushed down
-	// to the host for now.
-	cntr.SetData(h.Path, h.Name, newVal)
-
-	return len(req.Data), nil
+	return writeInt(h, n, req, MinInt, MaxInt, false)
 }
 
 func (h *ProcSysNetIpv4Neigh) ReadDirAll(
@@ -249,7 +237,7 @@ func (h *ProcSysNetIpv4Neigh) ReadDirAll(
 	}
 
 	// Iterate through map of virtual components.
-	for k, _ := range h.VcompsMap {
+	for k, _ := range h.EmuNodesMap {
 
 		if relpath == filepath.Dir(k) {
 			info = &domain.FileInfo{
@@ -286,34 +274,6 @@ func (h *ProcSysNetIpv4Neigh) ReadDirAll(
 	return fileEntries, nil
 }
 
-func (h *ProcSysNetIpv4Neigh) fetchFile(
-	n domain.IOnodeIface,
-	c domain.ContainerIface) (string, error) {
-
-	// We need the per-resource lock since we are about to access the resource on
-	// the host FS. See pushFile() for a full explanation.
-	h.Lock.Lock()
-
-	// Read from host FS to extract the existing value.
-	curHostVal, err := n.ReadLine()
-	if err != nil && err != io.EOF {
-		h.Lock.Unlock()
-		logrus.Errorf("Could not read from file %v", h.Path)
-		return "", err
-	}
-
-	h.Lock.Unlock()
-
-	// High-level verification to ensure that format is the expected one.
-	_, err = strconv.Atoi(curHostVal)
-	if err != nil {
-		logrus.Errorf("Unexpected content read from file %v, error %v", h.Path, err)
-		return "", err
-	}
-
-	return curHostVal, nil
-}
-
 func (h *ProcSysNetIpv4Neigh) GetName() string {
 	return h.Name
 }
@@ -332,6 +292,10 @@ func (h *ProcSysNetIpv4Neigh) GetType() domain.HandlerType {
 
 func (h *ProcSysNetIpv4Neigh) GetService() domain.HandlerServiceIface {
 	return h.Service
+}
+
+func (h *ProcSysNetIpv4Neigh) GetMutex() sync.Mutex {
+	return h.Mutex
 }
 
 func (h *ProcSysNetIpv4Neigh) SetEnabled(val bool) {
