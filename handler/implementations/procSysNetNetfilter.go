@@ -22,8 +22,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -42,10 +41,10 @@ var ProcSysNetNetfilter_Handler = &ProcSysNetNetfilter{
 	domain.HandlerBase{
 		Name: "ProcSysNetNetfilter",
 		Path: "/proc/sys/net/netfilter",
-		VcompsMap: map[string]domain.VcompsType{
-			"nf_conntrack_max":                     domain.VcompFile,
-			"nf_conntrack_tcp_timeout_established": domain.VcompFile,
-			"nf_conntrack_tcp_timeout_close_wait":  domain.VcompFile,
+		EmuNodesMap: map[string]domain.EmuNode{
+			"nf_conntrack_max":                     domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"nf_conntrack_tcp_timeout_established": domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"nf_conntrack_tcp_timeout_close_wait":  domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -64,10 +63,10 @@ func (h *ProcSysNetNetfilter) Lookup(
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// virtual-components.
-	if _, ok := h.VcompsMap[lookupNode]; ok {
+	if v, ok := h.EmuNodesMap[lookupNode]; ok {
 		info := &domain.FileInfo{
 			Fname:    lookupNode,
-			Fmode:    os.FileMode(uint32(0644)),
+			Fmode:    v.Mode,
 			FmodTime: time.Now(),
 		}
 
@@ -80,11 +79,8 @@ func (h *ProcSysNetNetfilter) Lookup(
 	if !ok {
 		return nil, fmt.Errorf("No /proc/sys/ handler found")
 	}
-	if info, err := procSysCommonHandler.Lookup(n, req); err == nil {
-		return info, nil
-	}
 
-	return nil, syscall.ENOENT
+	return procSysCommonHandler.Lookup(n, req)
 }
 
 func (h *ProcSysNetNetfilter) Getattr(
@@ -125,7 +121,6 @@ func (h *ProcSysNetNetfilter) Read(
 	}
 
 	name := n.Name()
-	path := n.Path()
 	cntr := req.Container
 
 	// Ensure operation is generated from within a registered sys container.
@@ -135,27 +130,24 @@ func (h *ProcSysNetNetfilter) Read(
 		return 0, errors.New("Container not found")
 	}
 
-	var err error
+	switch name {
+	case "nf_conntrack_max":
+		return readFileInt(h, n, req)
 
-	// Check if this resource has been initialized for this container. Otherwise,
-	// fetch the information from the host FS and store it accordingly within
-	// the container struct.
-	cntr.Lock()
-	data, ok := cntr.Data(path, name)
-	if !ok {
-		data, err = h.fetchFile(n, cntr)
-		if err != nil && err != io.EOF {
-			cntr.Unlock()
-			return 0, err
-		}
+	case "nf_conntrack_tcp_timeout_established":
+		return readFileInt(h, n, req)
 
-		cntr.SetData(path, name, data)
+	case "nf_conntrack_tcp_timeout_close_wait":
+		return readFileInt(h, n, req)
 	}
-	cntr.Unlock()
 
-	data += "\n"
+	// Refer to generic handler if no node match is found above.
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
+	if !ok {
+		return 0, fmt.Errorf("No /proc/sys/ handler found")
+	}
 
-	return copyResultBuffer(req.Data, []byte(data))
+	return procSysCommonHandler.Read(n, req)
 }
 
 func (h *ProcSysNetNetfilter) Write(
@@ -165,7 +157,6 @@ func (h *ProcSysNetNetfilter) Write(
 	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	name := n.Name()
-	path := n.Path()
 	cntr := req.Container
 
 	// Ensure operation is generated from within a registered sys container.
@@ -175,21 +166,24 @@ func (h *ProcSysNetNetfilter) Write(
 		return 0, errors.New("Container not found")
 	}
 
-	newVal := strings.TrimSpace(string(req.Data))
-	newValInt, err := strconv.Atoi(newVal)
-	if err != nil {
-		logrus.Errorf("Unexpected error: %v", err)
-		return 0, err
+	switch name {
+	case "nf_conntrack_max":
+		return writeMaxInt(h, n, req, true)
+
+	case "nf_conntrack_tcp_timeout_established":
+		return writeMaxInt(h, n, req, true)
+
+	case "nf_conntrack_tcp_timeout_close_wait":
+		return writeMaxInt(h, n, req, true)
 	}
 
-	cntr.Lock()
-	defer cntr.Unlock()
-
-	if err := h.pushFile(n, cntr, newValInt); err != nil {
-		return 0, err
+	// Refer to generic handler if no node match is found above.
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
+	if !ok {
+		return 0, fmt.Errorf("No /proc/sys/ handler found")
 	}
-	cntr.SetData(path, name, newVal)
-	return len(req.Data), nil
+
+	return procSysCommonHandler.Write(n, req)
 }
 
 func (h *ProcSysNetNetfilter) ReadDirAll(
@@ -217,8 +211,8 @@ func (h *ProcSysNetNetfilter) ReadDirAll(
 		return nil, err
 	}
 
-	// Iterate through map of virtual components.
-	for k, _ := range h.VcompsMap {
+	// Iterate through map of emulated components.
+	for k, _ := range h.EmuNodesMap {
 
 		if relpath == filepath.Dir(k) {
 			info = &domain.FileInfo{
@@ -246,42 +240,6 @@ func (h *ProcSysNetNetfilter) ReadDirAll(
 	return fileEntries, nil
 }
 
-func (h *ProcSysNetNetfilter) fetchFile(
-	n domain.IOnodeIface,
-	c domain.ContainerIface) (string, error) {
-
-	// Read from kernel to extract the existing conntrack value.
-	curHostVal, err := n.ReadLine()
-	if err != nil && err != io.EOF {
-		logrus.Errorf("Could not read from file %v", h.Path)
-		return "", err
-	}
-
-	// High-level verification to ensure that format is the expected one.
-	_, err = strconv.Atoi(curHostVal)
-	if err != nil {
-		logrus.Errorf("Unexpected content read from file %v, error %v", h.Path, err)
-		return "", err
-	}
-
-	return curHostVal, nil
-}
-
-func (h *ProcSysNetNetfilter) pushFile(
-	n domain.IOnodeIface,
-	c domain.ContainerIface, newValInt int) error {
-
-	// Push down to kernel the new value.
-	msg := []byte(strconv.Itoa(newValInt))
-	err := n.WriteFile(msg)
-	if err != nil {
-		logrus.Errorf("Could not write to file: %v", err)
-		return err
-	}
-
-	return nil
-}
-
 func (h *ProcSysNetNetfilter) GetName() string {
 	return h.Name
 }
@@ -300,6 +258,10 @@ func (h *ProcSysNetNetfilter) GetType() domain.HandlerType {
 
 func (h *ProcSysNetNetfilter) GetService() domain.HandlerServiceIface {
 	return h.Service
+}
+
+func (h *ProcSysNetNetfilter) GetMutex() sync.Mutex {
+	return h.Mutex
 }
 
 func (h *ProcSysNetNetfilter) SetEnabled(val bool) {
