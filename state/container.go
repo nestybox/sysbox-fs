@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-libs/formatter"
 	"golang.org/x/sys/unix"
 )
 
@@ -314,7 +315,7 @@ func (c *container) update(src *container) error {
 func (c *container) string() string {
 
 	return fmt.Sprintf("id = %s, initPid = %d, uid:gid = %v:%v",
-		c.id, int(c.initPid), c.uidFirst, c.gidFirst)
+		formatter.ContainerID{c.id}, int(c.initPid), c.uidFirst, c.gidFirst)
 }
 
 func (c *container) SetCtime(t time.Time) {

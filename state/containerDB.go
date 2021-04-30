@@ -25,6 +25,7 @@ import (
 	grpcStatus "google.golang.org/grpc/status"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-libs/formatter"
 )
 
 type containerStateService struct {
@@ -102,7 +103,8 @@ func (css *containerStateService) ContainerCreate(
 
 func (css *containerStateService) ContainerPreRegister(id string) error {
 
-	logrus.Debugf("Container pre-registration started: id = %s", id)
+	logrus.Debugf("Container pre-registration started: id = %s",
+		formatter.ContainerID{id})
 
 	css.Lock()
 
@@ -110,7 +112,7 @@ func (css *containerStateService) ContainerPreRegister(id string) error {
 	if _, ok := css.idTable[id]; ok {
 		css.Unlock()
 		logrus.Errorf("Container pre-registration error: container %s already present",
-			id)
+			formatter.ContainerID{id})
 		return grpcStatus.Errorf(
 			grpcCodes.AlreadyExists,
 			"Container %s already pre-registered",
@@ -129,7 +131,7 @@ func (css *containerStateService) ContainerPreRegister(id string) error {
 	if err != nil {
 		css.Unlock()
 		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container %s",
-			id)
+			formatter.ContainerID{id})
 		return grpcStatus.Errorf(
 			grpcCodes.Internal,
 			"Initialization error for container-id %s",
@@ -139,7 +141,8 @@ func (css *containerStateService) ContainerPreRegister(id string) error {
 
 	css.Unlock()
 
-	logrus.Debugf("Container pre-registration completed: id = %s", id)
+	logrus.Debugf("Container pre-registration completed: id = %s",
+		formatter.ContainerID{id})
 
 	return nil
 }
@@ -148,7 +151,8 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 
 	cntr := c.(*container)
 
-	logrus.Debugf("Container registration started: id = %s", cntr.id)
+	logrus.Debugf("Container registration started: id = %s",
+		formatter.ContainerID{cntr.id})
 
 	css.Lock()
 
@@ -157,7 +161,7 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 	if !ok {
 		css.Unlock()
 		logrus.Errorf("Container registration error: container %s not present",
-			cntr.id)
+			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
 			grpcCodes.NotFound,
 			"Container %s not found",
@@ -169,7 +173,7 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 	if err := currCntr.update(cntr); err != nil {
 		css.Unlock()
 		logrus.Errorf("Container registration error: container %s not updated",
-			cntr.id)
+			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
 			grpcCodes.Internal,
 			"Container %s not updated",
@@ -180,7 +184,7 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 	usernsInode, err := currCntr.InitProc().UserNsInode()
 	if err != nil {
 		logrus.Errorf("Container registration error: container %s with invalid user-ns",
-			cntr.id)
+			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
 			grpcCodes.NotFound,
 			"Container %s missing valid userns inode",
@@ -193,7 +197,7 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 	if _, ok := css.usernsTable[usernsInode]; ok {
 		css.Unlock()
 		logrus.Errorf("Container addition error: container %s with userns-inode %d already present",
-			cntr.id, usernsInode)
+			formatter.ContainerID{cntr.id}, usernsInode)
 		return grpcStatus.Errorf(
 			grpcCodes.AlreadyExists,
 			"Container %s with userns inode already present",
@@ -214,7 +218,8 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 
 	cntr := c.(*container)
 
-	logrus.Debugf("Container update started: id = %s", cntr.id)
+	logrus.Debugf("Container update started: id = %s",
+		formatter.ContainerID{cntr.id})
 
 	css.Lock()
 
@@ -223,7 +228,8 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 	currCntr, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()
-		logrus.Errorf("Container update failure: container %v not found", cntr.id)
+		logrus.Errorf("Container update failure: container %v not found",
+			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
 			grpcCodes.NotFound,
 			"Container %s not found",
@@ -237,7 +243,8 @@ func (css *containerStateService) ContainerUpdate(c domain.ContainerIface) error
 
 	css.Unlock()
 
-	logrus.Debugf("Container update completed: id = %s", cntr.id)
+	logrus.Debugf("Container update completed: id = %s",
+		formatter.ContainerID{cntr.id})
 
 	return nil
 }
@@ -246,7 +253,8 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 
 	cntr := c.(*container)
 
-	logrus.Debugf("Container unregistration started: id = %s", cntr.id)
+	logrus.Debugf("Container unregistration started: id = %s",
+		formatter.ContainerID{cntr.id})
 
 	css.Lock()
 
@@ -256,7 +264,7 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	if !ok {
 		css.Unlock()
 		logrus.Errorf("Container unregistration failure: container %s not found ",
-			cntr.id)
+			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
 			grpcCodes.NotFound,
 			"Container %s not found",
@@ -267,7 +275,7 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	usernsInode, err := cntr.InitProc().UserNsInode()
 	if err != nil {
 		logrus.Errorf("Container unregistration error: could not find userns-inode for container %s",
-			cntr.id)
+			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
 			grpcCodes.NotFound,
 			"Container %s missing userns inode",
@@ -278,7 +286,7 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	if !ok {
 		css.Unlock()
 		logrus.Errorf("Container unregistration error: could not find userns-inode %d for container %s",
-			usernsInode, cntr.id)
+			usernsInode, formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
 			grpcCodes.NotFound,
 			"Container %s missing valid userns inode",
@@ -289,7 +297,7 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	if currCntrIdTable != currCntrUsernsTable {
 		css.Unlock()
 		logrus.Errorf("Container unregistration error: inconsistent usernsTable entry for container %s",
-			cntr.id)
+			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
 			grpcCodes.Internal,
 			"Container %s with corrupted information",
@@ -302,7 +310,7 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	if err != nil {
 		css.Unlock()
 		logrus.Errorf("Container unregistration error: unable to destroy fuseServer for container %s",
-			cntr.id)
+			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
 			grpcCodes.Internal,
 			"Container %s unable to destroy associated fuse-server",
@@ -314,7 +322,8 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	delete(css.usernsTable, usernsInode)
 	css.Unlock()
 
-	logrus.Infof("Container unregistration completed: id = %s", cntr.id)
+	logrus.Infof("Container unregistration completed: id = %s",
+		formatter.ContainerID{cntr.id})
 
 	return nil
 }
