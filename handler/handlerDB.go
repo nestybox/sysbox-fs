@@ -184,74 +184,6 @@ var DefaultHandlers = []domain.HandlerIface{
 	},
 
 	//
-	// /proc/sys/fs handlers
-	//
-	// TODO: use a common dir handler here ...
-	&implementations.FsBinfmtHandler{
-		domain.HandlerBase{
-			Name:      "fsBinfmt",
-			Path:      "/proc/sys/fs/binfmt_misc",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.FsBinfmtStatusHandler{
-		domain.HandlerBase{
-			Name:      "fsBinfmtStatus",
-			Path:      "/proc/sys/fs/binfmt_misc/status",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.FsBinfmtRegisterHandler{
-		domain.HandlerBase{
-			Name:      "fsBinfmtRegister",
-			Path:      "/proc/sys/fs/binfmt_misc/register",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.FsProtectHardLinksHandler{
-		domain.HandlerBase{
-			Name:      "fsProtectHardLinks",
-			Path:      "/proc/sys/fs/protected_hardlinks",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.FsProtectSymLinksHandler{
-		domain.HandlerBase{
-			Name:      "fsProtectSymLinks",
-			Path:      "/proc/sys/fs/protected_symlinks",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "fsFileMax",
-			Path:      "/proc/sys/fs/file-max",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "fsNrOpen",
-			Path:      "/proc/sys/fs/nr_open",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-
-	//
 	// /proc/sys/net/core handlers
 	//
 	&implementations.CoreDefaultQdiscHandler{
@@ -264,20 +196,12 @@ var DefaultHandlers = []domain.HandlerIface{
 		},
 	},
 
-	//
-	// /proc/sys/net/netfilter handlers
-	//
-	implementations.ProcSysNetNetfilter_Handler,
-
-	//
-	// /proc/sys/net/ipv4/vs handlers
-	//
-	implementations.ProcSysNetIpv4Vs_Handler,
-
-	//
-	// /proc/sys/net/ipv4/neigh/default handlers
-	//
-	implementations.ProcSysNetIpv4Neigh_Handler,
+	implementations.ProcSysFs_Handler,               // /proc/sys/fs
+	implementations.ProcSysKernel_Handler,           // /proc/sys/kernel
+	implementations.ProcSysKernelYamaPtrace_Handler, // /proc/sys/kernel/yama/ptrace_scope
+	implementations.ProcSysNetNetfilter_Handler,     // /proc/sys/net/netfilter
+	implementations.ProcSysNetIpv4Vs_Handler,        // /proc/sys/net/ipv4/vs
+	implementations.ProcSysNetIpv4Neigh_Handler,     // /proc/sys/net/ipv4/neigh
 
 	//
 	// /proc/sys/net/unix handlers
