@@ -183,6 +183,7 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 
 	usernsInode, err := currCntr.InitProc().UserNsInode()
 	if err != nil {
+		css.Unlock()
 		logrus.Errorf("Container registration error: container %s with invalid user-ns",
 			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
@@ -274,6 +275,7 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 
 	usernsInode, err := cntr.InitProc().UserNsInode()
 	if err != nil {
+		css.Unlock()
 		logrus.Errorf("Container unregistration error: could not find userns-inode for container %s",
 			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(
