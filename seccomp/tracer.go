@@ -112,6 +112,11 @@ func (scs *SyscallMonitorService) Setup(
 	}
 }
 
+type seccompArchSyscallPair struct {
+	archId    libseccomp.ScmpArch
+	syscallId libseccomp.ScmpSyscall
+}
+
 // SeccompSession holds state associated to every seccomp tracee session.
 type seccompSession struct {
 	pid    uint32 // pid of the tracee process
@@ -124,7 +129,7 @@ type seccompSession struct {
 type syscallTracer struct {
 	srv                *unixIpc.Server                   // unix server listening to seccomp-notifs
 	pollsrv            *unixIpc.PollServer               // unix pollserver for non-blocking i/o on seccomp-fd
-	syscalls           map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls, indexed by seccomp syscall id
+	syscalls           map[seccompArchSyscallPair]string // hashmap of supported syscalls, indexed by seccomp architecture and syscall id
 	memParser          memParser                         // memParser to utilize for tracee interactions
 	seccompSessionCMap map[string][]seccompSession       // tracks all seccomp sessions associated with a given container
 	pidToContMap       map[uint32]string                 // maps pid -> container id
@@ -134,12 +139,27 @@ type syscallTracer struct {
 	service            *SyscallMonitorService            // backpointer to syscall-monitor service
 }
 
+func getSupportedCompatibleSyscalls(nativeArchId libseccomp.ScmpArch) map[libseccomp.ScmpArch][]string {
+	switch nativeArchId {
+	case libseccomp.ArchAMD64:
+		return map[libseccomp.ScmpArch][]string{
+			libseccomp.ArchAMD64: monitoredSyscalls,
+			// TODO: Add x86 specific syscalls such as chown32
+			libseccomp.ArchX86: monitoredSyscalls,
+		}
+	default:
+		return map[libseccomp.ScmpArch][]string{
+			nativeArchId: monitoredSyscalls,
+		}
+	}
+}
+
 // syscallTracer constructor.
 func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 
 	tracer := &syscallTracer{
 		service:  sms,
-		syscalls: make(map[libseccomp.ScmpSyscall]string),
+		syscalls: make(map[seccompArchSyscallPair]string),
 	}
 
 	if sms.closeSeccompOnContExit {
@@ -148,19 +168,27 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 	}
 
 	// Populate hashmap of supported syscalls to monitor.
-	for _, syscall := range monitoredSyscalls {
-		syscallId, err := libseccomp.GetSyscallFromName(syscall)
-		if err != nil {
-			logrus.Warnf("Seccomp-tracer initialization error: unknown syscall (%v).",
-				syscall)
-			return nil
+	nativeArchId, err := libseccomp.GetNativeArch()
+	if err != nil {
+		logrus.Warnf("Seccomp-tracer initialization error: Error obtaining native architecture")
+		return nil
+	}
+
+	for archId, syscalls := range getSupportedCompatibleSyscalls(nativeArchId) {
+		for _, syscall := range syscalls {
+			syscallId, err := libseccomp.GetSyscallFromNameByArch(syscall, archId)
+			if err != nil {
+				logrus.Warnf("Seccomp-tracer initialization error: unknown syscall (%v, %v).",
+					archId, syscall)
+				return nil
+			}
+			tracer.syscalls[seccompArchSyscallPair{archId, syscallId}] = syscall
 		}
-		tracer.syscalls[syscallId] = syscall
 	}
 
 	// Elect the memParser to utilize based on the availability of process_vm_readv()
 	// syscall.
-	_, err := unix.ProcessVMReadv(int(1), nil, nil, 0)
+	_, err = unix.ProcessVMReadv(int(1), nil, nil, 0)
 	if err == syscall.ENOSYS {
 		tracer.memParser = &memParserProcfs{}
 		logrus.Info("Procfs memParser elected")
@@ -465,8 +493,9 @@ func (t *syscallTracer) processSyscall(
 		return t.createErrorResponse(req.ID, syscall.Errno(syscall.EPERM)), nil
 	}
 
+	archId := req.Data.Arch
 	syscallId := req.Data.Syscall
-	syscallName := t.syscalls[syscallId]
+	syscallName := t.syscalls[seccompArchSyscallPair{archId, syscallId}]
 
 	switch syscallName {
 	case "mount":
