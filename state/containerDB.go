@@ -104,7 +104,9 @@ func (css *containerStateService) ContainerCreate(
 func (css *containerStateService) ContainerPreRegister(id, netns string) error {
 	var stateCntr *container
 
-	logrus.Debugf("Container pre-registration started: id = %s", id)
+	logrus.Debugf("Container pre-registration started: id = %s",
+		formatter.ContainerID{id})
+
 	css.Lock()
 
 	// Ensure that new container's id is not already present.
@@ -134,7 +136,8 @@ func (css *containerStateService) ContainerPreRegister(id, netns string) error {
 		cntrSameNetns, err = css.trackNetns(cntr, netns)
 		if err != nil {
 			css.Unlock()
-			logrus.Errorf("Container pre-registration error: %s has invalid net-ns: %s", cntr.id, err)
+			logrus.Errorf("Container pre-registration error: %s has invalid net-ns: %s",
+				formatter.ContainerID{cntr.id}, err)
 			return grpcStatus.Errorf(grpcCodes.NotFound, err.Error(), cntr.id)
 		}
 	}
@@ -165,7 +168,8 @@ func (css *containerStateService) ContainerPreRegister(id, netns string) error {
 
 	if len(cntrSameNetns) > 1 {
 		stateCntr = cntrSameNetns[0]
-		logrus.Debugf("Container %s will share sysbox-fs state with %v", id, cntrSameNetns)
+		logrus.Debugf("Container %s will share sysbox-fs state with %v",
+			formatter.ContainerID{id}, cntrSameNetns)
 	}
 
 	err := css.fss.CreateFuseServer(cntr, stateCntr)
@@ -182,7 +186,9 @@ func (css *containerStateService) ContainerPreRegister(id, netns string) error {
 
 	css.Unlock()
 
-	logrus.Infof("Container pre-registration completed: id = %s", id)
+	logrus.Infof("Container pre-registration completed: id = %s",
+		formatter.ContainerID{id})
+
 	return nil
 }
 
