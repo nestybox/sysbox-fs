@@ -183,23 +183,11 @@ var DefaultHandlers = []domain.HandlerIface{
 		},
 	},
 
-	//
-	// /proc/sys/net/core handlers
-	//
-	&implementations.CoreDefaultQdiscHandler{
-		domain.HandlerBase{
-			Name:      "coreDefaultQdisc",
-			Path:      "/proc/sys/net/core/default_qdisc",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-
 	implementations.ProcSysFs_Handler,               // /proc/sys/fs
 	implementations.ProcSysKernel_Handler,           // /proc/sys/kernel
 	implementations.ProcSysKernelYamaPtrace_Handler, // /proc/sys/kernel/yama/ptrace_scope
 	implementations.ProcSysNetNetfilter_Handler,     // /proc/sys/net/netfilter
+	implementations.ProcSysNetCore_Handler,          // /proc/sys/net/core
 	implementations.ProcSysNetIpv4Vs_Handler,        // /proc/sys/net/ipv4/vs
 	implementations.ProcSysNetIpv4Neigh_Handler,     // /proc/sys/net/ipv4/neigh
 
