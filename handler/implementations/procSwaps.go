@@ -20,6 +20,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sync"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -31,14 +32,25 @@ import (
 //
 // /proc/swaps Handler
 //
-type ProcSwapsHandler struct {
+
+type ProcSwaps struct {
 	domain.HandlerBase
+}
+
+var ProcSwaps_Handler = &ProcSwaps{
+	domain.HandlerBase{
+		Name:      "ProcSwaps",
+		Path:      "/proc/swaps",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+		Enabled:   true,
+		Cacheable: false,
+	},
 }
 
 // /proc/swaps static header
 var swapsHeader = "Filename                                Type            Size    Used    Priority"
 
-func (h *ProcSwapsHandler) Lookup(
+func (h *ProcSwaps) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -47,7 +59,7 @@ func (h *ProcSwapsHandler) Lookup(
 	return n.Stat()
 }
 
-func (h *ProcSwapsHandler) Getattr(
+func (h *ProcSwaps) Getattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -56,7 +68,7 @@ func (h *ProcSwapsHandler) Getattr(
 	return nil, nil
 }
 
-func (h *ProcSwapsHandler) Open(
+func (h *ProcSwaps) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -75,7 +87,7 @@ func (h *ProcSwapsHandler) Open(
 	return nil
 }
 
-func (h *ProcSwapsHandler) Close(n domain.IOnodeIface) error {
+func (h *ProcSwaps) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -87,7 +99,7 @@ func (h *ProcSwapsHandler) Close(n domain.IOnodeIface) error {
 	return nil
 }
 
-func (h *ProcSwapsHandler) Read(
+func (h *ProcSwaps) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -131,44 +143,48 @@ func (h *ProcSwapsHandler) Read(
 	return copyResultBuffer(req.Data, result)
 }
 
-func (h *ProcSwapsHandler) Write(
+func (h *ProcSwaps) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcSwapsHandler) ReadDirAll(
+func (h *ProcSwaps) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
-func (h *ProcSwapsHandler) GetName() string {
+func (h *ProcSwaps) GetName() string {
 	return h.Name
 }
 
-func (h *ProcSwapsHandler) GetPath() string {
+func (h *ProcSwaps) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSwapsHandler) GetEnabled() bool {
+func (h *ProcSwaps) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *ProcSwapsHandler) GetType() domain.HandlerType {
+func (h *ProcSwaps) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcSwapsHandler) GetService() domain.HandlerServiceIface {
+func (h *ProcSwaps) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSwapsHandler) SetEnabled(val bool) {
+func (h *ProcSwaps) GetMutex() sync.Mutex {
+	return h.Mutex
+}
+
+func (h *ProcSwaps) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcSwapsHandler) SetService(hs domain.HandlerServiceIface) {
+func (h *ProcSwaps) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

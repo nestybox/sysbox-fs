@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"syscall"
 	"time"
 
@@ -33,11 +34,22 @@ import (
 //
 // /proc/uptime Handler
 //
-type ProcUptimeHandler struct {
+
+type ProcUptime struct {
 	domain.HandlerBase
 }
 
-func (h *ProcUptimeHandler) Lookup(
+var ProcUptime_Handler = &ProcUptime{
+	domain.HandlerBase{
+		Name:      "ProcUptime",
+		Path:      "/proc/uptime",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+		Enabled:   true,
+		Cacheable: false,
+	},
+}
+
+func (h *ProcUptime) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -46,7 +58,7 @@ func (h *ProcUptimeHandler) Lookup(
 	return n.Stat()
 }
 
-func (h *ProcUptimeHandler) Getattr(
+func (h *ProcUptime) Getattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -55,7 +67,7 @@ func (h *ProcUptimeHandler) Getattr(
 	return nil, nil
 }
 
-func (h *ProcUptimeHandler) Open(
+func (h *ProcUptime) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -74,7 +86,7 @@ func (h *ProcUptimeHandler) Open(
 	return nil
 }
 
-func (h *ProcUptimeHandler) Close(n domain.IOnodeIface) error {
+func (h *ProcUptime) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
@@ -86,7 +98,7 @@ func (h *ProcUptimeHandler) Close(n domain.IOnodeIface) error {
 	return nil
 }
 
-func (h *ProcUptimeHandler) Read(
+func (h *ProcUptime) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -132,48 +144,52 @@ func (h *ProcUptimeHandler) Read(
 	return copyResultBuffer(req.Data, result)
 }
 
-func (h *ProcUptimeHandler) Write(
+func (h *ProcUptime) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcUptimeHandler) ReadDirAll(
+func (h *ProcUptime) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
-func (h *ProcUptimeHandler) GetName() string {
+func (h *ProcUptime) GetName() string {
 
 	return h.Name
 }
 
-func (h *ProcUptimeHandler) GetPath() string {
+func (h *ProcUptime) GetPath() string {
 
 	return h.Path
 }
 
-func (h *ProcUptimeHandler) GetEnabled() bool {
+func (h *ProcUptime) GetEnabled() bool {
 
 	return h.Enabled
 }
 
-func (h *ProcUptimeHandler) GetType() domain.HandlerType {
+func (h *ProcUptime) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcUptimeHandler) GetService() domain.HandlerServiceIface {
+func (h *ProcUptime) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcUptimeHandler) SetEnabled(val bool) {
+func (h *ProcUptime) GetMutex() sync.Mutex {
+	return h.Mutex
+}
+
+func (h *ProcUptime) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcUptimeHandler) SetService(hs domain.HandlerServiceIface) {
+func (h *ProcUptime) SetService(hs domain.HandlerServiceIface) {
 
 	h.Service = hs
 }
