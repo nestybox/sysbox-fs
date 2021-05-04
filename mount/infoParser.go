@@ -302,18 +302,18 @@ func (mi *mountInfoParser) extractMountInfo() ([]byte, error) {
 		&domain.AllNSs,
 		&domain.NSenterMessage{
 			Type:    domain.SleepRequest,
-			Payload: &domain.SleepReqPayload{Ival: strconv.Itoa(5)},
+			Payload: &domain.SleepReqPayload{Ival: strconv.Itoa(30)},
 		},
 		nil,
 		true,
 	)
 
 	// Launch the async nsenter-event.
+	defer asyncEvent.TerminateRequest()
 	err := mi.service.nss.SendRequestEvent(asyncEvent)
 	if err != nil {
 		return nil, err
 	}
-	defer asyncEvent.TerminateRequest()
 
 	// Obtain the pid of the nsenter-event's process.
 	asyncEventPid := mi.service.nss.GetEventProcessID(asyncEvent)
