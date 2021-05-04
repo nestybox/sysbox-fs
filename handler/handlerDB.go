@@ -62,114 +62,6 @@ var DefaultHandlers = []domain.HandlerIface{
 			Cacheable: true,
 		},
 	},
-	&implementations.ProcCgroupsHandler{
-		domain.HandlerBase{
-			Name:      "procCgroups",
-			Path:      "/proc/cgroups",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.ProcCpuinfoHandler{
-		domain.HandlerBase{
-			Name:      "procCpuinfo",
-			Path:      "/proc/cpuinfo",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.ProcDevicesHandler{
-		domain.HandlerBase{
-			Name:      "procDevices",
-			Path:      "/proc/devices",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.ProcDiskstatsHandler{
-		domain.HandlerBase{
-			Name:      "procDiskstats",
-			Path:      "/proc/diskstats",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.ProcLoadavgHandler{
-		domain.HandlerBase{
-			Name:      "procLoadavg",
-			Path:      "/proc/loadavg",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.ProcMeminfoHandler{
-		domain.HandlerBase{
-			Name:      "procMeminfo",
-			Path:      "/proc/meminfo",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.ProcPagetypeinfoHandler{
-		domain.HandlerBase{
-			Name:      "procPagetypeinfo",
-			Path:      "/proc/pagetypeinfo",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.ProcPartitionsHandler{
-		domain.HandlerBase{
-			Name:      "procPartitions",
-			Path:      "/proc/partitions",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.ProcStatHandler{
-		domain.HandlerBase{
-			Name:      "procStat",
-			Path:      "/proc/stat",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.ProcSwapsHandler{
-		domain.HandlerBase{
-			Name:      "procSwaps",
-			Path:      "/proc/swaps",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.ProcUptimeHandler{
-		domain.HandlerBase{
-			Name:      "procUptime",
-			Path:      "/proc/uptime",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.ProcSysHandler{
-		domain.HandlerBase{
-			Name:      "procSys",
-			Path:      "/proc/sys",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
 
 	//
 	// Handler for all non-emulated resources under /proc/sys.
@@ -183,6 +75,9 @@ var DefaultHandlers = []domain.HandlerIface{
 		},
 	},
 
+	implementations.ProcSys_Handler,                 // /proc/sys
+	implementations.ProcSwaps_Handler,               // /proc/swaps
+	implementations.ProcUptime_Handler,              // /proc/uptime
 	implementations.ProcSysFs_Handler,               // /proc/sys/fs
 	implementations.ProcSysKernel_Handler,           // /proc/sys/kernel
 	implementations.ProcSysKernelYamaPtrace_Handler, // /proc/sys/kernel/yama/ptrace_scope

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -30,11 +31,22 @@ import (
 //
 // /proc/sys Handler
 //
-type ProcSysHandler struct {
+
+type ProcSys struct {
 	domain.HandlerBase
 }
 
-func (h *ProcSysHandler) Lookup(
+var ProcSys_Handler = &ProcSys{
+	domain.HandlerBase{
+		Name:      "ProcSys",
+		Path:      "/proc/sys",
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+		Enabled:   true,
+		Cacheable: false,
+	},
+}
+
+func (h *ProcSys) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -43,7 +55,7 @@ func (h *ProcSysHandler) Lookup(
 	return n.Stat()
 }
 
-func (h *ProcSysHandler) Getattr(
+func (h *ProcSys) Getattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -52,7 +64,7 @@ func (h *ProcSysHandler) Getattr(
 	return nil, nil
 }
 
-func (h *ProcSysHandler) Open(
+func (h *ProcSys) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -61,14 +73,14 @@ func (h *ProcSysHandler) Open(
 	return nil
 }
 
-func (h *ProcSysHandler) Close(node domain.IOnodeIface) error {
+func (h *ProcSys) Close(node domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *ProcSysHandler) Read(
+func (h *ProcSys) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -81,14 +93,14 @@ func (h *ProcSysHandler) Read(
 	return 0, nil
 }
 
-func (h *ProcSysHandler) Write(
+func (h *ProcSys) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	return 0, nil
 }
 
-func (h *ProcSysHandler) ReadDirAll(
+func (h *ProcSys) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
@@ -102,30 +114,34 @@ func (h *ProcSysHandler) ReadDirAll(
 	return procSysCommonHandler.ReadDirAll(n, req)
 }
 
-func (h *ProcSysHandler) GetName() string {
+func (h *ProcSys) GetName() string {
 	return h.Name
 }
 
-func (h *ProcSysHandler) GetPath() string {
+func (h *ProcSys) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysHandler) GetEnabled() bool {
+func (h *ProcSys) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *ProcSysHandler) GetType() domain.HandlerType {
+func (h *ProcSys) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcSysHandler) GetService() domain.HandlerServiceIface {
+func (h *ProcSys) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysHandler) SetEnabled(val bool) {
+func (h *ProcSys) GetMutex() sync.Mutex {
+	return h.Mutex
+}
+
+func (h *ProcSys) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcSysHandler) SetService(hs domain.HandlerServiceIface) {
+func (h *ProcSys) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }
