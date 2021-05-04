@@ -377,11 +377,15 @@ func (e *NSenterEvent) SendRequest() error {
 
 	logrus.Debug("Executing nsenterEvent's SendRequest() method")
 
-	// Alert the zombie reaper that nsenter is about to start
-	e.reaper.nsenterStarted()
+	// Alert the zombie reaper that nsenter is about to start. Notice that we
+	// skip reaper's services for async requests as, in those cases, the callee
+	// is expected to sigkill its generated nsenter processes.
+	if !e.Async {
+		e.reaper.nsenterStarted()
+	}
 	defer func() {
 		if !e.Async {
-			 e.reaper.nsenterEnded()
+			e.reaper.nsenterEnded()
 		}
 	}()
 
@@ -393,7 +397,7 @@ func (e *NSenterEvent) SendRequest() error {
 	e.parentPipe = parentPipe
 	defer func() {
 		if !e.Async {
-			 e.parentPipe.Close()
+			e.parentPipe.Close()
 		}
 	}()
 
@@ -438,20 +442,28 @@ func (e *NSenterEvent) SendRequest() error {
 	// Send the config to child process.
 	if _, err := io.Copy(e.parentPipe, bytes.NewReader(r.Serialize())); err != nil {
 		logrus.Warnf("Error copying payload to pipe: %s", err)
-		e.reaper.nsenterReapReq()
+		if !e.Async {
+			e.reaper.nsenterReapReq()
+		}
 		return errors.New("Error copying payload to pipe")
 	}
 
 	// Wait for sysbox-fs' first child process to finish.
 	status, err := cmd.Process.Wait()
 	if err != nil {
-		logrus.Warnf("Error waiting for sysbox-fs first child process %d: %s", cmd.Process.Pid, err)
-		e.reaper.nsenterReapReq()
+		logrus.Warnf("Error waiting for sysbox-fs first child process: %d, status: %s, error: %s",
+			cmd.Process.Pid, status.String(), err)
+		if !e.Async {
+			e.reaper.nsenterReapReq()
+		}
 		return err
 	}
 	if !status.Success() {
-		logrus.Warnf("Sysbox-fs first child process error status: pid = %d", cmd.Process.Pid)
-		e.reaper.nsenterReapReq()
+		logrus.Warnf("Sysbox-fs first child process error status: %s, pid: %d",
+			status.String(), cmd.Process.Pid)
+		if !e.Async {
+			e.reaper.nsenterReapReq()
+		}
 		return errors.New("Error waiting for sysbox-fs first child process")
 	}
 
@@ -502,7 +514,9 @@ func (e *NSenterEvent) SendRequest() error {
 	credMsg := syscall.UnixCredentials(reqCred)
 	if err := syscall.Sendmsg(socket, nil, credMsg, nil, 0); err != nil {
 		logrus.Warnf("Error while sending process credentials to nsenter (%v).", err)
-		e.reaper.nsenterReapReq()
+		if !e.Async {
+			e.reaper.nsenterReapReq()
+		}
 		return err
 	}
 
@@ -510,13 +524,17 @@ func (e *NSenterEvent) SendRequest() error {
 	data, err := json.Marshal(*(e.ReqMsg))
 	if err != nil {
 		logrus.Warnf("Error while encoding nsenter payload (%v).", err)
-		e.reaper.nsenterReapReq()
+		if !e.Async {
+			e.reaper.nsenterReapReq()
+		}
 		return err
 	}
 	_, err = e.parentPipe.Write(data)
 	if err != nil {
 		logrus.Warnf("Error while writing nsenter payload into pipeline (%v)", err)
-		e.reaper.nsenterReapReq()
+		if !e.Async {
+			e.reaper.nsenterReapReq()
+		}
 		return err
 	}
 
@@ -548,6 +566,14 @@ func (e *NSenterEvent) ReceiveResponse() *domain.NSenterMessage {
 	return e.ResMsg
 }
 
+func (e *NSenterEvent) ReapStartRequest() {
+	e.reaper.nsenterStarted()
+}
+
+func (e *NSenterEvent) ReapEndRequest() {
+	e.reaper.nsenterEnded()
+}
+
 // TerminateRequest serves to unwind the nsenter-event FSM after the generation
 // of an asynchronous event. This method is not required for regular nsenter
 // events, as in those cases the SendRequest() method itself takes care of
@@ -556,8 +582,6 @@ func (e *NSenterEvent) TerminateRequest() error {
 
 	logrus.Debug("Executing nsenterEvent's TerminateRequest() method")
 
-	defer e.reaper.nsenterEnded()
-
 	if e.Process == nil {
 		return nil
 	}
@@ -565,13 +589,10 @@ func (e *NSenterEvent) TerminateRequest() error {
 	// Destroy the socket pair.
 	if err := unix.Shutdown(int(e.parentPipe.Fd()), unix.SHUT_WR); err != nil {
 		logrus.Warnf("Error shutting down sysbox-fs nsenter pipe: %s", err)
-		defer e.reaper.nsenterReapReq()
-		return err
 	}
 
 	// Kill ongoing request.
 	if err := e.Process.Kill(); err != nil {
-		defer e.reaper.nsenterReapReq()
 		return err
 	}
 
@@ -978,7 +999,7 @@ func (e *NSenterEvent) processMountInfoRequest() error {
 	// executing this logic.
 	process := e.service.prs.ProcessCreate(uint32(pid), 0, 0)
 
-	//
+	// Create shallow mountInfo DB.
 	mip, err := e.service.mts.NewMountInfoParser(
 		nil,
 		process,

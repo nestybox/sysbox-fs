@@ -132,6 +132,8 @@ type NSenterEventIface interface {
 	SetResponseMsg(m *NSenterMessage)
 	GetResponseMsg() *NSenterMessage
 	GetProcessID() uint32
+	ReapStartRequest()
+	ReapEndRequest()
 }
 
 // NSenterMessage struct defines the layout of the messages being exchanged
