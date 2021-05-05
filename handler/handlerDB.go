@@ -81,23 +81,11 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.ProcSysFs_Handler,               // /proc/sys/fs
 	implementations.ProcSysKernel_Handler,           // /proc/sys/kernel
 	implementations.ProcSysKernelYamaPtrace_Handler, // /proc/sys/kernel/yama/ptrace_scope
-	implementations.ProcSysNetNetfilter_Handler,     // /proc/sys/net/netfilter
 	implementations.ProcSysNetCore_Handler,          // /proc/sys/net/core
 	implementations.ProcSysNetIpv4Vs_Handler,        // /proc/sys/net/ipv4/vs
 	implementations.ProcSysNetIpv4Neigh_Handler,     // /proc/sys/net/ipv4/neigh
-
-	//
-	// /proc/sys/net/unix handlers
-	//
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "maxDgramQlen",
-			Path:      "/proc/sys/net/unix/max_dgram_qlen",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
+	implementations.ProcSysNetNetfilter_Handler,     // /proc/sys/net/netfilter
+	implementations.ProcSysNetUnix_Handler,          // /proc/sys/net/unix
 
 	//
 	// /proc/sys/vm handlers
