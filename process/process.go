@@ -433,6 +433,7 @@ func (p *process) UsernsRootUidGid() (uint32, uint32, error) {
 			if m.ID == 0 {
 				uid = uint32(m.ParentID)
 				found = true
+				break
 			}
 		}
 	}
@@ -451,6 +452,7 @@ func (p *process) UsernsRootUidGid() (uint32, uint32, error) {
 			if m.ID == 0 {
 				gid = uint32(m.ParentID)
 				found = true
+				break
 			}
 		}
 	}
