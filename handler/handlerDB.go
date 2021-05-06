@@ -86,28 +86,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.ProcSysNetIpv4Neigh_Handler,     // /proc/sys/net/ipv4/neigh
 	implementations.ProcSysNetNetfilter_Handler,     // /proc/sys/net/netfilter
 	implementations.ProcSysNetUnix_Handler,          // /proc/sys/net/unix
-
-	//
-	// /proc/sys/vm handlers
-	//
-	&implementations.VmOvercommitMemHandler{
-		domain.HandlerBase{
-			Name:      "vmOvercommitMem",
-			Path:      "/proc/sys/vm/overcommit_memory",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-	&implementations.VmMmapMinAddrHandler{
-		domain.HandlerBase{
-			Name:      "vmMmapMinAddr",
-			Path:      "/proc/sys/vm/mmap_min_addr",
-			Type:      domain.NODE_SUBSTITUTION,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
+	implementations.ProcSysVm_Handler,               // /proc/sys/vm
 
 	//
 	// /sys handlers
