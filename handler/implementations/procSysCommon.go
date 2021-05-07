@@ -22,6 +22,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
@@ -39,11 +40,21 @@ import (
 // Note that emulated resources within /proc/sys don't go through this handler,
 // but rather through their specific handlers (see handlerDB.go).
 //
-type ProcSysCommonHandler struct {
+
+type ProcSysCommon struct {
 	domain.HandlerBase
 }
 
-func (h *ProcSysCommonHandler) Lookup(
+var ProcSysCommon_Handler = &ProcSysCommon{
+	domain.HandlerBase{
+		Name:      "ProcSysCommon",
+		Path:      "/proc/sys/",
+		Enabled:   true,
+		Cacheable: true,
+	},
+}
+
+func (h *ProcSysCommon) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -88,7 +99,7 @@ func (h *ProcSysCommonHandler) Lookup(
 	return info, nil
 }
 
-func (h *ProcSysCommonHandler) Getattr(
+func (h *ProcSysCommon) Getattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -109,7 +120,7 @@ func (h *ProcSysCommonHandler) Getattr(
 	return stat, nil
 }
 
-func (h *ProcSysCommonHandler) Open(
+func (h *ProcSysCommon) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -154,14 +165,14 @@ func (h *ProcSysCommonHandler) Open(
 	return nil
 }
 
-func (h *ProcSysCommonHandler) Close(node domain.IOnodeIface) error {
+func (h *ProcSysCommon) Close(node domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *ProcSysCommonHandler) Read(
+func (h *ProcSysCommon) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -227,7 +238,7 @@ func (h *ProcSysCommonHandler) Read(
 	return copyResultBuffer(req.Data, []byte(data))
 }
 
-func (h *ProcSysCommonHandler) Write(
+func (h *ProcSysCommon) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -270,7 +281,7 @@ func (h *ProcSysCommonHandler) Write(
 	return len(req.Data), nil
 }
 
-func (h *ProcSysCommonHandler) ReadDirAll(
+func (h *ProcSysCommon) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
@@ -339,7 +350,7 @@ func (h *ProcSysCommonHandler) ReadDirAll(
 	return osFileEntries, nil
 }
 
-func (h *ProcSysCommonHandler) Setattr(
+func (h *ProcSysCommon) Setattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -385,7 +396,7 @@ func (h *ProcSysCommonHandler) Setattr(
 }
 
 // Auxiliary method to fetch the content of any given file within a container.
-func (h *ProcSysCommonHandler) fetchFile(
+func (h *ProcSysCommon) fetchFile(
 	n domain.IOnodeIface,
 	process domain.ProcessIface) (string, error) {
 
@@ -423,7 +434,7 @@ func (h *ProcSysCommonHandler) fetchFile(
 }
 
 // Auxiliary method to inject content into any given file within a container.
-func (h *ProcSysCommonHandler) pushFile(
+func (h *ProcSysCommon) pushFile(
 	n domain.IOnodeIface,
 	process domain.ProcessIface,
 	s string) error {
@@ -460,30 +471,34 @@ func (h *ProcSysCommonHandler) pushFile(
 	return nil
 }
 
-func (h *ProcSysCommonHandler) GetName() string {
+func (h *ProcSysCommon) GetName() string {
 	return h.Name
 }
 
-func (h *ProcSysCommonHandler) GetPath() string {
+func (h *ProcSysCommon) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysCommonHandler) GetEnabled() bool {
+func (h *ProcSysCommon) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *ProcSysCommonHandler) GetType() domain.HandlerType {
+func (h *ProcSysCommon) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *ProcSysCommonHandler) GetService() domain.HandlerServiceIface {
+func (h *ProcSysCommon) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysCommonHandler) SetEnabled(val bool) {
+func (h *ProcSysCommon) GetMutex() sync.Mutex {
+	return h.Mutex
+}
+
+func (h *ProcSysCommon) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *ProcSysCommonHandler) SetService(hs domain.HandlerServiceIface) {
+func (h *ProcSysCommon) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }
