@@ -63,19 +63,8 @@ var DefaultHandlers = []domain.HandlerIface{
 		},
 	},
 
-	//
-	// Handler for all non-emulated resources under /proc/sys.
-	//
-	&implementations.ProcSysCommonHandler{
-		domain.HandlerBase{
-			Name:      "procSysCommon",
-			Path:      "/proc/sys/",
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-
 	implementations.ProcSys_Handler,                 // /proc/sys
+	implementations.ProcSysCommon_Handler,           // /proc/sys/
 	implementations.ProcSwaps_Handler,               // /proc/swaps
 	implementations.ProcUptime_Handler,              // /proc/uptime
 	implementations.ProcSysFs_Handler,               // /proc/sys/fs
