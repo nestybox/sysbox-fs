@@ -18,6 +18,7 @@ package implementations
 
 import (
 	"os"
+	"sync"
 	"syscall"
 
 	"github.com/sirupsen/logrus"
@@ -38,11 +39,20 @@ import (
 // methods are purposefuly dummy, as we generally want to ignore accesses to
 // sysbox-fs from host level.
 
-type RootHandler struct {
+type Root struct {
 	domain.HandlerBase
 }
 
-func (h *RootHandler) Lookup(
+var Root_Handler = &Root{
+	domain.HandlerBase{
+		Name:      "root",
+		Path:      "/",
+		Enabled:   true,
+		Cacheable: true,
+	},
+}
+
+func (h *Root) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -51,7 +61,7 @@ func (h *RootHandler) Lookup(
 	return n.Stat()
 }
 
-func (h *RootHandler) Getattr(
+func (h *Root) Getattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -60,7 +70,7 @@ func (h *RootHandler) Getattr(
 	return nil, nil
 }
 
-func (h *RootHandler) Open(
+func (h *Root) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -69,14 +79,14 @@ func (h *RootHandler) Open(
 	return nil
 }
 
-func (h *RootHandler) Close(node domain.IOnodeIface) error {
+func (h *Root) Close(node domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *RootHandler) Read(
+func (h *Root) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -85,7 +95,7 @@ func (h *RootHandler) Read(
 	return 0, nil
 }
 
-func (h *RootHandler) Write(
+func (h *Root) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -94,7 +104,7 @@ func (h *RootHandler) Write(
 	return 0, nil
 }
 
-func (h *RootHandler) ReadDirAll(
+func (h *Root) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
@@ -103,30 +113,34 @@ func (h *RootHandler) ReadDirAll(
 	return nil, nil
 }
 
-func (h *RootHandler) GetName() string {
+func (h *Root) GetName() string {
 	return h.Name
 }
 
-func (h *RootHandler) GetPath() string {
+func (h *Root) GetPath() string {
 	return h.Path
 }
 
-func (h *RootHandler) GetEnabled() bool {
+func (h *Root) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *RootHandler) GetType() domain.HandlerType {
+func (h *Root) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *RootHandler) GetService() domain.HandlerServiceIface {
+func (h *Root) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *RootHandler) SetEnabled(val bool) {
+func (h *Root) GetMutex() sync.Mutex {
+	return h.Mutex
+}
+
+func (h *Root) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *RootHandler) SetService(hs domain.HandlerServiceIface) {
+func (h *Root) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }
