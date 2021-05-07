@@ -34,35 +34,10 @@ import (
 
 //
 // Slice of sysbox-fs' default handlers. Please keep me alphabetically
-// ordered within each functional bucket.
+// ordered.
 //
 var DefaultHandlers = []domain.HandlerIface{
-
-	//
-	// / handler
-	//
-	&implementations.RootHandler{
-		domain.HandlerBase{
-			Name:      "root",
-			Path:      "/",
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-
-	//
-	// /proc handlers
-	//
-	&implementations.ProcHandler{
-		domain.HandlerBase{
-			Name:      "proc",
-			Path:      "procHandler",
-			Type:      domain.NODE_MOUNT,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
-
+	implementations.Root_Handler,                    // /
 	implementations.ProcSys_Handler,                 // /proc/sys
 	implementations.ProcSysCommon_Handler,           // /proc/sys/
 	implementations.ProcSwaps_Handler,               // /proc/swaps
