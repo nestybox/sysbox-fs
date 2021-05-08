@@ -37,42 +37,22 @@ import (
 // ordered.
 //
 var DefaultHandlers = []domain.HandlerIface{
-	implementations.Root_Handler,                    // /
-	implementations.ProcSys_Handler,                 // /proc/sys
-	implementations.ProcSysCommon_Handler,           // /proc/sys/
-	implementations.ProcSwaps_Handler,               // /proc/swaps
-	implementations.ProcUptime_Handler,              // /proc/uptime
-	implementations.ProcSysFs_Handler,               // /proc/sys/fs
-	implementations.ProcSysKernel_Handler,           // /proc/sys/kernel
-	implementations.ProcSysKernelYamaPtrace_Handler, // /proc/sys/kernel/yama/ptrace_scope
-	implementations.ProcSysNetCore_Handler,          // /proc/sys/net/core
-	implementations.ProcSysNetIpv4Vs_Handler,        // /proc/sys/net/ipv4/vs
-	implementations.ProcSysNetIpv4Neigh_Handler,     // /proc/sys/net/ipv4/neigh
-	implementations.ProcSysNetNetfilter_Handler,     // /proc/sys/net/netfilter
-	implementations.ProcSysNetUnix_Handler,          // /proc/sys/net/unix
-	implementations.ProcSysVm_Handler,               // /proc/sys/vm
+	implementations.Root_Handler,                                   // /
+	implementations.ProcSys_Handler,                                // /proc/sys
+	implementations.ProcSysCommon_Handler,                          // /proc/sys/
+	implementations.ProcSwaps_Handler,                              // /proc/swaps
+	implementations.ProcUptime_Handler,                             // /proc/uptime
+	implementations.ProcSysFs_Handler,                              // /proc/sys/fs
+	implementations.ProcSysKernel_Handler,                          // /proc/sys/kernel
+	implementations.ProcSysKernelYamaPtrace_Handler,                // /proc/sys/kernel/yama/ptrace_scope
+	implementations.ProcSysNetCore_Handler,                         // /proc/sys/net/core
+	implementations.ProcSysNetIpv4Vs_Handler,                       // /proc/sys/net/ipv4/vs
+	implementations.ProcSysNetIpv4Neigh_Handler,                    // /proc/sys/net/ipv4/neigh
+	implementations.ProcSysNetNetfilter_Handler,                    // /proc/sys/net/netfilter
+	implementations.ProcSysNetUnix_Handler,                         // /proc/sys/net/unix
+	implementations.ProcSysVm_Handler,                              // /proc/sys/vm
+	implementations.SysModuleNfconntrackParametersHashsize_Handler, // /sys/module/nf_conntrack/parameters/hashsize
 
-	//
-	// /sys handlers
-	//
-	&implementations.SysHandler{
-		domain.HandlerBase{
-			Name: "sys",
-			//Path:      "sysHandler",
-			Path:      "/sys",
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
-	&implementations.MaxIntBaseHandler{
-		domain.HandlerBase{
-			Name:      "nfConntrackHashSize",
-			Path:      "/sys/module/nf_conntrack/parameters/hashsize",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
-			Enabled:   true,
-			Cacheable: true,
-		},
-	},
 	//
 	// Testing handler
 	//
