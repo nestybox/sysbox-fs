@@ -357,6 +357,7 @@ func convertFileInfoToFuse(info os.FileInfo) fuse.Attr {
 		a.Mode = info.Mode()
 		a.Mtime = info.ModTime()
 		a.Nlink = 1
+		a.BlockSize = 1024
 		return a
 	}
 
