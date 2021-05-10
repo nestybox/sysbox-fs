@@ -71,31 +71,18 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 	// lookup() execution.
 	*a = *f.attr
 
-	return nil
-}
-
-//
-// Getattr FS operation.
-//
-func (f *File) Getattr(
-	ctx context.Context,
-	req *fuse.GetattrRequest,
-	resp *fuse.GetattrResponse) error {
-
-	logrus.Debugf("Requested GetAttr() operation for entry %v (Req ID=%#v)",
-		f.path, uint64(req.ID))
-
-	// Use the attributes obtained during Lookup()
-	resp.Attr = *f.attr
-
 	// Override the uid & gid attributes with the user-ns' root uid & gid of the
 	// sys container under which the request is received. In the future we should
 	// return the requester's user-ns root uid & gid instead, which could differ
 	// from the sys container's one if request is originated from an L2 container.
 	// Also, this will help us to support "unshare -U -m --mount-proc" inside a
 	// sys container.
-	resp.Attr.Uid = f.server.container.UID()
-	resp.Attr.Gid = f.server.container.GID()
+	if a.Uid == 0 {
+		a.Uid = f.server.container.UID()
+	}
+	if a.Gid == 0 {
+		a.Gid = f.server.container.GID()
+	}
 
 	return nil
 }
