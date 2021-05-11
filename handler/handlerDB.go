@@ -53,18 +53,6 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.ProcSysVm_Handler,                              // /proc/sys/vm
 	implementations.SysDevicesVirtualDmiIdProductUuid_Handler,      // /sys/devices/virtual/dmi/id/product_uuid
 	implementations.SysModuleNfconntrackParametersHashsize_Handler, // /sys/module/nf_conntrack/parameters/hashsize
-
-	//
-	// Testing handler
-	//
-	&implementations.TestingHandler{
-		domain.HandlerBase{
-			Name:      "testing",
-			Path:      "/testing",
-			Enabled:   true,
-			Cacheable: false,
-		},
-	},
 }
 
 type handlerService struct {
