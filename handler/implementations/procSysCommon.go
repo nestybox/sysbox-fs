@@ -322,29 +322,14 @@ func (h *ProcSysCommon) ReadDirAll(
 		return nil, responseMsg.Payload.(error)
 	}
 
-	// Obtain FileEntries corresponding to emulated resources that could
-	// potentially live in this folder. These are resources that may not be
-	// present in sys-container's fs, so we must take them into account to
-	// return a complete ReadDirAll() response.
-	osEmulatedFileEntries, err := emulatedFilesInfo(h.Service, n, req)
-	if err != nil {
-		return nil, err
-	}
-
 	var osFileEntries = make([]os.FileInfo, 0)
-	for _, v := range osEmulatedFileEntries {
-		osFileEntries = append(osFileEntries, v)
-	}
 
 	// Transform event-response payload into a FileInfo slice. Notice that to
 	// convert []T1 struct to a []T2 one, we must iterate through each element
 	// and do the conversion one element at a time.
 	dirEntries := responseMsg.Payload.([]domain.FileInfo)
 	for _, v := range dirEntries {
-		// Append nodes that don't overlap with emulated resources
-		if _, ok := osEmulatedFileEntries[v.Name()]; !ok {
-			osFileEntries = append(osFileEntries, v)
-		}
+		osFileEntries = append(osFileEntries, v)
 	}
 
 	return osFileEntries, nil

@@ -19,7 +19,6 @@ package handler
 import (
 	"errors"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -62,12 +61,6 @@ type handlerService struct {
 	// object (value).
 	handlerDB map[string]domain.HandlerIface
 
-	// Map to keep track of the resources being emulated and the directory where
-	// these are being placed. Map is indexed by directory path (string), and
-	// the value corresponds to a slice of strings that holds the full path of
-	// the emulated resources seating in each directory.
-	dirHandlerMap map[string][]string
-
 	// Radix-tree indexed by node FS path. Tree serves as an ordered DB where to
 	// keep track of the association between resources being emulated, and its
 	// matching handler object, which ultimately defines the emulation approach
@@ -97,11 +90,7 @@ type handlerService struct {
 // HandlerService constructor.
 func NewHandlerService() domain.HandlerServiceIface {
 
-	newhs := &handlerService{
-		dirHandlerMap: make(map[string][]string),
-	}
-
-	return newhs
+	return &handlerService{}
 }
 
 func (hs *handlerService) Setup(
@@ -130,58 +119,12 @@ func (hs *handlerService) Setup(
 		}
 	}
 
-	// Create a directory-handler map to keep track of the association between
-	// emulated resource paths, and the parent directory hosting them.
-	hs.createDirHandlerMap()
-
 	// Obtain user-ns inode corresponding to sysbox-fs.
 	hostUserNsInode, err := hs.FindUserNsInode(uint32(os.Getpid()))
 	if err != nil {
 		logrus.Fatalf("Invalid init user-namespace found")
 	}
 	hs.hostUserNsInode = hostUserNsInode
-}
-
-func (hs *handlerService) createDirHandlerMap() {
-	hs.Lock()
-	defer hs.Unlock()
-
-	var dirHandlerMap = hs.dirHandlerMap
-
-	// Iterate through all the registered handlers to populate the dirHandlerMap
-	// structure. Even though this is an O(n^2) logic, notice that 'n' here is
-	// very small (number of handlers), and that this is only executed during
-	// sysbox-fs initialization.
-	for h1, _ := range hs.handlerDB {
-		dir_h1 := path.Dir(h1)
-
-		for h2, _ := range hs.handlerDB {
-			dir_h2 := path.Dir(h2)
-
-			// A potential handler candidate must fully match the dir-path of
-			// the original one.
-			if dir_h1 == dir_h2 {
-				var dup = false
-				dirHandlerMapSlice := dirHandlerMap[dir_h1]
-
-				// Avoid pushing duplicated elements into any given slice.
-				for _, elem := range dirHandlerMapSlice {
-					if elem == h1 {
-						dup = true
-						break
-					}
-				}
-
-				// Proceed to push a new entry if no dups have been encountered.
-				if !dup {
-					dirHandlerMapSlice = append(dirHandlerMapSlice, h1)
-					dirHandlerMap[dir_h1] = dirHandlerMapSlice
-				}
-			}
-		}
-	}
-
-	hs.dirHandlerMap = dirHandlerMap
 }
 
 func (hs *handlerService) RegisterHandler(h domain.HandlerIface) error {
@@ -330,13 +273,6 @@ func (hs *handlerService) DisableHandler(h domain.HandlerIface) error {
 	hs.Unlock()
 
 	return nil
-}
-
-func (hs *handlerService) DirHandlerEntries(s string) []string {
-	hs.RLock()
-	defer hs.RUnlock()
-
-	return hs.dirHandlerMap[s]
 }
 
 func (hs *handlerService) HandlerDB() *iradix.Tree {
