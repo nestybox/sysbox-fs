@@ -147,7 +147,6 @@ type HandlerServiceIface interface {
 	FindHandler(s string) (HandlerIface, bool)
 	EnableHandler(h HandlerIface) error
 	DisableHandler(h HandlerIface) error
-	DirHandlerEntries(s string) []string
 
 	// getters/setter
 	HandlerDB() *iradix.Tree
