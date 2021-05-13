@@ -120,7 +120,7 @@ func (h *SysModuleNfconntrackParametersHashsize) Write(
 		return 0, errors.New("Container not found")
 	}
 
-	return writeInt(h, n, req, minScopeVal, maxScopeVal, true)
+	return writeInt(h, n, req, 0, MaxInt, true)
 }
 
 func (h *SysModuleNfconntrackParametersHashsize) ReadDirAll(
