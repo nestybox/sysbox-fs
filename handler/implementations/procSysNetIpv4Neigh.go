@@ -22,7 +22,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -32,12 +31,6 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 )
-
-// FIXME:
-//
-// This is a base handler for kernel sysctls exposed inside a sys container that
-// consist of a single integer value and where the value written to the host
-// kernel is the max value across sys containers.
 
 type ProcSysNetIpv4Neigh struct {
 	domain.HandlerBase
@@ -73,8 +66,7 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 
 	var lookupEntry string
 
-	// Adjust the lookup-ed element to match the virtual-component's
-	// representation convention.
+	// Adjust the looked-up element to match the emulated-nodes naming.
 	relPathDir := filepath.Dir(relPath)
 	if relPathDir == "." ||
 		strings.HasPrefix(relPath, "default/gc_thresh") {
@@ -82,7 +74,7 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 	}
 
 	// Return an artificial fileInfo if looked-up element matches any of the
-	// virtual-components.
+	// emulated components.
 	if v, ok := h.EmuNodesMap[lookupEntry]; ok {
 		info := &domain.FileInfo{
 			Fname:    lookupEntry,
@@ -99,8 +91,8 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 		return info, nil
 	}
 
-	// If looked-up element hasn't been found by now, let's look into the actual
-	// sys container rootfs.
+	// If looked-up element hasn't been found by now, look into the actual
+	// container rootfs.
 	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
 	if !ok {
 		return nil, fmt.Errorf("No /proc/sys/ handler found")
@@ -149,7 +141,7 @@ func (h *ProcSysNetIpv4Neigh) Read(
 	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler",
 		req.ID, h.Name)
 
-	// We are dealing with a single integer element being read, so we can save
+	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
 	if req.Offset > 0 {
 		return 0, io.EOF
@@ -164,20 +156,29 @@ func (h *ProcSysNetIpv4Neigh) Read(
 		return 0, errors.New("Container not found")
 	}
 
-	// As the "neighbor" node isn't exposed within containers, sysbox's integration
-	// testsuites will fail when executing within the test framework. In these cases,
-	// we will redirect all "neighbor" queries to a static node that is always present
-	// in the testing environment.
-	if h.GetService().IgnoreErrors() {
+	// Obtain relative path to the element being written.
+	relPath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return 0, err
+	}
+
+	// Skip if node is not part of the emulated components.
+	if _, ok := h.EmuNodesMap[relPath]; !ok {
+		return 0, nil
+	}
+
+	// As the "default" dir node isn't exposed within containers, sysbox's
+	// integration testsuites will fail when executing within the test framework.
+	// In these cases, we will redirect all "default" queries to a static node
+	// that is always present in the testing environment.
+	if strings.HasPrefix(relPath, "default/gc_thresh") &&
+		h.GetService().IgnoreErrors() {
 		n.SetPath("/proc/sys/net/ipv4/neigh/lo/retrans_time")
 	}
 
 	return readFileInt(h, n, req)
 }
 
-// FIXME: We should write the max default vals down to kernel.
-//
-//
 func (h *ProcSysNetIpv4Neigh) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
@@ -186,13 +187,6 @@ func (h *ProcSysNetIpv4Neigh) Write(
 
 	cntr := req.Container
 
-	newVal := strings.TrimSpace(string(req.Data))
-	_, err := strconv.Atoi(newVal)
-	if err != nil {
-		logrus.Errorf("Unexpected error: %v", err)
-		return 0, err
-	}
-
 	// Ensure operation is generated from within a registered sys container.
 	if cntr == nil {
 		logrus.Errorf("Could not find the container originating this request (pid %v)",
@@ -200,15 +194,27 @@ func (h *ProcSysNetIpv4Neigh) Write(
 		return 0, errors.New("Container not found")
 	}
 
-	// As the "neighbor" node isn't exposed within containers, sysbox's integration
-	// testsuites will fail when executing within the test framework. In these cases,
-	// we will redirect all "neighbor" queries to a static node that is always present
-	// in the testing environment.
-	if h.GetService().IgnoreErrors() {
+	// Obtain relative path to the element being written.
+	relPath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return 0, err
+	}
+
+	// Skip if node is not part of the emulated components.
+	if _, ok := h.EmuNodesMap[relPath]; !ok {
+		return 0, nil
+	}
+
+	// As the "default" dir node isn't exposed within containers, sysbox's
+	// integration testsuites will fail when executing within the test framework.
+	// In these cases, we will redirect all "default" queries to a static node
+	// that is always present in the testing environment.
+	if strings.HasPrefix(relPath, "default/gc_thresh") &&
+		h.GetService().IgnoreErrors() {
 		n.SetPath("/proc/sys/net/ipv4/neigh/lo/retrans_time")
 	}
 
-	return writeInt(h, n, req, MinInt, MaxInt, false)
+	return writeInt(h, n, req, 0, MaxInt, false)
 }
 
 func (h *ProcSysNetIpv4Neigh) ReadDirAll(
