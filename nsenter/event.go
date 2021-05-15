@@ -566,14 +566,6 @@ func (e *NSenterEvent) ReceiveResponse() *domain.NSenterMessage {
 	return e.ResMsg
 }
 
-func (e *NSenterEvent) ReapStartRequest() {
-	e.reaper.nsenterStarted()
-}
-
-func (e *NSenterEvent) ReapEndRequest() {
-	e.reaper.nsenterEnded()
-}
-
 // TerminateRequest serves to unwind the nsenter-event FSM after the generation
 // of an asynchronous event. This method is not required for regular nsenter
 // events, as in those cases the SendRequest() method itself takes care of
