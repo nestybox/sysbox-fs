@@ -92,7 +92,7 @@ func (h *ProcSysFs) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing %v Open() method for Req ID=%#x on %v handler",
+	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler",
 		req.ID, h.Name)
 
 	name := n.Name()

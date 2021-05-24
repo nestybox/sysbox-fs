@@ -74,7 +74,7 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func TestProcSysCommonHandler_Lookup(t *testing.T) {
+func TestProcSysCommon_Lookup(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -86,7 +86,7 @@ func TestProcSysCommonHandler_Lookup(t *testing.T) {
 
 	var f1 = fields{
 		Name:      "procSysCommon",
-		Path:      "procSysCommonHandler",
+		Path:      "ProcSysCommon",
 		Enabled:   true,
 		Cacheable: true,
 		Service:   hds,
@@ -239,7 +239,7 @@ func TestProcSysCommonHandler_Lookup(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -257,18 +257,18 @@ func TestProcSysCommonHandler_Lookup(t *testing.T) {
 
 			got, err := h.Lookup(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommonHandler.Lookup() error = %v, wantErr %v",
+				t.Errorf("ProcSysCommon.Lookup() error = %v, wantErr %v",
 					err, tt.wantErr)
 				return
 			}
 			if err != nil && tt.wantErrVal != nil && err.Error() != tt.wantErrVal.Error() {
-				t.Errorf("ProcSysCommonHandler.Lookup() error = %v, wantErr %v, wantErrVal %v",
+				t.Errorf("ProcSysCommon.Lookup() error = %v, wantErr %v, wantErrVal %v",
 					err, tt.wantErr, tt.wantErrVal)
 				return
 			}
 
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ProcSysCommonHandler.Lookup() = %v, want %v", got, tt.want)
+				t.Errorf("ProcSysCommon.Lookup() = %v, want %v", got, tt.want)
 			}
 
 			// Ensure that mocks were properly invoked and reset expectedCalls
@@ -279,7 +279,7 @@ func TestProcSysCommonHandler_Lookup(t *testing.T) {
 	}
 }
 
-func TestProcSysCommonHandler_Getattr(t *testing.T) {
+func TestProcSysCommon_Getattr(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -291,7 +291,7 @@ func TestProcSysCommonHandler_Getattr(t *testing.T) {
 
 	var f1 = fields{
 		Name:      "procSysCommon",
-		Path:      "procSysCommonHandler",
+		Path:      "ProcSysCommon",
 		Enabled:   true,
 		Cacheable: true,
 		Service:   hds,
@@ -370,7 +370,7 @@ func TestProcSysCommonHandler_Getattr(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -388,15 +388,15 @@ func TestProcSysCommonHandler_Getattr(t *testing.T) {
 
 			got, err := h.Getattr(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommonHandler.Getattr() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ProcSysCommon.Getattr() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if err != nil && tt.wantErrVal != nil && err.Error() != tt.wantErrVal.Error() {
-				t.Errorf("ProcSysCommonHandler.Lookup() error = %v, wantErr %v, wantErrVal %v",
+				t.Errorf("ProcSysCommon.Lookup() error = %v, wantErr %v, wantErrVal %v",
 					err, tt.wantErr, tt.wantErrVal)
 			}
 
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ProcSysCommonHandler.Getattr() = %v, want %v", got, tt.want)
+				t.Errorf("ProcSysCommon.Getattr() = %v, want %v", got, tt.want)
 			}
 
 			// Ensure that mocks were properly invoked and reset expectedCalls
@@ -407,7 +407,7 @@ func TestProcSysCommonHandler_Getattr(t *testing.T) {
 	}
 }
 
-func TestProcSysCommonHandler_Open(t *testing.T) {
+func TestProcSysCommon_Open(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -419,7 +419,7 @@ func TestProcSysCommonHandler_Open(t *testing.T) {
 
 	var f1 = fields{
 		Name:      "procSysCommon",
-		Path:      "procSysCommonHandler",
+		Path:      "ProcSysCommon",
 		Enabled:   true,
 		Cacheable: true,
 		Service:   hds,
@@ -573,7 +573,7 @@ func TestProcSysCommonHandler_Open(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -591,10 +591,10 @@ func TestProcSysCommonHandler_Open(t *testing.T) {
 
 			err := h.Open(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommonHandler.Open() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ProcSysCommon.Open() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if err != nil && tt.wantErrVal != nil && err.Error() != tt.wantErrVal.Error() {
-				t.Errorf("ProcSysCommonHandler.Lookup() error = %v, wantErr %v, wantErrVal %v",
+				t.Errorf("ProcSysCommon.Lookup() error = %v, wantErr %v, wantErrVal %v",
 					err, tt.wantErr, tt.wantErrVal)
 			}
 
@@ -606,7 +606,7 @@ func TestProcSysCommonHandler_Open(t *testing.T) {
 	}
 }
 
-func TestProcSysCommonHandler_Read(t *testing.T) {
+func TestProcSysCommon_Read(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -619,7 +619,7 @@ func TestProcSysCommonHandler_Read(t *testing.T) {
 	// Caching enabled.
 	var f1 = fields{
 		Name:      "procSysCommon",
-		Path:      "procSysCommonHandler",
+		Path:      "ProcSysCommon",
 		Enabled:   true,
 		Cacheable: true,
 		Service:   hds,
@@ -628,7 +628,7 @@ func TestProcSysCommonHandler_Read(t *testing.T) {
 	// Caching disabled. Utilized in Testcase-3 to force nsenter error condition.
 	var f2 = fields{
 		Name:      "procSysCommon",
-		Path:      "procSysCommonHandler",
+		Path:      "ProcSysCommon",
 		Enabled:   true,
 		Cacheable: false,
 		Service:   hds,
@@ -795,7 +795,7 @@ func TestProcSysCommonHandler_Read(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -813,11 +813,11 @@ func TestProcSysCommonHandler_Read(t *testing.T) {
 
 			got, err := h.Read(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommonHandler.Read() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ProcSysCommon.Read() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("ProcSysCommonHandler.Read() = %v, want %v", got, tt.want)
+				t.Errorf("ProcSysCommon.Read() = %v, want %v", got, tt.want)
 			}
 
 			// Ensure that mocks were properly invoked and reset expectedCalls
@@ -828,7 +828,7 @@ func TestProcSysCommonHandler_Read(t *testing.T) {
 	}
 }
 
-func TestProcSysCommonHandler_Write(t *testing.T) {
+func TestProcSysCommon_Write(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -840,7 +840,7 @@ func TestProcSysCommonHandler_Write(t *testing.T) {
 
 	var f1 = fields{
 		Name:      "procSysCommon",
-		Path:      "procSysCommonHandler",
+		Path:      "ProcSysCommon",
 		Enabled:   true,
 		Cacheable: true,
 		Service:   hds,
@@ -1009,7 +1009,7 @@ func TestProcSysCommonHandler_Write(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -1027,11 +1027,11 @@ func TestProcSysCommonHandler_Write(t *testing.T) {
 
 			got, err := h.Write(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommonHandler.Write() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ProcSysCommon.Write() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("ProcSysCommonHandler.Write() = %v, want %v", got, tt.want)
+				t.Errorf("ProcSysCommon.Write() = %v, want %v", got, tt.want)
 			}
 
 			// Ensure that mocks were properly invoked and reset expectedCalls
@@ -1042,7 +1042,7 @@ func TestProcSysCommonHandler_Write(t *testing.T) {
 	}
 }
 
-func TestProcSysCommonHandler_ReadDirAll(t *testing.T) {
+func TestProcSysCommon_ReadDirAll(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -1054,7 +1054,7 @@ func TestProcSysCommonHandler_ReadDirAll(t *testing.T) {
 
 	var f1 = fields{
 		Name:      "procSysCommon",
-		Path:      "procSysCommonHandler",
+		Path:      "ProcSysCommon",
 		Enabled:   true,
 		Cacheable: true,
 		Service:   hds,
@@ -1237,7 +1237,7 @@ func TestProcSysCommonHandler_ReadDirAll(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -1255,12 +1255,12 @@ func TestProcSysCommonHandler_ReadDirAll(t *testing.T) {
 
 			got, err := h.ReadDirAll(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommonHandler.ReadDirAll() error = %v, wantErr %v",
+				t.Errorf("ProcSysCommon.ReadDirAll() error = %v, wantErr %v",
 					err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ProcSysCommonHandler.ReadDirAll() = %v, want %v",
+				t.Errorf("ProcSysCommon.ReadDirAll() = %v, want %v",
 					got, tt.want)
 			}
 
@@ -1273,7 +1273,7 @@ func TestProcSysCommonHandler_ReadDirAll(t *testing.T) {
 	}
 }
 
-func TestProcSysCommonHandler_Setattr(t *testing.T) {
+func TestProcSysCommon_Setattr(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -1296,7 +1296,7 @@ func TestProcSysCommonHandler_Setattr(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -1307,13 +1307,13 @@ func TestProcSysCommonHandler_Setattr(t *testing.T) {
 				},
 			}
 			if err := h.Setattr(tt.args.n, tt.args.req); (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommonHandler.Setattr() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ProcSysCommon.Setattr() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestProcSysCommonHandler_GetName(t *testing.T) {
+func TestProcSysCommon_GetName(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -1331,7 +1331,7 @@ func TestProcSysCommonHandler_GetName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -1342,13 +1342,13 @@ func TestProcSysCommonHandler_GetName(t *testing.T) {
 				},
 			}
 			if got := h.GetName(); got != tt.want {
-				t.Errorf("ProcSysCommonHandler.GetName() = %v, want %v", got, tt.want)
+				t.Errorf("ProcSysCommon.GetName() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestProcSysCommonHandler_GetPath(t *testing.T) {
+func TestProcSysCommon_GetPath(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -1366,7 +1366,7 @@ func TestProcSysCommonHandler_GetPath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -1377,13 +1377,13 @@ func TestProcSysCommonHandler_GetPath(t *testing.T) {
 				},
 			}
 			if got := h.GetPath(); got != tt.want {
-				t.Errorf("ProcSysCommonHandler.GetPath() = %v, want %v", got, tt.want)
+				t.Errorf("ProcSysCommon.GetPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestProcSysCommonHandler_GetEnabled(t *testing.T) {
+func TestProcSysCommon_GetEnabled(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -1401,7 +1401,7 @@ func TestProcSysCommonHandler_GetEnabled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -1412,13 +1412,13 @@ func TestProcSysCommonHandler_GetEnabled(t *testing.T) {
 				},
 			}
 			if got := h.GetEnabled(); got != tt.want {
-				t.Errorf("ProcSysCommonHandler.GetEnabled() = %v, want %v", got, tt.want)
+				t.Errorf("ProcSysCommon.GetEnabled() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestProcSysCommonHandler_GetType(t *testing.T) {
+func TestProcSysCommon_GetType(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -1436,7 +1436,7 @@ func TestProcSysCommonHandler_GetType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -1447,13 +1447,13 @@ func TestProcSysCommonHandler_GetType(t *testing.T) {
 				},
 			}
 			if got := h.GetType(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ProcSysCommonHandler.GetType() = %v, want %v", got, tt.want)
+				t.Errorf("ProcSysCommon.GetType() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestProcSysCommonHandler_GetService(t *testing.T) {
+func TestProcSysCommon_GetService(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -1471,7 +1471,7 @@ func TestProcSysCommonHandler_GetService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -1482,13 +1482,13 @@ func TestProcSysCommonHandler_GetService(t *testing.T) {
 				},
 			}
 			if got := h.GetService(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ProcSysCommonHandler.GetService() = %v, want %v", got, tt.want)
+				t.Errorf("ProcSysCommon.GetService() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestProcSysCommonHandler_SetEnabled(t *testing.T) {
+func TestProcSysCommon_SetEnabled(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -1509,7 +1509,7 @@ func TestProcSysCommonHandler_SetEnabled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
@@ -1524,7 +1524,7 @@ func TestProcSysCommonHandler_SetEnabled(t *testing.T) {
 	}
 }
 
-func TestProcSysCommonHandler_SetService(t *testing.T) {
+func TestProcSysCommon_SetService(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
@@ -1545,7 +1545,7 @@ func TestProcSysCommonHandler_SetService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommonHandler{
+			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
