@@ -27,6 +27,28 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
+	"github.com/nestybox/sysbox-libs/formatter"
+)
+
+//
+// 'product_uuid' file holds 36 characters with the following layout:
+//
+// $ cat /sys/class/dmi/id/product_uuid
+// e617c421-0026-4941-9e95-56a1ab1f4cb3
+//
+// For emulation purposes we will split 'product_uuid' content in two separate
+// fields. The first 24 characters will continue to match those seen by the
+// hosts. The last 12 characters will be extracted from the container ID field.
+// Example:
+//
+// e617c421-0026-4941-9e95-<sys-cntr-id-01>
+// e617c421-0026-4941-9e95-<sys-cntr-id-02>
+// etc.
+//
+
+const (
+	hostUuidLen = 24
+	cntrUuidLen = 12
 )
 
 type SysDevicesVirtualDmiIdProductUuid struct {
@@ -98,6 +120,8 @@ func (h *SysDevicesVirtualDmiIdProductUuid) Read(
 		return 0, io.EOF
 	}
 
+	name := n.Name()
+	path := n.Path()
 	cntr := req.Container
 
 	// Ensure operation is generated from within a registered sys container.
@@ -107,7 +131,27 @@ func (h *SysDevicesVirtualDmiIdProductUuid) Read(
 		return 0, errors.New("Container not found")
 	}
 
-	return readFileString(h, n, req)
+	cntr.Lock()
+
+	// Check if this resource has been initialized for this container. Otherwise,
+	// fetch the information from the host FS.
+	data, ok := cntr.Data(path, name)
+	if !ok {
+		val, err := fetchFileData(h, n, cntr)
+		if err != nil && err != io.EOF {
+			cntr.Unlock()
+			return 0, err
+		}
+
+		data = h.GenerateProductUuid(val, cntr)
+		cntr.SetData(path, name, data)
+	}
+
+	cntr.Unlock()
+
+	data += "\n"
+
+	return copyResultBuffer(req.Data, []byte(data))
 }
 
 func (h *SysDevicesVirtualDmiIdProductUuid) Write(
@@ -157,4 +201,29 @@ func (h *SysDevicesVirtualDmiIdProductUuid) SetEnabled(val bool) {
 
 func (h *SysDevicesVirtualDmiIdProductUuid) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
+}
+
+func (h *SysDevicesVirtualDmiIdProductUuid) GenerateProductUuid(
+	hostUuid string,
+	cntr domain.ContainerIface) string {
+
+	var (
+		hostUuidPref string
+		cntrUuidPref string
+	)
+
+	// Pad hostUuid with zeroes if it doesn't fill its slot.
+	if len(hostUuid) < hostUuidLen {
+		hostUuidPref = padRight(hostUuid, "0", hostUuidLen)
+	} else {
+		hostUuidPref = hostUuid[:hostUuidLen]
+	}
+
+	// Pad hostUuid with zeroes if it doesn't fill its slot.
+	cntrUuidPref = formatter.ContainerID{cntr.ID()}.String()
+	if len(cntrUuidPref) < cntrUuidLen {
+		cntrUuidPref = padRight(cntrUuidPref, "0", cntrUuidLen)
+	}
+
+	return hostUuidPref + cntrUuidPref
 }
