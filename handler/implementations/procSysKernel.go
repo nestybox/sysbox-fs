@@ -469,30 +469,7 @@ func (h *ProcSysKernel) ReadDirAll(
 		return nil, errors.New("Container not found")
 	}
 
-	var (
-		//info        *domain.FileInfo
-		fileEntries []os.FileInfo
-	)
-
-	// // Obtain relative path to the element being read.
-	// relpath, err := filepath.Rel(h.Path, n.Path())
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// Iterate through map of virtual components.
-	// for k, _ := range h.VcompsMap {
-
-	// 	if relpath == filepath.Dir(k) {
-	// 		info = &domain.FileInfo{
-	// 			Fname:    filepath.Base(k),
-	// 			Fmode:    os.FileMode(uint32(0644)),
-	// 			FmodTime: time.Now(),
-	// 		}
-
-	// 		fileEntries = append(fileEntries, info)
-	// 	}
-	// }
+	var fileEntries []os.FileInfo
 
 	// Also collect procfs entries as seen within container's namespaces.
 	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
