@@ -22,6 +22,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -29,9 +31,33 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
+// /proc/sys/net/netfilter handlers
+//
+// Emulated nodes:
+//
+// * /proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal
+//
+// Documentation: https://www.kernel.org/doc/Documentation/networking/nf_conntrack-sysctl.txt
+//
+// nf_conntrack_tcp_be_liberal - BOOLEAN
+// 	0 - disabled (default)
+// 	not 0 - enabled
+//
+// 	Be conservative in what you do, be liberal in what you accept from others.
+// 	If it's non-zero, we mark only out of window RST segments as INVALID.
+//
+// Taking into account that kernel's netfilter can either operate in one mode or
+// the other, we opt for letting the liberal mode prevail if set within any sys-container.
+//
+
+const (
+	tcpLiberalOff = 0
+	tcpLiberalOn  = 1
+)
 
 type ProcSysNetNetfilter struct {
 	domain.HandlerBase
@@ -43,6 +69,8 @@ var ProcSysNetNetfilter_Handler = &ProcSysNetNetfilter{
 		Path: "/proc/sys/net/netfilter",
 		EmuNodesMap: map[string]domain.EmuNode{
 			"nf_conntrack_max":                     domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"nf_conntrack_generic_timeout":         domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"nf_conntrack_tcp_be_liberal":          domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
 			"nf_conntrack_tcp_timeout_established": domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
 			"nf_conntrack_tcp_timeout_close_wait":  domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
 		},
@@ -134,6 +162,11 @@ func (h *ProcSysNetNetfilter) Read(
 	case "nf_conntrack_max":
 		return readFileInt(h, n, req)
 
+	case "nf_conntrack_generic_timeout":
+		return readFileInt(h, n, req)
+
+	case "nf_conntrack_tcp_be_liberal":
+
 	case "nf_conntrack_tcp_timeout_established":
 		return readFileInt(h, n, req)
 
@@ -169,6 +202,12 @@ func (h *ProcSysNetNetfilter) Write(
 	switch name {
 	case "nf_conntrack_max":
 		return writeMaxInt(h, n, req, true)
+
+	case "nf_conntrack_generic_timeout":
+		return writeMaxInt(h, n, req, true)
+
+	case "nf_conntrack_tcp_be_liberal":
+		return h.writeTcpLiberal(n, req)
 
 	case "nf_conntrack_tcp_timeout_established":
 		return writeMaxInt(h, n, req, true)
@@ -270,4 +309,74 @@ func (h *ProcSysNetNetfilter) SetEnabled(val bool) {
 
 func (h *ProcSysNetNetfilter) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
+}
+
+func (h *ProcSysNetNetfilter) writeTcpLiberal(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (int, error) {
+
+	name := n.Name()
+	path := n.Path()
+	cntr := req.Container
+
+	// Ensure operation is generated from within a registered sys container.
+	if cntr == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return 0, errors.New("Container not found")
+	}
+
+	newVal := strings.TrimSpace(string(req.Data))
+	newValInt, err := strconv.Atoi(newVal)
+	if err != nil {
+		logrus.Errorf("Unexpected error: %v", err)
+		return 0, err
+	}
+
+	if newValInt != tcpLiberalOff && newValInt != tcpLiberalOn {
+		return 0, fuse.IOerror{Code: syscall.EINVAL}
+	}
+
+	cntr.Lock()
+	defer cntr.Unlock()
+
+	// Check if this resource has been initialized for this container. If not,
+	// push it down to the kernel if, and only if, the new value is not equal
+	// to tcpLiberalOff (0), as we want to kernel's tcpLiberalOn mode to
+	// prevail.
+	curVal, ok := cntr.Data(path, name)
+	if !ok {
+		if newValInt != tcpLiberalOff {
+			if err := pushFileInt(h, n, cntr, newValInt); err != nil {
+				return 0, err
+			}
+		}
+
+		cntr.SetData(path, name, newVal)
+		return len(req.Data), nil
+	}
+
+	curValInt, err := strconv.Atoi(curVal)
+	if err != nil {
+		logrus.Errorf("Unexpected error: %v", err)
+		return 0, err
+	}
+
+	// If the new value is 0 or the same as the current value, then let's update
+	// this new value into the container struct but not push it down to the
+	// kernel.
+	if newValInt == tcpLiberalOff || newValInt == curValInt {
+		cntr.SetData(path, name, newVal)
+		return len(req.Data), nil
+	}
+
+	// Push new value to the kernel.
+	if err := pushFileInt(h, n, cntr, newValInt); err != nil {
+		return 0, io.EOF
+	}
+
+	// Writing the new value into container-state struct.
+	cntr.SetData(path, name, newVal)
+
+	return len(req.Data), nil
 }

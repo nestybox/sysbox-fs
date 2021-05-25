@@ -36,8 +36,9 @@ import (
 //
 // /proc/sys/net/core handler
 //
+// Emulated nodes:
 //
-// /proc/sys/net/core/default_qdisc handler
+// * /proc/sys/net/core/default_qdisc
 //
 // Documentation: The default queuing discipline to use for network devices.
 // This allows overriding the default of pfifo_fast with an alternative. Since
@@ -59,11 +60,16 @@ import (
 //	- "sfq"
 //	- "pfifo_fast"
 //
-// Note: As this is a system-wide attribute with mutually-exclusive values,
-// changes will be only made superficially (at sys-container level). IOW,
-// the host FS value will be left untouched.
+// As this is a system-wide attribute with mutually-exclusive values, changes
+// will be only made superficially (at sys-container level). IOW, the host FS
+// value will be left untouched.
 //
-
+// * /proc/sys/net/core/somaxconn
+//
+// Description: Limit of socket listen() backlog, known in userspace as SOMAXCONN.
+// Somaxconn refers to the maximum number of clients that the server can accept
+// to process data, that is, to complete the connection limit. Defaults to 128.
+//
 type ProcSysNetCore struct {
 	domain.HandlerBase
 }
@@ -74,6 +80,7 @@ var ProcSysNetCore_Handler = &ProcSysNetCore{
 		Path: "/proc/sys/net/core",
 		EmuNodesMap: map[string]domain.EmuNode{
 			"default_qdisc": domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"somaxconn":     domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -165,6 +172,9 @@ func (h *ProcSysNetCore) Read(
 	switch name {
 	case "default_qdisc":
 		return readFileString(h, n, req)
+
+	case "somaxconn":
+		return readFileInt(h, n, req)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -196,6 +206,9 @@ func (h *ProcSysNetCore) Write(
 	switch name {
 	case "default_qdisc":
 		return h.writeDefaultQdisc(n, req)
+
+	case "somaxconn":
+		return writeMaxInt(h, n, req, true)
 	}
 
 	// Refer to generic handler if no node match is found above.
