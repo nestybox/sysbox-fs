@@ -434,6 +434,7 @@ func (t *syscallTracer) processMount(
 		req.Data.Args[2],
 		req.Data.Args[4],
 	}
+
 	args, err := t.processMemParse(req.Pid, argPtrs)
 	if err != nil {
 		return nil, err
@@ -465,8 +466,17 @@ func (t *syscallTracer) processMount(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	// Resolve mount target and verify that process has the proper rights to
-	// access each of the components of the path.
+	mount.Source, err = process.ResolveProcSelf(mount.Source)
+	if err != nil {
+		return t.createErrorResponse(req.Id, syscall.EACCES), nil
+	}
+
+	mount.Target, err = process.ResolveProcSelf(mount.Target)
+	if err != nil {
+		return t.createErrorResponse(req.Id, syscall.EACCES), nil
+	}
+
+	// Verify the process has the proper rights to access the target
 	err = process.PathAccess(mount.Target, 0)
 	if err != nil {
 		return t.createErrorResponse(req.Id, err), nil
@@ -529,8 +539,12 @@ func (t *syscallTracer) processUmount(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	// Resolve umount target and verify that process has the proper rights to
-	// access each of the components of the path.
+	umount.Target, err = process.ResolveProcSelf(umount.Target)
+	if err != nil {
+		return t.createErrorResponse(req.Id, syscall.EACCES), nil
+	}
+
+	// Verify the process has the proper rights to access the target
 	err = process.PathAccess(umount.Target, 0)
 	if err != nil {
 		return t.createErrorResponse(req.Id, err), nil

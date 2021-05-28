@@ -30,6 +30,7 @@ package seccomp
 
 import (
 	"path/filepath"
+	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
@@ -80,18 +81,23 @@ func (ci *chownSyscallInfo) ignoreChown(absPath string) bool {
 }
 
 func (ci *chownSyscallInfo) processChown() (*sysResponse, error) {
+	var err error
 
 	t := ci.tracer
 	ci.processInfo = t.service.prs.ProcessCreate(ci.pid, 0, 0)
-	path := ci.path
 
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(ci.processInfo.Cwd(), path)
+	ci.path, err = ci.processInfo.ResolveProcSelf(ci.path)
+	if err != nil {
+		return t.createErrorResponse(ci.reqId, syscall.EACCES), nil
 	}
 
-	if ci.ignoreChown(path) {
+	if !filepath.IsAbs(ci.path) {
+		ci.path = filepath.Join(ci.processInfo.Cwd(), ci.path)
+	}
+
+	if ci.ignoreChown(ci.path) {
 		logrus.Debugf("Ignoring chown syscall from pid %d: path = %v, uid = %v, gid = %v",
-			ci.pid, path, ci.ownerUid, ci.ownerGid)
+			ci.pid, ci.path, ci.ownerUid, ci.ownerGid)
 		return t.createSuccessResponse(ci.reqId), nil
 	}
 
@@ -108,6 +114,11 @@ func (ci *chownSyscallInfo) processFchown() (*sysResponse, error) {
 		return t.createContinueResponse(ci.reqId), nil
 	}
 
+	path, err = ci.processInfo.ResolveProcSelf(path)
+	if err != nil {
+		return t.createErrorResponse(ci.reqId, syscall.EACCES), nil
+	}
+
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(ci.processInfo.Cwd(), path)
 	}
@@ -122,6 +133,7 @@ func (ci *chownSyscallInfo) processFchown() (*sysResponse, error) {
 }
 
 func (ci *chownSyscallInfo) processFchownat() (*sysResponse, error) {
+	var err error
 
 	t := ci.tracer
 	ci.processInfo = t.service.prs.ProcessCreate(ci.pid, 0, 0)
@@ -162,6 +174,11 @@ func (ci *chownSyscallInfo) processFchownat() (*sysResponse, error) {
 				path = filepath.Join(dirPath, path)
 			}
 		}
+	}
+
+	path, err = ci.processInfo.ResolveProcSelf(path)
+	if err != nil {
+		return t.createErrorResponse(ci.reqId, syscall.EACCES), nil
 	}
 
 	if ci.ignoreChown(path) {
