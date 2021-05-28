@@ -814,21 +814,8 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 		}
 	}
 
-	process := e.service.prs.ProcessCreate(e.Pid, 0, 0)
-
 	// Perform mount instructions.
 	for i = 0; i < len(payload); i++ {
-
-		payload[i].Source, err = process.ResolveProcSelf(payload[i].Source)
-		if err != nil {
-			break
-		}
-
-		payload[i].Target, err = process.ResolveProcSelf(payload[i].Target)
-		if err != nil {
-			break
-		}
-
 		err = unix.Mount(
 			payload[i].Source,
 			payload[i].Target,
@@ -878,16 +865,9 @@ func (e *NSenterEvent) processUmountSyscallRequest() error {
 	)
 
 	payload := e.ReqMsg.Payload.([]domain.UmountSyscallPayload)
-	process := e.service.prs.ProcessCreate(e.Pid, 0, 0)
 
 	// Perform umount instructions.
 	for i = 0; i < len(payload); i++ {
-
-		payload[i].Target, err = process.ResolveProcSelf(payload[i].Target)
-		if err != nil {
-			break
-		}
-
 		err = unix.Unmount(
 			payload[i].Target,
 			int(payload[i].Flags),
@@ -922,16 +902,9 @@ func (e *NSenterEvent) processUmountSyscallRequest() error {
 func (e *NSenterEvent) processChownSyscallRequest() error {
 
 	payload := e.ReqMsg.Payload.([]domain.ChownSyscallPayload)
-	process := e.service.prs.ProcessCreate(e.Pid, 0, 0)
 
 	for _, p := range payload {
 		var err error
-
-		p.Target, err = process.ResolveProcSelf(p.Target)
-		if err != nil {
-			break
-		}
-
 		if err = unix.Chown(p.Target, p.TargetUid, p.TargetGid); err != nil {
 			e.ResMsg = &domain.NSenterMessage{
 				Type:    domain.ErrorResponse,
