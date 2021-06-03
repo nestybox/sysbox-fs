@@ -19,8 +19,6 @@ package handler
 import (
 	"errors"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -32,8 +30,7 @@ import (
 )
 
 //
-// Slice of sysbox-fs' default handlers. Please keep me alphabetically
-// ordered.
+// Slice of sysbox-fs' default handlers. Please keep me sorted alphabetically.
 //
 var DefaultHandlers = []domain.HandlerIface{
 	implementations.Root_Handler,                                   // /
@@ -62,9 +59,8 @@ type handlerService struct {
 	handlerDB map[string]domain.HandlerIface
 
 	// Radix-tree indexed by node FS path. Tree serves as an ordered DB where to
-	// keep track of the association between resources being emulated, and its
-	// matching handler object, which ultimately defines the emulation approach
-	// to execute for every sysbox-fs' emulated node.
+	// keep track of the association between the FS nodes being emulated, and
+	// their matching handler object.
 	handlerTree *iradix.Tree
 
 	// Pointer to the service providing container-state storage functionality.
@@ -177,51 +173,22 @@ func (hs *handlerService) LookupHandler(
 	hs.RLock()
 	defer hs.RUnlock()
 
-	var (
-		h       domain.HandlerIface
-		path    string
-		pathDir string
-	)
+	var h domain.HandlerIface
 
-	path = i.Path()
-	pathDir = filepath.Dir(path)
-
-	for {
-
-		// Iterate the handler's radix-tree looking for the handler that better
-		// match the fs node being operated on.
-		_, node, ok := hs.handlerTree.Root().LongestPrefix([]byte(path))
-		if !ok {
-			return nil, false
-		}
-
-		h = node.(domain.HandlerIface)
-
-		// Stop iteration if a handler is found that fully matches the path of the
-		// node being operated on (e.g., fs node: /proc/sys, handler: /proc/sys).
-		if path == h.GetPath() {
-			break
-		}
-
-		// Repeat the radix-tree iteration if the found handler doesn't truly
-		// represent the node in question. This is a corner-case scenario that
-		// should be very seldomly reproduced (e.g., fs node /proc/sys/kernel/panic_*,
-		// handler: /proc/sys/kernel/panic). In most cases we will only do one
-		// radix-tree iteration.
-		currPathDir := filepath.Dir(h.GetPath())
-		if currPathDir == pathDir && currPathDir != "/" {
-			prevPathBase := filepath.Base(path)
-			currPathBase := filepath.Base(h.GetPath())
-
-			if strings.HasPrefix(prevPathBase, currPathBase) {
-				path = currPathDir
-				pathDir = filepath.Dir(currPathDir)
-				continue
-			}
-		}
-
-		break
+	// Iterate the handler's radix-tree looking for the handler that better
+	// match the fs node being searched.
+	//
+	// Notice that this approach could potentially lead to overlapping scenarios
+	// if we were to have handlers such as "/proc/update" and "/proc/update_1",
+	// but there's no such a case today. If we ever need to address this point,
+	// we would simply extend this handler-lookup logic by placing it in a "for"
+	// loop and by comparing the "base" components of the overlapping elements.
+	_, node, ok := hs.handlerTree.Root().LongestPrefix([]byte(i.Path()))
+	if !ok {
+		return nil, false
 	}
+
+	h = node.(domain.HandlerIface)
 
 	return h, true
 }
