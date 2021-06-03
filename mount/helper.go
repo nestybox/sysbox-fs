@@ -56,8 +56,7 @@ func newMountHelper(hdb *iradix.Tree) *mountHelper {
 		nodeType := h.GetType()
 		nodePath := h.GetPath()
 
-		if nodeType&(domain.NODE_BINDMOUNT|domain.NODE_PROPAGATE) ==
-			(domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE) {
+		if nodeType&domain.NODE_BINDMOUNT == domain.NODE_BINDMOUNT {
 
 			info.mapMounts[nodePath] = struct{}{}
 

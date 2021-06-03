@@ -42,25 +42,9 @@ const (
 	// Node entries that need to be bind-mounted for proper emulation. Notice
 	// that these ones carry slightly different semantics than SUBSTITUTION
 	// ones above.
-	// Example: "/proc/meminfo"
-	NODE_BINDMOUNT = 0x4
-
-	// Node entries that need to be propagated to L2 containers or L1 chrooted
-	// environments. These are typically a subset of BINDMOUNT ones.
 	// Example: "/proc/uptime"
-	//
-	// NOTE: these are only needed because sysbox-fs has handlers that are currently just
-	// place-holders. Otherwise propagate would be equal to bindmount.
-	NODE_PROPAGATE = 0x8
+	NODE_BINDMOUNT = 0x4
 )
-
-//
-type HandlerGroup struct {
-	Path     string
-	Handlers []HandlerBase
-	Enabled  bool
-	Service  HandlerServiceIface
-}
 
 type EmuNodeType int
 

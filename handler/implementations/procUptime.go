@@ -43,7 +43,7 @@ var ProcUptime_Handler = &ProcUptime{
 	domain.HandlerBase{
 		Name:      "ProcUptime",
 		Path:      "/proc/uptime",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},

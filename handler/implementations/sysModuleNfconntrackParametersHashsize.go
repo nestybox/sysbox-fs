@@ -36,7 +36,7 @@ var SysModuleNfconntrackParametersHashsize_Handler = &SysModuleNfconntrackParame
 	domain.HandlerBase{
 		Name:      "SysModuleNfconntrackParametersHashsize",
 		Path:      "/sys/module/nf_conntrack/parameters/hashsize",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: true,
 	},

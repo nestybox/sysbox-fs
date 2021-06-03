@@ -40,7 +40,7 @@ var ProcSys_Handler = &ProcSys{
 	domain.HandlerBase{
 		Name:      "ProcSys",
 		Path:      "/proc/sys",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
