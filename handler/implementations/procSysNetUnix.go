@@ -40,7 +40,7 @@ var ProcSysNetUnix_Handler = &ProcSysNetUnix{
 		Name: "ProcSysNetUnix",
 		Path: "/proc/sys/net/unix",
 		EmuNodesMap: map[string]domain.EmuNode{
-			"max_dgram_qlen": domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"max_dgram_qlen": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,

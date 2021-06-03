@@ -63,8 +63,8 @@ var ProcSysVm_Handler = &ProcSysVm{
 		Name: "ProcSysVm",
 		Path: "/proc/sys/vm",
 		EmuNodesMap: map[string]domain.EmuNode{
-			"overcommit_memory": domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
-			"mmap_min_addr":     domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"overcommit_memory": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
+			"mmap_min_addr":     {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
