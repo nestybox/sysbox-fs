@@ -41,7 +41,7 @@ var ProcSwaps_Handler = &ProcSwaps{
 	domain.HandlerBase{
 		Name:      "ProcSwaps",
 		Path:      "/proc/swaps",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},

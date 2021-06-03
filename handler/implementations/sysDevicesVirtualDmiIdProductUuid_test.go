@@ -32,7 +32,7 @@ func TestSysDevicesVirtualDmiIdProductUuid_generateProductUuid(t *testing.T) {
 		domain.HandlerBase{
 			Name:      "SysDevicesVirtualDmiIdProductUuid",
 			Path:      "/sys/devices/virtual/dmi/id/product_uuid",
-			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT | domain.NODE_PROPAGATE,
+			Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 			Enabled:   true,
 			Cacheable: true,
 		},
