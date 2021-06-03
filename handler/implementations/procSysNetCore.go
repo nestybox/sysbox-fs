@@ -79,8 +79,8 @@ var ProcSysNetCore_Handler = &ProcSysNetCore{
 		Name: "ProcSysNetCore",
 		Path: "/proc/sys/net/core",
 		EmuNodesMap: map[string]domain.EmuNode{
-			"default_qdisc": domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
-			"somaxconn":     domain.EmuNode{domain.EmuNodeFile, os.FileMode(uint32(0644))},
+			"default_qdisc": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
+			"somaxconn":     {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
