@@ -422,28 +422,28 @@ func (h *ProcSysKernel) Write(
 		return 0, nil
 
 	case "pid_max":
-		return writeMaxInt(h, n, req, false)
+		return writeFileMaxInt(h, n, req, false)
 
 	case "panic":
-		return writeString(h, n, req, false)
+		return writeFileString(h, n, req, false)
 
 	case "printk":
-		return writeString(h, n, req, false)
+		return writeFileString(h, n, req, false)
 
 	case "panic_on_oops":
-		return writeInt(h, n, req, minPanicOopsVal, maxPanicOopsVal, false)
+		return writeFileInt(h, n, req, minPanicOopsVal, maxPanicOopsVal, false)
 
 	case "kptr_restrict":
-		return writeInt(h, n, req, minRestrictVal, maxRestrictVal, false)
+		return writeFileInt(h, n, req, minRestrictVal, maxRestrictVal, false)
 
 	case "sysrq":
-		return writeInt(h, n, req, minSysrqVal, maxSysrqVal, false)
+		return writeFileInt(h, n, req, minSysrqVal, maxSysrqVal, false)
 
 	case "domainname":
-		return writeString(h, n, req, false)
+		return writeFileString(h, n, req, false)
 
 	case "hostname":
-		return writeString(h, n, req, false)
+		return writeFileString(h, n, req, false)
 	}
 
 	// Refer to generic handler if no node match is found above.

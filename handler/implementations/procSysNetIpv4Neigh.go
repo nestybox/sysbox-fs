@@ -214,7 +214,7 @@ func (h *ProcSysNetIpv4Neigh) Write(
 		n.SetPath("/proc/sys/net/ipv4/neigh/lo/retrans_time")
 	}
 
-	return writeInt(h, n, req, 0, MaxInt, false)
+	return writeFileInt(h, n, req, 0, MaxInt, false)
 }
 
 func (h *ProcSysNetIpv4Neigh) ReadDirAll(

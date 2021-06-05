@@ -194,7 +194,7 @@ func (h *ProcSysKernelYamaPtrace) Write(
 		return 0, errors.New("Container not found")
 	}
 
-	return writeInt(h, n, req, minScopeVal, maxScopeVal, false)
+	return writeFileInt(h, n, req, minScopeVal, maxScopeVal, false)
 }
 
 func (h *ProcSysKernelYamaPtrace) ReadDirAll(
