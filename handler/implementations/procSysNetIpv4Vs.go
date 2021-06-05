@@ -80,11 +80,11 @@ var ProcSysNetIpv4Vs_Handler = &ProcSysNetIpv4Vs{
 	domain.HandlerBase{
 		Name: "ProcSysNetIpv4Vs",
 		Path: "/proc/sys/net/ipv4/vs",
-		EmuNodesMap: map[string]domain.EmuNode{
-			"conntrack":                 {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"conn_reuse_mode":           {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"expire_nodest_conn":        {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"expire_quiescent_template": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
+		EmuResourceMap: map[string]domain.EmuResource{
+			"conntrack":                 {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"conn_reuse_mode":           {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"expire_nodest_conn":        {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"expire_quiescent_template": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -103,7 +103,7 @@ func (h *ProcSysNetIpv4Vs) Lookup(
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated components.
-	if v, ok := h.EmuNodesMap[lookupNode]; ok {
+	if v, ok := h.EmuResourceMap[lookupNode]; ok {
 		info := &domain.FileInfo{
 			Fname:    lookupNode,
 			Fmode:    v.Mode,
@@ -248,7 +248,7 @@ func (h *ProcSysNetIpv4Vs) ReadDirAll(
 	)
 
 	// Iterate through map of virtual components.
-	for k, _ := range h.EmuNodesMap {
+	for k, _ := range h.EmuResourceMap {
 		info = &domain.FileInfo{
 			Fname:    k,
 			FmodTime: time.Now(),
@@ -292,8 +292,13 @@ func (h *ProcSysNetIpv4Vs) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetIpv4Vs) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *ProcSysNetIpv4Vs) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *ProcSysNetIpv4Vs) SetEnabled(val bool) {

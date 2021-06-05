@@ -67,12 +67,12 @@ var ProcSysNetNetfilter_Handler = &ProcSysNetNetfilter{
 	domain.HandlerBase{
 		Name: "ProcSysNetNetfilter",
 		Path: "/proc/sys/net/netfilter",
-		EmuNodesMap: map[string]domain.EmuNode{
-			"nf_conntrack_max":                     {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"nf_conntrack_generic_timeout":         {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"nf_conntrack_tcp_be_liberal":          {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"nf_conntrack_tcp_timeout_established": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"nf_conntrack_tcp_timeout_close_wait":  {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
+		EmuResourceMap: map[string]domain.EmuResource{
+			"nf_conntrack_max":                     {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"nf_conntrack_generic_timeout":         {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"nf_conntrack_tcp_be_liberal":          {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"nf_conntrack_tcp_timeout_established": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"nf_conntrack_tcp_timeout_close_wait":  {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -91,7 +91,7 @@ func (h *ProcSysNetNetfilter) Lookup(
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// virtual-components.
-	if v, ok := h.EmuNodesMap[lookupNode]; ok {
+	if v, ok := h.EmuResourceMap[lookupNode]; ok {
 		info := &domain.FileInfo{
 			Fname:    lookupNode,
 			Fmode:    v.Mode,
@@ -251,7 +251,7 @@ func (h *ProcSysNetNetfilter) ReadDirAll(
 	}
 
 	// Iterate through map of emulated components.
-	for k, _ := range h.EmuNodesMap {
+	for k, _ := range h.EmuResourceMap {
 
 		if relpath == filepath.Dir(k) {
 			info = &domain.FileInfo{
@@ -299,8 +299,13 @@ func (h *ProcSysNetNetfilter) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetNetfilter) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *ProcSysNetNetfilter) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *ProcSysNetNetfilter) SetEnabled(val bool) {

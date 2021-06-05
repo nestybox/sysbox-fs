@@ -39,8 +39,8 @@ var ProcSysNetUnix_Handler = &ProcSysNetUnix{
 	domain.HandlerBase{
 		Name: "ProcSysNetUnix",
 		Path: "/proc/sys/net/unix",
-		EmuNodesMap: map[string]domain.EmuNode{
-			"max_dgram_qlen": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
+		EmuResourceMap: map[string]domain.EmuResource{
+			"max_dgram_qlen": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -59,7 +59,7 @@ func (h *ProcSysNetUnix) Lookup(
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated nodes.
-	if v, ok := h.EmuNodesMap[lookupNode]; ok {
+	if v, ok := h.EmuResourceMap[lookupNode]; ok {
 		info := &domain.FileInfo{
 			Fname:    lookupNode,
 			Fmode:    v.Mode,
@@ -245,8 +245,13 @@ func (h *ProcSysNetUnix) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetUnix) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *ProcSysNetUnix) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *ProcSysNetUnix) SetEnabled(val bool) {

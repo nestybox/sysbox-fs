@@ -202,17 +202,17 @@ var ProcSysKernel_Handler = &ProcSysKernel{
 	domain.HandlerBase{
 		Name: "ProcSysKernel",
 		Path: "/proc/sys/kernel",
-		EmuNodesMap: map[string]domain.EmuNode{
-			"domainname":    {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"hostname":      {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"kptr_restrict": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"ngroups_max":   {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0444))},
-			"cap_last_cap":  {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0444))},
-			"panic":         {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"panic_on_oops": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"printk":        {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"sysrq":         {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"pid_max":       {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
+		EmuResourceMap: map[string]domain.EmuResource{
+			"domainname":    {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"hostname":      {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"kptr_restrict": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"ngroups_max":   {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0444))},
+			"cap_last_cap":  {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0444))},
+			"panic":         {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"panic_on_oops": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"printk":        {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"sysrq":         {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"pid_max":       {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -231,7 +231,7 @@ func (h *ProcSysKernel) Lookup(
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated nodes.
-	if v, ok := h.EmuNodesMap[lookupNode]; ok {
+	if v, ok := h.EmuResourceMap[lookupNode]; ok {
 		info := &domain.FileInfo{
 			Fname:    lookupNode,
 			Fmode:    v.Mode,
@@ -506,8 +506,13 @@ func (h *ProcSysKernel) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysKernel) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *ProcSysKernel) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *ProcSysKernel) SetEnabled(val bool) {

@@ -133,8 +133,13 @@ func (h *Root) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *Root) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *Root) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *Root) SetEnabled(val bool) {

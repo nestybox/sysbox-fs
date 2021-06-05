@@ -121,20 +121,25 @@ func fetchFileData(
 	n domain.IOnodeIface,
 	c domain.ContainerIface) (string, error) {
 
-	// We need the per-resource lock since we are about to access the resource on
-	// the host FS. See pushFile() for a full explanation.
-	hmux := h.GetMutex()
-	hmux.Lock()
+	// We need the per-resource lock since we are about to access the resource
+	// on the host FS. See pushFileMaxInt() for a full explanation.
+	resourceMutex := h.GetResourceMutex(n.Name())
+	if resourceMutex == nil {
+		logrus.Error("Unexpected error: no mutex found for emulated resource %s",
+			n.Path())
+		return "", errors.New("no mutex found for emulated resource")
+	}
+	resourceMutex.Lock()
 
 	// Read from host FS to extract the existing value.
 	data, err := n.ReadLine()
 	if err != nil && err != io.EOF {
-		hmux.Unlock()
+		resourceMutex.Unlock()
 		logrus.Errorf("Could not read from file %v", n.Path())
 		return "", err
 	}
 
-	hmux.Unlock()
+	resourceMutex.Unlock()
 
 	return data, nil
 }
@@ -195,7 +200,7 @@ func writeMaxInt(
 		return len(req.Data), nil
 	}
 
-	// Push new value to the kernel.
+	// If requested, push new value to the kernel.
 	if kernelSync {
 		if err := pushFileMaxInt(h, n, cntr, newMaxInt); err != nil {
 			return 0, io.EOF
@@ -264,6 +269,7 @@ func writeMinInt(
 		return len(req.Data), nil
 	}
 
+	// If requested, push new value to the kernel.
 	if kernelSync {
 		if err := pushFileMinInt(h, n, cntr, newMinInt); err != nil {
 			return 0, io.EOF
@@ -327,6 +333,7 @@ func writeInt(
 		return len(req.Data), nil
 	}
 
+	// If requested, push new value to the kernel.
 	if kernelSync {
 		if err := pushFileInt(h, n, cntr, newValInt); err != nil {
 			return 0, io.EOF
@@ -399,8 +406,8 @@ func pushFileMaxInt(
 	c domain.ContainerIface,
 	newMaxInt int) error {
 
-	// We need the per-resource lock since we are about to access the resource on
-	// the host FS and multiple sys containers could be accessing that same
+	// We need the per-resource lock since we are about to access the resource
+	// on the host FS and multiple sys containers could be accessing that same
 	// resource concurrently.
 	//
 	// But that's not sufficient. Some users may deploy sysbox inside a
@@ -425,9 +432,14 @@ func pushFileMaxInt(
 	// agents that write to the same sysctl. That's because there is no guarantee
 	// that the other host agent will read-after-write and retry as sysbox does.
 
-	hmux := h.GetMutex()
-	hmux.Lock()
-	defer hmux.Unlock()
+	resourceMutex := h.GetResourceMutex(n.Name())
+	if resourceMutex == nil {
+		logrus.Error("Unexpected error: no mutex found for emulated resource %s",
+			n.Path())
+		return errors.New("no mutex found for emulated resource")
+	}
+	resourceMutex.Lock()
+	defer resourceMutex.Unlock()
 
 	retries := 5
 	retryDelay := 100 // microsecs
@@ -451,7 +463,8 @@ func pushFileMaxInt(
 			return nil
 		}
 
-		// When retrying, wait a random delay to reduce chances of a new collision
+		// When retrying, wait a random delay to reduce chances of a new
+		// collision.
 		if i > 0 {
 			d := rand.Intn(retryDelay)
 			time.Sleep(time.Duration(d) * time.Microsecond)
@@ -474,14 +487,30 @@ func pushFileMinInt(
 	h domain.HandlerIface,
 	n domain.IOnodeIface,
 	c domain.ContainerIface,
-	val int) error {
+	newMinInt int) error {
 
 	// We need the per-resource lock since we are about to access the resource
-	// on the host FS. See pushFileMaxInt() for a full explanation.
-	hmux := h.GetMutex()
-	hmux.Lock()
-	defer hmux.Unlock()
+	// on the host FS.
+	resourceMutex := h.GetResourceMutex(n.Name())
+	if resourceMutex == nil {
+		logrus.Error("Unexpected error: no mutex found for emulated resource %s",
+			n.Path())
+		return errors.New("no mutex found for emulated resource")
+	}
+	resourceMutex.Lock()
+	defer resourceMutex.Unlock()
 
+	// In this case the heuristic to apply to prevent potential collisions is
+	// quite similar to the one utilized in pushFileMaxInt() function (see
+	// above for more details). The only difference being that in this case,
+	// when doing the read-after-write, we verify that the obtained value is
+	// smaller or equal to the one we wrote.
+
+	// To reduce the chance of this occurring, in addition to the per-resource
+	// lock, we use a heuristic in which we read-after-write to verify the value
+	// of the resource is larger or equal to the one we wrote. If it isn't, it
+	// means some other agent on the host wrote a smaller value to the resource
+	// after we wrote to it, so we must retry the write.
 	retries := 5
 	retryDelay := 100 // microsecs
 
@@ -500,7 +529,7 @@ func pushFileMinInt(
 		// If the existing host value is smaller than the new one to configure,
 		// then let's just return here as we want to keep the smallest value
 		// in the host kernel.
-		if val >= curHostMinInt {
+		if newMinInt >= curHostMinInt {
 			return nil
 		}
 
@@ -511,7 +540,7 @@ func pushFileMinInt(
 		}
 
 		// Push down to host kernel the new (larger) value.
-		msg := []byte(strconv.Itoa(val))
+		msg := []byte(strconv.Itoa(newMinInt))
 		err = n.WriteFile(msg)
 		if err != nil && !h.GetService().IgnoreErrors() {
 			logrus.Errorf("Could not write to file %s, error %s",
@@ -529,16 +558,22 @@ func pushFileInt(
 	c domain.ContainerIface,
 	val int) error {
 
-	// TODO: Review this and similar comments above: a handler-lock is not
-	// necessarily a per-resource lock; they are not the same. Also, mention
-	// something about being unable in this case (string) to use the heuristic
-	// of the above push methods above.
-	//
 	// We need the per-resource lock since we are about to access the resource
 	// on the host FS.
-	hmux := h.GetMutex()
-	hmux.Lock()
-	defer hmux.Unlock()
+	//
+	// Notice that in this function we are unable to apply an heuristic such as
+	// the ones utilized above to prevent collisions when writing to system-wide
+	// shared resources. The reason is simple: the values being written here are
+	// scalars with no ordering relationships among each other, so there's no
+	// obvious way to detect a collision.
+	resourceMutex := h.GetResourceMutex(n.Name())
+	if resourceMutex == nil {
+		logrus.Error("Unexpected error: no mutex found for emulated resource %s",
+			n.Path())
+		return errors.New("no mutex found for emulated resource")
+	}
+	resourceMutex.Lock()
+	defer resourceMutex.Unlock()
 
 	curHostVal, err := n.ReadLine()
 	if err != nil && err != io.EOF {
@@ -556,7 +591,7 @@ func pushFileInt(
 		return nil
 	}
 
-	// Push down to host kernel the new string.
+	// Push the new string down to kernel.
 	err = n.WriteFile([]byte(strconv.Itoa(val)))
 	if err != nil && !h.GetService().IgnoreErrors() {
 		logrus.Errorf("Could not write to file %s, error %s",
@@ -573,16 +608,21 @@ func pushFileString(
 	c domain.ContainerIface,
 	str string) error {
 
-	// TODO: Review this and similar comments above: a handler-lock is not
-	// necessarily a per-resource lock; they are not the same. Also, mention
-	// something about being unable in this case (string) to use the heuristic
-	// of the above push methods above.
-	//
 	// We need the per-resource lock since we are about to access the resource
 	// on the host FS.
-	hmux := h.GetMutex()
-	hmux.Lock()
-	defer hmux.Unlock()
+	//
+	// Notice that in this function we are unable to apply an heuristic such as
+	// the ones utilized above to prevent collisions when writing to system-wide
+	// shared resources. The reason is simple: the values being written here are
+	// strings, so there's no obvious way to detect a collision.
+	resourceMutex := h.GetResourceMutex(n.Name())
+	if resourceMutex == nil {
+		logrus.Error("Unexpected error: no mutex found for emulated resource %s",
+			n.Path())
+		return errors.New("no mutex found for emulated resource")
+	}
+	resourceMutex.Lock()
+	defer resourceMutex.Unlock()
 
 	curHostStr, err := n.ReadLine()
 	if err != nil && err != io.EOF {

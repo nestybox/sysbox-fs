@@ -150,8 +150,13 @@ func (h *SysModuleNfconntrackParametersHashsize) GetService() domain.HandlerServ
 	return h.Service
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *SysModuleNfconntrackParametersHashsize) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *SysModuleNfconntrackParametersHashsize) SetEnabled(val bool) {

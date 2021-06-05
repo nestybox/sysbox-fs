@@ -476,8 +476,13 @@ func (h *ProcSysCommon) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysCommon) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *ProcSysCommon) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *ProcSysCommon) SetEnabled(val bool) {

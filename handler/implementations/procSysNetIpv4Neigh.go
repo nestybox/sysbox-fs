@@ -40,11 +40,11 @@ var ProcSysNetIpv4Neigh_Handler = &ProcSysNetIpv4Neigh{
 	domain.HandlerBase{
 		Name: "ProcSysNetIpv4Neigh",
 		Path: "/proc/sys/net/ipv4/neigh",
-		EmuNodesMap: map[string]domain.EmuNode{
-			"default":            {Kind: domain.EmuNodeDir, Mode: os.FileMode(uint32(0555))},
-			"default/gc_thresh1": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"default/gc_thresh2": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"default/gc_thresh3": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
+		EmuResourceMap: map[string]domain.EmuResource{
+			"default":            {Kind: domain.DirEmuResource, Mode: os.FileMode(uint32(0555))},
+			"default/gc_thresh1": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"default/gc_thresh2": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"default/gc_thresh3": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -75,16 +75,16 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated components.
-	if v, ok := h.EmuNodesMap[lookupEntry]; ok {
+	if v, ok := h.EmuResourceMap[lookupEntry]; ok {
 		info := &domain.FileInfo{
 			Fname:    lookupEntry,
 			FmodTime: time.Now(),
 		}
 
-		if v.Kind == domain.EmuNodeDir {
+		if v.Kind == domain.DirEmuResource {
 			info.Fmode = os.FileMode(uint32(os.ModeDir)) | v.Mode
 			info.FisDir = true
-		} else if v.Kind == domain.EmuNodeFile {
+		} else if v.Kind == domain.FileEmuResource {
 			info.Fmode = v.Mode
 		}
 
@@ -163,7 +163,7 @@ func (h *ProcSysNetIpv4Neigh) Read(
 	}
 
 	// Skip if node is not part of the emulated components.
-	if _, ok := h.EmuNodesMap[relPath]; !ok {
+	if _, ok := h.EmuResourceMap[relPath]; !ok {
 		return 0, nil
 	}
 
@@ -201,7 +201,7 @@ func (h *ProcSysNetIpv4Neigh) Write(
 	}
 
 	// Skip if node is not part of the emulated components.
-	if _, ok := h.EmuNodesMap[relPath]; !ok {
+	if _, ok := h.EmuResourceMap[relPath]; !ok {
 		return 0, nil
 	}
 
@@ -243,7 +243,7 @@ func (h *ProcSysNetIpv4Neigh) ReadDirAll(
 	}
 
 	// Iterate through map of virtual components.
-	for k, _ := range h.EmuNodesMap {
+	for k, _ := range h.EmuResourceMap {
 
 		if relpath == filepath.Dir(k) {
 			info = &domain.FileInfo{
@@ -300,8 +300,13 @@ func (h *ProcSysNetIpv4Neigh) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetIpv4Neigh) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *ProcSysNetIpv4Neigh) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *ProcSysNetIpv4Neigh) SetEnabled(val bool) {

@@ -46,17 +46,18 @@ const (
 	NODE_BINDMOUNT = 0x4
 )
 
-type EmuNodeType int
+type EmuResourceType int
 
 const (
-	EmuNodeUnknown EmuNodeType = iota
-	EmuNodeDir
-	EmuNodeFile
+	UnknownEmuResource EmuResourceType = iota
+	DirEmuResource
+	FileEmuResource
 )
 
-type EmuNode struct {
-	Kind EmuNodeType
-	Mode os.FileMode
+type EmuResource struct {
+	Kind  EmuResourceType
+	Mode  os.FileMode
+	Mutex sync.Mutex
 }
 
 // HandlerBase is a type common to all handlers
@@ -72,15 +73,15 @@ type EmuNode struct {
 // handler lock. Violating this rule may result in deadlocks.
 
 type HandlerBase struct {
-	Name        string
-	Path        string
-	EmuNodesMap map[string]EmuNode
-	Type        HandlerType
-	Enabled     bool
-	Cacheable   bool
-	KernelSync  bool
-	Mutex       sync.Mutex
-	Service     HandlerServiceIface
+	Name           string
+	Path           string
+	EmuResourceMap map[string]EmuResource
+	Type           HandlerType
+	Enabled        bool
+	Cacheable      bool
+	KernelSync     bool
+	Mutex          sync.Mutex
+	Service        HandlerServiceIface
 }
 
 // HandlerRequest represents a request to be processed by a handler
@@ -113,7 +114,7 @@ type HandlerIface interface {
 	SetEnabled(val bool)
 	GetService() HandlerServiceIface
 	SetService(hs HandlerServiceIface)
-	GetMutex() sync.Mutex
+	GetResourceMutex(s string) *sync.Mutex
 }
 
 type HandlerServiceIface interface {

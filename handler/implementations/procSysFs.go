@@ -49,11 +49,11 @@ var ProcSysFs_Handler = &ProcSysFs{
 	domain.HandlerBase{
 		Name: "ProcSysFs",
 		Path: "/proc/sys/fs",
-		EmuNodesMap: map[string]domain.EmuNode{
-			"file-max":            {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"nr-open":             {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"protected_hardlinks": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0600))},
-			"protected_symlinks":  {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0600))},
+		EmuResourceMap: map[string]domain.EmuResource{
+			"file-max":            {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"nr-open":             {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"protected_hardlinks": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0600))},
+			"protected_symlinks":  {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0600))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -267,10 +267,14 @@ func (h *ProcSysFs) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysFs) GetMutex() sync.Mutex {
-	return h.Mutex
-}
+func (h *ProcSysFs) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
 
+	return &resource.Mutex
+}
 func (h *ProcSysFs) SetEnabled(val bool) {
 	h.Enabled = val
 }
