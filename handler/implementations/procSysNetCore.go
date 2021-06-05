@@ -208,7 +208,7 @@ func (h *ProcSysNetCore) Write(
 		return h.writeDefaultQdisc(n, req)
 
 	case "somaxconn":
-		return writeMaxInt(h, n, req, true)
+		return writeFileMaxInt(h, n, req, true)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -314,5 +314,5 @@ func (h *ProcSysNetCore) writeDefaultQdisc(
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 
-	return writeString(h, n, req, false)
+	return writeFileString(h, n, req, false)
 }

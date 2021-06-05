@@ -207,16 +207,16 @@ func (h *ProcSysNetIpv4Vs) Write(
 
 	switch name {
 	case "conntrack":
-		return writeMaxInt(h, n, req, true)
+		return writeFileMaxInt(h, n, req, true)
 
 	case "conn_reuse_mode":
-		return writeInt(h, n, req, minConnReuseMode, maxConnReuseMode, false)
+		return writeFileInt(h, n, req, minConnReuseMode, maxConnReuseMode, false)
 
 	case "expire_nodest_conn":
-		return writeInt(h, n, req, MinInt, MaxInt, false)
+		return writeFileInt(h, n, req, MinInt, MaxInt, false)
 
 	case "expire_quiescent_template":
-		return writeInt(h, n, req, MinInt, MaxInt, false)
+		return writeFileInt(h, n, req, MinInt, MaxInt, false)
 	}
 
 	// Refer to generic handler if no node match is found above.

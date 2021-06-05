@@ -144,7 +144,7 @@ func fetchFileData(
 	return data, nil
 }
 
-func writeMaxInt(
+func writeFileMaxInt(
 	h domain.HandlerIface,
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest,
@@ -213,7 +213,7 @@ func writeMaxInt(
 	return len(req.Data), nil
 }
 
-func writeMinInt(
+func writeFileMinInt(
 	h domain.HandlerIface,
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest,
@@ -282,7 +282,7 @@ func writeMinInt(
 	return len(req.Data), nil
 }
 
-func writeInt(
+func writeFileInt(
 	h domain.HandlerIface,
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest,
@@ -346,7 +346,7 @@ func writeInt(
 	return len(req.Data), nil
 }
 
-func writeString(
+func writeFileString(
 	h domain.HandlerIface,
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest,

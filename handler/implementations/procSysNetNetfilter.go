@@ -201,19 +201,19 @@ func (h *ProcSysNetNetfilter) Write(
 
 	switch name {
 	case "nf_conntrack_max":
-		return writeMaxInt(h, n, req, true)
+		return writeFileMaxInt(h, n, req, true)
 
 	case "nf_conntrack_generic_timeout":
-		return writeMaxInt(h, n, req, true)
+		return writeFileMaxInt(h, n, req, true)
 
 	case "nf_conntrack_tcp_be_liberal":
 		return h.writeTcpLiberal(n, req)
 
 	case "nf_conntrack_tcp_timeout_established":
-		return writeMaxInt(h, n, req, true)
+		return writeFileMaxInt(h, n, req, true)
 
 	case "nf_conntrack_tcp_timeout_close_wait":
-		return writeMaxInt(h, n, req, true)
+		return writeFileMaxInt(h, n, req, true)
 	}
 
 	// Refer to generic handler if no node match is found above.

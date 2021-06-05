@@ -221,10 +221,10 @@ func (h *ProcSysVm) Write(
 		//    also improves memory-intensive workloads.
 		// 2: Kernel will not overcommit memory, and only allocate as much memory as
 		//    defined in overcommit_ratio.
-		return writeInt(h, n, req, minOvercommitMem, maxOverCommitMem, false)
+		return writeFileInt(h, n, req, minOvercommitMem, maxOverCommitMem, false)
 
 	case "mmap_min_addr":
-		return writeInt(h, n, req, 0, MaxInt, false)
+		return writeFileInt(h, n, req, 0, MaxInt, false)
 	}
 
 	// Refer to generic handler if no node match is found above.

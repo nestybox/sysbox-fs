@@ -182,7 +182,7 @@ func (h *ProcSysNetUnix) Write(
 
 	switch name {
 	case "max_dgram_qlen":
-		return writeMaxInt(h, n, req, true)
+		return writeFileMaxInt(h, n, req, true)
 	}
 
 	// Refer to generic handler if no node match is found above.

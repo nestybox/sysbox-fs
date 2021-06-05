@@ -196,16 +196,16 @@ func (h *ProcSysFs) Write(
 
 	switch name {
 	case "file-max":
-		return writeMaxInt(h, n, req, false)
+		return writeFileMaxInt(h, n, req, false)
 
 	case "nr-open":
-		return writeMaxInt(h, n, req, false)
+		return writeFileMaxInt(h, n, req, false)
 
 	case "protected_hardlinks":
-		return writeInt(h, n, req, minProtectedHardlinksVal, maxProtectedHardlinksVal, false)
+		return writeFileInt(h, n, req, minProtectedHardlinksVal, maxProtectedHardlinksVal, false)
 
 	case "protected_symlinks":
-		return writeInt(h, n, req, minProtectedSymlinksVal, maxProtectedSymlinksVal, false)
+		return writeFileInt(h, n, req, minProtectedSymlinksVal, maxProtectedSymlinksVal, false)
 	}
 
 	// Refer to generic handler if no node match is found above.
