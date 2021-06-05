@@ -224,8 +224,13 @@ func (h *ProcSysKernelYamaPtrace) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysKernelYamaPtrace) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *ProcSysKernelYamaPtrace) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *ProcSysKernelYamaPtrace) SetEnabled(val bool) {

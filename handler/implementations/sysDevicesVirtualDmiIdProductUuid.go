@@ -191,8 +191,13 @@ func (h *SysDevicesVirtualDmiIdProductUuid) GetService() domain.HandlerServiceIf
 	return h.Service
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *SysDevicesVirtualDmiIdProductUuid) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *SysDevicesVirtualDmiIdProductUuid) SetEnabled(val bool) {

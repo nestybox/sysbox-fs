@@ -181,8 +181,13 @@ func (h *ProcUptime) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcUptime) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *ProcUptime) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *ProcUptime) SetEnabled(val bool) {

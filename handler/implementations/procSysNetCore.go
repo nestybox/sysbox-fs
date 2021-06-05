@@ -78,9 +78,9 @@ var ProcSysNetCore_Handler = &ProcSysNetCore{
 	domain.HandlerBase{
 		Name: "ProcSysNetCore",
 		Path: "/proc/sys/net/core",
-		EmuNodesMap: map[string]domain.EmuNode{
-			"default_qdisc": {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
-			"somaxconn":     {Kind: domain.EmuNodeFile, Mode: os.FileMode(uint32(0644))},
+		EmuResourceMap: map[string]domain.EmuResource{
+			"default_qdisc": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"somaxconn":     {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
 		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
@@ -99,7 +99,7 @@ func (h *ProcSysNetCore) Lookup(
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated nodes.
-	if v, ok := h.EmuNodesMap[lookupNode]; ok {
+	if v, ok := h.EmuResourceMap[lookupNode]; ok {
 		info := &domain.FileInfo{
 			Fname:    lookupNode,
 			Fmode:    v.Mode,
@@ -237,7 +237,7 @@ func (h *ProcSysNetCore) ReadDirAll(
 	var fileEntries []os.FileInfo
 
 	// Iterate through map of emulated components.
-	for k, _ := range h.EmuNodesMap {
+	for k, _ := range h.EmuResourceMap {
 		info := &domain.FileInfo{
 			Fname:    k,
 			FmodTime: time.Now(),
@@ -281,8 +281,13 @@ func (h *ProcSysNetCore) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetCore) GetMutex() sync.Mutex {
-	return h.Mutex
+func (h *ProcSysNetCore) GetResourceMutex(s string) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[s]
+	if !ok {
+		return nil
+	}
+
+	return &resource.Mutex
 }
 
 func (h *ProcSysNetCore) SetEnabled(val bool) {
