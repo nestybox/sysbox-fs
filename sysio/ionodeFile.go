@@ -294,6 +294,10 @@ func (i *IOnodeFile) OpenMode() os.FileMode {
 	return i.mode
 }
 
+func (i *IOnodeFile) SetName(s string) {
+	i.name = s
+}
+
 func (i *IOnodeFile) SetPath(s string) {
 	i.path = s
 }

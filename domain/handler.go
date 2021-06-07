@@ -55,9 +55,10 @@ const (
 )
 
 type EmuResource struct {
-	Kind  EmuResourceType
-	Mode  os.FileMode
-	Mutex sync.Mutex
+	Kind     EmuResourceType
+	Mode     os.FileMode
+	NodeType HandlerType
+	Mutex    sync.Mutex
 }
 
 // HandlerBase is a type common to all handlers

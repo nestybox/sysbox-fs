@@ -173,7 +173,10 @@ func (h *ProcSysNetIpv4Neigh) Read(
 	// that is always present in the testing environment.
 	if strings.HasPrefix(relPath, "default/gc_thresh") &&
 		h.GetService().IgnoreErrors() {
+		n.SetName("lo/retrans_time")
 		n.SetPath("/proc/sys/net/ipv4/neigh/lo/retrans_time")
+		h.EmuResourceMap["lo/retrans_time"] =
+			domain.EmuResource{Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))}
 	}
 
 	return readFileInt(h, n, req)
@@ -211,7 +214,10 @@ func (h *ProcSysNetIpv4Neigh) Write(
 	// that is always present in the testing environment.
 	if strings.HasPrefix(relPath, "default/gc_thresh") &&
 		h.GetService().IgnoreErrors() {
+		n.SetName("lo/retrans_time")
 		n.SetPath("/proc/sys/net/ipv4/neigh/lo/retrans_time")
+		h.EmuResourceMap["lo/retrans_time"] =
+			domain.EmuResource{Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))}
 	}
 
 	return writeFileInt(h, n, req, 0, MaxInt, false)
