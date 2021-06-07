@@ -17,6 +17,7 @@
 package mount
 
 import (
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -53,19 +54,14 @@ func newMountHelper(hdb *iradix.Tree) *mountHelper {
 	// to be exported (propagated) to L2 containers or L1 chrooted envs.
 	hdb.Root().Walk(func(key []byte, val interface{}) bool {
 		h := val.(domain.HandlerIface)
-		nodeType := h.GetType()
 		nodePath := h.GetPath()
 
-		if nodeType&domain.NODE_BINDMOUNT == domain.NODE_BINDMOUNT {
-
+		if filepath.Base(nodePath) == "/proc" {
+			info.procMounts = append(info.procMounts, nodePath)
 			info.mapMounts[nodePath] = struct{}{}
-
-			if strings.HasPrefix(nodePath, "/proc") {
-				info.procMounts = append(info.procMounts, nodePath)
-
-			} else if strings.HasPrefix(nodePath, "/sys") {
-				info.sysMounts = append(info.sysMounts, nodePath)
-			}
+		} else if strings.HasPrefix(nodePath, "/sys") {
+			info.sysMounts = append(info.sysMounts, nodePath)
+			info.mapMounts[nodePath] = struct{}{}
 		}
 
 		return false

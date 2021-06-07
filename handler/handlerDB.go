@@ -34,10 +34,8 @@ import (
 //
 var DefaultHandlers = []domain.HandlerIface{
 	implementations.Root_Handler,                           // /
-	implementations.ProcSys_Handler,                        // /proc/sys
+	implementations.Proc_Handler,                           // /proc
 	implementations.ProcSysCommon_Handler,                  // /proc/sys/
-	implementations.ProcSwaps_Handler,                      // /proc/swaps
-	implementations.ProcUptime_Handler,                     // /proc/uptime
 	implementations.ProcSysFs_Handler,                      // /proc/sys/fs
 	implementations.ProcSysKernel_Handler,                  // /proc/sys/kernel
 	implementations.ProcSysKernelYamaPtrace_Handler,        // /proc/sys/kernel/yama/ptrace_scope
