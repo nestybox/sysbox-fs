@@ -28,21 +28,27 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
-type SysModuleNfconntrackParametersHashsize struct {
+type SysModuleNfconntrackParameters struct {
 	domain.HandlerBase
 }
 
-var SysModuleNfconntrackParametersHashsize_Handler = &SysModuleNfconntrackParametersHashsize{
+var SysModuleNfconntrackParameters_Handler = &SysModuleNfconntrackParameters{
 	domain.HandlerBase{
-		Name:      "SysModuleNfconntrackParametersHashsize",
-		Path:      "/sys/module/nf_conntrack/parameters/hashsize",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+		Name: "SysModuleNfconntrackParameters",
+		Path: "/sys/module/nf_conntrack/parameters",
+		EmuResourceMap: map[string]domain.EmuResource{
+			"hashsize": {
+				Kind:     domain.FileEmuResource,
+				Mode:     os.FileMode(uint32(0600)),
+				NodeType: domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			},
+		},
 		Enabled:   true,
 		Cacheable: true,
 	},
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) Lookup(
+func (h *SysModuleNfconntrackParameters) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -52,7 +58,7 @@ func (h *SysModuleNfconntrackParametersHashsize) Lookup(
 	return n.Stat()
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) Getattr(
+func (h *SysModuleNfconntrackParameters) Getattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -62,7 +68,7 @@ func (h *SysModuleNfconntrackParametersHashsize) Getattr(
 	return nil, nil
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) Open(
+func (h *SysModuleNfconntrackParameters) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -72,14 +78,14 @@ func (h *SysModuleNfconntrackParametersHashsize) Open(
 	return nil
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) Close(n domain.IOnodeIface) error {
+func (h *SysModuleNfconntrackParameters) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) Read(
+func (h *SysModuleNfconntrackParameters) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -104,7 +110,7 @@ func (h *SysModuleNfconntrackParametersHashsize) Read(
 	return readFileInt(h, n, req)
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) Write(
+func (h *SysModuleNfconntrackParameters) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -123,34 +129,34 @@ func (h *SysModuleNfconntrackParametersHashsize) Write(
 	return writeFileInt(h, n, req, 0, MaxInt, true)
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) ReadDirAll(
+func (h *SysModuleNfconntrackParameters) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) GetName() string {
+func (h *SysModuleNfconntrackParameters) GetName() string {
 	return h.Name
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) GetPath() string {
+func (h *SysModuleNfconntrackParameters) GetPath() string {
 	return h.Path
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) GetEnabled() bool {
+func (h *SysModuleNfconntrackParameters) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) GetType() domain.HandlerType {
+func (h *SysModuleNfconntrackParameters) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) GetService() domain.HandlerServiceIface {
+func (h *SysModuleNfconntrackParameters) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) GetResourceMutex(s string) *sync.Mutex {
+func (h *SysModuleNfconntrackParameters) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {
 		return nil
@@ -159,10 +165,10 @@ func (h *SysModuleNfconntrackParametersHashsize) GetResourceMutex(s string) *syn
 	return &resource.Mutex
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) SetEnabled(val bool) {
+func (h *SysModuleNfconntrackParameters) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *SysModuleNfconntrackParametersHashsize) SetService(hs domain.HandlerServiceIface) {
+func (h *SysModuleNfconntrackParameters) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

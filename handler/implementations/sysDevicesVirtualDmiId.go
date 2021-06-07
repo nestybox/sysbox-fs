@@ -51,21 +51,27 @@ const (
 	cntrUuidLen = 12
 )
 
-type SysDevicesVirtualDmiIdProductUuid struct {
+type SysDevicesVirtualDmiId struct {
 	domain.HandlerBase
 }
 
-var SysDevicesVirtualDmiIdProductUuid_Handler = &SysDevicesVirtualDmiIdProductUuid{
+var SysDevicesVirtualDmiId_Handler = &SysDevicesVirtualDmiId{
 	domain.HandlerBase{
-		Name:      "SysDevicesVirtualDmiIdProductUuid",
-		Path:      "/sys/devices/virtual/dmi/id/product_uuid",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+		Name: "SysDevicesVirtualDmiId",
+		Path: "/sys/devices/virtual/dmi/id",
+		EmuResourceMap: map[string]domain.EmuResource{
+			"product_uuid": {
+				Kind:     domain.FileEmuResource,
+				Mode:     os.FileMode(uint32(0400)),
+				NodeType: domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+			},
+		},
 		Enabled:   true,
 		Cacheable: true,
 	},
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) Lookup(
+func (h *SysDevicesVirtualDmiId) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -75,7 +81,7 @@ func (h *SysDevicesVirtualDmiIdProductUuid) Lookup(
 	return n.Stat()
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) Getattr(
+func (h *SysDevicesVirtualDmiId) Getattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
 
@@ -85,7 +91,7 @@ func (h *SysDevicesVirtualDmiIdProductUuid) Getattr(
 	return nil, nil
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) Open(
+func (h *SysDevicesVirtualDmiId) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -100,14 +106,14 @@ func (h *SysDevicesVirtualDmiIdProductUuid) Open(
 	return nil
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) Close(n domain.IOnodeIface) error {
+func (h *SysDevicesVirtualDmiId) Close(n domain.IOnodeIface) error {
 
 	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) Read(
+func (h *SysDevicesVirtualDmiId) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -154,7 +160,7 @@ func (h *SysDevicesVirtualDmiIdProductUuid) Read(
 	return copyResultBuffer(req.Data, []byte(data))
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) Write(
+func (h *SysDevicesVirtualDmiId) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -164,34 +170,34 @@ func (h *SysDevicesVirtualDmiIdProductUuid) Write(
 	return 0, nil
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) ReadDirAll(
+func (h *SysDevicesVirtualDmiId) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	return nil, nil
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) GetName() string {
+func (h *SysDevicesVirtualDmiId) GetName() string {
 	return h.Name
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) GetPath() string {
+func (h *SysDevicesVirtualDmiId) GetPath() string {
 	return h.Path
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) GetEnabled() bool {
+func (h *SysDevicesVirtualDmiId) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) GetType() domain.HandlerType {
+func (h *SysDevicesVirtualDmiId) GetType() domain.HandlerType {
 	return h.Type
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) GetService() domain.HandlerServiceIface {
+func (h *SysDevicesVirtualDmiId) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) GetResourceMutex(s string) *sync.Mutex {
+func (h *SysDevicesVirtualDmiId) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {
 		return nil
@@ -200,15 +206,15 @@ func (h *SysDevicesVirtualDmiIdProductUuid) GetResourceMutex(s string) *sync.Mut
 	return &resource.Mutex
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) SetEnabled(val bool) {
+func (h *SysDevicesVirtualDmiId) SetEnabled(val bool) {
 	h.Enabled = val
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) SetService(hs domain.HandlerServiceIface) {
+func (h *SysDevicesVirtualDmiId) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }
 
-func (h *SysDevicesVirtualDmiIdProductUuid) GenerateProductUuid(
+func (h *SysDevicesVirtualDmiId) GenerateProductUuid(
 	hostUuid string,
 	cntr domain.ContainerIface) string {
 

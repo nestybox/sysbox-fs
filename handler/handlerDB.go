@@ -33,22 +33,22 @@ import (
 // Slice of sysbox-fs' default handlers. Please keep me sorted alphabetically.
 //
 var DefaultHandlers = []domain.HandlerIface{
-	implementations.Root_Handler,                                   // /
-	implementations.ProcSys_Handler,                                // /proc/sys
-	implementations.ProcSysCommon_Handler,                          // /proc/sys/
-	implementations.ProcSwaps_Handler,                              // /proc/swaps
-	implementations.ProcUptime_Handler,                             // /proc/uptime
-	implementations.ProcSysFs_Handler,                              // /proc/sys/fs
-	implementations.ProcSysKernel_Handler,                          // /proc/sys/kernel
-	implementations.ProcSysKernelYamaPtrace_Handler,                // /proc/sys/kernel/yama/ptrace_scope
-	implementations.ProcSysNetCore_Handler,                         // /proc/sys/net/core
-	implementations.ProcSysNetIpv4Vs_Handler,                       // /proc/sys/net/ipv4/vs
-	implementations.ProcSysNetIpv4Neigh_Handler,                    // /proc/sys/net/ipv4/neigh
-	implementations.ProcSysNetNetfilter_Handler,                    // /proc/sys/net/netfilter
-	implementations.ProcSysNetUnix_Handler,                         // /proc/sys/net/unix
-	implementations.ProcSysVm_Handler,                              // /proc/sys/vm
-	implementations.SysDevicesVirtualDmiIdProductUuid_Handler,      // /sys/devices/virtual/dmi/id/product_uuid
-	implementations.SysModuleNfconntrackParametersHashsize_Handler, // /sys/module/nf_conntrack/parameters/hashsize
+	implementations.Root_Handler,                           // /
+	implementations.ProcSys_Handler,                        // /proc/sys
+	implementations.ProcSysCommon_Handler,                  // /proc/sys/
+	implementations.ProcSwaps_Handler,                      // /proc/swaps
+	implementations.ProcUptime_Handler,                     // /proc/uptime
+	implementations.ProcSysFs_Handler,                      // /proc/sys/fs
+	implementations.ProcSysKernel_Handler,                  // /proc/sys/kernel
+	implementations.ProcSysKernelYamaPtrace_Handler,        // /proc/sys/kernel/yama/ptrace_scope
+	implementations.ProcSysNetCore_Handler,                 // /proc/sys/net/core
+	implementations.ProcSysNetIpv4Vs_Handler,               // /proc/sys/net/ipv4/vs
+	implementations.ProcSysNetIpv4Neigh_Handler,            // /proc/sys/net/ipv4/neigh
+	implementations.ProcSysNetNetfilter_Handler,            // /proc/sys/net/netfilter
+	implementations.ProcSysNetUnix_Handler,                 // /proc/sys/net/unix
+	implementations.ProcSysVm_Handler,                      // /proc/sys/vm
+	implementations.SysDevicesVirtualDmiId_Handler,         // /sys/devices/virtual/dmi/id
+	implementations.SysModuleNfconntrackParameters_Handler, // /sys/module/nf_conntrack/parameters
 }
 
 type handlerService struct {
