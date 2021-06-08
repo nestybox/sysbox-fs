@@ -99,7 +99,7 @@ func (d *Dir) Lookup(
 	//
 	d.File.server.RLock()
 	node, ok := d.server.nodeDB[path]
-	if ok == true {
+	if ok {
 		d.server.RUnlock()
 
 		// Overwrite uid & gid values with those of the root in the userns.
@@ -114,6 +114,14 @@ func (d *Dir) Lookup(
 		return *node, nil
 	}
 	d.server.RUnlock()
+
+	// Ensure operation is generated from within a registered sys container.
+	if d.server.container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return nil, fmt.Errorf("Could not find container originating this request (pid %v)",
+			req.Pid)
+	}
 
 	// Upon arrival of lookup() request we must construct a temporary ionode
 	// that reflects the path of the element that needs to be looked up.
@@ -146,7 +154,7 @@ func (d *Dir) Lookup(
 	// Override the uid & gid attributes with the root uid & gid in the
 	// requester's user-ns.
 	fuseAttrs.Uid = rootUid
-	fuseAttrs.Gid = rootGid	
+	fuseAttrs.Gid = rootGid
 
 	var newNode fs.Node
 
@@ -177,6 +185,14 @@ func (d *Dir) Open(
 	req *fuse.OpenRequest,
 	resp *fuse.OpenResponse) (fs.Handle, error) {
 
+	// Ensure operation is generated from within a registered sys container.
+	if d.server.container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return nil, fmt.Errorf("Could not find container originating this request (pid %v)",
+			req.Pid)
+	}
+
 	_, err := d.File.Open(ctx, req, resp)
 	if err != nil {
 		return nil, err
@@ -194,6 +210,14 @@ func (d *Dir) Create(
 	resp *fuse.CreateResponse) (fs.Node, fs.Handle, error) {
 
 	logrus.Debugf("Requested Create() operation for entry %v (req ID=%#x)", req.Name, uint64(req.ID))
+
+	// Ensure operation is generated from within a registered sys container.
+	if d.server.container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return nil, nil, fmt.Errorf("Could not find container originating this request (pid %v)",
+			req.Pid)
+	}
 
 	path := filepath.Join(d.path, req.Name)
 
@@ -259,6 +283,14 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 
 	logrus.Debugf("Requested ReadDirAll() on directory %v (req ID=%#v)", d.path, uint64(req.ID))
 
+	// Ensure operation is generated from within a registered sys container.
+	if d.server.container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return nil, fmt.Errorf("Could not find container originating this request (pid %v)",
+			req.Pid)
+	}
+
 	// New ionode reflecting the path of the element to be created.
 	ionode := d.server.service.ios.NewIOnode(d.name, d.path, 0)
 	ionode.SetOpenFlags(int(req.Flags))
@@ -317,6 +349,14 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
 
 	logrus.Debugf("Requested Mkdir() on directory %v (Req ID=%#v)", req.Name, uint64(req.ID))
+
+	// Ensure operation is generated from within a registered sys container.
+	if d.server.container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return nil, fmt.Errorf("Could not find container originating this request (pid %v)",
+			req.Pid)
+	}
 
 	path := filepath.Join(d.path, req.Name)
 	newDir := NewDir(req.Name, path, &fuse.Attr{}, d.File.server)

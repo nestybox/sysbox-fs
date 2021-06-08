@@ -98,6 +98,14 @@ func (f *File) Open(
 	logrus.Debugf("Requested Open() operation for entry %v (Req ID=%#v)",
 		f.path, uint64(req.ID))
 
+	// Ensure operation is generated from within a registered sys container.
+	if f.server.container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return nil, fmt.Errorf("Could not find container originating this request (pid %v)",
+			req.Pid)
+	}
+
 	ionode := f.server.service.ios.NewIOnode(f.name, f.path, f.attr.Mode)
 	ionode.SetOpenFlags(int(req.Flags))
 
@@ -186,6 +194,14 @@ func (f *File) Read(
 	logrus.Debugf("Requested Read() operation for entry %v (Req ID=%#v)",
 		f.path, uint64(req.ID))
 
+	// Ensure operation is generated from within a registered sys container.
+	if f.server.container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return fmt.Errorf("Could not find container originating this request (pid %v)",
+			req.Pid)
+	}
+
 	ionode := f.server.service.ios.NewIOnode(f.name, f.path, f.attr.Mode)
 
 	// Adjust receiving buffer to the request's size.
@@ -231,6 +247,14 @@ func (f *File) Write(
 	logrus.Debugf("Requested Write() operation for entry %v (Req ID=%#v)",
 		f.path, uint64(req.ID))
 
+	// Ensure operation is generated from within a registered sys container.
+	if f.server.container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return fmt.Errorf("Could not find container originating this request (pid %v)",
+			req.Pid)
+	}
+
 	ionode := f.server.service.ios.NewIOnode(f.name, f.path, f.attr.Mode)
 
 	// Lookup the associated handler within handler-DB.
@@ -271,6 +295,14 @@ func (f *File) Setattr(
 
 	logrus.Debugf("Requested Setattr() operation for entry %v (Req ID=%#v)",
 		f.path, uint64(req.ID))
+
+	// Ensure operation is generated from within a registered sys container.
+	if f.server.container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return fmt.Errorf("Could not find container originating this request (pid %v)",
+			req.Pid)
+	}
 
 	// No file attr changes are allowed in a procfs, with the exception of
 	// 'size' modifications which are needed to allow write()/truncate() ops.

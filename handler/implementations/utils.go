@@ -44,13 +44,6 @@ func readFileInt(
 	path := n.Path()
 	cntr := req.Container
 
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
-
 	cntr.Lock()
 
 	// Check if this resource has been initialized for this container. Otherwise,
@@ -161,13 +154,6 @@ func writeFileMaxInt(
 		return 0, err
 	}
 
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
-
 	cntr.Lock()
 	defer cntr.Unlock()
 
@@ -230,13 +216,6 @@ func writeFileMinInt(
 		return 0, err
 	}
 
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
-
 	cntr.Lock()
 	defer cntr.Unlock()
 
@@ -293,13 +272,6 @@ func writeFileInt(
 	path := n.Path()
 	cntr := req.Container
 
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
-
 	newVal := strings.TrimSpace(string(req.Data))
 	newValInt, err := strconv.Atoi(newVal)
 	if err != nil {
@@ -355,13 +327,6 @@ func writeFileString(
 	name := n.Name()
 	path := n.Path()
 	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	newStr := strings.TrimSpace(string(req.Data))
 

@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"errors"
 	"io"
 	"os"
 	"sync"
@@ -79,15 +78,6 @@ func (h *SysModuleNfconntrackParameters) Read(
 		return 0, io.EOF
 	}
 
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
-
 	return readFileInt(h, n, req)
 }
 
@@ -97,15 +87,6 @@ func (h *SysModuleNfconntrackParameters) Write(
 
 	logrus.Debugf("Executing Write() method for Req ID=%#x on %v handler",
 		req.ID, h.Name)
-
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	return writeFileInt(h, n, req, 0, MaxInt, true)
 }

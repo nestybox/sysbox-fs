@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -119,15 +118,6 @@ func (h *ProcSysNetIpv4Neigh) Read(
 		return 0, io.EOF
 	}
 
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
-
 	// Obtain relative path to the element being written.
 	relPath, err := filepath.Rel(h.Path, n.Path())
 	if err != nil {
@@ -159,15 +149,6 @@ func (h *ProcSysNetIpv4Neigh) Write(
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
-
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	// Obtain relative path to the element being written.
 	relPath, err := filepath.Rel(h.Path, n.Path())
@@ -201,13 +182,6 @@ func (h *ProcSysNetIpv4Neigh) ReadDirAll(
 
 	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
 		req.ID, h.Name)
-
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return nil, errors.New("Container not found")
-	}
 
 	var (
 		info        *domain.FileInfo

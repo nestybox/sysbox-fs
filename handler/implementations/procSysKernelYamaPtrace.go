@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"errors"
 	"io"
 	"os"
 	"sync"
@@ -145,15 +144,6 @@ func (h *ProcSysKernelYamaPtrace) Read(
 		return 0, io.EOF
 	}
 
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
-
 	return readFileInt(h, n, req)
 }
 
@@ -162,15 +152,6 @@ func (h *ProcSysKernelYamaPtrace) Write(
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
-
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	return writeFileInt(h, n, req, minScopeVal, maxScopeVal, false)
 }

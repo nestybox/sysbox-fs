@@ -85,14 +85,6 @@ func (h *ProcSysNetUnix) Open(
 		req.ID, h.Name)
 
 	name := n.Name()
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return errors.New("Container not found")
-	}
 
 	switch name {
 	case "max_dgram_qlen":
@@ -121,14 +113,6 @@ func (h *ProcSysNetUnix) Read(
 	}
 
 	name := n.Name()
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	switch name {
 	case "max_dgram_qlen":
