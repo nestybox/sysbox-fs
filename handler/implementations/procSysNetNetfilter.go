@@ -111,27 +111,11 @@ func (h *ProcSysNetNetfilter) Lookup(
 	return procSysCommonHandler.Lookup(n, req)
 }
 
-func (h *ProcSysNetNetfilter) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
-
-	return nil, nil
-}
-
 func (h *ProcSysNetNetfilter) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
-
-	return nil
-}
-
-func (h *ProcSysNetNetfilter) Close(n domain.IOnodeIface) error {
-
-	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }

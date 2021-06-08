@@ -81,16 +81,6 @@ func (h *SysDevicesVirtualDmiId) Lookup(
 	return n.Stat()
 }
 
-func (h *SysDevicesVirtualDmiId) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	logrus.Debugf("Executing GetAttr() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
-
-	return nil, nil
-}
-
 func (h *SysDevicesVirtualDmiId) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
@@ -102,13 +92,6 @@ func (h *SysDevicesVirtualDmiId) Open(
 	if flags != syscall.O_RDONLY {
 		return fuse.IOerror{Code: syscall.EACCES}
 	}
-
-	return nil
-}
-
-func (h *SysDevicesVirtualDmiId) Close(n domain.IOnodeIface) error {
-
-	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }

@@ -92,15 +92,6 @@ func (h *Proc) Lookup(
 	return n.Stat()
 }
 
-func (h *Proc) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
-
-	return nil, nil
-}
-
 func (h *Proc) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
@@ -123,18 +114,6 @@ func (h *Proc) Open(
 			logrus.Debugf("Error opening file %v", h.Path)
 			return fuse.IOerror{Code: syscall.EIO}
 		}
-	}
-
-	return nil
-}
-
-func (h *Proc) Close(n domain.IOnodeIface) error {
-
-	logrus.Debugf("Executing Close() method on %v handler", h.Name)
-
-	if err := n.Close(); err != nil {
-		logrus.Debugf("Error closing file %v", h.Path)
-		return fuse.IOerror{Code: syscall.EIO}
 	}
 
 	return nil

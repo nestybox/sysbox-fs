@@ -22,7 +22,6 @@ import (
 	"io"
 	"os"
 	"sync"
-	"syscall"
 
 	"github.com/sirupsen/logrus"
 
@@ -78,16 +77,6 @@ func (h *ProcSysFs) Lookup(
 	return procSysCommonHandler.Lookup(n, req)
 }
 
-func (h *ProcSysFs) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	logrus.Debugf("Executing GetAttr() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
-
-	return nil, nil
-}
-
 func (h *ProcSysFs) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
@@ -125,11 +114,6 @@ func (h *ProcSysFs) Open(
 	}
 
 	return procSysCommonHandler.Open(n, req)
-}
-
-func (h *ProcSysFs) Close(n domain.IOnodeIface) error {
-
-	return nil
 }
 
 func (h *ProcSysFs) Read(

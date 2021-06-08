@@ -19,7 +19,6 @@ package domain
 import (
 	"os"
 	"sync"
-	"syscall"
 
 	iradix "github.com/hashicorp/go-immutable-radix"
 )
@@ -100,9 +99,7 @@ type HandlerRequest struct {
 type HandlerIface interface {
 	// FS operations.
 	Open(node IOnodeIface, req *HandlerRequest) error
-	Close(node IOnodeIface) error
 	Lookup(n IOnodeIface, req *HandlerRequest) (os.FileInfo, error)
-	Getattr(n IOnodeIface, req *HandlerRequest) (*syscall.Stat_t, error)
 	Read(node IOnodeIface, req *HandlerRequest) (int, error)
 	Write(node IOnodeIface, req *HandlerRequest) (int, error)
 	ReadDirAll(node IOnodeIface, req *HandlerRequest) ([]os.FileInfo, error)

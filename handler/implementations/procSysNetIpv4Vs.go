@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -123,21 +122,9 @@ func (h *ProcSysNetIpv4Vs) Lookup(
 	return procSysCommonHandler.Lookup(n, req)
 }
 
-func (h *ProcSysNetIpv4Vs) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	return nil, nil
-}
-
 func (h *ProcSysNetIpv4Vs) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
-
-	return nil
-}
-
-func (h *ProcSysNetIpv4Vs) Close(n domain.IOnodeIface) error {
 
 	return nil
 }
