@@ -292,6 +292,10 @@ func (h *ProcSysNetIpv4Vs) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
+func (h *ProcSysNetIpv4Vs) GetResourceMap() map[string]domain.EmuResource {
+	return h.EmuResourceMap
+}
+
 func (h *ProcSysNetIpv4Vs) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {

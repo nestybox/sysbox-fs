@@ -197,6 +197,10 @@ func (h *SysDevicesVirtualDmiId) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
+func (h *SysDevicesVirtualDmiId) GetResourceMap() map[string]domain.EmuResource {
+	return h.EmuResourceMap
+}
+
 func (h *SysDevicesVirtualDmiId) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {

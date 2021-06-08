@@ -45,7 +45,7 @@ var Proc_Handler = &Proc{
 		Path: "/proc",
 		EmuResourceMap: map[string]domain.EmuResource{
 			"sys": {
-				Kind:     domain.FileEmuResource,
+				Kind:     domain.DirEmuResource,
 				Mode:     os.ModeDir | os.FileMode(uint32(0555)),
 				NodeType: domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 			},
@@ -54,7 +54,7 @@ var Proc_Handler = &Proc{
 				Mode:     os.FileMode(uint32(0444)),
 				NodeType: domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 			},
-			"update": {
+			"uptime": {
 				Kind:     domain.FileEmuResource,
 				Mode:     os.FileMode(uint32(0444)),
 				NodeType: domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
@@ -71,7 +71,7 @@ func (h *Proc) Lookup(
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
-	var node string
+	var node = n.Name()
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated components.
@@ -89,14 +89,7 @@ func (h *Proc) Lookup(
 		return info, nil
 	}
 
-	// If looked-up element hasn't been found by now, look into the actual
-	// container rootfs.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return nil, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Lookup(n, req)
+	return n.Stat()
 }
 
 func (h *Proc) Getattr(
@@ -211,6 +204,10 @@ func (h *Proc) GetType() domain.HandlerType {
 
 func (h *Proc) GetService() domain.HandlerServiceIface {
 	return h.Service
+}
+
+func (h *Proc) GetResourceMap() map[string]domain.EmuResource {
+	return h.EmuResourceMap
 }
 
 func (h *Proc) GetResourceMutex(s string) *sync.Mutex {

@@ -115,6 +115,7 @@ type HandlerIface interface {
 	SetEnabled(val bool)
 	GetService() HandlerServiceIface
 	SetService(hs HandlerServiceIface)
+	GetResourceMap() map[string]EmuResource
 	GetResourceMutex(s string) *sync.Mutex
 }
 
