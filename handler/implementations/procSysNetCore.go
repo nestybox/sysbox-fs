@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -142,14 +141,6 @@ func (h *ProcSysNetCore) Read(
 	}
 
 	name := n.Name()
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	switch name {
 	case "default_qdisc":
@@ -176,14 +167,6 @@ func (h *ProcSysNetCore) Write(
 		req.ID, h.Name)
 
 	name := n.Name()
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	switch name {
 	case "default_qdisc":
@@ -208,13 +191,6 @@ func (h *ProcSysNetCore) ReadDirAll(
 
 	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
 		req.ID, h.Name)
-
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return nil, errors.New("Container not found")
-	}
 
 	var fileEntries []os.FileInfo
 

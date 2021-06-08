@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"errors"
 	"io"
 	"os"
 	"sync"
@@ -111,13 +110,6 @@ func (h *SysDevicesVirtualDmiId) Read(
 	name := n.Name()
 	path := n.Path()
 	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	cntr.Lock()
 

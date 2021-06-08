@@ -35,6 +35,9 @@ import (
 // /proc/swaps Handler
 //
 
+// /proc/swaps static header
+var swapsHeader = "Filename                                Type            Size    Used    Priority"
+
 type Proc struct {
 	domain.HandlerBase
 }
@@ -242,13 +245,6 @@ func (h *Proc) readSwaps(
 	name := n.Name()
 	path := n.Path()
 	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	// If no modification has been ever made to this container's swapping mode,
 	// then let's assume that swapping in OFF by default.

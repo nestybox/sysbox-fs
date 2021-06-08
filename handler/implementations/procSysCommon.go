@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"errors"
 	"io"
 	"os"
 	"strconv"
@@ -59,13 +58,6 @@ func (h *ProcSysCommon) Lookup(
 
 	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler: %s", req.ID, h.Name, n.Path())
 
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return nil, errors.New("Container not found")
-	}
-
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
@@ -103,13 +95,6 @@ func (h *ProcSysCommon) Open(
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler", req.ID, h.Name)
-
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return errors.New("Container not found")
-	}
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
@@ -155,13 +140,6 @@ func (h *ProcSysCommon) Read(
 
 	name := n.Name()
 	path := n.Path()
-
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	var (
 		data string
@@ -217,19 +195,11 @@ func (h *ProcSysCommon) Write(
 
 	name := n.Name()
 	path := n.Path()
-
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
+	cntr := req.Container
 
 	newContent := strings.TrimSpace(string(req.Data))
-
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-	cntr := req.Container
 
 	// If caching is enabled, store the data in the cache and do a write-through to the
 	// host FS. Otherwise just do the write-through.
@@ -258,13 +228,6 @@ func (h *ProcSysCommon) ReadDirAll(
 
 	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
 		req.ID, h.Name)
-
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return nil, errors.New("Container not found")
-	}
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
@@ -310,14 +273,8 @@ func (h *ProcSysCommon) Setattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Setattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
-
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return errors.New("Container not found")
-	}
+	logrus.Debugf("Executing Setattr() method for Req ID=%#x on %v handler",
+		req.ID, h.Name)
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()

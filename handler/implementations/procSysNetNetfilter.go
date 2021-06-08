@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -132,14 +131,6 @@ func (h *ProcSysNetNetfilter) Read(
 	}
 
 	name := n.Name()
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	switch name {
 	case "nf_conntrack_max":
@@ -173,14 +164,6 @@ func (h *ProcSysNetNetfilter) Write(
 	logrus.Debugf("Executing %v Write() method", h.Name)
 
 	name := n.Name()
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	switch name {
 	case "nf_conntrack_max":
@@ -214,13 +197,6 @@ func (h *ProcSysNetNetfilter) ReadDirAll(
 
 	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
 		req.ID, h.Name)
-
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return nil, errors.New("Container not found")
-	}
 
 	var (
 		info        *domain.FileInfo
@@ -306,13 +282,6 @@ func (h *ProcSysNetNetfilter) writeTcpLiberal(
 	name := n.Name()
 	path := n.Path()
 	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
 
 	newVal := strings.TrimSpace(string(req.Data))
 	newValInt, err := strconv.Atoi(newVal)
