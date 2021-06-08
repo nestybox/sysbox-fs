@@ -56,7 +56,6 @@ type HandlerBase struct {
 	Enabled        bool
 	Cacheable      bool
 	KernelSync     bool
-	Mutex          sync.Mutex
 	Service        HandlerServiceIface
 }
 
