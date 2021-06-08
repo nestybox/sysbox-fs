@@ -119,29 +119,12 @@ func (h *ProcSysNetCore) Lookup(
 	return procSysCommonHandler.Lookup(n, req)
 }
 
-func (h *ProcSysNetCore) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	logrus.Debugf("Executing GetAttr() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
-
-	return nil, nil
-}
-
 func (h *ProcSysNetCore) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler",
 		req.ID, h.Name)
-
-	return nil
-}
-
-func (h *ProcSysNetCore) Close(n domain.IOnodeIface) error {
-
-	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }

@@ -23,7 +23,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
 
@@ -99,27 +98,6 @@ func (h *ProcSysCommon) Lookup(
 	return info, nil
 }
 
-func (h *ProcSysCommon) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	logrus.Debugf("Executing Getattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
-
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return nil, errors.New("Container not found")
-	}
-
-	stat := &syscall.Stat_t{
-		Uid: req.Container.UID(),
-		Gid: req.Container.GID(),
-	}
-
-	return stat, nil
-}
-
 func (h *ProcSysCommon) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
@@ -161,13 +139,6 @@ func (h *ProcSysCommon) Open(
 	if responseMsg.Type == domain.ErrorResponse {
 		return responseMsg.Payload.(error)
 	}
-
-	return nil
-}
-
-func (h *ProcSysCommon) Close(node domain.IOnodeIface) error {
-
-	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }

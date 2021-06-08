@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -101,35 +100,9 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 	return procSysCommonHandler.Lookup(n, req)
 }
 
-func (h *ProcSysNetIpv4Neigh) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	logrus.Debugf("Executing Getattr() method for Req ID=%#x on %v handler", req.ID, h.Name)
-
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return nil, errors.New("Container not found")
-	}
-
-	stat := &syscall.Stat_t{
-		Uid: req.Container.UID(),
-		Gid: req.Container.GID(),
-	}
-
-	return stat, nil
-}
-
 func (h *ProcSysNetIpv4Neigh) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
-
-	return nil
-}
-
-func (h *ProcSysNetIpv4Neigh) Close(n domain.IOnodeIface) error {
 
 	return nil
 }

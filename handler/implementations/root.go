@@ -19,7 +19,6 @@ package implementations
 import (
 	"os"
 	"sync"
-	"syscall"
 
 	"github.com/sirupsen/logrus"
 
@@ -61,27 +60,11 @@ func (h *Root) Lookup(
 	return n.Stat()
 }
 
-func (h *Root) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
-
-	return nil, nil
-}
-
 func (h *Root) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
-
-	return nil
-}
-
-func (h *Root) Close(node domain.IOnodeIface) error {
-
-	logrus.Debugf("Executing Close() method on %v handler", h.Name)
 
 	return nil
 }

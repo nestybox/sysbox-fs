@@ -115,15 +115,6 @@ func (h *ProcSysKernelYamaPtrace) Lookup(
 	return n.Stat()
 }
 
-func (h *ProcSysKernelYamaPtrace) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	logrus.Debugf("Executing Getattr() method on %v handler", h.Name)
-
-	return nil, nil
-}
-
 func (h *ProcSysKernelYamaPtrace) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
@@ -137,18 +128,6 @@ func (h *ProcSysKernelYamaPtrace) Open(
 
 	if err := n.Open(); err != nil {
 		logrus.Debugf("Error opening file %v", h.Path)
-		return fuse.IOerror{Code: syscall.EIO}
-	}
-
-	return nil
-}
-
-func (h *ProcSysKernelYamaPtrace) Close(n domain.IOnodeIface) error {
-
-	logrus.Debugf("Executing Close() method on %v handler", h.Name)
-
-	if err := n.Close(); err != nil {
-		logrus.Debugf("Error closing file %v", h.Path)
 		return fuse.IOerror{Code: syscall.EIO}
 	}
 

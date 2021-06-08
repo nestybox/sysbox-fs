@@ -251,16 +251,6 @@ func (h *ProcSysKernel) Lookup(
 	return procSysCommonHandler.Lookup(n, req)
 }
 
-func (h *ProcSysKernel) Getattr(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (*syscall.Stat_t, error) {
-
-	logrus.Debugf("Executing GetAttr() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
-
-	return nil, nil
-}
-
 func (h *ProcSysKernel) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
@@ -324,13 +314,6 @@ func (h *ProcSysKernel) Open(
 	}
 
 	return procSysCommonHandler.Open(n, req)
-}
-
-func (h *ProcSysKernel) Close(n domain.IOnodeIface) error {
-
-	logrus.Debugf("Executing Close() method on %v handler", h.Name)
-
-	return nil
 }
 
 func (h *ProcSysKernel) Read(
