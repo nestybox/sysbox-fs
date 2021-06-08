@@ -61,9 +61,8 @@ var SysDevicesVirtualDmiId_Handler = &SysDevicesVirtualDmiId{
 		Path: "/sys/devices/virtual/dmi/id",
 		EmuResourceMap: map[string]domain.EmuResource{
 			"product_uuid": {
-				Kind:     domain.FileEmuResource,
-				Mode:     os.FileMode(uint32(0400)),
-				NodeType: domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+				Kind: domain.FileEmuResource,
+				Mode: os.FileMode(uint32(0400)),
 			},
 		},
 		Enabled:   true,
@@ -170,10 +169,6 @@ func (h *SysDevicesVirtualDmiId) GetPath() string {
 
 func (h *SysDevicesVirtualDmiId) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *SysDevicesVirtualDmiId) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *SysDevicesVirtualDmiId) GetService() domain.HandlerServiceIface {

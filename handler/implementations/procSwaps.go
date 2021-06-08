@@ -41,7 +41,6 @@ var ProcSwaps_Handler = &ProcSwaps{
 	domain.HandlerBase{
 		Name:      "ProcSwaps",
 		Path:      "/proc/swaps",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
@@ -146,10 +145,6 @@ func (h *ProcSwaps) GetPath() string {
 
 func (h *ProcSwaps) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *ProcSwaps) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *ProcSwaps) GetService() domain.HandlerServiceIface {

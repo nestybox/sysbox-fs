@@ -108,10 +108,6 @@ func (h *Root) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *Root) GetType() domain.HandlerType {
-	return h.Type
-}
-
 func (h *Root) GetService() domain.HandlerServiceIface {
 	return h.Service
 }

@@ -439,10 +439,6 @@ func (h *ProcSysCommon) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *ProcSysCommon) GetType() domain.HandlerType {
-	return h.Type
-}
-
 func (h *ProcSysCommon) GetService() domain.HandlerServiceIface {
 	return h.Service
 }

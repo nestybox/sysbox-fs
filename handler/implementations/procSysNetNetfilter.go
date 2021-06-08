@@ -74,7 +74,6 @@ var ProcSysNetNetfilter_Handler = &ProcSysNetNetfilter{
 			"nf_conntrack_tcp_timeout_established": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 			"nf_conntrack_tcp_timeout_close_wait":  {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
-		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -273,10 +272,6 @@ func (h *ProcSysNetNetfilter) GetPath() string {
 
 func (h *ProcSysNetNetfilter) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *ProcSysNetNetfilter) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *ProcSysNetNetfilter) GetService() domain.HandlerServiceIface {

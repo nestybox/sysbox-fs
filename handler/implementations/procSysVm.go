@@ -65,7 +65,6 @@ var ProcSysVm_Handler = &ProcSysVm{
 			"overcommit_memory": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 			"mmap_min_addr":     {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
-		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -259,10 +258,6 @@ func (h *ProcSysVm) GetPath() string {
 
 func (h *ProcSysVm) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *ProcSysVm) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *ProcSysVm) GetService() domain.HandlerServiceIface {
