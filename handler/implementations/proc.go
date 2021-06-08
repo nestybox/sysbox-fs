@@ -107,14 +107,22 @@ func (h *Proc) Open(
 
 	logrus.Debugf("Executing %v Open() method", h.Name)
 
+	name := n.Name()
 	flags := n.OpenFlags()
-	if flags != syscall.O_RDONLY {
-		return fuse.IOerror{Code: syscall.EACCES}
-	}
 
-	if err := n.Open(); err != nil {
-		logrus.Debugf("Error opening file %v", h.Path)
-		return fuse.IOerror{Code: syscall.EIO}
+	switch name {
+	case "sys":
+		return nil
+
+	case "swaps", "uptime":
+		if flags != syscall.O_RDONLY {
+			return fuse.IOerror{Code: syscall.EACCES}
+		}
+
+		if err := n.Open(); err != nil {
+			logrus.Debugf("Error opening file %v", h.Path)
+			return fuse.IOerror{Code: syscall.EIO}
+		}
 	}
 
 	return nil
@@ -182,6 +190,28 @@ func (h *Proc) Write(
 func (h *Proc) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
+
+	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler", req.ID, h.Name)
+
+	name := n.Name()
+	cntr := req.Container
+
+	// Ensure operation is generated from within a registered sys container.
+	if cntr == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)",
+			req.Pid)
+		return nil, errors.New("Container not found")
+	}
+
+	switch name {
+	case "sys":
+		procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
+		if !ok {
+			return nil, fmt.Errorf("No /proc/sys/ found")
+		}
+
+		return procSysCommonHandler.ReadDirAll(n, req)
+	}
 
 	return nil, nil
 }
