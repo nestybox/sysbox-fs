@@ -245,6 +245,10 @@ func (h *ProcSysNetUnix) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
+func (h *ProcSysNetUnix) GetResourceMap() map[string]domain.EmuResource {
+	return h.EmuResourceMap
+}
+
 func (h *ProcSysNetUnix) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {

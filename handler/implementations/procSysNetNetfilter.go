@@ -299,6 +299,10 @@ func (h *ProcSysNetNetfilter) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
+func (h *ProcSysNetNetfilter) GetResourceMap() map[string]domain.EmuResource {
+	return h.EmuResourceMap
+}
+
 func (h *ProcSysNetNetfilter) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {

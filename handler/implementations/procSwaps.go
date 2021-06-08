@@ -177,6 +177,10 @@ func (h *ProcSwaps) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
+func (h *ProcSwaps) GetResourceMap() map[string]domain.EmuResource {
+	return h.EmuResourceMap
+}
+
 func (h *ProcSwaps) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {

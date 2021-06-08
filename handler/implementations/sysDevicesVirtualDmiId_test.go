@@ -85,7 +85,7 @@ func TestSysDevicesVirtualDmiIdProductUuid_generateProductUuid(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.SysDevicesVirtualDmiIdProductUuid{
+			h := &implementations.SysDevicesVirtualDmiId{
 				HandlerBase: tt.fields.HandlerBase,
 			}
 			if got := h.GenerateProductUuid(tt.args.hostUuid, tt.args.cntr); got != tt.want {

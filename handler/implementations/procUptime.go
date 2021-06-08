@@ -181,6 +181,10 @@ func (h *ProcUptime) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
+func (h *ProcUptime) GetResourceMap() map[string]domain.EmuResource {
+	return h.EmuResourceMap
+}
+
 func (h *ProcUptime) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {
