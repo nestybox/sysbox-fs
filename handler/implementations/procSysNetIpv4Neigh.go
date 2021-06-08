@@ -45,7 +45,6 @@ var ProcSysNetIpv4Neigh_Handler = &ProcSysNetIpv4Neigh{
 			"default/gc_thresh2": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 			"default/gc_thresh3": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
-		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -269,10 +268,6 @@ func (h *ProcSysNetIpv4Neigh) GetPath() string {
 
 func (h *ProcSysNetIpv4Neigh) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *ProcSysNetIpv4Neigh) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *ProcSysNetIpv4Neigh) GetService() domain.HandlerServiceIface {

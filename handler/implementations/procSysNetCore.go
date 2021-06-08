@@ -82,7 +82,6 @@ var ProcSysNetCore_Handler = &ProcSysNetCore{
 			"default_qdisc": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 			"somaxconn":     {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
-		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -254,10 +253,6 @@ func (h *ProcSysNetCore) GetPath() string {
 
 func (h *ProcSysNetCore) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *ProcSysNetCore) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *ProcSysNetCore) GetService() domain.HandlerServiceIface {

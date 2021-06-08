@@ -54,7 +54,6 @@ var ProcSysFs_Handler = &ProcSysFs{
 			"protected_hardlinks": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0600))},
 			"protected_symlinks":  {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0600))},
 		},
-		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -241,10 +240,6 @@ func (h *ProcSysFs) GetPath() string {
 
 func (h *ProcSysFs) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *ProcSysFs) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *ProcSysFs) GetService() domain.HandlerServiceIface {

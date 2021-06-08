@@ -39,7 +39,6 @@ var ProcSys_Handler = &ProcSys{
 	domain.HandlerBase{
 		Name:      "ProcSys",
 		Path:      "/proc/sys",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
@@ -107,10 +106,6 @@ func (h *ProcSys) GetPath() string {
 
 func (h *ProcSys) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *ProcSys) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *ProcSys) GetService() domain.HandlerServiceIface {

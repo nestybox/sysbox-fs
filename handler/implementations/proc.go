@@ -45,19 +45,16 @@ var Proc_Handler = &Proc{
 		Path: "/proc",
 		EmuResourceMap: map[string]domain.EmuResource{
 			"sys": {
-				Kind:     domain.DirEmuResource,
-				Mode:     os.ModeDir | os.FileMode(uint32(0555)),
-				NodeType: domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+				Kind: domain.DirEmuResource,
+				Mode: os.ModeDir | os.FileMode(uint32(0555)),
 			},
 			"swaps": {
-				Kind:     domain.FileEmuResource,
-				Mode:     os.FileMode(uint32(0444)),
-				NodeType: domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+				Kind: domain.FileEmuResource,
+				Mode: os.FileMode(uint32(0444)),
 			},
 			"uptime": {
-				Kind:     domain.FileEmuResource,
-				Mode:     os.FileMode(uint32(0444)),
-				NodeType: domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
+				Kind: domain.FileEmuResource,
+				Mode: os.FileMode(uint32(0444)),
 			},
 		},
 		Enabled:   true,
@@ -205,10 +202,6 @@ func (h *Proc) GetPath() string {
 
 func (h *Proc) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *Proc) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *Proc) GetService() domain.HandlerServiceIface {

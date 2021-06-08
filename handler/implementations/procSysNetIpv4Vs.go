@@ -85,7 +85,6 @@ var ProcSysNetIpv4Vs_Handler = &ProcSysNetIpv4Vs{
 			"expire_nodest_conn":        {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 			"expire_quiescent_template": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
 		},
-		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -269,10 +268,6 @@ func (h *ProcSysNetIpv4Vs) GetPath() string {
 
 func (h *ProcSysNetIpv4Vs) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *ProcSysNetIpv4Vs) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *ProcSysNetIpv4Vs) GetService() domain.HandlerServiceIface {

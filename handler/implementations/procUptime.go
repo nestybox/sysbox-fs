@@ -43,7 +43,6 @@ var ProcUptime_Handler = &ProcUptime{
 	domain.HandlerBase{
 		Name:      "ProcUptime",
 		Path:      "/proc/uptime",
-		Type:      domain.NODE_SUBSTITUTION | domain.NODE_BINDMOUNT,
 		Enabled:   true,
 		Cacheable: false,
 	},
@@ -150,10 +149,6 @@ func (h *ProcUptime) GetPath() string {
 func (h *ProcUptime) GetEnabled() bool {
 
 	return h.Enabled
-}
-
-func (h *ProcUptime) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *ProcUptime) GetService() domain.HandlerServiceIface {

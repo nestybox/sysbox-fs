@@ -78,7 +78,6 @@ func TestProcSysCommon_Lookup(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -243,7 +242,6 @@ func TestProcSysCommon_Lookup(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -283,7 +281,6 @@ func TestProcSysCommon_Open(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -449,7 +446,6 @@ func TestProcSysCommon_Open(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -482,7 +478,6 @@ func TestProcSysCommon_Read(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -671,7 +666,6 @@ func TestProcSysCommon_Read(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -704,7 +698,6 @@ func TestProcSysCommon_Write(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -885,7 +878,6 @@ func TestProcSysCommon_Write(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -918,7 +910,6 @@ func TestProcSysCommon_ReadDirAll(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -1113,7 +1104,6 @@ func TestProcSysCommon_ReadDirAll(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -1149,7 +1139,6 @@ func TestProcSysCommon_Setattr(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -1172,7 +1161,6 @@ func TestProcSysCommon_Setattr(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -1189,7 +1177,6 @@ func TestProcSysCommon_GetName(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -1207,7 +1194,6 @@ func TestProcSysCommon_GetName(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -1224,7 +1210,6 @@ func TestProcSysCommon_GetPath(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -1242,7 +1227,6 @@ func TestProcSysCommon_GetPath(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -1259,7 +1243,6 @@ func TestProcSysCommon_GetEnabled(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -1277,7 +1260,6 @@ func TestProcSysCommon_GetEnabled(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -1290,46 +1272,10 @@ func TestProcSysCommon_GetEnabled(t *testing.T) {
 	}
 }
 
-func TestProcSysCommon_GetType(t *testing.T) {
-	type fields struct {
-		Name      string
-		Path      string
-		Type      domain.HandlerType
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   domain.HandlerType
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
-				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
-				},
-			}
-			if got := h.GetType(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ProcSysCommon.GetType() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestProcSysCommon_GetService(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -1347,7 +1293,6 @@ func TestProcSysCommon_GetService(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -1364,7 +1309,6 @@ func TestProcSysCommon_SetEnabled(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -1385,7 +1329,6 @@ func TestProcSysCommon_SetEnabled(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,
@@ -1400,7 +1343,6 @@ func TestProcSysCommon_SetService(t *testing.T) {
 	type fields struct {
 		Name      string
 		Path      string
-		Type      domain.HandlerType
 		Enabled   bool
 		Cacheable bool
 		Service   domain.HandlerServiceIface
@@ -1421,7 +1363,6 @@ func TestProcSysCommon_SetService(t *testing.T) {
 				domain.HandlerBase{
 					Name:      tt.fields.Name,
 					Path:      tt.fields.Path,
-					Type:      tt.fields.Type,
 					Enabled:   tt.fields.Enabled,
 					Cacheable: tt.fields.Cacheable,
 					Service:   tt.fields.Service,

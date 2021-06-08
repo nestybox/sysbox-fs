@@ -23,28 +23,6 @@ import (
 	iradix "github.com/hashicorp/go-immutable-radix"
 )
 
-type HandlerType int
-
-// These constants define the way in which sysbox-fs sets up resources under filesystems
-// that it emulates (e.g., procfs or sysfs).
-const (
-	// Node entries that need to be substituted (or added) for proper emulation.
-	// Examples:
-	//  - "/proc/sys/kernel/panic" (substituted to allow RW access)
-	//  - "/proc/sys/net/netfilter/nf_conntrack_max" (added as node not present
-	//	outside init network-ns).
-	NODE_SUBSTITUTION = 0x1
-
-	// Base mount nodes. Sysbox-fs supports only two so far: "/proc" and "/sys".
-	NODE_MOUNT = 0x2
-
-	// Node entries that need to be bind-mounted for proper emulation. Notice
-	// that these ones carry slightly different semantics than SUBSTITUTION
-	// ones above.
-	// Example: "/proc/uptime"
-	NODE_BINDMOUNT = 0x4
-)
-
 type EmuResourceType int
 
 const (
@@ -54,10 +32,9 @@ const (
 )
 
 type EmuResource struct {
-	Kind     EmuResourceType
-	Mode     os.FileMode
-	NodeType HandlerType
-	Mutex    sync.Mutex
+	Kind  EmuResourceType
+	Mode  os.FileMode
+	Mutex sync.Mutex
 }
 
 // HandlerBase is a type common to all handlers
@@ -76,7 +53,6 @@ type HandlerBase struct {
 	Name           string
 	Path           string
 	EmuResourceMap map[string]EmuResource
-	Type           HandlerType
 	Enabled        bool
 	Cacheable      bool
 	KernelSync     bool
@@ -107,7 +83,6 @@ type HandlerIface interface {
 	// getters/setters.
 	GetName() string
 	GetPath() string
-	GetType() HandlerType
 	GetEnabled() bool
 	SetEnabled(val bool)
 	GetService() HandlerServiceIface

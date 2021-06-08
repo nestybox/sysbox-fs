@@ -100,7 +100,6 @@ var ProcSysKernelYamaPtrace_Handler = &ProcSysKernelYamaPtrace{
 	domain.HandlerBase{
 		Name:      "ProcSysKernelYamaPtrace",
 		Path:      "/proc/sys/kernel/yama/ptrace_scope",
-		Type:      domain.NODE_SUBSTITUTION,
 		Enabled:   true,
 		Cacheable: true,
 	},
@@ -193,10 +192,6 @@ func (h *ProcSysKernelYamaPtrace) GetPath() string {
 
 func (h *ProcSysKernelYamaPtrace) GetEnabled() bool {
 	return h.Enabled
-}
-
-func (h *ProcSysKernelYamaPtrace) GetType() domain.HandlerType {
-	return h.Type
 }
 
 func (h *ProcSysKernelYamaPtrace) GetService() domain.HandlerServiceIface {
