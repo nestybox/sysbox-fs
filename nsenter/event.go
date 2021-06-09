@@ -357,11 +357,7 @@ func (e *NSenterEvent) namespacePaths() []string {
 	// always first.
 
 	for _, nstype := range *(e.Namespace) {
-		path := filepath.Join(
-			nstype,
-			":/proc/",
-			strconv.Itoa(int(e.Pid)), "/ns/",
-			nstype)
+		path := nstype + ":" + filepath.Join("/proc", strconv.Itoa(int(e.Pid)), "/ns", nstype)
 		paths = append(paths, path)
 	}
 
