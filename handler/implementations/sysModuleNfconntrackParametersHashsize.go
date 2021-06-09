@@ -26,6 +26,14 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
+//
+// /sys/module/nf_conntrack handler
+//
+// Emulated resources:
+//
+// */sys/module/nf_conntrack/parameters
+//
+
 type SysModuleNfconntrackParameters struct {
 	domain.HandlerBase
 }
@@ -48,8 +56,10 @@ func (h *SysModuleNfconntrackParameters) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	return n.Stat()
 }
@@ -58,9 +68,6 @@ func (h *SysModuleNfconntrackParameters) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
-
 	return nil
 }
 
@@ -68,8 +75,10 @@ func (h *SysModuleNfconntrackParameters) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -84,8 +93,10 @@ func (h *SysModuleNfconntrackParameters) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Write() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	return writeFileInt(h, n, req, 0, MaxInt, true)
 }

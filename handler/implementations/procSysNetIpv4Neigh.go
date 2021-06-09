@@ -30,6 +30,17 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
+//
+// /proc/sys/net/ipv4/neigh handler
+//
+// Emulated resources:
+//
+// * /proc/sys/net/ipv4/default/gc_thresh1
+//
+// * /proc/sys/net/ipv4/default/gc_thresh2
+//
+// * /proc/sys/net/ipv4/default/gc_thresh3
+//
 type ProcSysNetIpv4Neigh struct {
 	domain.HandlerBase
 }
@@ -67,7 +78,10 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, n.Name())
+
+	var resource string
 
 	// Obtain relative path to the element being looked up.
 	relPath, err := filepath.Rel(h.Path, n.Path())
@@ -75,20 +89,18 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 		return nil, err
 	}
 
-	var lookupEntry string
-
 	// Adjust the looked-up element to match the emulated-nodes naming.
 	relPathDir := filepath.Dir(relPath)
 	if relPathDir == "." ||
 		strings.HasPrefix(relPath, "default/gc_thresh") {
-		lookupEntry = relPath
+		resource = relPath
 	}
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated components.
-	if v, ok := h.EmuResourceMap[lookupEntry]; ok {
+	if v, ok := h.EmuResourceMap[resource]; ok {
 		info := &domain.FileInfo{
-			Fname:    lookupEntry,
+			Fname:    resource,
 			FmodTime: time.Now(),
 		}
 
@@ -123,8 +135,8 @@ func (h *ProcSysNetIpv4Neigh) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, n.Name())
 
 	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -162,7 +174,8 @@ func (h *ProcSysNetIpv4Neigh) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing %v Write() method", h.Name)
+	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, n.Name())
 
 	// Obtain relative path to the element being written.
 	relPath, err := filepath.Rel(h.Path, n.Path())
@@ -194,8 +207,8 @@ func (h *ProcSysNetIpv4Neigh) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, n.Name())
 
 	var (
 		info        *domain.FileInfo

@@ -54,7 +54,8 @@ func (h *ProcSysCommon) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler: %s", req.ID, h.Name, n.Path())
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, n.Name())
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
@@ -92,7 +93,8 @@ func (h *ProcSysCommon) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler", req.ID, h.Name)
+	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, n.Name())
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
@@ -130,14 +132,14 @@ func (h *ProcSysCommon) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler", req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	if req.Offset > 0 {
 		return 0, io.EOF
 	}
-
-	name := n.Name()
-	path := n.Path()
 
 	var (
 		data string
@@ -145,6 +147,7 @@ func (h *ProcSysCommon) Read(
 		err  error
 	)
 
+	path := n.Path()
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 	cntr := req.Container
@@ -162,7 +165,7 @@ func (h *ProcSysCommon) Read(
 		// If this resource is cached, return it's data; otherwise fetch its data from the
 		// host FS and store it in the cache.
 		cntr.Lock()
-		data, ok = cntr.Data(path, name)
+		data, ok = cntr.Data(path, resource)
 		if !ok {
 			data, err = h.fetchFile(n, process)
 			if err != nil {
@@ -170,7 +173,7 @@ func (h *ProcSysCommon) Read(
 				return 0, err
 			}
 
-			cntr.SetData(path, name, data)
+			cntr.SetData(path, resource, data)
 		}
 		cntr.Unlock()
 	} else {
@@ -189,9 +192,11 @@ func (h *ProcSysCommon) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Write() method for Req ID=%#x on %v handler", req.ID, h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
+
 	path := n.Path()
 	cntr := req.Container
 
@@ -208,7 +213,7 @@ func (h *ProcSysCommon) Write(
 			cntr.Unlock()
 			return 0, err
 		}
-		cntr.SetData(path, name, newContent)
+		cntr.SetData(path, resource, newContent)
 		cntr.Unlock()
 
 	} else {
@@ -224,8 +229,8 @@ func (h *ProcSysCommon) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, n.Name())
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
@@ -271,8 +276,8 @@ func (h *ProcSysCommon) Setattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Setattr() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	logrus.Debugf("Executing Setattr() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, n.Name())
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()

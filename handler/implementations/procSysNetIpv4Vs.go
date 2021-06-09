@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -30,39 +29,24 @@ import (
 )
 
 //
-// The procfs nodes managed in this handler will only be visible if the path
-// they rely on (/proc/sys/net/ipv4/vs") is exposed within the system, which
-// can only happen if the "ip_vs" kernel module is loaded.
+// /proc/sys/net/ipv4/vs handler
 //
-
+// Note: The procfs nodes managed by this handler will only be visible if the
+// path they are part of (/proc/sys/net/ipv4/vs") is exposed within the system,
+// which can only happen if the "ip_vs" kernel module is loaded.
 //
-// Note: this resource is already namespaced by the Linux kernel's net-ns. However the
-// resource is hidden inside a non-init user-namespace. Thus, this handler's only purpose
-// is to expose the resource inside a sys container. The same applies to all other resources
-// under "/proc/sys/net/ipv4/vs/", though this handler only deals with "conntrack".
+// Note: the resources handled by this handler are already namespaced by the
+// Linux kernel's net-ns. However, these resources are hidden inside non-init
+// user-namespace. Thus, this handler's only purpose is to expose these
+// resources inside a sys container.
 //
+// Emulated resources:
 //
-// /proc/sys/net/ipv4/vs/conn_reuse_mode handler
+// * /proc/sys/net/ipv4/vs/conn_reuse_mode handler
 //
-// Note: this resource is already namespaced by the Linux kernel's net-ns. However the
-// resource is hidden inside a non-init user-namespace. Thus, this handler's only purpose
-// is to expose the resource inside a sys container. The same applies to all other resources
-// under "/proc/sys/net/ipv4/vs/", though this handler only deals with "conn_reuse_mode".
+// * /proc/sys/net/ipv4/vs/expire_nodest_conn handler
 //
-//
-// /proc/sys/net/ipv4/vs/expire_nodest_conn handler
-//
-// Note: this resource is already namespaced by the Linux kernel's net-ns. However the
-// resource is hidden inside a non-init user-namespace. Thus, this handler's only purpose
-// is to expose the resource inside a sys container. The same applies to all other resources
-// under "/proc/sys/net/ipv4/vs/", though this handler only deals with "expire_nodest_conn".
-//
-// /proc/sys/net/ipv4/vs/expire_quiescent_template handler
-//
-// Note: this resource is already namespaced by the Linux kernel's net-ns. However the
-// resource is hidden inside a non-init user-namespace. Thus, this handler's only purpose
-// is to expose the resource inside a sys container. The same applies to all other resources
-// under "/proc/sys/net/ipv4/vs/", though this handler only deals with "expire_quiescent_template".
+// * /proc/sys/net/ipv4/vs/expire_quiescent_template handler
 //
 
 const (
@@ -107,16 +91,16 @@ func (h *ProcSysNetIpv4Vs) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	var lookupNode = filepath.Base(n.Path())
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated components.
-	if v, ok := h.EmuResourceMap[lookupNode]; ok {
+	if v, ok := h.EmuResourceMap[resource]; ok {
 		info := &domain.FileInfo{
-			Fname:    lookupNode,
+			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
 		}
@@ -145,8 +129,10 @@ func (h *ProcSysNetIpv4Vs) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -154,9 +140,7 @@ func (h *ProcSysNetIpv4Vs) Read(
 		return 0, io.EOF
 	}
 
-	name := n.Name()
-
-	switch name {
+	switch resource {
 	case "conntrack":
 		return readFileInt(h, n, req)
 
@@ -183,12 +167,12 @@ func (h *ProcSysNetIpv4Vs) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Write() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	switch name {
+	switch resource {
 	case "conntrack":
 		return writeFileMaxInt(h, n, req, true)
 
@@ -215,17 +199,16 @@ func (h *ProcSysNetIpv4Vs) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	var (
-		info        *domain.FileInfo
-		fileEntries []os.FileInfo
-	)
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
+
+	var fileEntries []os.FileInfo
 
 	// Iterate through map of virtual components.
 	for k, _ := range h.EmuResourceMap {
-		info = &domain.FileInfo{
+		info := &domain.FileInfo{
 			Fname:    k,
 			FmodTime: time.Now(),
 		}

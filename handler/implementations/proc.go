@@ -32,7 +32,7 @@ import (
 )
 
 //
-// /proc/swaps Handler
+// /proc handler
 //
 
 // /proc/swaps static header
@@ -70,15 +70,16 @@ func (h *Proc) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
+	var resource = n.Name()
 
-	var node = n.Name()
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated components.
-	if v, ok := h.EmuResourceMap[node]; ok {
+	if v, ok := h.EmuResourceMap[resource]; ok {
 		info := &domain.FileInfo{
-			Fname:    node,
+			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
 		}
@@ -97,12 +98,14 @@ func (h *Proc) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing %v Open() method", h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
+
 	flags := n.OpenFlags()
 
-	switch name {
+	switch resource {
 	case "sys":
 		return nil
 
@@ -124,8 +127,10 @@ func (h *Proc) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -133,17 +138,7 @@ func (h *Proc) Read(
 		return 0, io.EOF
 	}
 
-	name := n.Name()
-	cntr := req.Container
-
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
-
-	switch name {
+	switch resource {
 	case "swaps":
 		return h.readSwaps(n, req)
 
@@ -171,19 +166,12 @@ func (h *Proc) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler", req.ID, h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
-	cntr := req.Container
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return nil, errors.New("Container not found")
-	}
-
-	switch name {
+	switch resource {
 	case "sys":
 		procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
 		if !ok {

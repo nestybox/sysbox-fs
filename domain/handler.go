@@ -23,6 +23,35 @@ import (
 	iradix "github.com/hashicorp/go-immutable-radix"
 )
 
+// HandlerBase is a type common to all the handlers.
+//
+// HandlerBase type is used to bundle the different file-system operations that
+// can be executed over sysbox-fs' emulated resources. As such, handles are
+// typically associated with a directory path inside of which there is at least
+// one resource (file or subdir) that needs to be emulated.
+//
+// Handles can be paired with a file too though, but usually they are associated
+// with directories to leverage the fact that, within a given directory, there
+// are commonalities among the resources being emulated. Hence, this approach
+// reduces the amount of duplicated code that would otherwise derive from
+// handler sprawling.
+//
+// The handler resources being emulated are stored within a map indexed by the
+// resource name.
+type HandlerBase struct {
+	// Camel-case representation of every handler path.
+	Name string
+
+	// Full FS path of the node being served by every handler.
+	Path string
+
+	// Map of resources served within every handler.
+	EmuResourceMap map[string]EmuResource
+
+	// Pointer to the parent handler service.
+	Service HandlerServiceIface
+}
+
 type EmuResourceType int
 
 const (
@@ -31,21 +60,26 @@ const (
 	FileEmuResource
 )
 
-// Note: the "Lock" variable can be used to synchronize across concurrent
-// executions of the same handler (e.g., if multiple processes within the same
-// sys container or across different sys containers are accessing the same
-// sysbox-fs emulated resource). When obtaining the handler lock, only do so to
-// synchronize accesses to host resources associated with the emulated resources
-// (e.g., if a handler needs to write to the host's procfs for example). While
-// holding the handler lock, avoid accessing objects of "container" struct type as
-// those have a dedicated lock which is typically held across invocations of the
-// handler lock. Violating this rule may result in deadlocks.
+// EmuResource represents the nodes being emulated by sysbox-fs.
+//
+// The "mutex" variable is utilized to synchronize access among concurrent i/o
+// operations made over the same host resource (e.g. if multiple processes within
+// the same sys container or across different sys containers are accessing the
+// same sysbox-fs emulated resource). By relying on a per-resource "mutex", and
+// not a per-handler one, we are maximizing the level of concurrency that can be
+// attained.
 type EmuResource struct {
-	Kind      EmuResourceType
-	Mode      os.FileMode
-	Enabled   bool
-	Cacheable bool
-	Mutex     sync.Mutex
+	// Resource type.
+	Kind EmuResourceType
+
+	// Expected file attributes -- avoids stat() calls.
+	Mode os.FileMode
+
+	// Admin up/down flag.
+	Enabled bool
+
+	// Per-resource lock.
+	Mutex sync.Mutex
 }
 
 // HandlerRequest represents a request to be processed by a handler
@@ -93,7 +127,7 @@ type HandlerServiceIface interface {
 	EnableHandlerResource(h HandlerIface, res string) error
 	DisableHandlerResource(h HandlerIface, res string) error
 
-	// getters/setter
+	// getters/setters
 	HandlerDB() *iradix.Tree
 	StateService() ContainerStateServiceIface
 	SetStateService(css ContainerStateServiceIface)

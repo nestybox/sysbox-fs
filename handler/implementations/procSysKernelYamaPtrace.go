@@ -29,7 +29,11 @@ import (
 )
 
 //
-// /proc/sys/kernel/yama/ptrace_scope handler
+// /proc/sys/kernel/yama handler
+//
+// Emulated resources:
+//
+// * /proc/sys/kernel/yama/ptrace_scope
 //
 // Documentation: As Linux grows in popularity, it will become a larger target
 // for malware. One particularly troubling weakness of the Linux process
@@ -113,15 +117,16 @@ func (h *ProcSysKernelYama) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
+	var resource = n.Name()
 
-	var node = n.Name()
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated nodes.
-	if v, ok := h.EmuResourceMap[node]; ok {
+	if v, ok := h.EmuResourceMap[resource]; ok {
 		info := &domain.FileInfo{
-			Fname:    node,
+			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
 		}
@@ -143,8 +148,6 @@ func (h *ProcSysKernelYama) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing %v Open() method\n", h.Name)
-
 	return nil
 }
 
@@ -152,7 +155,10 @@ func (h *ProcSysKernelYama) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing %v Read() method", h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// We are dealing with a single integer element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -160,9 +166,7 @@ func (h *ProcSysKernelYama) Read(
 		return 0, io.EOF
 	}
 
-	name := n.Name()
-
-	switch name {
+	switch resource {
 	case "ptrace_scope":
 		return readFileInt(h, n, req)
 	}
@@ -180,11 +184,12 @@ func (h *ProcSysKernelYama) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing %v Write() method", h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	switch name {
+	switch resource {
 	case "ptrace_scope":
 		return writeFileInt(h, n, req, minScopeVal, maxScopeVal, false)
 	}
@@ -201,6 +206,11 @@ func (h *ProcSysKernelYama) Write(
 func (h *ProcSysKernelYama) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
+
+	var resource = n.Name()
+
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// Refer to generic handler if no node match is found above.
 	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
