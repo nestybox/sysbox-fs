@@ -17,15 +17,15 @@
 package implementations
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"sync"
-	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
@@ -91,48 +91,64 @@ const (
 	maxScopeVal = 3
 )
 
-type ProcSysKernelYamaPtrace struct {
+type ProcSysKernelYama struct {
 	domain.HandlerBase
 }
 
-var ProcSysKernelYamaPtrace_Handler = &ProcSysKernelYamaPtrace{
+var ProcSysKernelYama_Handler = &ProcSysKernelYama{
 	domain.HandlerBase{
-		Name:      "ProcSysKernelYamaPtrace",
-		Path:      "/proc/sys/kernel/yama/ptrace_scope",
-		Enabled:   true,
-		Cacheable: true,
+		Name: "ProcSysKernelYama",
+		Path: "/proc/sys/kernel/yama",
+		EmuResourceMap: map[string]domain.EmuResource{
+			"ptrace_scope": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+		},
 	},
 }
 
-func (h *ProcSysKernelYamaPtrace) Lookup(
+func (h *ProcSysKernelYama) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
 	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
 
-	return n.Stat()
+	var node = n.Name()
+
+	// Return an artificial fileInfo if looked-up element matches any of the
+	// emulated nodes.
+	if v, ok := h.EmuResourceMap[node]; ok {
+		info := &domain.FileInfo{
+			Fname:    node,
+			Fmode:    v.Mode,
+			FmodTime: time.Now(),
+		}
+
+		return info, nil
+	}
+
+	// If looked-up element hasn't been found by now, let's look into the actual
+	// container rootfs.
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
+	if !ok {
+		return nil, fmt.Errorf("No /proc/sys/ handler found")
+	}
+
+	return procSysCommonHandler.Lookup(n, req)
 }
 
-func (h *ProcSysKernelYamaPtrace) Open(
+func (h *ProcSysKernelYama) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
 
-	flags := n.OpenFlags()
-	if flags != syscall.O_RDONLY && flags != syscall.O_WRONLY {
-		return fuse.IOerror{Code: syscall.EACCES}
-	}
-
-	if err := n.Open(); err != nil {
-		logrus.Debugf("Error opening file %v", h.Path)
-		return fuse.IOerror{Code: syscall.EIO}
-	}
-
 	return nil
 }
 
-func (h *ProcSysKernelYamaPtrace) Read(
+func (h *ProcSysKernelYama) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -144,46 +160,74 @@ func (h *ProcSysKernelYamaPtrace) Read(
 		return 0, io.EOF
 	}
 
-	return readFileInt(h, n, req)
+	name := n.Name()
+
+	switch name {
+	case "ptrace_scope":
+		return readFileInt(h, n, req)
+	}
+
+	// Refer to generic handler if no node match is found above.
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
+	if !ok {
+		return 0, fmt.Errorf("No /proc/sys/ handler found")
+	}
+
+	return procSysCommonHandler.Read(n, req)
 }
 
-func (h *ProcSysKernelYamaPtrace) Write(
+func (h *ProcSysKernelYama) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing %v Write() method", h.Name)
 
-	return writeFileInt(h, n, req, minScopeVal, maxScopeVal, false)
+	name := n.Name()
+
+	switch name {
+	case "ptrace_scope":
+		return writeFileInt(h, n, req, minScopeVal, maxScopeVal, false)
+	}
+
+	// Refer to generic handler if no node match is found above.
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
+	if !ok {
+		return 0, fmt.Errorf("No /proc/sys/ handler found")
+	}
+
+	return procSysCommonHandler.Write(n, req)
 }
 
-func (h *ProcSysKernelYamaPtrace) ReadDirAll(
+func (h *ProcSysKernelYama) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	return nil, nil
+	// Refer to generic handler if no node match is found above.
+	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
+	if !ok {
+		return nil, fmt.Errorf("No /proc/sys/ handler found")
+	}
+
+	return procSysCommonHandler.ReadDirAll(n, req)
 }
 
-func (h *ProcSysKernelYamaPtrace) GetName() string {
+func (h *ProcSysKernelYama) GetName() string {
 	return h.Name
 }
 
-func (h *ProcSysKernelYamaPtrace) GetPath() string {
+func (h *ProcSysKernelYama) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysKernelYamaPtrace) GetEnabled() bool {
-	return h.Enabled
-}
-
-func (h *ProcSysKernelYamaPtrace) GetService() domain.HandlerServiceIface {
+func (h *ProcSysKernelYama) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysKernelYamaPtrace) GetResourceMap() map[string]domain.EmuResource {
+func (h *ProcSysKernelYama) GetResourceMap() map[string]domain.EmuResource {
 	return h.EmuResourceMap
 }
 
-func (h *ProcSysKernelYamaPtrace) GetResourceMutex(s string) *sync.Mutex {
+func (h *ProcSysKernelYama) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {
 		return nil
@@ -192,10 +236,6 @@ func (h *ProcSysKernelYamaPtrace) GetResourceMutex(s string) *sync.Mutex {
 	return &resource.Mutex
 }
 
-func (h *ProcSysKernelYamaPtrace) SetEnabled(val bool) {
-	h.Enabled = val
-}
-
-func (h *ProcSysKernelYamaPtrace) SetService(hs domain.HandlerServiceIface) {
+func (h *ProcSysKernelYama) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

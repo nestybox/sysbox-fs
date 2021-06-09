@@ -61,11 +61,17 @@ var ProcSysVm_Handler = &ProcSysVm{
 		Name: "ProcSysVm",
 		Path: "/proc/sys/vm",
 		EmuResourceMap: map[string]domain.EmuResource{
-			"overcommit_memory": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"mmap_min_addr":     {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"overcommit_memory": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"mmap_min_addr": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
 		},
-		Enabled:   true,
-		Cacheable: true,
 	},
 }
 
@@ -224,10 +230,6 @@ func (h *ProcSysVm) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysVm) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *ProcSysVm) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -243,10 +245,6 @@ func (h *ProcSysVm) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *ProcSysVm) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *ProcSysVm) SetService(hs domain.HandlerServiceIface) {

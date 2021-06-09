@@ -79,13 +79,27 @@ var ProcSysNetIpv4Vs_Handler = &ProcSysNetIpv4Vs{
 		Name: "ProcSysNetIpv4Vs",
 		Path: "/proc/sys/net/ipv4/vs",
 		EmuResourceMap: map[string]domain.EmuResource{
-			"conntrack":                 {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"conn_reuse_mode":           {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"expire_nodest_conn":        {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"expire_quiescent_template": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"conntrack": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"conn_reuse_mode": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"expire_nodest_conn": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"expire_quiescent_template": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
 		},
-		Enabled:   true,
-		Cacheable: true,
 	},
 }
 
@@ -242,10 +256,6 @@ func (h *ProcSysNetIpv4Vs) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysNetIpv4Vs) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *ProcSysNetIpv4Vs) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -261,10 +271,6 @@ func (h *ProcSysNetIpv4Vs) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *ProcSysNetIpv4Vs) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *ProcSysNetIpv4Vs) SetService(hs domain.HandlerServiceIface) {

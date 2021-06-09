@@ -39,13 +39,27 @@ var ProcSysNetIpv4Neigh_Handler = &ProcSysNetIpv4Neigh{
 		Name: "ProcSysNetIpv4Neigh",
 		Path: "/proc/sys/net/ipv4/neigh",
 		EmuResourceMap: map[string]domain.EmuResource{
-			"default":            {Kind: domain.DirEmuResource, Mode: os.FileMode(uint32(0555))},
-			"default/gc_thresh1": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"default/gc_thresh2": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"default/gc_thresh3": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"default": {
+				Kind:    domain.DirEmuResource,
+				Mode:    os.FileMode(uint32(0555)),
+				Enabled: true,
+			},
+			"default/gc_thresh1": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"default/gc_thresh2": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"default/gc_thresh3": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
 		},
-		Enabled:   true,
-		Cacheable: true,
 	},
 }
 
@@ -240,10 +254,6 @@ func (h *ProcSysNetIpv4Neigh) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysNetIpv4Neigh) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *ProcSysNetIpv4Neigh) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -259,10 +269,6 @@ func (h *ProcSysNetIpv4Neigh) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *ProcSysNetIpv4Neigh) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *ProcSysNetIpv4Neigh) SetService(hs domain.HandlerServiceIface) {

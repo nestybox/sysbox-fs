@@ -60,12 +60,11 @@ var SysDevicesVirtualDmiId_Handler = &SysDevicesVirtualDmiId{
 		Path: "/sys/devices/virtual/dmi/id",
 		EmuResourceMap: map[string]domain.EmuResource{
 			"product_uuid": {
-				Kind: domain.FileEmuResource,
-				Mode: os.FileMode(uint32(0400)),
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0400)),
+				Enabled: true,
 			},
 		},
-		Enabled:   true,
-		Cacheable: true,
 	},
 }
 
@@ -159,10 +158,6 @@ func (h *SysDevicesVirtualDmiId) GetPath() string {
 	return h.Path
 }
 
-func (h *SysDevicesVirtualDmiId) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *SysDevicesVirtualDmiId) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -178,10 +173,6 @@ func (h *SysDevicesVirtualDmiId) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *SysDevicesVirtualDmiId) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *SysDevicesVirtualDmiId) SetService(hs domain.HandlerServiceIface) {

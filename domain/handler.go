@@ -31,14 +31,6 @@ const (
 	FileEmuResource
 )
 
-type EmuResource struct {
-	Kind  EmuResourceType
-	Mode  os.FileMode
-	Mutex sync.Mutex
-}
-
-// HandlerBase is a type common to all handlers
-//
 // Note: the "Lock" variable can be used to synchronize across concurrent
 // executions of the same handler (e.g., if multiple processes within the same
 // sys container or across different sys containers are accessing the same
@@ -48,15 +40,12 @@ type EmuResource struct {
 // holding the handler lock, avoid accessing objects of "container" struct type as
 // those have a dedicated lock which is typically held across invocations of the
 // handler lock. Violating this rule may result in deadlocks.
-
-type HandlerBase struct {
-	Name           string
-	Path           string
-	EmuResourceMap map[string]EmuResource
-	Enabled        bool
-	Cacheable      bool
-	KernelSync     bool
-	Service        HandlerServiceIface
+type EmuResource struct {
+	Kind      EmuResourceType
+	Mode      os.FileMode
+	Enabled   bool
+	Cacheable bool
+	Mutex     sync.Mutex
 }
 
 // HandlerRequest represents a request to be processed by a handler
@@ -82,8 +71,6 @@ type HandlerIface interface {
 	// getters/setters.
 	GetName() string
 	GetPath() string
-	GetEnabled() bool
-	SetEnabled(val bool)
 	GetService() HandlerServiceIface
 	SetService(hs HandlerServiceIface)
 	GetResourceMap() map[string]EmuResource
@@ -103,8 +90,8 @@ type HandlerServiceIface interface {
 	UnregisterHandler(h HandlerIface) error
 	LookupHandler(i IOnodeIface) (HandlerIface, bool)
 	FindHandler(s string) (HandlerIface, bool)
-	EnableHandler(h HandlerIface) error
-	DisableHandler(h HandlerIface) error
+	EnableHandlerResource(h HandlerIface, res string) error
+	DisableHandlerResource(h HandlerIface, res string) error
 
 	// getters/setter
 	HandlerDB() *iradix.Tree

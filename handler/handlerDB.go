@@ -38,7 +38,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.ProcSysCommon_Handler,                  // /proc/sys/
 	implementations.ProcSysFs_Handler,                      // /proc/sys/fs
 	implementations.ProcSysKernel_Handler,                  // /proc/sys/kernel
-	implementations.ProcSysKernelYamaPtrace_Handler,        // /proc/sys/kernel/yama/ptrace_scope
+	implementations.ProcSysKernelYama_Handler,              // /proc/sys/kernel/yama
 	implementations.ProcSysNetCore_Handler,                 // /proc/sys/net/core
 	implementations.ProcSysNetIpv4Vs_Handler,               // /proc/sys/net/ipv4/vs
 	implementations.ProcSysNetIpv4Neigh_Handler,            // /proc/sys/net/ipv4/neigh
@@ -51,10 +51,6 @@ var DefaultHandlers = []domain.HandlerIface{
 
 type handlerService struct {
 	sync.RWMutex
-
-	// Map to store association between handler's path (key) and the handler
-	// object (value).
-	handlerDB map[string]domain.HandlerIface
 
 	// Radix-tree indexed by node FS path. Tree serves as an ordered DB where to
 	// keep track of the association between the FS nodes being emulated, and
@@ -106,11 +102,9 @@ func (hs *handlerService) Setup(
 		logrus.Fatalf("Unable to allocate handler radix-tree")
 	}
 
-	// Register all handlers declared as 'enabled'.
+	// Register all handlers declared and their associated resources.
 	for _, h := range hdlrs {
-		if h.GetEnabled() {
-			hs.RegisterHandler(h)
-		}
+		hs.RegisterHandler(h)
 	}
 
 	// Obtain user-ns inode corresponding to sysbox-fs.
@@ -204,37 +198,51 @@ func (hs *handlerService) FindHandler(s string) (domain.HandlerIface, bool) {
 	return h.(domain.HandlerIface), true
 }
 
-func (hs *handlerService) EnableHandler(h domain.HandlerIface) error {
+func (hs *handlerService) EnableHandlerResource(h domain.HandlerIface, res string) error {
 	hs.Lock()
 
 	name := h.GetName()
-	path := h.GetPath()
 
-	if _, ok := hs.handlerDB[path]; !ok {
+	resourceMap := h.GetResourceMap()
+	if resourceMap == nil {
 		hs.Unlock()
-		logrus.Errorf("Handler %v not found", name)
-		return errors.New("Handler not found")
+		logrus.Errorf("No resource-map found for handler %s", name)
+		return errors.New("No resource-map found")
 	}
 
-	h.SetEnabled(true)
+	resource, ok := resourceMap[res]
+	if !ok {
+		hs.Unlock()
+		logrus.Errorf("Resource %s not found for handler %s", res, name)
+		return errors.New("Handler resource not found")
+	}
+
+	resource.Enabled = true
 	hs.Unlock()
 
 	return nil
 }
 
-func (hs *handlerService) DisableHandler(h domain.HandlerIface) error {
+func (hs *handlerService) DisableHandlerResource(h domain.HandlerIface, res string) error {
 	hs.Lock()
 
 	name := h.GetName()
-	path := h.GetPath()
 
-	if _, ok := hs.handlerDB[path]; !ok {
+	resourceMap := h.GetResourceMap()
+	if resourceMap == nil {
 		hs.Unlock()
-		logrus.Errorf("Handler %v not found", name)
-		return errors.New("Handler not found")
+		logrus.Errorf("No resource-map found for handler %s", name)
+		return errors.New("No resource-map found")
 	}
 
-	h.SetEnabled(false)
+	resource, ok := resourceMap[res]
+	if !ok {
+		hs.Unlock()
+		logrus.Errorf("Resource %s not found for handler %s", res, name)
+		return errors.New("Handler resource not found")
+	}
+
+	resource.Enabled = false
 	hs.Unlock()
 
 	return nil

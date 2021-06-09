@@ -48,20 +48,21 @@ var Proc_Handler = &Proc{
 		Path: "/proc",
 		EmuResourceMap: map[string]domain.EmuResource{
 			"sys": {
-				Kind: domain.DirEmuResource,
-				Mode: os.ModeDir | os.FileMode(uint32(0555)),
+				Kind:    domain.DirEmuResource,
+				Mode:    os.ModeDir | os.FileMode(uint32(0555)),
+				Enabled: true,
 			},
 			"swaps": {
-				Kind: domain.FileEmuResource,
-				Mode: os.FileMode(uint32(0444)),
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0444)),
+				Enabled: true,
 			},
 			"uptime": {
-				Kind: domain.FileEmuResource,
-				Mode: os.FileMode(uint32(0444)),
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0444)),
+				Enabled: true,
 			},
 		},
-		Enabled:   true,
-		Cacheable: false,
 	},
 }
 
@@ -203,10 +204,6 @@ func (h *Proc) GetPath() string {
 	return h.Path
 }
 
-func (h *Proc) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *Proc) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -222,10 +219,6 @@ func (h *Proc) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *Proc) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *Proc) SetService(hs domain.HandlerServiceIface) {
