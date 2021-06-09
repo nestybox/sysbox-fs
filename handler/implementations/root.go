@@ -25,7 +25,8 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
-// sysbox-fs root dir (/) dummy handler
+//
+// root dir (/) dummy handler
 //
 // Since the sysbox-fs root dir is not mounted inside a system container,
 // accesses to it are only possible from host level (e.g., via /var/lib/sysboxfs/<container-id>/).
@@ -53,7 +54,10 @@ func (h *Root) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method on %v handler", h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	return n.Stat()
 }
@@ -62,16 +66,12 @@ func (h *Root) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing %v Open() method", h.Name)
-
 	return nil
 }
 
 func (h *Root) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
-
-	logrus.Debugf("Executing %v Read() method", h.Name)
 
 	return 0, nil
 }
@@ -80,8 +80,6 @@ func (h *Root) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing %v Write() method", h.Name)
-
 	return 0, nil
 }
 
@@ -89,7 +87,10 @@ func (h *Root) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing %v ReadDirAll() method", h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	return nil, nil
 }

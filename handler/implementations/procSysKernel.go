@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -32,9 +31,11 @@ import (
 )
 
 //
-
+// /proc/sys/kernel handler
 //
-// /proc/sys/kernel/cap_last_cap handler
+// Emulated resources:
+//
+// * /proc/sys/kernel/cap_last_cap
 //
 // Documentation: The value in this file exposes the numerical value of the
 // highest capability supported by the running kernel ('37' as of today's
@@ -44,9 +45,8 @@ import (
 // as having it avoids using the /proc/sys common handler for accesses to
 // /proc/sys/kernel/cap_last_cap which is the most commonly accessed sysctl.
 //
-
 //
-// /proc/sys/kernel/sysrq
+// * /proc/sys/kernel/sysrq
 //
 // Documentation: It is a ‘magical’ key combo you can hit which the kernel will
 // respond to regardless of whatever else it is doing, unless it is completely
@@ -75,7 +75,7 @@ import (
 // untouched.
 //
 //
-// /proc/sys/kernel/panic handler
+// * /proc/sys/kernel/panic handler
 //
 // Documentation: The value in this file represents the number of seconds the
 // kernel waits before rebooting on a panic. The default setting is 0, which
@@ -89,7 +89,7 @@ import (
 // honored at panic time.
 //
 //
-// /proc/sys/kernel/panic_on_oops handler
+// * /proc/sys/kernel/panic_on_oops handler
 //
 // Documentation: The value in this file defines the kernel behavior
 // when an 'oops' is encountered. The following values are supported:
@@ -105,7 +105,7 @@ import (
 // IOW, the host value will be the one honored upon 'oops' arrival.
 //
 //
-// /proc/sys/kernel/kptr_restrict
+// * /proc/sys/kernel/kptr_restrict
 //
 // Documentation: This toggle indicates whether restrictions are placed on
 // exposing kernel addresses via /proc and other interfaces.
@@ -135,7 +135,7 @@ import (
 // the host FS value will be left untouched.
 //
 //
-// /proc/sys/kernel/ngroups_max handler
+// * /proc/sys/kernel/ngroups_max handler
 //
 // Documentation: The numerical value stored in this file represents the maximum
 // number of supplementary groups of which a process can be a member of (65k in
@@ -151,7 +151,7 @@ import (
 // getattr, etc).
 //
 //
-// /proc/sys/kernel/printk handler
+// * /proc/sys/kernel/printk handler
 //
 // Documentation: The four values in printk denote: console_loglevel,
 // default_message_loglevel, minimum_console_loglevel and default_console_loglevel
@@ -260,16 +260,16 @@ func (h *ProcSysKernel) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	var lookupNode = filepath.Base(n.Path())
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated nodes.
-	if v, ok := h.EmuResourceMap[lookupNode]; ok {
+	if v, ok := h.EmuResourceMap[resource]; ok {
 		info := &domain.FileInfo{
-			Fname:    lookupNode,
+			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
 		}
@@ -291,13 +291,14 @@ func (h *ProcSysKernel) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Oepn() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
+
 	flags := n.OpenFlags()
 
-	switch name {
+	switch resource {
 	case "cap_last_cap":
 		if flags != syscall.O_RDONLY {
 			return fuse.IOerror{Code: syscall.EACCES}
@@ -347,8 +348,10 @@ func (h *ProcSysKernel) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -356,9 +359,7 @@ func (h *ProcSysKernel) Read(
 		return 0, io.EOF
 	}
 
-	name := n.Name()
-
-	switch name {
+	switch resource {
 	case "cap_last_cap":
 		return readFileInt(h, n, req)
 
@@ -403,12 +404,12 @@ func (h *ProcSysKernel) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Write() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	switch name {
+	switch resource {
 	case "cap_last_cap":
 		return 0, nil
 
@@ -453,8 +454,10 @@ func (h *ProcSysKernel) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	var fileEntries []os.FileInfo
 

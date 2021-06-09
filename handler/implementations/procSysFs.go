@@ -28,6 +28,18 @@ import (
 )
 
 //
+// /proc/sys/fs handler
+//
+// Emulated resources:
+//
+// * /proc/sys/fs/file-max
+//
+// * /proc/sys/fs/nr-open
+//
+// * /proc/sys/fs/protected_hardlinks
+//
+// * /proc/sys/fs/protected_symlinks
+//
 
 const (
 	minProtectedSymlinksVal = 0
@@ -76,8 +88,10 @@ func (h *ProcSysFs) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// If looked-up element hasn't been found by now, let's look into the actual
 	// sys container rootfs.
@@ -93,12 +107,12 @@ func (h *ProcSysFs) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	switch name {
+	switch resource {
 	case "file-max":
 		return nil
 
@@ -124,8 +138,10 @@ func (h *ProcSysFs) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing $v Read() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -133,9 +149,7 @@ func (h *ProcSysFs) Read(
 		return 0, io.EOF
 	}
 
-	name := n.Name()
-
-	switch name {
+	switch resource {
 	case "file-max":
 		return readFileInt(h, n, req)
 
@@ -162,11 +176,12 @@ func (h *ProcSysFs) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing %v Write() method", h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	switch name {
+	switch resource {
 	case "file-max":
 		return writeFileMaxInt(h, n, req, false)
 
@@ -193,8 +208,10 @@ func (h *ProcSysFs) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	var fileEntries []os.FileInfo
 

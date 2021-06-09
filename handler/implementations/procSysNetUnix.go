@@ -17,11 +17,9 @@
 package implementations
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -30,6 +28,13 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
+//
+// /proc/sys/net/unix handler
+//
+// Emulated resources:
+//
+// * /proc/sys/net/unix/max_dgram_qlen
+//
 type ProcSysNetUnix struct {
 	domain.HandlerBase
 }
@@ -52,16 +57,16 @@ func (h *ProcSysNetUnix) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	var lookupNode = filepath.Base(n.Path())
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated nodes.
-	if v, ok := h.EmuResourceMap[lookupNode]; ok {
+	if v, ok := h.EmuResourceMap[resource]; ok {
 		info := &domain.FileInfo{
-			Fname:    lookupNode,
+			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
 		}
@@ -83,12 +88,12 @@ func (h *ProcSysNetUnix) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	switch name {
+	switch resource {
 	case "max_dgram_qlen":
 		return nil
 	}
@@ -105,8 +110,10 @@ func (h *ProcSysNetUnix) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -114,9 +121,7 @@ func (h *ProcSysNetUnix) Read(
 		return 0, io.EOF
 	}
 
-	name := n.Name()
-
-	switch name {
+	switch resource {
 	case "max_dgram_qlen":
 		return readFileInt(h, n, req)
 	}
@@ -134,20 +139,12 @@ func (h *ProcSysNetUnix) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Write() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
-	cntr := req.Container
+	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
-
-	switch name {
+	switch resource {
 	case "max_dgram_qlen":
 		return writeFileMaxInt(h, n, req, true)
 	}
@@ -165,15 +162,10 @@ func (h *ProcSysNetUnix) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	// Ensure operation is generated from within a registered sys container.
-	if req.Container == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return nil, errors.New("Container not found")
-	}
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	var fileEntries []os.FileInfo
 

@@ -34,9 +34,17 @@ import (
 )
 
 //
-// /proc/sys/net/netfilter handlers
+// /proc/sys/net/netfilter handler
 //
-// Emulated nodes:
+// Emulated resources:
+//
+// * /proc/sys/net/netfilter/nf_conntrack_max
+//
+// * /proc/sys/net/netfilter/nf_conntrack_generic_timeout
+//
+// * /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_established
+//
+// * /proc/sys/net/netfilter/nf_conntrack_tcp_timeout_close_wait
 //
 // * /proc/sys/net/netfilter/nf_conntrack_tcp_be_liberal
 //
@@ -100,16 +108,16 @@ func (h *ProcSysNetNetfilter) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	var lookupNode = filepath.Base(n.Path())
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// virtual-components.
-	if v, ok := h.EmuResourceMap[lookupNode]; ok {
+	if v, ok := h.EmuResourceMap[resource]; ok {
 		info := &domain.FileInfo{
-			Fname:    lookupNode,
+			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
 		}
@@ -140,7 +148,10 @@ func (h *ProcSysNetNetfilter) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing %v Read() method", h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -148,9 +159,7 @@ func (h *ProcSysNetNetfilter) Read(
 		return 0, io.EOF
 	}
 
-	name := n.Name()
-
-	switch name {
+	switch resource {
 	case "nf_conntrack_max":
 		return readFileInt(h, n, req)
 
@@ -179,11 +188,12 @@ func (h *ProcSysNetNetfilter) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing %v Write() method", h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	switch name {
+	switch resource {
 	case "nf_conntrack_max":
 		return writeFileMaxInt(h, n, req, true)
 
@@ -213,13 +223,12 @@ func (h *ProcSysNetNetfilter) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	var (
-		info        *domain.FileInfo
-		fileEntries []os.FileInfo
-	)
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
+
+	var fileEntries []os.FileInfo
 
 	// Obtain relative path to the element being read.
 	relpath, err := filepath.Rel(h.Path, n.Path())
@@ -231,8 +240,8 @@ func (h *ProcSysNetNetfilter) ReadDirAll(
 	for k, _ := range h.EmuResourceMap {
 
 		if relpath == filepath.Dir(k) {
-			info = &domain.FileInfo{
-				Fname:    filepath.Base(k),
+			info := &domain.FileInfo{
+				Fname:    k,
 				Fmode:    os.FileMode(uint32(0644)),
 				FmodTime: time.Now(),
 			}

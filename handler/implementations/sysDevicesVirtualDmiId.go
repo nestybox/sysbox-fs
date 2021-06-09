@@ -30,7 +30,13 @@ import (
 )
 
 //
-// 'product_uuid' file holds 36 characters with the following layout:
+// /sys/class/dmi/id handler
+//
+// Emulated resources:
+//
+// * /sys/class/dmi/id/product_uuid
+//
+//'product_uuid' file holds 36 characters with the following layout:
 //
 // $ cat /sys/class/dmi/id/product_uuid
 // e617c421-0026-4941-9e95-56a1ab1f4cb3
@@ -72,8 +78,10 @@ func (h *SysDevicesVirtualDmiId) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	return n.Stat()
 }
@@ -82,8 +90,10 @@ func (h *SysDevicesVirtualDmiId) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	flags := n.OpenFlags()
 	if flags != syscall.O_RDONLY {
@@ -97,8 +107,10 @@ func (h *SysDevicesVirtualDmiId) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -106,7 +118,6 @@ func (h *SysDevicesVirtualDmiId) Read(
 		return 0, io.EOF
 	}
 
-	name := n.Name()
 	path := n.Path()
 	cntr := req.Container
 
@@ -114,7 +125,7 @@ func (h *SysDevicesVirtualDmiId) Read(
 
 	// Check if this resource has been initialized for this container. Otherwise,
 	// fetch the information from the host FS.
-	data, ok := cntr.Data(path, name)
+	data, ok := cntr.Data(path, resource)
 	if !ok {
 		val, err := fetchFileData(h, n, cntr)
 		if err != nil && err != io.EOF {
@@ -123,7 +134,7 @@ func (h *SysDevicesVirtualDmiId) Read(
 		}
 
 		data = h.GenerateProductUuid(val, cntr)
-		cntr.SetData(path, name, data)
+		cntr.SetData(path, resource, data)
 	}
 
 	cntr.Unlock()
@@ -136,9 +147,6 @@ func (h *SysDevicesVirtualDmiId) Read(
 func (h *SysDevicesVirtualDmiId) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
-
-	logrus.Debugf("Executing Write() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
 
 	return 0, nil
 }

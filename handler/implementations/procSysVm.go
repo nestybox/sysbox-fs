@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -30,7 +29,11 @@ import (
 )
 
 //
-// /proc/sys/vm/mmap_min_addr handler
+// /proc/sys/vm handler
+//
+// Emulated resources:
+//
+// * /proc/sys/vm/mmap_min_addr
 //
 // Documentation: This file indicates the amount of address space which a user
 // process will be restricted from mmapping. Since kernel null dereference bugs
@@ -45,6 +48,8 @@ import (
 // Note: As this is a system-wide attribute, changes will be only made
 // superficially (at sys-container level). IOW, the host FS value will be left
 // untouched.
+//
+// * /proc/sys/vm/overcommit_memory
 //
 
 const (
@@ -79,16 +84,16 @@ func (h *ProcSysVm) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	var lookupNode = filepath.Base(n.Path())
+	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated nodes.
-	if v, ok := h.EmuResourceMap[lookupNode]; ok {
+	if v, ok := h.EmuResourceMap[resource]; ok {
 		info := &domain.FileInfo{
-			Fname:    lookupNode,
+			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
 		}
@@ -110,12 +115,12 @@ func (h *ProcSysVm) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Open() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	switch name {
+	switch resource {
 	case "overcommit_memory":
 		return nil
 
@@ -135,8 +140,10 @@ func (h *ProcSysVm) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
@@ -144,9 +151,7 @@ func (h *ProcSysVm) Read(
 		return 0, io.EOF
 	}
 
-	name := n.Name()
-
-	switch name {
+	switch resource {
 	case "overcommit_memory":
 		return readFileInt(h, n, req)
 
@@ -167,12 +172,12 @@ func (h *ProcSysVm) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Write() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
 
-	name := n.Name()
+	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
-	switch name {
+	switch resource {
 	case "overcommit_memory":
 		// Ensure that only proper values are allowed as per this resource semantics:
 		//
@@ -202,8 +207,10 @@ func (h *ProcSysVm) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() method for Req ID=%#x on %v handler",
-		req.ID, h.Name)
+	var resource = n.Name()
+
+	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+		req.ID, h.Name, resource)
 
 	var fileEntries []os.FileInfo
 
