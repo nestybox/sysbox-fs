@@ -48,13 +48,27 @@ var ProcSysFs_Handler = &ProcSysFs{
 		Name: "ProcSysFs",
 		Path: "/proc/sys/fs",
 		EmuResourceMap: map[string]domain.EmuResource{
-			"file-max":            {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"nr-open":             {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"protected_hardlinks": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0600))},
-			"protected_symlinks":  {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0600))},
+			"file-max": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"nr-open": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"protected_hardlinks": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0600)),
+				Enabled: true,
+			},
+			"protected_symlinks": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0600)),
+				Enabled: true,
+			},
 		},
-		Enabled:   true,
-		Cacheable: true,
 	},
 }
 
@@ -206,10 +220,6 @@ func (h *ProcSysFs) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysFs) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *ProcSysFs) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -225,9 +235,6 @@ func (h *ProcSysFs) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-func (h *ProcSysFs) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *ProcSysFs) SetService(hs domain.HandlerServiceIface) {

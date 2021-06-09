@@ -78,11 +78,17 @@ var ProcSysNetCore_Handler = &ProcSysNetCore{
 		Name: "ProcSysNetCore",
 		Path: "/proc/sys/net/core",
 		EmuResourceMap: map[string]domain.EmuResource{
-			"default_qdisc": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"somaxconn":     {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"default_qdisc": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"somaxconn": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
 		},
-		Enabled:   true,
-		Cacheable: true,
 	},
 }
 
@@ -227,10 +233,6 @@ func (h *ProcSysNetCore) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysNetCore) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *ProcSysNetCore) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -246,10 +248,6 @@ func (h *ProcSysNetCore) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *ProcSysNetCore) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *ProcSysNetCore) SetService(hs domain.HandlerServiceIface) {

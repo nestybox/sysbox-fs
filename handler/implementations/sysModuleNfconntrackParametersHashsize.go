@@ -36,12 +36,11 @@ var SysModuleNfconntrackParameters_Handler = &SysModuleNfconntrackParameters{
 		Path: "/sys/module/nf_conntrack/parameters",
 		EmuResourceMap: map[string]domain.EmuResource{
 			"hashsize": {
-				Kind: domain.FileEmuResource,
-				Mode: os.FileMode(uint32(0600)),
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0600)),
+				Enabled: true,
 			},
 		},
-		Enabled:   true,
-		Cacheable: true,
 	},
 }
 
@@ -106,10 +105,6 @@ func (h *SysModuleNfconntrackParameters) GetPath() string {
 	return h.Path
 }
 
-func (h *SysModuleNfconntrackParameters) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *SysModuleNfconntrackParameters) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -125,10 +120,6 @@ func (h *SysModuleNfconntrackParameters) GetResourceMutex(s string) *sync.Mutex 
 	}
 
 	return &resource.Mutex
-}
-
-func (h *SysModuleNfconntrackParameters) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *SysModuleNfconntrackParameters) SetService(hs domain.HandlerServiceIface) {

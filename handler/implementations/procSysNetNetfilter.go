@@ -67,14 +67,32 @@ var ProcSysNetNetfilter_Handler = &ProcSysNetNetfilter{
 		Name: "ProcSysNetNetfilter",
 		Path: "/proc/sys/net/netfilter",
 		EmuResourceMap: map[string]domain.EmuResource{
-			"nf_conntrack_max":                     {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"nf_conntrack_generic_timeout":         {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"nf_conntrack_tcp_be_liberal":          {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"nf_conntrack_tcp_timeout_established": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"nf_conntrack_tcp_timeout_close_wait":  {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"nf_conntrack_max": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"nf_conntrack_generic_timeout": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"nf_conntrack_tcp_be_liberal": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"nf_conntrack_tcp_timeout_established": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"nf_conntrack_tcp_timeout_close_wait": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
 		},
-		Enabled:   true,
-		Cacheable: true,
 	},
 }
 
@@ -246,10 +264,6 @@ func (h *ProcSysNetNetfilter) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysNetNetfilter) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *ProcSysNetNetfilter) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -265,10 +279,6 @@ func (h *ProcSysNetNetfilter) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *ProcSysNetNetfilter) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *ProcSysNetNetfilter) SetService(hs domain.HandlerServiceIface) {

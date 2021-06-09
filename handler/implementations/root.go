@@ -44,10 +44,8 @@ type Root struct {
 
 var Root_Handler = &Root{
 	domain.HandlerBase{
-		Name:      "root",
-		Path:      "/",
-		Enabled:   true,
-		Cacheable: true,
+		Name: "root",
+		Path: "/",
 	},
 }
 
@@ -104,10 +102,6 @@ func (h *Root) GetPath() string {
 	return h.Path
 }
 
-func (h *Root) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *Root) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -123,10 +117,6 @@ func (h *Root) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *Root) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *Root) SetService(hs domain.HandlerServiceIface) {

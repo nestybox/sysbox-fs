@@ -14,13 +14,13 @@ type HandlerServiceIface struct {
 	mock.Mock
 }
 
-// DisableHandler provides a mock function with given fields: h
-func (_m *HandlerServiceIface) DisableHandler(h domain.HandlerIface) error {
-	ret := _m.Called(h)
+// DisableHandlerResource provides a mock function with given fields: h, res
+func (_m *HandlerServiceIface) DisableHandlerResource(h domain.HandlerIface, res string) error {
+	ret := _m.Called(h, res)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(domain.HandlerIface) error); ok {
-		r0 = rf(h)
+	if rf, ok := ret.Get(0).(func(domain.HandlerIface, string) error); ok {
+		r0 = rf(h, res)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -28,13 +28,13 @@ func (_m *HandlerServiceIface) DisableHandler(h domain.HandlerIface) error {
 	return r0
 }
 
-// EnableHandler provides a mock function with given fields: h
-func (_m *HandlerServiceIface) EnableHandler(h domain.HandlerIface) error {
-	ret := _m.Called(h)
+// EnableHandlerResource provides a mock function with given fields: h, res
+func (_m *HandlerServiceIface) EnableHandlerResource(h domain.HandlerIface, res string) error {
+	ret := _m.Called(h, res)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(domain.HandlerIface) error); ok {
-		r0 = rf(h)
+	if rf, ok := ret.Get(0).(func(domain.HandlerIface, string) error); ok {
+		r0 = rf(h, res)
 	} else {
 		r0 = ret.Error(0)
 	}

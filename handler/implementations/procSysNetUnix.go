@@ -39,10 +39,12 @@ var ProcSysNetUnix_Handler = &ProcSysNetUnix{
 		Name: "ProcSysNetUnix",
 		Path: "/proc/sys/net/unix",
 		EmuResourceMap: map[string]domain.EmuResource{
-			"max_dgram_qlen": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"max_dgram_qlen": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
 		},
-		Enabled:   true,
-		Cacheable: true,
 	},
 }
 
@@ -198,10 +200,6 @@ func (h *ProcSysNetUnix) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysNetUnix) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *ProcSysNetUnix) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -217,10 +215,6 @@ func (h *ProcSysNetUnix) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *ProcSysNetUnix) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *ProcSysNetUnix) SetService(hs domain.HandlerServiceIface) {

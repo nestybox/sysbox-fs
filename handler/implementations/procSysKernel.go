@@ -202,19 +202,57 @@ var ProcSysKernel_Handler = &ProcSysKernel{
 		Name: "ProcSysKernel",
 		Path: "/proc/sys/kernel",
 		EmuResourceMap: map[string]domain.EmuResource{
-			"domainname":    {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"hostname":      {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"kptr_restrict": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"ngroups_max":   {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0444))},
-			"cap_last_cap":  {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0444))},
-			"panic":         {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"panic_on_oops": {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"printk":        {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"sysrq":         {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
-			"pid_max":       {Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))},
+			"domainname": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"hostname": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"kptr_restrict": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"ngroups_max": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0444)),
+				Enabled: true,
+			},
+			"cap_last_cap": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0444)),
+				Enabled: true,
+			},
+			"panic": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"panic_on_oops": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"printk": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"sysrq": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
+			"pid_max": {
+				Kind:    domain.FileEmuResource,
+				Mode:    os.FileMode(uint32(0644)),
+				Enabled: true,
+			},
 		},
-		Enabled:   true,
-		Cacheable: true,
 	},
 }
 
@@ -443,10 +481,6 @@ func (h *ProcSysKernel) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysKernel) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *ProcSysKernel) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -462,10 +496,6 @@ func (h *ProcSysKernel) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *ProcSysKernel) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *ProcSysKernel) SetService(hs domain.HandlerServiceIface) {

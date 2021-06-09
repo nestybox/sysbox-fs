@@ -45,10 +45,8 @@ type ProcSysCommon struct {
 
 var ProcSysCommon_Handler = &ProcSysCommon{
 	domain.HandlerBase{
-		Name:      "ProcSysCommon",
-		Path:      "/proc/sys/",
-		Enabled:   true,
-		Cacheable: true,
+		Name: "ProcSysCommon",
+		Path: "/proc/sys/",
 	},
 }
 
@@ -159,7 +157,7 @@ func (h *ProcSysCommon) Read(
 	// know when the namespace ceases to exist in order to destroy the cache associated
 	// with it.
 	//
-	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
+	if domain.ProcessNsMatch(process, cntr.InitProc()) {
 
 		// If this resource is cached, return it's data; otherwise fetch its data from the
 		// host FS and store it in the cache.
@@ -201,10 +199,10 @@ func (h *ProcSysCommon) Write(
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 
-	// If caching is enabled, store the data in the cache and do a write-through to the
-	// host FS. Otherwise just do the write-through.
-	if h.Cacheable && domain.ProcessNsMatch(process, cntr.InitProc()) {
-
+	// If write op is originated by a process within a registered sys-container
+	// (it fully matches its namespaces) then store the data in the cache and do
+	// a write-through to the host FS. Otherwise just do the write-through.
+	if domain.ProcessNsMatch(process, cntr.InitProc()) {
 		cntr.Lock()
 		if err := h.pushFile(n, process, newContent); err != nil {
 			cntr.Unlock()
@@ -392,10 +390,6 @@ func (h *ProcSysCommon) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysCommon) GetEnabled() bool {
-	return h.Enabled
-}
-
 func (h *ProcSysCommon) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
@@ -411,10 +405,6 @@ func (h *ProcSysCommon) GetResourceMutex(s string) *sync.Mutex {
 	}
 
 	return &resource.Mutex
-}
-
-func (h *ProcSysCommon) SetEnabled(val bool) {
-	h.Enabled = val
 }
 
 func (h *ProcSysCommon) SetService(hs domain.HandlerServiceIface) {

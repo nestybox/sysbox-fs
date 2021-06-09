@@ -240,11 +240,9 @@ func TestProcSysCommon_Lookup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
+					Name:    tt.fields.Name,
+					Path:    tt.fields.Path,
+					Service: tt.fields.Service,
 				},
 			}
 
@@ -444,11 +442,9 @@ func TestProcSysCommon_Open(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
+					Name:    tt.fields.Name,
+					Path:    tt.fields.Path,
+					Service: tt.fields.Service,
 				},
 			}
 
@@ -664,11 +660,9 @@ func TestProcSysCommon_Read(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
+					Name:    tt.fields.Name,
+					Path:    tt.fields.Path,
+					Service: tt.fields.Service,
 				},
 			}
 
@@ -876,11 +870,9 @@ func TestProcSysCommon_Write(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
+					Name:    tt.fields.Name,
+					Path:    tt.fields.Path,
+					Service: tt.fields.Service,
 				},
 			}
 
@@ -1102,11 +1094,9 @@ func TestProcSysCommon_ReadDirAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
+					Name:    tt.fields.Name,
+					Path:    tt.fields.Path,
+					Service: tt.fields.Service,
 				},
 			}
 
@@ -1159,11 +1149,9 @@ func TestProcSysCommon_Setattr(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
+					Name:    tt.fields.Name,
+					Path:    tt.fields.Path,
+					Service: tt.fields.Service,
 				},
 			}
 			if err := h.Setattr(tt.args.n, tt.args.req); (err != nil) != tt.wantErr {
@@ -1192,11 +1180,9 @@ func TestProcSysCommon_GetName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
+					Name:    tt.fields.Name,
+					Path:    tt.fields.Path,
+					Service: tt.fields.Service,
 				},
 			}
 			if got := h.GetName(); got != tt.want {
@@ -1225,48 +1211,13 @@ func TestProcSysCommon_GetPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
+					Name:    tt.fields.Name,
+					Path:    tt.fields.Path,
+					Service: tt.fields.Service,
 				},
 			}
 			if got := h.GetPath(); got != tt.want {
 				t.Errorf("ProcSysCommon.GetPath() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestProcSysCommon_GetEnabled(t *testing.T) {
-	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
-				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
-				},
-			}
-			if got := h.GetEnabled(); got != tt.want {
-				t.Errorf("ProcSysCommon.GetEnabled() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1291,50 +1242,14 @@ func TestProcSysCommon_GetService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
+					Name:    tt.fields.Name,
+					Path:    tt.fields.Path,
+					Service: tt.fields.Service,
 				},
 			}
 			if got := h.GetService(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ProcSysCommon.GetService() = %v, want %v", got, tt.want)
 			}
-		})
-	}
-}
-
-func TestProcSysCommon_SetEnabled(t *testing.T) {
-	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
-	}
-	type args struct {
-		val bool
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
-				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
-				},
-			}
-			h.SetEnabled(tt.args.val)
 		})
 	}
 }
@@ -1361,11 +1276,9 @@ func TestProcSysCommon_SetService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.ProcSysCommon{
 				domain.HandlerBase{
-					Name:      tt.fields.Name,
-					Path:      tt.fields.Path,
-					Enabled:   tt.fields.Enabled,
-					Cacheable: tt.fields.Cacheable,
-					Service:   tt.fields.Service,
+					Name:    tt.fields.Name,
+					Path:    tt.fields.Path,
+					Service: tt.fields.Service,
 				},
 			}
 			h.SetService(tt.args.hs)
