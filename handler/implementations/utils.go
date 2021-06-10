@@ -62,7 +62,7 @@ func readFileInt(
 		if err != nil {
 			logrus.Errorf("Unexpected content read from file %v, error %v",
 				n.Path(), err)
-			return 0, err
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
 		}
 
 		cntr.SetData(path, name, val)
@@ -151,7 +151,7 @@ func writeFileMaxInt(
 	newMaxInt, err := strconv.Atoi(newMax)
 	if err != nil {
 		logrus.Errorf("Unexpected error: %v", err)
-		return 0, err
+		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 
 	cntr.Lock()
@@ -182,7 +182,6 @@ func writeFileMaxInt(
 	// new value into the container struct but not push it down to the kernel.
 	if newMaxInt < curMaxInt {
 		cntr.SetData(path, name, newMax)
-
 		return len(req.Data), nil
 	}
 
@@ -213,7 +212,7 @@ func writeFileMinInt(
 	newMinInt, err := strconv.Atoi(newMin)
 	if err != nil {
 		logrus.Errorf("Unexpected error: %v", err)
-		return 0, err
+		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 
 	cntr.Lock()
