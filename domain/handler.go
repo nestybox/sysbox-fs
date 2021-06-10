@@ -26,11 +26,11 @@ import (
 // HandlerBase is a type common to all the handlers.
 //
 // HandlerBase type is used to bundle the different file-system operations that
-// can be executed over sysbox-fs' emulated resources. As such, handles are
+// can be executed over sysbox-fs' emulated resources. As such, handlers are
 // typically associated with a directory path inside of which there is at least
 // one resource (file or subdir) that needs to be emulated.
 //
-// Handles can be paired with a file too though, but usually they are associated
+// Handlers can be paired with a file too though, but usually they are associated
 // with directories to leverage the fact that, within a given directory, there
 // are commonalities among the resources being emulated. Hence, this approach
 // reduces the amount of duplicated code that would otherwise derive from

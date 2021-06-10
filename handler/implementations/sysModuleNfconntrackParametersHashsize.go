@@ -27,11 +27,11 @@ import (
 )
 
 //
-// /sys/module/nf_conntrack handler
+// /sys/module/nf_conntrack/parameters handler
 //
 // Emulated resources:
 //
-// */sys/module/nf_conntrack/parameters
+// * /sys/module/nf_conntrack/parameters/hashsize
 //
 
 type SysModuleNfconntrackParameters struct {
