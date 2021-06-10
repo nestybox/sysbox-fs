@@ -240,6 +240,20 @@ func (_m *ContainerIface) IsImmutableRoMountID(id int) bool {
 	return r0
 }
 
+// IsImmutableRoMountpoint provides a mock function with given fields: mp
+func (_m *ContainerIface) IsImmutableRoMountpoint(mp string) bool {
+	ret := _m.Called(mp)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(string) bool); ok {
+		r0 = rf(mp)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // Lock provides a mock function with given fields:
 func (_m *ContainerIface) Lock() {
 	_m.Called()
@@ -291,20 +305,6 @@ func (_m *ContainerIface) SetInitProc(pid uint32, uid uint32, gid uint32) error 
 		r0 = rf(pid, uid, gid)
 	} else {
 		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// String provides a mock function with given fields:
-func (_m *ContainerIface) String() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0

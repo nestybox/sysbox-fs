@@ -30,8 +30,8 @@ func TestSysDevicesVirtualDmiIdProductUuid_generateProductUuid(t *testing.T) {
 	}
 	var f1 = fields{
 		domain.HandlerBase{
-			Name: "SysDevicesVirtualDmiIdProductUuid",
-			Path: "/sys/devices/virtual/dmi/id/product_uuid",
+			Name: "SysDevicesVirtualDmiId",
+			Path: "/sys/devices/virtual/dmi/id",
 		},
 	}
 

@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	os "os"
+	fs "io/fs"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -119,14 +119,14 @@ func (_m *IOnodeIface) OpenFlags() int {
 }
 
 // OpenMode provides a mock function with given fields:
-func (_m *IOnodeIface) OpenMode() os.FileMode {
+func (_m *IOnodeIface) OpenMode() fs.FileMode {
 	ret := _m.Called()
 
-	var r0 os.FileMode
-	if rf, ok := ret.Get(0).(func() os.FileMode); ok {
+	var r0 fs.FileMode
+	if rf, ok := ret.Get(0).(func() fs.FileMode); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(os.FileMode)
+		r0 = ret.Get(0).(fs.FileMode)
 	}
 
 	return r0
@@ -189,15 +189,15 @@ func (_m *IOnodeIface) ReadAt(p []byte, off int64) (int, error) {
 }
 
 // ReadDirAll provides a mock function with given fields:
-func (_m *IOnodeIface) ReadDirAll() ([]os.FileInfo, error) {
+func (_m *IOnodeIface) ReadDirAll() ([]fs.FileInfo, error) {
 	ret := _m.Called()
 
-	var r0 []os.FileInfo
-	if rf, ok := ret.Get(0).(func() []os.FileInfo); ok {
+	var r0 []fs.FileInfo
+	if rf, ok := ret.Get(0).(func() []fs.FileInfo); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]os.FileInfo)
+			r0 = ret.Get(0).([]fs.FileInfo)
 		}
 	}
 
@@ -304,26 +304,36 @@ func (_m *IOnodeIface) SeekReset() (int64, error) {
 	return r0, r1
 }
 
+// SetName provides a mock function with given fields: s
+func (_m *IOnodeIface) SetName(s string) {
+	_m.Called(s)
+}
+
 // SetOpenFlags provides a mock function with given fields: flags
 func (_m *IOnodeIface) SetOpenFlags(flags int) {
 	_m.Called(flags)
 }
 
 // SetOpenMode provides a mock function with given fields: mode
-func (_m *IOnodeIface) SetOpenMode(mode os.FileMode) {
+func (_m *IOnodeIface) SetOpenMode(mode fs.FileMode) {
 	_m.Called(mode)
 }
 
+// SetPath provides a mock function with given fields: s
+func (_m *IOnodeIface) SetPath(s string) {
+	_m.Called(s)
+}
+
 // Stat provides a mock function with given fields:
-func (_m *IOnodeIface) Stat() (os.FileInfo, error) {
+func (_m *IOnodeIface) Stat() (fs.FileInfo, error) {
 	ret := _m.Called()
 
-	var r0 os.FileInfo
-	if rf, ok := ret.Get(0).(func() os.FileInfo); ok {
+	var r0 fs.FileInfo
+	if rf, ok := ret.Get(0).(func() fs.FileInfo); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(os.FileInfo)
+			r0 = ret.Get(0).(fs.FileInfo)
 		}
 	}
 
