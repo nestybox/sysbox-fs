@@ -3,8 +3,7 @@
 package mocks
 
 import (
-	fs "io/fs"
-
+	os "os"
 	domain "github.com/nestybox/sysbox-fs/domain"
 
 	mock "github.com/stretchr/testify/mock"
@@ -94,15 +93,15 @@ func (_m *HandlerIface) GetService() domain.HandlerServiceIface {
 }
 
 // Lookup provides a mock function with given fields: n, req
-func (_m *HandlerIface) Lookup(n domain.IOnodeIface, req *domain.HandlerRequest) (fs.FileInfo, error) {
+func (_m *HandlerIface) Lookup(n domain.IOnodeIface, req *domain.HandlerRequest) (os.FileInfo, error) {
 	ret := _m.Called(n, req)
 
-	var r0 fs.FileInfo
-	if rf, ok := ret.Get(0).(func(domain.IOnodeIface, *domain.HandlerRequest) fs.FileInfo); ok {
+	var r0 os.FileInfo
+	if rf, ok := ret.Get(0).(func(domain.IOnodeIface, *domain.HandlerRequest) os.FileInfo); ok {
 		r0 = rf(n, req)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(fs.FileInfo)
+			r0 = ret.Get(0).(os.FileInfo)
 		}
 	}
 
@@ -152,15 +151,15 @@ func (_m *HandlerIface) Read(node domain.IOnodeIface, req *domain.HandlerRequest
 }
 
 // ReadDirAll provides a mock function with given fields: node, req
-func (_m *HandlerIface) ReadDirAll(node domain.IOnodeIface, req *domain.HandlerRequest) ([]fs.FileInfo, error) {
+func (_m *HandlerIface) ReadDirAll(node domain.IOnodeIface, req *domain.HandlerRequest) ([]os.FileInfo, error) {
 	ret := _m.Called(node, req)
 
-	var r0 []fs.FileInfo
-	if rf, ok := ret.Get(0).(func(domain.IOnodeIface, *domain.HandlerRequest) []fs.FileInfo); ok {
+	var r0 []os.FileInfo
+	if rf, ok := ret.Get(0).(func(domain.IOnodeIface, *domain.HandlerRequest) []os.FileInfo); ok {
 		r0 = rf(node, req)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]fs.FileInfo)
+			r0 = ret.Get(0).([]os.FileInfo)
 		}
 	}
 
