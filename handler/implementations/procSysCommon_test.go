@@ -17,7 +17,6 @@
 package implementations_test
 
 import (
-	"errors"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -76,19 +75,15 @@ func TestMain(m *testing.M) {
 
 func TestProcSysCommon_Lookup(t *testing.T) {
 	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
+		Name    string
+		Path    string
+		Service domain.HandlerServiceIface
 	}
 
 	var f1 = fields{
-		Name:      "procSysCommon",
-		Path:      "ProcSysCommon",
-		Enabled:   true,
-		Cacheable: true,
-		Service:   hds,
+		Name:    "procSysCommon",
+		Path:    "ProcSysCommon",
+		Service: hds,
 	}
 
 	type args struct {
@@ -112,14 +107,6 @@ func TestProcSysCommon_Lookup(t *testing.T) {
 				nil,
 				nil,
 				nil),
-		},
-	}
-
-	// Invalid method arguments -- missing sys-container attribute.
-	var a2 = args{
-		n: ios.NewIOnode("net", "/proc/sys/net", 0),
-		req: &domain.HandlerRequest{
-			Pid: 1001,
 		},
 	}
 
@@ -177,23 +164,10 @@ func TestProcSysCommon_Lookup(t *testing.T) {
 		},
 		{
 			//
-			// Test-case 2: Verify proper behavior if an invalid handlerReq is
-			// received -- missing sys-container attribute.
-			//
-			name:       "2",
-			fields:     f1,
-			args:       a2,
-			want:       nil,
-			wantErr:    true,
-			wantErrVal: errors.New("Container not found"),
-			prepare:    func() {},
-		},
-		{
-			//
-			// Test-case 3: Verify proper behavior during nsenter error conditions
+			// Test-case 2: Verify proper behavior during nsenter error conditions
 			// (EACCESS).
 			//
-			name:       "3",
+			name:       "2",
 			fields:     f1,
 			args:       a1,
 			want:       nil,
@@ -277,19 +251,15 @@ func TestProcSysCommon_Lookup(t *testing.T) {
 
 func TestProcSysCommon_Open(t *testing.T) {
 	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
+		Name    string
+		Path    string
+		Service domain.HandlerServiceIface
 	}
 
 	var f1 = fields{
-		Name:      "procSysCommon",
-		Path:      "ProcSysCommon",
-		Enabled:   true,
-		Cacheable: true,
-		Service:   hds,
+		Name:    "procSysCommon",
+		Path:    "ProcSysCommon",
+		Service: hds,
 	}
 
 	type args struct {
@@ -313,14 +283,6 @@ func TestProcSysCommon_Open(t *testing.T) {
 				nil,
 				nil,
 				nil),
-		},
-	}
-
-	// Invalid method arguments -- missing sys-container attribute.
-	var a2 = args{
-		n: ios.NewIOnode("net", "/proc/sys/net", 0),
-		req: &domain.HandlerRequest{
-			Pid: 1001,
 		},
 	}
 
@@ -378,22 +340,10 @@ func TestProcSysCommon_Open(t *testing.T) {
 		},
 		{
 			//
-			// Test-case 2: Verify proper behavior if an invalid handlerReq is
-			// received -- missing sys-container attribute.
-			//
-			name:       "2",
-			fields:     f1,
-			args:       a2,
-			wantErr:    true,
-			wantErrVal: errors.New("Container not found"),
-			prepare:    func() {},
-		},
-		{
-			//
-			// Test-case 3: Verify proper behavior during nsenter error conditions
+			// Test-case 2: Verify proper behavior during nsenter error conditions
 			// (EACCESS).
 			//
-			name:       "3",
+			name:       "2",
 			fields:     f1,
 			args:       a1,
 			wantErr:    true,
@@ -472,29 +422,16 @@ func TestProcSysCommon_Open(t *testing.T) {
 
 func TestProcSysCommon_Read(t *testing.T) {
 	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
+		Name    string
+		Path    string
+		Service domain.HandlerServiceIface
 	}
 
 	// Caching enabled.
 	var f1 = fields{
-		Name:      "procSysCommon",
-		Path:      "ProcSysCommon",
-		Enabled:   true,
-		Cacheable: true,
-		Service:   hds,
-	}
-
-	// Caching disabled. Utilized in Testcase-3 to force nsenter error condition.
-	var f2 = fields{
-		Name:      "procSysCommon",
-		Path:      "ProcSysCommon",
-		Enabled:   true,
-		Cacheable: false,
-		Service:   hds,
+		Name:    "procSysCommon",
+		Path:    "ProcSysCommon",
+		Service: hds,
 	}
 
 	type args struct {
@@ -519,14 +456,6 @@ func TestProcSysCommon_Read(t *testing.T) {
 				nil,
 				nil,
 				css),
-		},
-	}
-
-	// Invalid method arguments -- missing sys-container attribute.
-	var a2 = args{
-		n: ios.NewIOnode("node_1", "/proc/sys/net/node_1", 0),
-		req: &domain.HandlerRequest{
-			Pid: 1001,
 		},
 	}
 
@@ -588,69 +517,6 @@ func TestProcSysCommon_Read(t *testing.T) {
 				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
 			},
 		},
-		{
-			//
-			// Test-case 2: Verify proper behavior if an invalid handlerReq is
-			// received -- missing sys-container attribute.
-			//
-			name:       "2",
-			fields:     f1,
-			args:       a2,
-			want:       0,
-			wantErr:    true,
-			wantErrVal: errors.New("Container not found"),
-			prepare:    func() {},
-		},
-		{
-			//
-			// Test-case 3: Verify proper behavior during nsenter error conditions
-			// (EACCESS).
-			//
-			name:       "3",
-			fields:     f2,
-			args:       a1,
-			want:       0,
-			wantErr:    true,
-			wantErrVal: syscall.EACCES,
-			prepare: func() {
-
-				// Setup dynamic state associated to tested container.
-				c1 := a1.req.Container
-				_ = c1.SetInitProc(c1.InitPid(), c1.UID(), c1.GID())
-				c1.InitProc().CreateNsInodes(123456)
-
-				// Expected nsenter request.
-				nsenterEventReq := &nsenter.NSenterEvent{
-					Pid:       a1.req.Pid,
-					Namespace: &domain.AllNSsButMount,
-					ReqMsg: &domain.NSenterMessage{
-						Type: domain.ReadFileRequest,
-						Payload: &domain.ReadFilePayload{
-							File: a1.n.Path(),
-						},
-					},
-				}
-
-				// Expected nsenter response.
-				nsenterEventResp := &nsenter.NSenterEvent{
-					ResMsg: &domain.NSenterMessage{
-						Type:    domain.ErrorResponse,
-						Payload: syscall.Errno(syscall.EACCES),
-					},
-				}
-
-				nss.On(
-					"NewEvent",
-					a1.req.Pid,
-					&domain.AllNSsButMount,
-					nsenterEventReq.ReqMsg,
-					(*domain.NSenterMessage)(nil),
-					false).Return(nsenterEventReq)
-
-				nss.On("SendRequestEvent", nsenterEventReq).Return(nil)
-				nss.On("ReceiveResponseEvent", nsenterEventReq).Return(nsenterEventResp.ResMsg)
-			},
-		},
 	}
 
 	//
@@ -690,19 +556,15 @@ func TestProcSysCommon_Read(t *testing.T) {
 
 func TestProcSysCommon_Write(t *testing.T) {
 	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
+		Name    string
+		Path    string
+		Service domain.HandlerServiceIface
 	}
 
 	var f1 = fields{
-		Name:      "procSysCommon",
-		Path:      "ProcSysCommon",
-		Enabled:   true,
-		Cacheable: true,
-		Service:   hds,
+		Name:    "procSysCommon",
+		Path:    "ProcSysCommon",
+		Service: hds,
 	}
 
 	type args struct {
@@ -727,14 +589,6 @@ func TestProcSysCommon_Write(t *testing.T) {
 				nil,
 				nil,
 				css),
-		},
-	}
-
-	// Invalid method arguments -- missing sys-container attribute.
-	var a2 = args{
-		n: ios.NewIOnode("node_1", "/proc/sys/net/node_1", 0),
-		req: &domain.HandlerRequest{
-			Pid: 1001,
 		},
 	}
 
@@ -799,23 +653,10 @@ func TestProcSysCommon_Write(t *testing.T) {
 		},
 		{
 			//
-			// Test-case 2: Verify proper behavior if an invalid handlerReq is
-			// received -- missing sys-container attribute.
-			//
-			name:       "2",
-			fields:     f1,
-			args:       a2,
-			want:       0,
-			wantErr:    true,
-			wantErrVal: errors.New("Container not found"),
-			prepare:    func() {},
-		},
-		{
-			//
-			// Test-case 3: Verify proper behavior during nsenter error conditions
+			// Test-case 2: Verify proper behavior during nsenter error conditions
 			// (EACCESS).
 			//
-			name:       "3",
+			name:       "2",
 			fields:     f1,
 			args:       a1,
 			want:       0,
@@ -900,19 +741,15 @@ func TestProcSysCommon_Write(t *testing.T) {
 
 func TestProcSysCommon_ReadDirAll(t *testing.T) {
 	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
+		Name    string
+		Path    string
+		Service domain.HandlerServiceIface
 	}
 
 	var f1 = fields{
-		Name:      "procSysCommon",
-		Path:      "ProcSysCommon",
-		Enabled:   true,
-		Cacheable: true,
-		Service:   hds,
+		Name:    "procSysCommon",
+		Path:    "ProcSysCommon",
+		Service: hds,
 	}
 
 	type args struct {
@@ -936,14 +773,6 @@ func TestProcSysCommon_ReadDirAll(t *testing.T) {
 				nil,
 				nil,
 				css),
-		},
-	}
-
-	// Invalid method arguments -- missing sys-container attribute.
-	var a2 = args{
-		n: ios.NewIOnode("net", "/proc/sys/net", 0),
-		req: &domain.HandlerRequest{
-			Pid: 1001,
 		},
 	}
 
@@ -1024,23 +853,10 @@ func TestProcSysCommon_ReadDirAll(t *testing.T) {
 		},
 		{
 			//
-			// Test-case 2: Verify proper behavior if an invalid handlerReq is
-			// received -- missing sys-container attribute.
-			//
-			name:       "2",
-			fields:     f1,
-			args:       a2,
-			want:       nil,
-			wantErr:    true,
-			wantErrVal: errors.New("Container not found"),
-			prepare:    func() {},
-		},
-		{
-			//
-			// Test-case 3: Verify proper behavior during nsenter error conditions
+			// Test-case 2: Verify proper behavior during nsenter error conditions
 			// (EACCESS).
 			//
-			name:       "3",
+			name:       "2",
 			fields:     f1,
 			args:       a1,
 			want:       nil,
@@ -1127,11 +943,9 @@ func TestProcSysCommon_ReadDirAll(t *testing.T) {
 
 func TestProcSysCommon_Setattr(t *testing.T) {
 	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
+		Name    string
+		Path    string
+		Service domain.HandlerServiceIface
 	}
 	type args struct {
 		n   domain.IOnodeIface
@@ -1163,11 +977,9 @@ func TestProcSysCommon_Setattr(t *testing.T) {
 
 func TestProcSysCommon_GetName(t *testing.T) {
 	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
+		Name    string
+		Path    string
+		Service domain.HandlerServiceIface
 	}
 	tests := []struct {
 		name   string
@@ -1194,11 +1006,9 @@ func TestProcSysCommon_GetName(t *testing.T) {
 
 func TestProcSysCommon_GetPath(t *testing.T) {
 	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
+		Name    string
+		Path    string
+		Service domain.HandlerServiceIface
 	}
 	tests := []struct {
 		name   string
@@ -1225,11 +1035,9 @@ func TestProcSysCommon_GetPath(t *testing.T) {
 
 func TestProcSysCommon_GetService(t *testing.T) {
 	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
+		Name    string
+		Path    string
+		Service domain.HandlerServiceIface
 	}
 	tests := []struct {
 		name   string
@@ -1256,11 +1064,9 @@ func TestProcSysCommon_GetService(t *testing.T) {
 
 func TestProcSysCommon_SetService(t *testing.T) {
 	type fields struct {
-		Name      string
-		Path      string
-		Enabled   bool
-		Cacheable bool
-		Service   domain.HandlerServiceIface
+		Name    string
+		Path    string
+		Service domain.HandlerServiceIface
 	}
 	type args struct {
 		hs domain.HandlerServiceIface

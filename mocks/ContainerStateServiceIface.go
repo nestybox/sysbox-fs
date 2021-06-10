@@ -60,29 +60,13 @@ func (_m *ContainerStateServiceIface) ContainerLookupById(id string) domain.Cont
 	return r0
 }
 
-// ContainerLookupByInode provides a mock function with given fields: usernsInode
-func (_m *ContainerStateServiceIface) ContainerLookupByInode(usernsInode uint64) domain.ContainerIface {
-	ret := _m.Called(usernsInode)
-
-	var r0 domain.ContainerIface
-	if rf, ok := ret.Get(0).(func(uint64) domain.ContainerIface); ok {
-		r0 = rf(usernsInode)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(domain.ContainerIface)
-		}
-	}
-
-	return r0
-}
-
 // ContainerPreRegister provides a mock function with given fields: id, netns
-func (_m *ContainerStateServiceIface) ContainerPreRegister(id, netns string) error {
+func (_m *ContainerStateServiceIface) ContainerPreRegister(id string, netns string) error {
 	ret := _m.Called(id, netns)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(id)
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(id, netns)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -12,13 +12,13 @@ type FuseServerServiceIface struct {
 	mock.Mock
 }
 
-// CreateFuseServer provides a mock function with given fields: cntr
-func (_m *FuseServerServiceIface) CreateFuseServer(cntr, stateCntr domain.ContainerIface) error {
-	ret := _m.Called(cntr, stateCntr)
+// CreateFuseServer provides a mock function with given fields: serveCntr, stateCntr
+func (_m *FuseServerServiceIface) CreateFuseServer(serveCntr domain.ContainerIface, stateCntr domain.ContainerIface) error {
+	ret := _m.Called(serveCntr, stateCntr)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(domain.ContainerIface) error); ok {
-		r0 = rf(cntr)
+	if rf, ok := ret.Get(0).(func(domain.ContainerIface, domain.ContainerIface) error); ok {
+		r0 = rf(serveCntr, stateCntr)
 	} else {
 		r0 = ret.Error(0)
 	}

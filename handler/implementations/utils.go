@@ -118,7 +118,7 @@ func fetchFileData(
 	// on the host FS. See pushFileMaxInt() for a full explanation.
 	resourceMutex := h.GetResourceMutex(n.Name())
 	if resourceMutex == nil {
-		logrus.Error("Unexpected error: no mutex found for emulated resource %s",
+		logrus.Errorf("Unexpected error: no mutex found for emulated resource %s",
 			n.Path())
 		return "", errors.New("no mutex found for emulated resource")
 	}
@@ -399,7 +399,7 @@ func pushFileMaxInt(
 
 	resourceMutex := h.GetResourceMutex(n.Name())
 	if resourceMutex == nil {
-		logrus.Error("Unexpected error: no mutex found for emulated resource %s",
+		logrus.Errorf("Unexpected error: no mutex found for emulated resource %s",
 			n.Path())
 		return errors.New("no mutex found for emulated resource")
 	}
@@ -458,7 +458,7 @@ func pushFileMinInt(
 	// on the host FS.
 	resourceMutex := h.GetResourceMutex(n.Name())
 	if resourceMutex == nil {
-		logrus.Error("Unexpected error: no mutex found for emulated resource %s",
+		logrus.Errorf("Unexpected error: no mutex found for emulated resource %s",
 			n.Path())
 		return errors.New("no mutex found for emulated resource")
 	}
@@ -533,7 +533,7 @@ func pushFileInt(
 	// obvious way to detect a collision.
 	resourceMutex := h.GetResourceMutex(n.Name())
 	if resourceMutex == nil {
-		logrus.Error("Unexpected error: no mutex found for emulated resource %s",
+		logrus.Errorf("Unexpected error: no mutex found for emulated resource %s",
 			n.Path())
 		return errors.New("no mutex found for emulated resource")
 	}
@@ -582,7 +582,7 @@ func pushFileString(
 	// strings, so there's no obvious way to detect a collision.
 	resourceMutex := h.GetResourceMutex(n.Name())
 	if resourceMutex == nil {
-		logrus.Error("Unexpected error: no mutex found for emulated resource %s",
+		logrus.Errorf("Unexpected error: no mutex found for emulated resource %s",
 			n.Path())
 		return errors.New("no mutex found for emulated resource")
 	}
