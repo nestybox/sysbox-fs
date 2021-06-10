@@ -3,8 +3,7 @@
 package mocks
 
 import (
-	fs "io/fs"
-
+	os "os"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -119,14 +118,14 @@ func (_m *IOnodeIface) OpenFlags() int {
 }
 
 // OpenMode provides a mock function with given fields:
-func (_m *IOnodeIface) OpenMode() fs.FileMode {
+func (_m *IOnodeIface) OpenMode() os.FileMode {
 	ret := _m.Called()
 
-	var r0 fs.FileMode
-	if rf, ok := ret.Get(0).(func() fs.FileMode); ok {
+	var r0 os.FileMode
+	if rf, ok := ret.Get(0).(func() os.FileMode); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(fs.FileMode)
+		r0 = ret.Get(0).(os.FileMode)
 	}
 
 	return r0
@@ -189,15 +188,15 @@ func (_m *IOnodeIface) ReadAt(p []byte, off int64) (int, error) {
 }
 
 // ReadDirAll provides a mock function with given fields:
-func (_m *IOnodeIface) ReadDirAll() ([]fs.FileInfo, error) {
+func (_m *IOnodeIface) ReadDirAll() ([]os.FileInfo, error) {
 	ret := _m.Called()
 
-	var r0 []fs.FileInfo
-	if rf, ok := ret.Get(0).(func() []fs.FileInfo); ok {
+	var r0 []os.FileInfo
+	if rf, ok := ret.Get(0).(func() []os.FileInfo); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]fs.FileInfo)
+			r0 = ret.Get(0).([]os.FileInfo)
 		}
 	}
 
@@ -315,7 +314,7 @@ func (_m *IOnodeIface) SetOpenFlags(flags int) {
 }
 
 // SetOpenMode provides a mock function with given fields: mode
-func (_m *IOnodeIface) SetOpenMode(mode fs.FileMode) {
+func (_m *IOnodeIface) SetOpenMode(mode os.FileMode) {
 	_m.Called(mode)
 }
 
@@ -325,15 +324,15 @@ func (_m *IOnodeIface) SetPath(s string) {
 }
 
 // Stat provides a mock function with given fields:
-func (_m *IOnodeIface) Stat() (fs.FileInfo, error) {
+func (_m *IOnodeIface) Stat() (os.FileInfo, error) {
 	ret := _m.Called()
 
-	var r0 fs.FileInfo
-	if rf, ok := ret.Get(0).(func() fs.FileInfo); ok {
+	var r0 os.FileInfo
+	if rf, ok := ret.Get(0).(func() os.FileInfo); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(fs.FileInfo)
+			r0 = ret.Get(0).(os.FileInfo)
 		}
 	}
 

@@ -3,8 +3,7 @@
 package mocks
 
 import (
-	fs "io/fs"
-
+	os "os"
 	domain "github.com/nestybox/sysbox-fs/domain"
 
 	mock "github.com/stretchr/testify/mock"
@@ -30,11 +29,11 @@ func (_m *IOServiceIface) GetServiceType() int {
 }
 
 // NewIOnode provides a mock function with given fields: n, p, attr
-func (_m *IOServiceIface) NewIOnode(n string, p string, attr fs.FileMode) domain.IOnodeIface {
+func (_m *IOServiceIface) NewIOnode(n string, p string, attr os.FileMode) domain.IOnodeIface {
 	ret := _m.Called(n, p, attr)
 
 	var r0 domain.IOnodeIface
-	if rf, ok := ret.Get(0).(func(string, string, fs.FileMode) domain.IOnodeIface); ok {
+	if rf, ok := ret.Get(0).(func(string, string, os.FileMode) domain.IOnodeIface); ok {
 		r0 = rf(n, p, attr)
 	} else {
 		if ret.Get(0) != nil {
