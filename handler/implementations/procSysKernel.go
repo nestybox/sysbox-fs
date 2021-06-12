@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -199,9 +200,10 @@ type ProcSysKernel struct {
 
 var ProcSysKernel_Handler = &ProcSysKernel{
 	domain.HandlerBase{
-		Name: "ProcSysKernel",
-		Path: "/proc/sys/kernel",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "ProcSysKernel",
+		Path:    "/proc/sys/kernel",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"domainname": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
@@ -278,7 +280,7 @@ func (h *ProcSysKernel) Lookup(
 	}
 
 	// If looked-up element hasn't been found by now, let's look into the actual
-	// sys container rootfs.
+	// container rootfs.
 	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
 	if !ok {
 		return nil, fmt.Errorf("No /proc/sys/ handler found")
@@ -488,8 +490,30 @@ func (h *ProcSysKernel) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysKernel) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *ProcSysKernel) GetEnabled() bool {
+	return h.Enabled
+}
+
+func (h *ProcSysKernel) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *ProcSysKernel) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
 }
 
 func (h *ProcSysKernel) GetResourceMutex(s string) *sync.Mutex {

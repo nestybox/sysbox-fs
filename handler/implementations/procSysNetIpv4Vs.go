@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -60,9 +61,10 @@ type ProcSysNetIpv4Vs struct {
 
 var ProcSysNetIpv4Vs_Handler = &ProcSysNetIpv4Vs{
 	domain.HandlerBase{
-		Name: "ProcSysNetIpv4Vs",
-		Path: "/proc/sys/net/ipv4/vs",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "ProcSysNetIpv4Vs",
+		Path:    "/proc/sys/net/ipv4/vs",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"conntrack": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
@@ -243,10 +245,31 @@ func (h *ProcSysNetIpv4Vs) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetIpv4Vs) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *ProcSysNetIpv4Vs) GetEnabled() bool {
+	return h.Enabled
 }
 
+func (h *ProcSysNetIpv4Vs) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *ProcSysNetIpv4Vs) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
+}
 func (h *ProcSysNetIpv4Vs) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {

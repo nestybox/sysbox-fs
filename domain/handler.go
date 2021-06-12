@@ -19,8 +19,6 @@ package domain
 import (
 	"os"
 	"sync"
-
-	iradix "github.com/hashicorp/go-immutable-radix"
 )
 
 // HandlerBase is a type common to all the handlers.
@@ -46,7 +44,9 @@ type HandlerBase struct {
 	Path string
 
 	// Map of resources served within every handler.
-	EmuResourceMap map[string]EmuResource
+	EmuResourceMap map[string]*EmuResource
+
+	Enabled bool
 
 	// Pointer to the parent handler service.
 	Service HandlerServiceIface
@@ -69,17 +69,10 @@ const (
 // not a per-handler one, we are maximizing the level of concurrency that can be
 // attained.
 type EmuResource struct {
-	// Resource type.
-	Kind EmuResourceType
-
-	// Expected file attributes -- avoids stat() calls.
-	Mode os.FileMode
-
-	// Admin up/down flag.
+	Kind    EmuResourceType
+	Mode    os.FileMode
 	Enabled bool
-
-	// Per-resource lock.
-	Mutex sync.Mutex
+	Mutex   sync.Mutex
 }
 
 // HandlerRequest represents a request to be processed by a handler
@@ -105,9 +98,11 @@ type HandlerIface interface {
 	// getters/setters.
 	GetName() string
 	GetPath() string
+	GetEnabled() bool
+	SetEnabled(b bool)
 	GetService() HandlerServiceIface
 	SetService(hs HandlerServiceIface)
-	GetResourceMap() map[string]EmuResource
+	GetResourcesList() []string
 	GetResourceMutex(s string) *sync.Mutex
 }
 
@@ -124,11 +119,11 @@ type HandlerServiceIface interface {
 	UnregisterHandler(h HandlerIface) error
 	LookupHandler(i IOnodeIface) (HandlerIface, bool)
 	FindHandler(s string) (HandlerIface, bool)
-	EnableHandlerResource(h HandlerIface, res string) error
-	DisableHandlerResource(h HandlerIface, res string) error
+	EnableHandler(path string) error
+	DisableHandler(path string) error
 
 	// getters/setters
-	HandlerDB() *iradix.Tree
+	HandlersResourcesList() []string
 	StateService() ContainerStateServiceIface
 	SetStateService(css ContainerStateServiceIface)
 	ProcessService() ProcessServiceIface

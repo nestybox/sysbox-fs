@@ -18,6 +18,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 
@@ -186,7 +187,6 @@ func (hs *handlerService) LookupHandler(
 }
 
 func (hs *handlerService) FindHandler(s string) (domain.HandlerIface, bool) {
-
 	hs.RLock()
 	defer hs.RUnlock()
 
@@ -198,58 +198,60 @@ func (hs *handlerService) FindHandler(s string) (domain.HandlerIface, bool) {
 	return h.(domain.HandlerIface), true
 }
 
-func (hs *handlerService) EnableHandlerResource(h domain.HandlerIface, res string) error {
+func (hs *handlerService) EnableHandler(path string) error {
 	hs.Lock()
+	defer hs.Unlock()
 
-	name := h.GetName()
-
-	resourceMap := h.GetResourceMap()
-	if resourceMap == nil {
-		hs.Unlock()
-		logrus.Errorf("No resource-map found for handler %s", name)
-		return errors.New("No resource-map found")
-	}
-
-	resource, ok := resourceMap[res]
+	h, ok := hs.FindHandler(path)
 	if !ok {
-		hs.Unlock()
-		logrus.Errorf("Resource %s not found for handler %s", res, name)
-		return errors.New("Handler resource not found")
+		return fmt.Errorf("handler %s not found in handlerDB", path)
 	}
 
-	resource.Enabled = true
-	hs.Unlock()
+	h.SetEnabled(true)
 
 	return nil
 }
 
-func (hs *handlerService) DisableHandlerResource(h domain.HandlerIface, res string) error {
+func (hs *handlerService) DisableHandler(path string) error {
 	hs.Lock()
+	defer hs.Unlock()
 
-	name := h.GetName()
-
-	resourceMap := h.GetResourceMap()
-	if resourceMap == nil {
-		hs.Unlock()
-		logrus.Errorf("No resource-map found for handler %s", name)
-		return errors.New("No resource-map found")
-	}
-
-	resource, ok := resourceMap[res]
+	h, ok := hs.FindHandler(path)
 	if !ok {
-		hs.Unlock()
-		logrus.Errorf("Resource %s not found for handler %s", res, name)
-		return errors.New("Handler resource not found")
+		return fmt.Errorf("handler %s not found in handlerDB", path)
 	}
 
-	resource.Enabled = false
-	hs.Unlock()
+	h.SetEnabled(false)
 
 	return nil
 }
 
-func (hs *handlerService) HandlerDB() *iradix.Tree {
-	return hs.handlerTree
+func (hs *handlerService) HandlersResourcesList() []string {
+
+	var resourcesList []string
+
+	// Technically not needed as this method is only expected to be called
+	// during sysbox-fs initialization (handlers are not in service at that
+	// point), but just in case utilization changes overtime.
+	hs.RLock()
+	defer hs.RUnlock()
+
+	// Iterate through the handlerDB to extract the list of resources being
+	// emulated.
+	hs.handlerTree.Root().Walk(func(key []byte, val interface{}) bool {
+
+		h := val.(domain.HandlerIface)
+		if !h.GetEnabled() {
+			return true
+		}
+
+		list := h.GetResourcesList()
+		resourcesList = append(resourcesList, list...)
+
+		return false
+	})
+
+	return resourcesList
 }
 
 func (hs *handlerService) StateService() domain.ContainerStateServiceIface {

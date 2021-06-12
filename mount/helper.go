@@ -21,10 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/nestybox/sysbox-fs/domain"
 	"golang.org/x/sys/unix"
-
-	iradix "github.com/hashicorp/go-immutable-radix"
 )
 
 // The mountPropFlags in a mount syscall indicate a change in the propagation type of an
@@ -42,35 +39,43 @@ type mountHelper struct {
 	procMounts []string            // slice of procfs bind-mounts
 	sysMounts  []string            // slice of sysfs bind-mounts
 	flagsMap   map[string]uint64   // helper map to aid in flag conversion
+	service    *MountService       // backpointer to parent service object
 }
 
-func newMountHelper(hdb *iradix.Tree) *mountHelper {
+func newMountHelper(svc *MountService) *mountHelper {
 
 	info := &mountHelper{
 		mapMounts: make(map[string]struct{}),
+		service:   svc,
 	}
 
-	// Iterate through the handlerDB to extract the set of bindmounts that need
-	// to be exported (propagated) to L2 containers or L1 chrooted envs.
-	hdb.Root().Walk(func(key []byte, val interface{}) bool {
-		h := val.(domain.HandlerIface)
+	resourceList := svc.hds.HandlersResourcesList()
 
-		resourceMap := h.GetResourceMap()
-
-		for key, _ := range resourceMap {
-			nodePath := filepath.Join(h.GetPath(), key)
-
-			if filepath.Dir(nodePath) == "/proc" {
-				info.procMounts = append(info.procMounts, nodePath)
-				info.mapMounts[nodePath] = struct{}{}
-			} else if strings.HasPrefix(nodePath, "/sys") {
-				info.sysMounts = append(info.sysMounts, nodePath)
-				info.mapMounts[nodePath] = struct{}{}
-			}
+	for _, resources := range resourceList {
+		//
+		// Out of all the resources emulated by the handler package, we are
+		// only interested in those that are bind-mounted by sysbox-runc during
+		// the container initialization. These mountpoints need to be tracked
+		// here to ensure that they are handled with special care. That is:
+		//
+		// * These mountpoints must be exported (propagated) in new procfs /
+		//   sysfs file-systems created within a sys container (e.g. chroot
+		//   jails, l2 containers, etc).
+		//
+		// * During the sys container initialization process, sysbox-fs must
+		//   avoid generating a request to obtain the inodes associated to
+		//   these mountpoints -- see extractAllInodes(). The goal here is to
+		//   prevent recursive i/o operations from being able to arrive to
+		//   sysbox-fs which could potentially stall the FSM.
+		//
+		if filepath.Dir(resources) == "/proc" {
+			info.procMounts = append(info.procMounts, resources)
+			info.mapMounts[resources] = struct{}{}
+		} else if strings.HasPrefix(resources, "/sys") {
+			info.sysMounts = append(info.sysMounts, resources)
+			info.mapMounts[resources] = struct{}{}
 		}
-
-		return false
-	})
+	}
 
 	// Both procMounts and sysMounts slices should be sorted (alphanumerically
 	// in this case), for mount / umount operations to succeed.

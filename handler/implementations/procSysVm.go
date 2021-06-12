@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -63,9 +64,10 @@ type ProcSysVm struct {
 
 var ProcSysVm_Handler = &ProcSysVm{
 	domain.HandlerBase{
-		Name: "ProcSysVm",
-		Path: "/proc/sys/vm",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "ProcSysVm",
+		Path:    "/proc/sys/vm",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"overcommit_memory": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
@@ -241,8 +243,30 @@ func (h *ProcSysVm) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysVm) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *ProcSysVm) GetEnabled() bool {
+	return h.Enabled
+}
+
+func (h *ProcSysVm) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *ProcSysVm) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
 }
 
 func (h *ProcSysVm) GetResourceMutex(s string) *sync.Mutex {

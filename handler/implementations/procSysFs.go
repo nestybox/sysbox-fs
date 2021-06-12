@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -57,9 +58,10 @@ type ProcSysFs struct {
 
 var ProcSysFs_Handler = &ProcSysFs{
 	domain.HandlerBase{
-		Name: "ProcSysFs",
-		Path: "/proc/sys/fs",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "ProcSysFs",
+		Path:    "/proc/sys/fs",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"file-max": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
@@ -241,8 +243,30 @@ func (h *ProcSysFs) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysFs) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *ProcSysFs) GetEnabled() bool {
+	return h.Enabled
+}
+
+func (h *ProcSysFs) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *ProcSysFs) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
 }
 
 func (h *ProcSysFs) GetResourceMutex(s string) *sync.Mutex {

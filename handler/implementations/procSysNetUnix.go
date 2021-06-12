@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -41,9 +42,10 @@ type ProcSysNetUnix struct {
 
 var ProcSysNetUnix_Handler = &ProcSysNetUnix{
 	domain.HandlerBase{
-		Name: "ProcSysNetUnix",
-		Path: "/proc/sys/net/unix",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "ProcSysNetUnix",
+		Path:    "/proc/sys/net/unix",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"max_dgram_qlen": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
@@ -196,10 +198,31 @@ func (h *ProcSysNetUnix) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetUnix) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *ProcSysNetUnix) GetEnabled() bool {
+	return h.Enabled
 }
 
+func (h *ProcSysNetUnix) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *ProcSysNetUnix) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
+}
 func (h *ProcSysNetUnix) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {

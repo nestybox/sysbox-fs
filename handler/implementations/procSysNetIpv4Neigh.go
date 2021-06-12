@@ -47,9 +47,10 @@ type ProcSysNetIpv4Neigh struct {
 
 var ProcSysNetIpv4Neigh_Handler = &ProcSysNetIpv4Neigh{
 	domain.HandlerBase{
-		Name: "ProcSysNetIpv4Neigh",
-		Path: "/proc/sys/net/ipv4/neigh",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "ProcSysNetIpv4Neigh",
+		Path:    "/proc/sys/net/ipv4/neigh",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"default": {
 				Kind:    domain.DirEmuResource,
 				Mode:    os.FileMode(uint32(0555)),
@@ -159,12 +160,12 @@ func (h *ProcSysNetIpv4Neigh) Read(
 	// integration testsuites will fail when executing within the test framework.
 	// In these cases, we will redirect all "default" queries to a static node
 	// that is always present in the testing environment.
-	if strings.HasPrefix(relPath, "default/gc_thresh") &&
-		h.GetService().IgnoreErrors() {
+	if h.GetService().IgnoreErrors() &&
+		strings.HasPrefix(relPath, "default/gc_thresh") {
 		n.SetName("lo/retrans_time")
 		n.SetPath("/proc/sys/net/ipv4/neigh/lo/retrans_time")
 		h.EmuResourceMap["lo/retrans_time"] =
-			domain.EmuResource{Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))}
+			&domain.EmuResource{Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))}
 	}
 
 	return readFileInt(h, n, req)
@@ -192,12 +193,12 @@ func (h *ProcSysNetIpv4Neigh) Write(
 	// integration testsuites will fail when executing within the test framework.
 	// In these cases, we will redirect all "default" queries to a static node
 	// that is always present in the testing environment.
-	if strings.HasPrefix(relPath, "default/gc_thresh") &&
-		h.GetService().IgnoreErrors() {
+	if h.GetService().IgnoreErrors() &&
+		strings.HasPrefix(relPath, "default/gc_thresh") {
 		n.SetName("lo/retrans_time")
 		n.SetPath("/proc/sys/net/ipv4/neigh/lo/retrans_time")
 		h.EmuResourceMap["lo/retrans_time"] =
-			domain.EmuResource{Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))}
+			&domain.EmuResource{Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))}
 	}
 
 	return writeFileInt(h, n, req, 0, MaxInt, false)
@@ -271,8 +272,30 @@ func (h *ProcSysNetIpv4Neigh) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetIpv4Neigh) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *ProcSysNetIpv4Neigh) GetEnabled() bool {
+	return h.Enabled
+}
+
+func (h *ProcSysNetIpv4Neigh) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *ProcSysNetIpv4Neigh) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
 }
 
 func (h *ProcSysNetIpv4Neigh) GetResourceMutex(s string) *sync.Mutex {

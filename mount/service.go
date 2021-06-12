@@ -18,7 +18,6 @@ package mount
 
 import (
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/sirupsen/logrus"
 )
 
 type MountService struct {
@@ -75,15 +74,7 @@ func (mts *MountService) NewMountHelper() domain.MountHelperIface {
 		return nil
 	}
 
-	// Populate bind-mounts hashmap. Note that handlers are not operating at
-	// this point, so there's no need to acquire locks for this operation.
-	handlerDB := mts.hds.HandlerDB()
-	if handlerDB == nil {
-		logrus.Warnf("Seccomp-tracer initialization error: missing handlerDB")
-		return nil
-	}
-
-	mts.mh = newMountHelper(handlerDB)
+	mts.mh = newMountHelper(mts)
 
 	return mts.mh
 }

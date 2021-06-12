@@ -19,8 +19,10 @@ package implementations
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -44,6 +46,7 @@ import (
 // For emulation purposes we will split 'product_uuid' content in two separate
 // fields. The first 24 characters will continue to match those seen by the
 // hosts. The last 12 characters will be extracted from the container ID field.
+//
 // Example:
 //
 // e617c421-0026-4941-9e95-<sys-cntr-id-01>
@@ -62,9 +65,10 @@ type SysDevicesVirtualDmiId struct {
 
 var SysDevicesVirtualDmiId_Handler = &SysDevicesVirtualDmiId{
 	domain.HandlerBase{
-		Name: "SysDevicesVirtualDmiId",
-		Path: "/sys/devices/virtual/dmi/id",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "SysDevicesVirtualDmiId",
+		Path:    "/sys/devices/virtual/dmi/id",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"product_uuid": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0400)),
@@ -82,6 +86,18 @@ func (h *SysDevicesVirtualDmiId) Lookup(
 
 	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
 		req.ID, h.Name, resource)
+
+	// Return an artificial fileInfo if looked-up element matches any of the
+	// emulated components.
+	if v, ok := h.EmuResourceMap[resource]; ok {
+		info := &domain.FileInfo{
+			Fname:    resource,
+			Fmode:    v.Mode,
+			FmodTime: time.Now(),
+		}
+
+		return info, nil
+	}
 
 	return n.Stat()
 }
@@ -170,8 +186,30 @@ func (h *SysDevicesVirtualDmiId) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *SysDevicesVirtualDmiId) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *SysDevicesVirtualDmiId) GetEnabled() bool {
+	return h.Enabled
+}
+
+func (h *SysDevicesVirtualDmiId) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *SysDevicesVirtualDmiId) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
 }
 
 func (h *SysDevicesVirtualDmiId) GetResourceMutex(s string) *sync.Mutex {
