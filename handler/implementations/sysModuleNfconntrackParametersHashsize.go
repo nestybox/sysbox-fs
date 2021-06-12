@@ -19,7 +19,9 @@ package implementations
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -40,9 +42,10 @@ type SysModuleNfconntrackParameters struct {
 
 var SysModuleNfconntrackParameters_Handler = &SysModuleNfconntrackParameters{
 	domain.HandlerBase{
-		Name: "SysModuleNfconntrackParameters",
-		Path: "/sys/module/nf_conntrack/parameters",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "SysModuleNfconntrackParameters",
+		Path:    "/sys/module/nf_conntrack/parameters",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"hashsize": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0600)),
@@ -61,6 +64,18 @@ func (h *SysModuleNfconntrackParameters) Lookup(
 	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
 		req.ID, h.Name, resource)
 
+	// Return an artificial fileInfo if looked-up element matches any of the
+	// emulated components.
+	if v, ok := h.EmuResourceMap[resource]; ok {
+		info := &domain.FileInfo{
+			Fname:    resource,
+			Fmode:    v.Mode,
+			FmodTime: time.Now(),
+		}
+
+		return info, nil
+	}
+
 	return n.Stat()
 }
 
@@ -77,7 +92,7 @@ func (h *SysModuleNfconntrackParameters) Read(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
 		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save
@@ -120,8 +135,30 @@ func (h *SysModuleNfconntrackParameters) GetService() domain.HandlerServiceIface
 	return h.Service
 }
 
-func (h *SysModuleNfconntrackParameters) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *SysModuleNfconntrackParameters) GetEnabled() bool {
+	return h.Enabled
+}
+
+func (h *SysModuleNfconntrackParameters) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *SysModuleNfconntrackParameters) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
 }
 
 func (h *SysModuleNfconntrackParameters) GetResourceMutex(s string) *sync.Mutex {

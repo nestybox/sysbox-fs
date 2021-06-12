@@ -72,9 +72,10 @@ type ProcSysNetNetfilter struct {
 
 var ProcSysNetNetfilter_Handler = &ProcSysNetNetfilter{
 	domain.HandlerBase{
-		Name: "ProcSysNetNetfilter",
-		Path: "/proc/sys/net/netfilter",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "ProcSysNetNetfilter",
+		Path:    "/proc/sys/net/netfilter",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"nf_conntrack_max": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
@@ -277,10 +278,31 @@ func (h *ProcSysNetNetfilter) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetNetfilter) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *ProcSysNetNetfilter) GetEnabled() bool {
+	return h.Enabled
 }
 
+func (h *ProcSysNetNetfilter) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *ProcSysNetNetfilter) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
+}
 func (h *ProcSysNetNetfilter) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {

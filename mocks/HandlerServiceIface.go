@@ -3,9 +3,7 @@
 package mocks
 
 import (
-	iradix "github.com/hashicorp/go-immutable-radix"
 	domain "github.com/nestybox/sysbox-fs/domain"
-
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -14,13 +12,13 @@ type HandlerServiceIface struct {
 	mock.Mock
 }
 
-// DisableHandlerResource provides a mock function with given fields: h, res
-func (_m *HandlerServiceIface) DisableHandlerResource(h domain.HandlerIface, res string) error {
-	ret := _m.Called(h, res)
+// DisableHandler provides a mock function with given fields: path
+func (_m *HandlerServiceIface) DisableHandler(path string) error {
+	ret := _m.Called(path)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(domain.HandlerIface, string) error); ok {
-		r0 = rf(h, res)
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(path)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -28,13 +26,13 @@ func (_m *HandlerServiceIface) DisableHandlerResource(h domain.HandlerIface, res
 	return r0
 }
 
-// EnableHandlerResource provides a mock function with given fields: h, res
-func (_m *HandlerServiceIface) EnableHandlerResource(h domain.HandlerIface, res string) error {
-	ret := _m.Called(h, res)
+// EnableHandler provides a mock function with given fields: path
+func (_m *HandlerServiceIface) EnableHandler(path string) error {
+	ret := _m.Called(path)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(domain.HandlerIface, string) error); ok {
-		r0 = rf(h, res)
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(path)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -86,16 +84,16 @@ func (_m *HandlerServiceIface) FindUserNsInode(pid uint32) (uint64, error) {
 	return r0, r1
 }
 
-// HandlerDB provides a mock function with given fields:
-func (_m *HandlerServiceIface) HandlerDB() *iradix.Tree {
+// HandlersResourcesList provides a mock function with given fields:
+func (_m *HandlerServiceIface) HandlersResourcesList() []string {
 	ret := _m.Called()
 
-	var r0 *iradix.Tree
-	if rf, ok := ret.Get(0).(func() *iradix.Tree); ok {
+	var r0 []string
+	if rf, ok := ret.Get(0).(func() []string); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*iradix.Tree)
+			r0 = ret.Get(0).([]string)
 		}
 	}
 

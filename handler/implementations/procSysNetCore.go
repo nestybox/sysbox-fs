@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -74,9 +75,10 @@ type ProcSysNetCore struct {
 
 var ProcSysNetCore_Handler = &ProcSysNetCore{
 	domain.HandlerBase{
-		Name: "ProcSysNetCore",
-		Path: "/proc/sys/net/core",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "ProcSysNetCore",
+		Path:    "/proc/sys/net/core",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"default_qdisc": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
@@ -235,10 +237,31 @@ func (h *ProcSysNetCore) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetCore) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *ProcSysNetCore) GetEnabled() bool {
+	return h.Enabled
 }
 
+func (h *ProcSysNetCore) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *ProcSysNetCore) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
+}
 func (h *ProcSysNetCore) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {

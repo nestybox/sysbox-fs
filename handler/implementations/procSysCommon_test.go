@@ -52,7 +52,6 @@ func TestMain(m *testing.M) {
 	//
 	// Test-cases common settings.
 	//
-	//
 	ios = sysio.NewIOService(domain.IOMemFileService)
 	prs = process.NewProcessService()
 	nss = &mocks.NSenterServiceIface{}

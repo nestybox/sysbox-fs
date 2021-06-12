@@ -18,6 +18,7 @@ package implementations
 
 import (
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -45,8 +46,9 @@ type Root struct {
 
 var Root_Handler = &Root{
 	domain.HandlerBase{
-		Name: "root",
-		Path: "/",
+		Name:    "root",
+		Path:    "/",
+		Enabled: true,
 	},
 }
 
@@ -107,8 +109,30 @@ func (h *Root) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *Root) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *Root) GetEnabled() bool {
+	return h.Enabled
+}
+
+func (h *Root) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *Root) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
 }
 
 func (h *Root) GetResourceMutex(s string) *sync.Mutex {

@@ -19,6 +19,7 @@ package implementations
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,8 +46,9 @@ type ProcSysCommon struct {
 
 var ProcSysCommon_Handler = &ProcSysCommon{
 	domain.HandlerBase{
-		Name: "ProcSysCommon",
-		Path: "/proc/sys/",
+		Name:    "ProcSysCommon",
+		Path:    "/proc/sys/",
+		Enabled: true,
 	},
 }
 
@@ -399,8 +401,30 @@ func (h *ProcSysCommon) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysCommon) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *ProcSysCommon) GetEnabled() bool {
+	return h.Enabled
+}
+
+func (h *ProcSysCommon) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *ProcSysCommon) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
 }
 
 func (h *ProcSysCommon) GetResourceMutex(s string) *sync.Mutex {

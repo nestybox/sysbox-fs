@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -44,9 +45,10 @@ type Proc struct {
 
 var Proc_Handler = &Proc{
 	domain.HandlerBase{
-		Name: "Proc",
-		Path: "/proc",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "Proc",
+		Path:    "/proc",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"sys": {
 				Kind:    domain.DirEmuResource,
 				Mode:    os.ModeDir | os.FileMode(uint32(0555)),
@@ -113,11 +115,6 @@ func (h *Proc) Open(
 		if flags != syscall.O_RDONLY {
 			return fuse.IOerror{Code: syscall.EACCES}
 		}
-
-		if err := n.Open(); err != nil {
-			logrus.Debugf("Error opening file %v", h.Path)
-			return fuse.IOerror{Code: syscall.EIO}
-		}
 	}
 
 	return nil
@@ -146,13 +143,7 @@ func (h *Proc) Read(
 		return h.readUptime(n, req)
 	}
 
-	// Refer to generic handler if no node match is found above.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return 0, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Read(n, req)
+	return 0, nil
 }
 
 func (h *Proc) Write(
@@ -196,8 +187,30 @@ func (h *Proc) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *Proc) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *Proc) GetEnabled() bool {
+	return h.Enabled
+}
+
+func (h *Proc) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *Proc) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
 }
 
 func (h *Proc) GetResourceMutex(s string) *sync.Mutex {

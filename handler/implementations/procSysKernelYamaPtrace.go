@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -101,9 +102,10 @@ type ProcSysKernelYama struct {
 
 var ProcSysKernelYama_Handler = &ProcSysKernelYama{
 	domain.HandlerBase{
-		Name: "ProcSysKernelYama",
-		Path: "/proc/sys/kernel/yama",
-		EmuResourceMap: map[string]domain.EmuResource{
+		Name:    "ProcSysKernelYama",
+		Path:    "/proc/sys/kernel/yama",
+		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
 			"ptrace_scope": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
@@ -233,8 +235,30 @@ func (h *ProcSysKernelYama) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysKernelYama) GetResourceMap() map[string]domain.EmuResource {
-	return h.EmuResourceMap
+func (h *ProcSysKernelYama) GetEnabled() bool {
+	return h.Enabled
+}
+
+func (h *ProcSysKernelYama) SetEnabled(b bool) {
+	h.Enabled = b
+}
+
+func (h *ProcSysKernelYama) GetResourcesList() []string {
+
+	var resources []string
+
+	for resourceKey, resource := range h.EmuResourceMap {
+		resource.Mutex.Lock()
+		if !resource.Enabled {
+			resource.Mutex.Unlock()
+			continue
+		}
+		resource.Mutex.Unlock()
+
+		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+	}
+
+	return resources
 }
 
 func (h *ProcSysKernelYama) GetResourceMutex(s string) *sync.Mutex {
