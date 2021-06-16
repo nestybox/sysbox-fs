@@ -31,12 +31,16 @@ import (
 )
 
 //
-// Slice of sysbox-fs' default handlers. Please keep me sorted alphabetically.
+// Slice of sysbox-fs' default handlers and the respective paths where they
+// apply. Notice that the path associated to the pass-through handler is
+// symbolic as this one can be invoked from within any of the other handlers,
+// regardless of the FS location where they operate.
 //
 var DefaultHandlers = []domain.HandlerIface{
+	implementations.PassThrough_Handler,                    // *
 	implementations.Root_Handler,                           // /
 	implementations.Proc_Handler,                           // /proc
-	implementations.ProcSysCommon_Handler,                  // /proc/sys/
+	implementations.ProcSys_Handler,                        // /proc/sys/
 	implementations.ProcSysFs_Handler,                      // /proc/sys/fs
 	implementations.ProcSysKernel_Handler,                  // /proc/sys/kernel
 	implementations.ProcSysKernelYama_Handler,              // /proc/sys/kernel/yama
@@ -73,6 +77,9 @@ type handlerService struct {
 	// Represents the user-namespace inode of the host's true-root.
 	hostUserNsInode domain.Inode
 
+	// Passthrough handler.
+	passThroughHandler domain.HandlerIface
+
 	// Handler i/o errors should be obviated if this flag is enabled (testing
 	// purposes).
 	ignoreErrors bool
@@ -107,6 +114,9 @@ func (hs *handlerService) Setup(
 	for _, h := range hdlrs {
 		hs.RegisterHandler(h)
 	}
+
+	// Set pointer to passthrough handler.
+	hs.passThroughHandler = implementations.PassThrough_Handler
 
 	// Obtain user-ns inode corresponding to sysbox-fs.
 	hostUserNsInode, err := hs.FindUserNsInode(uint32(os.Getpid()))
@@ -252,6 +262,10 @@ func (hs *handlerService) HandlersResourcesList() []string {
 	})
 
 	return resourcesList
+}
+
+func (hs *handlerService) GetPassThroughHandler() domain.HandlerIface {
+	return hs.passThroughHandler
 }
 
 func (hs *handlerService) StateService() domain.ContainerStateServiceIface {

@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -105,12 +104,7 @@ func (h *ProcSysVm) Lookup(
 
 	// If looked-up element hasn't been found by now, let's look into the actual
 	// sys container rootfs.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return nil, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Lookup(n, req)
+	return h.Service.GetPassThroughHandler().Lookup(n, req)
 }
 
 func (h *ProcSysVm) Open(
@@ -130,12 +124,7 @@ func (h *ProcSysVm) Open(
 		return nil
 	}
 
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Open(n, req)
+	return h.Service.GetPassThroughHandler().Open(n, req)
 }
 
 func (h *ProcSysVm) Read(
@@ -162,12 +151,7 @@ func (h *ProcSysVm) Read(
 	}
 
 	// Refer to generic handler if no node match is found above.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return 0, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Read(n, req)
+	return h.Service.GetPassThroughHandler().Read(n, req)
 }
 
 func (h *ProcSysVm) Write(
@@ -197,38 +181,18 @@ func (h *ProcSysVm) Write(
 	}
 
 	// Refer to generic handler if no node match is found above.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return 0, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Write(n, req)
+	return h.Service.GetPassThroughHandler().Write(n, req)
 }
 
 func (h *ProcSysVm) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
-		req.ID, h.Name, resource)
+		req.ID, h.Name, n.Name())
 
-	var fileEntries []os.FileInfo
-
-	// Also collect procfs entries as seen within container's namespaces.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return nil, fmt.Errorf("No /proc/sys/ handler found")
-	}
-	commonNeigh, err := procSysCommonHandler.ReadDirAll(n, req)
-	if err == nil {
-		for _, entry := range commonNeigh {
-			fileEntries = append(fileEntries, entry)
-		}
-	}
-
-	return fileEntries, nil
+	// Return all entries as seen within container's namespaces.
+	return h.Service.GetPassThroughHandler().ReadDirAll(n, req)
 }
 
 func (h *ProcSysVm) GetName() string {

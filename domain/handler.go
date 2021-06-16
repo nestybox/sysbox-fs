@@ -124,6 +124,7 @@ type HandlerServiceIface interface {
 
 	// getters/setters
 	HandlersResourcesList() []string
+	GetPassThroughHandler() HandlerIface
 	StateService() ContainerStateServiceIface
 	SetStateService(css ContainerStateServiceIface)
 	ProcessService() ProcessServiceIface

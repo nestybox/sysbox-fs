@@ -164,12 +164,7 @@ func (h *Proc) ReadDirAll(
 
 	switch resource {
 	case "sys":
-		procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-		if !ok {
-			return nil, fmt.Errorf("No /proc/sys/ found")
-		}
-
-		return procSysCommonHandler.ReadDirAll(n, req)
+		return h.Service.GetPassThroughHandler().ReadDirAll(n, req)
 	}
 
 	return nil, nil

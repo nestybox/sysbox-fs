@@ -17,160 +17,106 @@
 package implementations
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
+
+	"github.com/sirupsen/logrus"
 )
 
 //
-// /proc/sys/net/unix handler
+// /proc/sys/ handler
 //
-// Emulated resources:
+// Currently just a thin wrapper over the pass-through handler to serve accesses
+// to the content of the "/proc/sys/" folder. The "/proc/sys" node itself is
+// served as part of the "proc" handler.
 //
-// * /proc/sys/net/unix/max_dgram_qlen
-//
-type ProcSysNetUnix struct {
+
+type ProcSys struct {
 	domain.HandlerBase
 }
 
-var ProcSysNetUnix_Handler = &ProcSysNetUnix{
+var ProcSys_Handler = &ProcSys{
 	domain.HandlerBase{
-		Name:    "ProcSysNetUnix",
-		Path:    "/proc/sys/net/unix",
+		Name:    "ProcSys",
+		Path:    "/proc/sys/",
 		Enabled: true,
-		EmuResourceMap: map[string]*domain.EmuResource{
-			"max_dgram_qlen": {
-				Kind:    domain.FileEmuResource,
-				Mode:    os.FileMode(uint32(0644)),
-				Enabled: true,
-			},
-		},
 	},
 }
 
-func (h *ProcSysNetUnix) Lookup(
+func (h *ProcSys) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
-		req.ID, h.Name, resource)
+		req.ID, h.Name, n.Name())
 
-	// Return an artificial fileInfo if looked-up element matches any of the
-	// emulated nodes.
-	if v, ok := h.EmuResourceMap[resource]; ok {
-		info := &domain.FileInfo{
-			Fname:    resource,
-			Fmode:    v.Mode,
-			FmodTime: time.Now(),
-		}
-
-		return info, nil
-	}
-
-	// If looked-up element hasn't been found by now, let's look into the actual
-	// sys container rootfs.
 	return h.Service.GetPassThroughHandler().Lookup(n, req)
 }
 
-func (h *ProcSysNetUnix) Open(
+func (h *ProcSys) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
-		req.ID, h.Name, resource)
-
-	switch resource {
-	case "max_dgram_qlen":
-		return nil
-	}
+		req.ID, h.Name, n.Name())
 
 	return h.Service.GetPassThroughHandler().Open(n, req)
 }
 
-func (h *ProcSysNetUnix) Read(
+func (h *ProcSys) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
-		req.ID, h.Name, resource)
+		req.ID, h.Name, n.Name())
 
-	// We are dealing with a single boolean element being read, so we can save
-	// some cycles by returning right away if offset is any higher than zero.
-	if req.Offset > 0 {
-		return 0, io.EOF
-	}
-
-	switch resource {
-	case "max_dgram_qlen":
-		return readFileInt(h, n, req)
-	}
-
-	// Refer to generic handler if no node match is found above.
 	return h.Service.GetPassThroughHandler().Read(n, req)
 }
 
-func (h *ProcSysNetUnix) Write(
+func (h *ProcSys) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
-		req.ID, h.Name, resource)
+		req.ID, h.Name, n.Name())
 
-	switch resource {
-	case "max_dgram_qlen":
-		return writeFileMaxInt(h, n, req, true)
-	}
-
-	// Refer to generic handler if no node match is found above.
 	return h.Service.GetPassThroughHandler().Write(n, req)
 }
 
-func (h *ProcSysNetUnix) ReadDirAll(
+func (h *ProcSys) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
 	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
 		req.ID, h.Name, n.Name())
 
-	// Return all entries as seen within container's namespaces.
 	return h.Service.GetPassThroughHandler().ReadDirAll(n, req)
 }
 
-func (h *ProcSysNetUnix) GetName() string {
+func (h *ProcSys) GetName() string {
 	return h.Name
 }
 
-func (h *ProcSysNetUnix) GetPath() string {
+func (h *ProcSys) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysNetUnix) GetService() domain.HandlerServiceIface {
+func (h *ProcSys) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysNetUnix) GetEnabled() bool {
+func (h *ProcSys) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *ProcSysNetUnix) SetEnabled(b bool) {
+func (h *ProcSys) SetEnabled(b bool) {
 	h.Enabled = b
 }
 
-func (h *ProcSysNetUnix) GetResourcesList() []string {
+func (h *ProcSys) GetResourcesList() []string {
 
 	var resources []string
 
@@ -187,7 +133,8 @@ func (h *ProcSysNetUnix) GetResourcesList() []string {
 
 	return resources
 }
-func (h *ProcSysNetUnix) GetResourceMutex(s string) *sync.Mutex {
+
+func (h *ProcSys) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {
 		return nil
@@ -196,6 +143,6 @@ func (h *ProcSysNetUnix) GetResourceMutex(s string) *sync.Mutex {
 	return &resource.Mutex
 }
 
-func (h *ProcSysNetUnix) SetService(hs domain.HandlerServiceIface) {
+func (h *ProcSys) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

@@ -29,30 +29,32 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// /proc/sys common handler
 //
-// Handler for all non-emulated resources within the /proc/sys subtree. It does
-// a simple "passthrough" of the access by entering all the namespaces of the
-// process that is doing the /proc/sys access and performing that access on
-// behalf of it.
+// Pass-through handler
 //
-// Note that emulated resources within /proc/sys don't go through this handler,
-// but rather through their specific handlers (see handlerDB.go).
+// Handler for all non-emulated resources. It does a simple "passthrough" of the
+// access by entering all the namespaces of the process that is doing the I/O
+// operation and performs this one on behalf of it.
+//
+// Currently, this handler serves non-emulated resources within the /proc/sys
+// subtree, but there's nothing specific to this path in this handler's
+// implementation (see that the Path attribute is set to "*"), so this one could
+// be utilized for pass-through operations in other subtrees too.
 //
 
-type ProcSysCommon struct {
+type PassThrough struct {
 	domain.HandlerBase
 }
 
-var ProcSysCommon_Handler = &ProcSysCommon{
+var PassThrough_Handler = &PassThrough{
 	domain.HandlerBase{
-		Name:    "ProcSysCommon",
-		Path:    "/proc/sys/",
+		Name:    "PassThrough",
+		Path:    "*",
 		Enabled: true,
 	},
 }
 
-func (h *ProcSysCommon) Lookup(
+func (h *PassThrough) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -91,7 +93,7 @@ func (h *ProcSysCommon) Lookup(
 	return info, nil
 }
 
-func (h *ProcSysCommon) Open(
+func (h *PassThrough) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -130,7 +132,7 @@ func (h *ProcSysCommon) Open(
 	return nil
 }
 
-func (h *ProcSysCommon) Read(
+func (h *PassThrough) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -190,7 +192,7 @@ func (h *ProcSysCommon) Read(
 	return copyResultBuffer(req.Data, []byte(data))
 }
 
-func (h *ProcSysCommon) Write(
+func (h *PassThrough) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -227,7 +229,7 @@ func (h *ProcSysCommon) Write(
 	return len(req.Data), nil
 }
 
-func (h *ProcSysCommon) ReadDirAll(
+func (h *PassThrough) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
@@ -274,7 +276,7 @@ func (h *ProcSysCommon) ReadDirAll(
 	return osFileEntries, nil
 }
 
-func (h *ProcSysCommon) Setattr(
+func (h *PassThrough) Setattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
@@ -314,7 +316,7 @@ func (h *ProcSysCommon) Setattr(
 }
 
 // Auxiliary method to fetch the content of any given file within a container.
-func (h *ProcSysCommon) fetchFile(
+func (h *PassThrough) fetchFile(
 	n domain.IOnodeIface,
 	process domain.ProcessIface) (string, error) {
 
@@ -352,7 +354,7 @@ func (h *ProcSysCommon) fetchFile(
 }
 
 // Auxiliary method to inject content into any given file within a container.
-func (h *ProcSysCommon) pushFile(
+func (h *PassThrough) pushFile(
 	n domain.IOnodeIface,
 	process domain.ProcessIface,
 	s string) error {
@@ -389,27 +391,27 @@ func (h *ProcSysCommon) pushFile(
 	return nil
 }
 
-func (h *ProcSysCommon) GetName() string {
+func (h *PassThrough) GetName() string {
 	return h.Name
 }
 
-func (h *ProcSysCommon) GetPath() string {
+func (h *PassThrough) GetPath() string {
 	return h.Path
 }
 
-func (h *ProcSysCommon) GetService() domain.HandlerServiceIface {
+func (h *PassThrough) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *ProcSysCommon) GetEnabled() bool {
+func (h *PassThrough) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *ProcSysCommon) SetEnabled(b bool) {
+func (h *PassThrough) SetEnabled(b bool) {
 	h.Enabled = b
 }
 
-func (h *ProcSysCommon) GetResourcesList() []string {
+func (h *PassThrough) GetResourcesList() []string {
 
 	var resources []string
 
@@ -427,7 +429,7 @@ func (h *ProcSysCommon) GetResourcesList() []string {
 	return resources
 }
 
-func (h *ProcSysCommon) GetResourceMutex(s string) *sync.Mutex {
+func (h *PassThrough) GetResourceMutex(s string) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[s]
 	if !ok {
 		return nil
@@ -436,6 +438,6 @@ func (h *ProcSysCommon) GetResourceMutex(s string) *sync.Mutex {
 	return &resource.Mutex
 }
 
-func (h *ProcSysCommon) SetService(hs domain.HandlerServiceIface) {
+func (h *PassThrough) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }

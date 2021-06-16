@@ -84,6 +84,22 @@ func (_m *HandlerServiceIface) FindUserNsInode(pid uint32) (uint64, error) {
 	return r0, r1
 }
 
+// GetPassThroughHandler provides a mock function with given fields:
+func (_m *HandlerServiceIface) GetPassThroughHandler() domain.HandlerIface {
+	ret := _m.Called()
+
+	var r0 domain.HandlerIface
+	if rf, ok := ret.Get(0).(func() domain.HandlerIface); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(domain.HandlerIface)
+		}
+	}
+
+	return r0
+}
+
 // HandlersResourcesList provides a mock function with given fields:
 func (_m *HandlerServiceIface) HandlersResourcesList() []string {
 	ret := _m.Called()
