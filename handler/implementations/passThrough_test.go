@@ -72,7 +72,7 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func TestProcSysCommon_Lookup(t *testing.T) {
+func TestPassThrough_Lookup(t *testing.T) {
 	type fields struct {
 		Name    string
 		Path    string
@@ -80,8 +80,8 @@ func TestProcSysCommon_Lookup(t *testing.T) {
 	}
 
 	var f1 = fields{
-		Name:    "procSysCommon",
-		Path:    "ProcSysCommon",
+		Name:    "PassThrough",
+		Path:    "PassThrough",
 		Service: hds,
 	}
 
@@ -211,7 +211,7 @@ func TestProcSysCommon_Lookup(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
+			h := &implementations.PassThrough{
 				domain.HandlerBase{
 					Name:    tt.fields.Name,
 					Path:    tt.fields.Path,
@@ -226,18 +226,18 @@ func TestProcSysCommon_Lookup(t *testing.T) {
 
 			got, err := h.Lookup(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommon.Lookup() error = %v, wantErr %v",
+				t.Errorf("PassThrough.Lookup() error = %v, wantErr %v",
 					err, tt.wantErr)
 				return
 			}
 			if err != nil && tt.wantErrVal != nil && err.Error() != tt.wantErrVal.Error() {
-				t.Errorf("ProcSysCommon.Lookup() error = %v, wantErr %v, wantErrVal %v",
+				t.Errorf("PassThrough.Lookup() error = %v, wantErr %v, wantErrVal %v",
 					err, tt.wantErr, tt.wantErrVal)
 				return
 			}
 
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ProcSysCommon.Lookup() = %v, want %v", got, tt.want)
+				t.Errorf("PassThrough.Lookup() = %v, want %v", got, tt.want)
 			}
 
 			// Ensure that mocks were properly invoked and reset expectedCalls
@@ -248,7 +248,7 @@ func TestProcSysCommon_Lookup(t *testing.T) {
 	}
 }
 
-func TestProcSysCommon_Open(t *testing.T) {
+func TestPassThrough_Open(t *testing.T) {
 	type fields struct {
 		Name    string
 		Path    string
@@ -256,8 +256,8 @@ func TestProcSysCommon_Open(t *testing.T) {
 	}
 
 	var f1 = fields{
-		Name:    "procSysCommon",
-		Path:    "ProcSysCommon",
+		Name:    "PassThrough",
+		Path:    "PassThrough",
 		Service: hds,
 	}
 
@@ -389,7 +389,7 @@ func TestProcSysCommon_Open(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
+			h := &implementations.PassThrough{
 				domain.HandlerBase{
 					Name:    tt.fields.Name,
 					Path:    tt.fields.Path,
@@ -404,10 +404,10 @@ func TestProcSysCommon_Open(t *testing.T) {
 
 			err := h.Open(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommon.Open() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("PassThrough.Open() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if err != nil && tt.wantErrVal != nil && err.Error() != tt.wantErrVal.Error() {
-				t.Errorf("ProcSysCommon.Lookup() error = %v, wantErr %v, wantErrVal %v",
+				t.Errorf("PassThrough.Lookup() error = %v, wantErr %v, wantErrVal %v",
 					err, tt.wantErr, tt.wantErrVal)
 			}
 
@@ -419,7 +419,7 @@ func TestProcSysCommon_Open(t *testing.T) {
 	}
 }
 
-func TestProcSysCommon_Read(t *testing.T) {
+func TestPassThrough_Read(t *testing.T) {
 	type fields struct {
 		Name    string
 		Path    string
@@ -428,8 +428,8 @@ func TestProcSysCommon_Read(t *testing.T) {
 
 	// Caching enabled.
 	var f1 = fields{
-		Name:    "procSysCommon",
-		Path:    "ProcSysCommon",
+		Name:    "PassThrough",
+		Path:    "PassThrough",
 		Service: hds,
 	}
 
@@ -523,7 +523,7 @@ func TestProcSysCommon_Read(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
+			h := &implementations.PassThrough{
 				domain.HandlerBase{
 					Name:    tt.fields.Name,
 					Path:    tt.fields.Path,
@@ -538,11 +538,11 @@ func TestProcSysCommon_Read(t *testing.T) {
 
 			got, err := h.Read(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommon.Read() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("PassThrough.Read() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("ProcSysCommon.Read() = %v, want %v", got, tt.want)
+				t.Errorf("PassThrough.Read() = %v, want %v", got, tt.want)
 			}
 
 			// Ensure that mocks were properly invoked and reset expectedCalls
@@ -553,7 +553,7 @@ func TestProcSysCommon_Read(t *testing.T) {
 	}
 }
 
-func TestProcSysCommon_Write(t *testing.T) {
+func TestPassThrough_Write(t *testing.T) {
 	type fields struct {
 		Name    string
 		Path    string
@@ -561,8 +561,8 @@ func TestProcSysCommon_Write(t *testing.T) {
 	}
 
 	var f1 = fields{
-		Name:    "procSysCommon",
-		Path:    "ProcSysCommon",
+		Name:    "PassThrough",
+		Path:    "PassThrough",
 		Service: hds,
 	}
 
@@ -708,7 +708,7 @@ func TestProcSysCommon_Write(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
+			h := &implementations.PassThrough{
 				domain.HandlerBase{
 					Name:    tt.fields.Name,
 					Path:    tt.fields.Path,
@@ -723,11 +723,11 @@ func TestProcSysCommon_Write(t *testing.T) {
 
 			got, err := h.Write(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommon.Write() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("PassThrough.Write() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("ProcSysCommon.Write() = %v, want %v", got, tt.want)
+				t.Errorf("PassThrough.Write() = %v, want %v", got, tt.want)
 			}
 
 			// Ensure that mocks were properly invoked and reset expectedCalls
@@ -738,7 +738,7 @@ func TestProcSysCommon_Write(t *testing.T) {
 	}
 }
 
-func TestProcSysCommon_ReadDirAll(t *testing.T) {
+func TestPassThrough_ReadDirAll(t *testing.T) {
 	type fields struct {
 		Name    string
 		Path    string
@@ -746,8 +746,8 @@ func TestProcSysCommon_ReadDirAll(t *testing.T) {
 	}
 
 	var f1 = fields{
-		Name:    "procSysCommon",
-		Path:    "ProcSysCommon",
+		Name:    "PassThrough",
+		Path:    "PassThrough",
 		Service: hds,
 	}
 
@@ -907,7 +907,7 @@ func TestProcSysCommon_ReadDirAll(t *testing.T) {
 	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
+			h := &implementations.PassThrough{
 				domain.HandlerBase{
 					Name:    tt.fields.Name,
 					Path:    tt.fields.Path,
@@ -922,12 +922,12 @@ func TestProcSysCommon_ReadDirAll(t *testing.T) {
 
 			got, err := h.ReadDirAll(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommon.ReadDirAll() error = %v, wantErr %v",
+				t.Errorf("PassThrough.ReadDirAll() error = %v, wantErr %v",
 					err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ProcSysCommon.ReadDirAll() = %v, want %v",
+				t.Errorf("PassThrough.ReadDirAll() = %v, want %v",
 					got, tt.want)
 			}
 
@@ -940,7 +940,7 @@ func TestProcSysCommon_ReadDirAll(t *testing.T) {
 	}
 }
 
-func TestProcSysCommon_Setattr(t *testing.T) {
+func TestPassThrough_Setattr(t *testing.T) {
 	type fields struct {
 		Name    string
 		Path    string
@@ -960,7 +960,7 @@ func TestProcSysCommon_Setattr(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
+			h := &implementations.PassThrough{
 				domain.HandlerBase{
 					Name:    tt.fields.Name,
 					Path:    tt.fields.Path,
@@ -968,13 +968,13 @@ func TestProcSysCommon_Setattr(t *testing.T) {
 				},
 			}
 			if err := h.Setattr(tt.args.n, tt.args.req); (err != nil) != tt.wantErr {
-				t.Errorf("ProcSysCommon.Setattr() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("PassThrough.Setattr() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestProcSysCommon_GetName(t *testing.T) {
+func TestPassThrough_GetName(t *testing.T) {
 	type fields struct {
 		Name    string
 		Path    string
@@ -989,7 +989,7 @@ func TestProcSysCommon_GetName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
+			h := &implementations.PassThrough{
 				domain.HandlerBase{
 					Name:    tt.fields.Name,
 					Path:    tt.fields.Path,
@@ -997,13 +997,13 @@ func TestProcSysCommon_GetName(t *testing.T) {
 				},
 			}
 			if got := h.GetName(); got != tt.want {
-				t.Errorf("ProcSysCommon.GetName() = %v, want %v", got, tt.want)
+				t.Errorf("PassThrough.GetName() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestProcSysCommon_GetPath(t *testing.T) {
+func TestPassThrough_GetPath(t *testing.T) {
 	type fields struct {
 		Name    string
 		Path    string
@@ -1018,7 +1018,7 @@ func TestProcSysCommon_GetPath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
+			h := &implementations.PassThrough{
 				domain.HandlerBase{
 					Name:    tt.fields.Name,
 					Path:    tt.fields.Path,
@@ -1026,13 +1026,13 @@ func TestProcSysCommon_GetPath(t *testing.T) {
 				},
 			}
 			if got := h.GetPath(); got != tt.want {
-				t.Errorf("ProcSysCommon.GetPath() = %v, want %v", got, tt.want)
+				t.Errorf("PassThrough.GetPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestProcSysCommon_GetService(t *testing.T) {
+func TestPassThrough_GetService(t *testing.T) {
 	type fields struct {
 		Name    string
 		Path    string
@@ -1047,7 +1047,7 @@ func TestProcSysCommon_GetService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
+			h := &implementations.PassThrough{
 				domain.HandlerBase{
 					Name:    tt.fields.Name,
 					Path:    tt.fields.Path,
@@ -1055,13 +1055,13 @@ func TestProcSysCommon_GetService(t *testing.T) {
 				},
 			}
 			if got := h.GetService(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ProcSysCommon.GetService() = %v, want %v", got, tt.want)
+				t.Errorf("PassThrough.GetService() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestProcSysCommon_SetService(t *testing.T) {
+func TestPassThrough_SetService(t *testing.T) {
 	type fields struct {
 		Name    string
 		Path    string
@@ -1079,7 +1079,7 @@ func TestProcSysCommon_SetService(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &implementations.ProcSysCommon{
+			h := &implementations.PassThrough{
 				domain.HandlerBase{
 					Name:    tt.fields.Name,
 					Path:    tt.fields.Path,

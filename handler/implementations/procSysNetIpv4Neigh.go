@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -117,12 +116,7 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 
 	// If looked-up element hasn't been found by now, look into the actual
 	// container rootfs.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return nil, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Lookup(n, req)
+	return h.Service.GetPassThroughHandler().Lookup(n, req)
 }
 
 func (h *ProcSysNetIpv4Neigh) Open(
@@ -245,16 +239,11 @@ func (h *ProcSysNetIpv4Neigh) ReadDirAll(
 		}
 	}
 
-	// Also collect procfs entries as seen within container's namespaces.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return nil, fmt.Errorf("No /proc/sys/ handler found")
-	}
-	commonNeigh, err := procSysCommonHandler.ReadDirAll(n, req)
+	// Obtain the usual entries seen within container's namespaces and add them
+	// to the emulated ones.
+	usualEntries, err := h.Service.GetPassThroughHandler().ReadDirAll(n, req)
 	if err == nil {
-		for _, entry := range commonNeigh {
-			fileEntries = append(fileEntries, entry)
-		}
+		fileEntries = append(fileEntries, usualEntries...)
 	}
 
 	return fileEntries, nil

@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -116,12 +115,7 @@ func (h *ProcSysNetCore) Lookup(
 
 	// If looked-up element hasn't been found by now, let's look into the actual
 	// sys container rootfs.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return nil, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Lookup(n, req)
+	return h.Service.GetPassThroughHandler().Lookup(n, req)
 }
 
 func (h *ProcSysNetCore) Open(
@@ -155,12 +149,7 @@ func (h *ProcSysNetCore) Read(
 	}
 
 	// Refer to generic handler if no node match is found above.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return 0, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Read(n, req)
+	return h.Service.GetPassThroughHandler().Read(n, req)
 }
 
 func (h *ProcSysNetCore) Write(
@@ -181,12 +170,7 @@ func (h *ProcSysNetCore) Write(
 	}
 
 	// Refer to generic handler if no node match is found above.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return 0, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Write(n, req)
+	return h.Service.GetPassThroughHandler().Write(n, req)
 }
 
 func (h *ProcSysNetCore) ReadDirAll(
@@ -210,16 +194,11 @@ func (h *ProcSysNetCore) ReadDirAll(
 		fileEntries = append(fileEntries, info)
 	}
 
-	// Also collect procfs entries as seen within container's namespaces.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return nil, fmt.Errorf("No /proc/sys/ handler found")
-	}
-	commonNeigh, err := procSysCommonHandler.ReadDirAll(n, req)
+	// Obtain the usual entries seen within container's namespaces and add them
+	// to the emulated ones.
+	usualEntries, err := h.Service.GetPassThroughHandler().ReadDirAll(n, req)
 	if err == nil {
-		for _, entry := range commonNeigh {
-			fileEntries = append(fileEntries, entry)
-		}
+		fileEntries = append(fileEntries, usualEntries...)
 	}
 
 	return fileEntries, nil

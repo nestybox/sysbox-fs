@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -138,12 +137,7 @@ func (h *ProcSysKernelYama) Lookup(
 
 	// If looked-up element hasn't been found by now, let's look into the actual
 	// container rootfs.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return nil, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Lookup(n, req)
+	return h.Service.GetPassThroughHandler().Lookup(n, req)
 }
 
 func (h *ProcSysKernelYama) Open(
@@ -174,12 +168,7 @@ func (h *ProcSysKernelYama) Read(
 	}
 
 	// Refer to generic handler if no node match is found above.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return 0, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Read(n, req)
+	return h.Service.GetPassThroughHandler().Read(n, req)
 }
 
 func (h *ProcSysKernelYama) Write(
@@ -197,30 +186,18 @@ func (h *ProcSysKernelYama) Write(
 	}
 
 	// Refer to generic handler if no node match is found above.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return 0, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.Write(n, req)
+	return h.Service.GetPassThroughHandler().Write(n, req)
 }
 
 func (h *ProcSysKernelYama) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
-		req.ID, h.Name, resource)
+		req.ID, h.Name, n.Name())
 
-	// Refer to generic handler if no node match is found above.
-	procSysCommonHandler, ok := h.Service.FindHandler("/proc/sys/")
-	if !ok {
-		return nil, fmt.Errorf("No /proc/sys/ handler found")
-	}
-
-	return procSysCommonHandler.ReadDirAll(n, req)
+	// Return all entries as seen within container's namespaces.
+	return h.Service.GetPassThroughHandler().ReadDirAll(n, req)
 }
 
 func (h *ProcSysKernelYama) GetName() string {
