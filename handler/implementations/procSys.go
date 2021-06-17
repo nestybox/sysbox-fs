@@ -50,7 +50,7 @@ func (h *ProcSys) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	return h.Service.GetPassThroughHandler().Lookup(n, req)
@@ -60,7 +60,7 @@ func (h *ProcSys) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	return h.Service.GetPassThroughHandler().Open(n, req)
@@ -70,7 +70,7 @@ func (h *ProcSys) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	return h.Service.GetPassThroughHandler().Read(n, req)
@@ -80,7 +80,7 @@ func (h *ProcSys) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	return h.Service.GetPassThroughHandler().Write(n, req)
@@ -90,7 +90,7 @@ func (h *ProcSys) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	return h.Service.GetPassThroughHandler().ReadDirAll(n, req)

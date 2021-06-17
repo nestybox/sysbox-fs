@@ -58,7 +58,7 @@ func (h *Root) Lookup(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
 	return n.Stat()
@@ -91,7 +91,7 @@ func (h *Root) ReadDirAll(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
 	return nil, nil

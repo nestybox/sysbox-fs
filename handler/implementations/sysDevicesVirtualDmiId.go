@@ -84,7 +84,7 @@ func (h *SysDevicesVirtualDmiId) Lookup(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
 	// Return an artificial fileInfo if looked-up element matches any of the
@@ -108,7 +108,7 @@ func (h *SysDevicesVirtualDmiId) Open(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
 	flags := n.OpenFlags()
@@ -125,7 +125,7 @@ func (h *SysDevicesVirtualDmiId) Read(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
 	// We are dealing with a single boolean element being read, so we can save

@@ -120,7 +120,7 @@ func (h *ProcSysKernelYama) Lookup(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
 	// Return an artificial fileInfo if looked-up element matches any of the
@@ -153,7 +153,7 @@ func (h *ProcSysKernelYama) Read(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
 	// We are dealing with a single integer element being read, so we can save
@@ -177,7 +177,7 @@ func (h *ProcSysKernelYama) Write(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
 	switch resource {
@@ -193,7 +193,7 @@ func (h *ProcSysKernelYama) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	// Return all entries as seen within container's namespaces.

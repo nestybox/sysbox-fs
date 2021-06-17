@@ -180,7 +180,7 @@ func writeFileMaxInt(
 
 	// If new value is lower than the existing one, then let's update this
 	// new value into the container struct but not push it down to the kernel.
-	if newMaxInt < curMaxInt {
+	if newMaxInt <= curMaxInt {
 		cntr.SetData(path, name, newMax)
 		return len(req.Data), nil
 	}
@@ -241,7 +241,7 @@ func writeFileMinInt(
 
 	// If new value is higher than the existing one, then let's update this
 	// new value into the container struct but not push it down to the kernel.
-	if newMinInt > curMinInt {
+	if newMinInt >= curMinInt {
 		cntr.SetData(path, name, newMin)
 
 		return len(req.Data), nil
