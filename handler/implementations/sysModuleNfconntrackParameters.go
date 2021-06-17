@@ -113,7 +113,7 @@ func (h *SysModuleNfconntrackParameters) Write(
 	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
-	return writeFileInt(h, n, req, 0, MaxInt, true)
+	return writeFileMaxInt(h, n, req, true)
 }
 
 func (h *SysModuleNfconntrackParameters) ReadDirAll(
