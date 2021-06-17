@@ -78,7 +78,7 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	var resource string
@@ -130,7 +130,7 @@ func (h *ProcSysNetIpv4Neigh) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	// We are dealing with a single boolean element being read, so we can save
@@ -169,7 +169,7 @@ func (h *ProcSysNetIpv4Neigh) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	// Obtain relative path to the element being written.
@@ -202,7 +202,7 @@ func (h *ProcSysNetIpv4Neigh) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	var (

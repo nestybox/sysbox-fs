@@ -58,7 +58,7 @@ func (h *PassThrough) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	logrus.Debugf("Executing Lookup() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
@@ -97,7 +97,7 @@ func (h *PassThrough) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Open() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
@@ -138,7 +138,7 @@ func (h *PassThrough) Read(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing Read() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
 	if req.Offset > 0 {
@@ -198,7 +198,7 @@ func (h *PassThrough) Write(
 
 	var resource = n.Name()
 
-	logrus.Debugf("Executing Write() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
 	path := n.Path()
@@ -233,7 +233,7 @@ func (h *PassThrough) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
@@ -280,7 +280,7 @@ func (h *PassThrough) Setattr(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	logrus.Debugf("Executing Setattr() for Req ID=%#x, %v handler, resource %s",
+	logrus.Debugf("Executing Setattr() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
