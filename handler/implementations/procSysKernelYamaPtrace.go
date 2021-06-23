@@ -238,8 +238,8 @@ func (h *ProcSysKernelYama) GetResourcesList() []string {
 	return resources
 }
 
-func (h *ProcSysKernelYama) GetResourceMutex(s string) *sync.Mutex {
-	resource, ok := h.EmuResourceMap[s]
+func (h *ProcSysKernelYama) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[n.Name()]
 	if !ok {
 		return nil
 	}

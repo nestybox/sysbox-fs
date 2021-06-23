@@ -429,8 +429,8 @@ func (h *PassThrough) GetResourcesList() []string {
 	return resources
 }
 
-func (h *PassThrough) GetResourceMutex(s string) *sync.Mutex {
-	resource, ok := h.EmuResourceMap[s]
+func (h *PassThrough) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[n.Name()]
 	if !ok {
 		return nil
 	}

@@ -282,8 +282,8 @@ func (h *ProcSysNetNetfilter) GetResourcesList() []string {
 
 	return resources
 }
-func (h *ProcSysNetNetfilter) GetResourceMutex(s string) *sync.Mutex {
-	resource, ok := h.EmuResourceMap[s]
+func (h *ProcSysNetNetfilter) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[n.Name()]
 	if !ok {
 		return nil
 	}

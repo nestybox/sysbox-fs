@@ -234,8 +234,8 @@ func (h *ProcSysFs) GetResourcesList() []string {
 	return resources
 }
 
-func (h *ProcSysFs) GetResourceMutex(s string) *sync.Mutex {
-	resource, ok := h.EmuResourceMap[s]
+func (h *ProcSysFs) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[n.Name()]
 	if !ok {
 		return nil
 	}
