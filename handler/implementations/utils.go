@@ -116,7 +116,7 @@ func fetchFileData(
 
 	// We need the per-resource lock since we are about to access the resource
 	// on the host FS. See pushFileMaxInt() for a full explanation.
-	resourceMutex := h.GetResourceMutex(n.Name())
+	resourceMutex := h.GetResourceMutex(n)
 	if resourceMutex == nil {
 		logrus.Errorf("Unexpected error: no mutex found for emulated resource %s",
 			n.Path())
@@ -396,7 +396,7 @@ func pushFileMaxInt(
 	// agents that write to the same sysctl. That's because there is no guarantee
 	// that the other host agent will read-after-write and retry as sysbox does.
 
-	resourceMutex := h.GetResourceMutex(n.Name())
+	resourceMutex := h.GetResourceMutex(n)
 	if resourceMutex == nil {
 		logrus.Errorf("Unexpected error: no mutex found for emulated resource %s",
 			n.Path())
@@ -455,7 +455,7 @@ func pushFileMinInt(
 
 	// We need the per-resource lock since we are about to access the resource
 	// on the host FS.
-	resourceMutex := h.GetResourceMutex(n.Name())
+	resourceMutex := h.GetResourceMutex(n)
 	if resourceMutex == nil {
 		logrus.Errorf("Unexpected error: no mutex found for emulated resource %s",
 			n.Path())
@@ -530,7 +530,7 @@ func pushFileInt(
 	// shared resources. The reason is simple: the values being written here are
 	// scalars with no ordering relationships among each other, so there's no
 	// obvious way to detect a collision.
-	resourceMutex := h.GetResourceMutex(n.Name())
+	resourceMutex := h.GetResourceMutex(n)
 	if resourceMutex == nil {
 		logrus.Errorf("Unexpected error: no mutex found for emulated resource %s",
 			n.Path())
@@ -579,7 +579,7 @@ func pushFileString(
 	// the ones utilized above to prevent collisions when writing to system-wide
 	// shared resources. The reason is simple: the values being written here are
 	// strings, so there's no obvious way to detect a collision.
-	resourceMutex := h.GetResourceMutex(n.Name())
+	resourceMutex := h.GetResourceMutex(n)
 	if resourceMutex == nil {
 		logrus.Errorf("Unexpected error: no mutex found for emulated resource %s",
 			n.Path())

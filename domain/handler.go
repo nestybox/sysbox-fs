@@ -103,7 +103,7 @@ type HandlerIface interface {
 	GetService() HandlerServiceIface
 	SetService(hs HandlerServiceIface)
 	GetResourcesList() []string
-	GetResourceMutex(s string) *sync.Mutex
+	GetResourceMutex(node IOnodeIface) *sync.Mutex
 }
 
 type HandlerServiceIface interface {

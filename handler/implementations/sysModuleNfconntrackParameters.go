@@ -161,8 +161,8 @@ func (h *SysModuleNfconntrackParameters) GetResourcesList() []string {
 	return resources
 }
 
-func (h *SysModuleNfconntrackParameters) GetResourceMutex(s string) *sync.Mutex {
-	resource, ok := h.EmuResourceMap[s]
+func (h *SysModuleNfconntrackParameters) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[n.Name()]
 	if !ok {
 		return nil
 	}

@@ -249,8 +249,8 @@ func (h *ProcSysNetIpv4Vs) GetResourcesList() []string {
 
 	return resources
 }
-func (h *ProcSysNetIpv4Vs) GetResourceMutex(s string) *sync.Mutex {
-	resource, ok := h.EmuResourceMap[s]
+func (h *ProcSysNetIpv4Vs) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[n.Name()]
 	if !ok {
 		return nil
 	}

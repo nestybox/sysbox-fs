@@ -287,13 +287,23 @@ func (h *ProcSysNetIpv4Neigh) GetResourcesList() []string {
 	return resources
 }
 
-func (h *ProcSysNetIpv4Neigh) GetResourceMutex(s string) *sync.Mutex {
-	resource, ok := h.EmuResourceMap[s]
-	if !ok {
+func (h *ProcSysNetIpv4Neigh) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
+
+	// Obtain the relative path to the element being acted on.
+	relPath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
 		return nil
 	}
 
-	return &resource.Mutex
+	// Identify the associated entry matching the passed node and, if found,
+	// return its mutex.
+	for k, v := range h.EmuResourceMap {
+		if match, _ := filepath.Match(k, relPath); match {
+			return &v.Mutex
+		}
+	}
+
+	return nil
 }
 
 func (h *ProcSysNetIpv4Neigh) SetService(hs domain.HandlerServiceIface) {

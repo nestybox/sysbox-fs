@@ -208,8 +208,8 @@ func (h *Proc) GetResourcesList() []string {
 	return resources
 }
 
-func (h *Proc) GetResourceMutex(s string) *sync.Mutex {
-	resource, ok := h.EmuResourceMap[s]
+func (h *Proc) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
+	resource, ok := h.EmuResourceMap[n.Name()]
 	if !ok {
 		return nil
 	}
