@@ -186,6 +186,11 @@ func main() {
 			Usage: "sys container's initial mounts are considered immutable; this option allows them to be unmounted from within the container (default: \"true\")",
 		},
 		cli.StringFlag{
+			Name:  "seccomp-fd-release",
+			Value: "proc-exit",
+			Usage: "Policy to close syscall interception handles; allowed values are \"proc-exit\" and \"cont-exit\" (default = \"proc-exit\")",
+		},
+		cli.StringFlag{
 			Name:  "log",
 			Value: "",
 			Usage: "log file path or empty string for stderr output (default: \"\")",
@@ -326,6 +331,9 @@ func main() {
 		} else {
 			logrus.Info("Initializing with 'allow-immutable-unmounts' knob disabled")
 		}
+		if ctx.GlobalString("seccomp-fd-release") == "cont-exit" {
+			logrus.Info("Seccomp-notify fd release policy set to container exit")
+		}
 
 		// Construct sysbox-fs services.
 		var nsenterService = nsenter.NewNSenterService()
@@ -380,6 +388,7 @@ func main() {
 			mountService,
 			ctx.BoolT("allow-immutable-remounts"),
 			ctx.Bool("allow-immutable-unmounts"),
+			ctx.GlobalString("seccomp-fd-release"),
 		)
 
 		ipcService.Setup(

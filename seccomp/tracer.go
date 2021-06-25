@@ -63,6 +63,7 @@ type SyscallMonitorService struct {
 	mts                    domain.MountServiceIface          // for mount-services purposes
 	allowImmutableRemounts bool                              // allow immutable mounts to be remounted
 	allowImmutableUnmounts bool                              // allow immutable mounts to be unmounted
+	closeSeccompOnContExit bool                              // close seccomp fds on container exit, not on process exit
 	tracer                 *syscallTracer                    // pointer to actual syscall-tracer instance
 }
 
@@ -76,7 +77,8 @@ func (scs *SyscallMonitorService) Setup(
 	prs domain.ProcessServiceIface,
 	mts domain.MountServiceIface,
 	allowImmutableRemounts bool,
-	allowImmutableUnmounts bool) {
+	allowImmutableUnmounts bool,
+	seccompFdReleasePolicy string) {
 
 	scs.nss = nss
 	scs.css = css
@@ -84,6 +86,10 @@ func (scs *SyscallMonitorService) Setup(
 	scs.mts = mts
 	scs.allowImmutableRemounts = allowImmutableRemounts
 	scs.allowImmutableUnmounts = allowImmutableUnmounts
+
+	if seccompFdReleasePolicy == "cont-exit" {
+		scs.closeSeccompOnContExit = true
+	}
 
 	// Allocate a new syscall-tracer.
 	scs.tracer = newSyscallTracer(scs)
@@ -97,19 +103,22 @@ func (scs *SyscallMonitorService) Setup(
 
 // SeccompSession holds state associated to every seccomp tracee session.
 type seccompSession struct {
-	pid uint32 // pid of the tracee process
-	fd  int32  // tracee's seccomp-fd to allow kernel interaction
+	pid    uint32 // pid of the tracee process
+	fd     int32  // tracee's seccomp-fd to allow kernel interaction
+	cntrID string // container associated with the tracee process
 }
 
 // Seccomp's syscall-monitor/tracer.
 type syscallTracer struct {
-	srv               *unixIpc.Server                   // unix server listening to seccomp-notifs
-	pollsrv           *unixIpc.PollServer               // unix pollserver for non-blocking i/o on seccomp-fd
-	syscalls          map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls indexed by id
-	seccompSessionMap map[uint32]seccompSession         // Table of seccomp sessions
-	seccompSessionMu  sync.RWMutex                      // Seccomp session table lock
-	pm                *pidmonitor.PidMon                // Pid monitor (so we get notified when processes traced by seccomp die)
-	service           *SyscallMonitorService            // backpointer to syscall-monitor service
+	srv                *unixIpc.Server                   // unix server listening to seccomp-notifs
+	pollsrv            *unixIpc.PollServer               // unix pollserver for non-blocking i/o on seccomp-fd
+	syscalls           map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls, indexed by seccomp syscall id
+	seccompSessionMap  map[uint32]int32                  // Tracks seccomp fd associated with a given pid
+	seccompSessionCMap map[string][]int32                // Tracks all seccomp fds associated with a given container
+	pidToContMap       map[uint32]string                 // Maps pid -> container id
+	seccompSessionMu   sync.RWMutex                      // Seccomp session table lock
+	pm                 *pidmonitor.PidMon                // Pid monitor (so we get notified when processes traced by seccomp die)
+	service            *SyscallMonitorService            // backpointer to syscall-monitor service
 }
 
 // syscallTracer constructor.
@@ -118,7 +127,12 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 	tracer := &syscallTracer{
 		service:           sms,
 		syscalls:          make(map[libseccomp.ScmpSyscall]string),
-		seccompSessionMap: make(map[uint32]seccompSession),
+		seccompSessionMap: make(map[uint32]int32),
+	}
+
+	if sms.closeSeccompOnContExit {
+		tracer.seccompSessionCMap = make(map[string][]int32)
+		tracer.pidToContMap = make(map[uint32]string)
 	}
 
 	// Populate hashmap of supported syscalls to monitor.
@@ -189,7 +203,23 @@ func (t *syscallTracer) start() error {
 func (t *syscallTracer) seccompSessionAdd(s seccompSession) error {
 
 	t.seccompSessionMu.Lock()
-	t.seccompSessionMap[s.pid] = s
+	t.seccompSessionMap[s.pid] = s.fd
+
+	if t.service.closeSeccompOnContExit {
+
+		// Collect seccomp fds associated with container so we can
+		// release them together when the container dies.
+
+		t.pidToContMap[s.pid] = s.cntrID
+		fds, ok := t.seccompSessionCMap[s.cntrID]
+		if ok {
+			fds = append(fds, s.fd)
+			t.seccompSessionCMap[s.cntrID] = fds
+		} else {
+			t.seccompSessionCMap[s.cntrID] = []int32{s.fd}
+		}
+	}
+
 	t.seccompSessionMu.Unlock()
 
 	err := t.pm.AddEvent([]pidmonitor.PidEvent{
@@ -205,45 +235,77 @@ func (t *syscallTracer) seccompSessionAdd(s seccompSession) error {
 }
 
 func (t *syscallTracer) seccompSessionDelete(pid uint32) {
+	var closeFds []int32
 
 	t.seccompSessionMu.Lock()
 
-	s, ok := t.seccompSessionMap[pid]
+	fd, ok := t.seccompSessionMap[pid]
 	if !ok {
 		t.seccompSessionMu.Unlock()
 		logrus.Warnf("Unexpected error: seccomp fd not found for pid %d", pid)
 		return
 	}
 
-	// From the moment in which we delete a given seccompSession from the
-	// sessions map, no new read-operation can be launched from the tracer
-	// for this very fd being eliminated. That's to say that the order of
-	// instructions in this block is important: "delete" first, StopWait()
-	// second.
 	delete(t.seccompSessionMap, pid)
+
+	if t.service.closeSeccompOnContExit {
+		cntrID, ok := t.pidToContMap[pid]
+
+		if ok {
+			var cntrInitPid uint32
+
+			cntr := t.service.css.ContainerLookupById(cntrID)
+			if cntr != nil {
+				cntrInitPid = cntr.InitPid()
+			}
+
+			// if the container is no longer there, or the pid being deleted is the
+			// container's init pid, we close all seccomp fds for that container
+			if cntr == nil || pid == cntrInitPid {
+				closeFds = t.seccompSessionCMap[cntrID]
+				delete(t.seccompSessionCMap, cntrID)
+			}
+
+			delete(t.pidToContMap, pid)
+		} else {
+			logrus.Warnf("Unexpected error: pid %d is not associated with a container", pid)
+		}
+
+	} else {
+		closeFds = []int32{fd}
+	}
+
 	t.seccompSessionMu.Unlock()
 
-	// Alert the tracer's pollServer to stop polling on this seccomp-fd.
-	if err := t.pollsrv.StopWait(s.fd); err != nil {
-		logrus.Errorf("failed StopWait execution of seccomp fd %d for pid %d: %v",
-			s.fd, pid, err)
-	}
+	if len(closeFds) > 0 {
+		for _, fd := range closeFds {
 
-	// Now we are finally ready to close the seccomp-fd. We don't want to do
-	// this any earlier as kernel could potentially re-assign the same fd to
-	// new seccomp-bpf sessions without giving us a chance to complete the fd
-	// unregistration process.
-	if err := syscall.Close(int(s.fd)); err != nil {
-		logrus.Errorf("failed to close seccomp fd %v for pid %d: %v", s.fd, pid, err)
-	}
+			// Alert the tracer's pollServer to stop polling on this seccomp-fd. Note
+			// that this occurs after we delete the pid from the seccomp session map,
+			// meaning that no new read operation can be launched from the tracer for
+			// the fd being eliminated.
+			if err := t.pollsrv.StopWait(fd); err != nil {
+				logrus.Errorf("failed StopWait execution of seccomp fd %d for pid %d: %v",
+					fd, pid, err)
+			}
 
-	logrus.Debugf("Removed session for seccomp-tracee: %v", s)
+			// We are finally ready to close the seccomp-fd. We don't want to do
+			// this any earlier as kernel could potentially re-assign the same fd to
+			// new seccomp-bpf sessions without giving us a chance to complete the fd
+			// unregistration process.
+			if err := syscall.Close(int(fd)); err != nil {
+				logrus.Errorf("failed to close seccomp fd %v for pid %d: %v", fd, pid, err)
+			}
+		}
+
+		logrus.Debugf("Removed session for seccomp-tracee for pid %d: fd(s) = %v", pid, closeFds)
+	}
 }
 
 func (t *syscallTracer) seccompSessionRead(s seccompSession) error {
 
 	t.seccompSessionMu.RLock()
-	s, ok := t.seccompSessionMap[s.pid]
+	_, ok := t.seccompSessionMap[s.pid]
 	if !ok {
 		t.seccompSessionMu.RUnlock()
 		return fmt.Errorf("SeccompSession not found for pid %d fd %d", s.pid, s.fd)
@@ -284,7 +346,7 @@ func (t *syscallTracer) seccompSessionsMonitor() error {
 // per connection).
 func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 
-	// Obtain seccomp-notification's file-descriptor and associated context (cntr).
+	// Obtain seccomp-notification's file-descriptor and associated context.
 	pid, cntrID, fd, err := unixIpc.RecvSeccompInitMsg(c)
 	if err != nil {
 		return err
@@ -293,7 +355,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 	logrus.Debugf("seccompTracer connection on fd %d from pid %d cntrId %s",
 		fd, pid, formatter.ContainerID{cntrID})
 
-	seccompSession := seccompSession{uint32(pid), fd}
+	seccompSession := seccompSession{uint32(pid), fd, cntrID}
 	if err := t.seccompSessionAdd(seccompSession); err != nil {
 		return err
 	}
