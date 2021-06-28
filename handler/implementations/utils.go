@@ -60,6 +60,7 @@ func readFileInt(
 		// High-level verification to ensure that format is the expected one.
 		_, err = strconv.Atoi(val)
 		if err != nil {
+			cntr.Unlock()
 			logrus.Errorf("Unexpected content read from file %v, error %v",
 				n.Path(), err)
 			return 0, fuse.IOerror{Code: syscall.EINVAL}
@@ -166,7 +167,6 @@ func writeFileMaxInt(
 				return 0, err
 			}
 		}
-
 		cntr.SetData(path, name, newMax)
 
 		return len(req.Data), nil
