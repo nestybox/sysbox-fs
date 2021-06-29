@@ -143,11 +143,41 @@ func (h *ProcSysNetUnix) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, n.Name())
+	var resource = n.Name()
 
-	// Return all entries as seen within container's namespaces.
-	return h.Service.GetPassThroughHandler().ReadDirAll(n, req)
+	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, resource)
+
+	var fileEntries []os.FileInfo
+
+	// Obtain relative path to the element being read.
+	relpath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return nil, err
+	}
+
+	// Iterate through map of emulated components.
+	for k, _ := range h.EmuResourceMap {
+
+		if relpath == filepath.Dir(k) {
+			info := &domain.FileInfo{
+				Fname:    k,
+				Fmode:    os.FileMode(uint32(0644)),
+				FmodTime: time.Now(),
+			}
+
+			fileEntries = append(fileEntries, info)
+		}
+	}
+
+	// Obtain the usual entries seen within container's namespaces and add them
+	// to the emulated ones.
+	usualEntries, err := h.Service.GetPassThroughHandler().ReadDirAll(n, req)
+	if err == nil {
+		fileEntries = append(fileEntries, usualEntries...)
+	}
+
+	return fileEntries, nil
 }
 
 func (h *ProcSysNetUnix) GetName() string {
