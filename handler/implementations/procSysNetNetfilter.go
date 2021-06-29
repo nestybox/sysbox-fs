@@ -162,6 +162,7 @@ func (h *ProcSysNetNetfilter) Read(
 		return readFileInt(h, n, req)
 
 	case "nf_conntrack_tcp_be_liberal":
+		return readFileInt(h, n, req)
 
 	case "nf_conntrack_tcp_timeout_established":
 		return readFileInt(h, n, req)
