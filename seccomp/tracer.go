@@ -103,9 +103,8 @@ func (scs *SyscallMonitorService) Setup(
 
 // SeccompSession holds state associated to every seccomp tracee session.
 type seccompSession struct {
-	pid    uint32 // pid of the tracee process
-	fd     int32  // tracee's seccomp-fd to allow kernel interaction
-	cntrID string // container associated with the tracee process
+	pid uint32 // pid of the tracee process
+	fd  int32  // tracee's seccomp-fd to allow kernel interaction
 }
 
 // Seccomp's syscall-monitor/tracer.
@@ -114,7 +113,7 @@ type syscallTracer struct {
 	pollsrv            *unixIpc.PollServer               // unix pollserver for non-blocking i/o on seccomp-fd
 	syscalls           map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls, indexed by seccomp syscall id
 	seccompSessionMap  map[uint32]int32                  // Tracks seccomp fd associated with a given pid
-	seccompSessionCMap map[string][]int32                // Tracks all seccomp fds associated with a given container
+	seccompSessionCMap map[string][]seccompSession       // Tracks all seccomp sessions associated with a given container
 	pidToContMap       map[uint32]string                 // Maps pid -> container id
 	seccompSessionMu   sync.RWMutex                      // Seccomp session table lock
 	pm                 *pidmonitor.PidMon                // Pid monitor (so we get notified when processes traced by seccomp die)
@@ -131,7 +130,7 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 	}
 
 	if sms.closeSeccompOnContExit {
-		tracer.seccompSessionCMap = make(map[string][]int32)
+		tracer.seccompSessionCMap = make(map[string][]seccompSession)
 		tracer.pidToContMap = make(map[uint32]string)
 	}
 
@@ -200,7 +199,7 @@ func (t *syscallTracer) start() error {
 	return nil
 }
 
-func (t *syscallTracer) seccompSessionAdd(s seccompSession) error {
+func (t *syscallTracer) seccompSessionAdd(s seccompSession, cntrID string) error {
 
 	t.seccompSessionMu.Lock()
 	t.seccompSessionMap[s.pid] = s.fd
@@ -210,13 +209,13 @@ func (t *syscallTracer) seccompSessionAdd(s seccompSession) error {
 		// Collect seccomp fds associated with container so we can
 		// release them together when the container dies.
 
-		t.pidToContMap[s.pid] = s.cntrID
-		fds, ok := t.seccompSessionCMap[s.cntrID]
+		t.pidToContMap[s.pid] = cntrID
+		sessions, ok := t.seccompSessionCMap[cntrID]
 		if ok {
-			fds = append(fds, s.fd)
-			t.seccompSessionCMap[s.cntrID] = fds
+			sessions = append(sessions, s)
+			t.seccompSessionCMap[cntrID] = sessions
 		} else {
-			t.seccompSessionCMap[s.cntrID] = []int32{s.fd}
+			t.seccompSessionCMap[cntrID] = []seccompSession{s}
 		}
 	}
 
@@ -230,7 +229,7 @@ func (t *syscallTracer) seccompSessionAdd(s seccompSession) error {
 		},
 	})
 
-	logrus.Debugf("Added session for seccomp-tracee: %v", s)
+	logrus.Debugf("Added session for seccomp-tracee: %v %v", s, cntrID)
 	return err
 }
 
@@ -238,15 +237,12 @@ func (t *syscallTracer) seccompSessionDelete(pid uint32) {
 	var closeFds []int32
 
 	t.seccompSessionMu.Lock()
-
 	fd, ok := t.seccompSessionMap[pid]
 	if !ok {
 		t.seccompSessionMu.Unlock()
 		logrus.Warnf("Unexpected error: seccomp fd not found for pid %d", pid)
 		return
 	}
-
-	delete(t.seccompSessionMap, pid)
 
 	if t.service.closeSeccompOnContExit {
 		cntrID, ok := t.pidToContMap[pid]
@@ -260,9 +256,13 @@ func (t *syscallTracer) seccompSessionDelete(pid uint32) {
 			}
 
 			// if the container is no longer there, or the pid being deleted is the
-			// container's init pid, we close all seccomp fds for that container
+			// container's init pid, we close all seccomp sessions for that container
 			if cntr == nil || pid == cntrInitPid {
-				closeFds = t.seccompSessionCMap[cntrID]
+				sessions := t.seccompSessionCMap[cntrID]
+				for _, s := range sessions {
+					closeFds = append(closeFds, s.fd)
+					delete(t.seccompSessionMap, s.pid)
+				}
 				delete(t.seccompSessionCMap, cntrID)
 			}
 
@@ -273,6 +273,7 @@ func (t *syscallTracer) seccompSessionDelete(pid uint32) {
 
 	} else {
 		closeFds = []int32{fd}
+		delete(t.seccompSessionMap, pid)
 	}
 
 	t.seccompSessionMu.Unlock()
@@ -305,10 +306,11 @@ func (t *syscallTracer) seccompSessionDelete(pid uint32) {
 func (t *syscallTracer) seccompSessionRead(s seccompSession) error {
 
 	t.seccompSessionMu.RLock()
+
 	_, ok := t.seccompSessionMap[s.pid]
 	if !ok {
 		t.seccompSessionMu.RUnlock()
-		return fmt.Errorf("SeccompSession not found for pid %d fd %d", s.pid, s.fd)
+		return fmt.Errorf("Seccomp session not found for pid %d fd %d", s.pid, s.fd)
 	}
 	t.seccompSessionMu.RUnlock()
 
@@ -355,8 +357,8 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 	logrus.Debugf("seccompTracer connection on fd %d from pid %d cntrId %s",
 		fd, pid, formatter.ContainerID{cntrID})
 
-	seccompSession := seccompSession{uint32(pid), fd, cntrID}
-	if err := t.seccompSessionAdd(seccompSession); err != nil {
+	seccompSession := seccompSession{uint32(pid), fd}
+	if err := t.seccompSessionAdd(seccompSession, cntrID); err != nil {
 		return err
 	}
 
@@ -370,6 +372,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 		// Return here to exit this goroutine in case of error as that implies
 		// that the seccomp-fd is not valid anymore.
 		if err := t.seccompSessionRead(seccompSession); err != nil {
+			logrus.Warnf("Failed to wait for seccomp session: %v", err)
 			return err
 		}
 
