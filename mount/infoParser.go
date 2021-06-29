@@ -53,6 +53,7 @@ import (
 	"strings"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -364,7 +365,8 @@ func (mi *mountInfoParser) extractAllInodes() error {
 
 	respMounts, err := mi.extractInodes(reqMounts)
 	if err != nil {
-		return nil
+		logrus.Errorf("Unable to extract inodes, err: %s", err)
+		return err
 	}
 
 	if len(reqMounts) != len(respMounts) {
