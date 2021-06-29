@@ -34,7 +34,7 @@ import (
 //
 // * /proc/sys/fs/file-max
 //
-// * /proc/sys/fs/nr-open
+// * /proc/sys/fs/nr_open
 //
 // * /proc/sys/fs/protected_hardlinks
 //
@@ -66,7 +66,7 @@ var ProcSysFs_Handler = &ProcSysFs{
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
 			},
-			"nr-open": {
+			"nr_open": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
@@ -112,7 +112,7 @@ func (h *ProcSysFs) Open(
 	case "file-max":
 		return nil
 
-	case "nr-open":
+	case "nr_open":
 		return nil
 
 	case "protected_hardlinks":
@@ -144,7 +144,7 @@ func (h *ProcSysFs) Read(
 	case "file-max":
 		return readFileInt(h, n, req)
 
-	case "nr-open":
+	case "nr_open":
 		return readFileInt(h, n, req)
 
 	case "protected_hardlinks":
@@ -171,7 +171,7 @@ func (h *ProcSysFs) Write(
 	case "file-max":
 		return writeFileMaxInt(h, n, req, false)
 
-	case "nr-open":
+	case "nr_open":
 		return writeFileMaxInt(h, n, req, false)
 
 	case "protected_hardlinks":
