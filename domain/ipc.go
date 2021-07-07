@@ -20,7 +20,8 @@ type IpcServiceIface interface {
 	Setup(
 		css ContainerStateServiceIface,
 		prs ProcessServiceIface,
-		ios IOServiceIface)
+		ios IOServiceIface,
+		fuseMp string)
 
 	Init() error
 }

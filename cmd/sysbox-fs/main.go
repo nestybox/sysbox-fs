@@ -334,6 +334,7 @@ func main() {
 		if ctx.GlobalString("seccomp-fd-release") == "cont-exit" {
 			logrus.Info("Seccomp-notify fd release policy set to container exit")
 		}
+		logrus.Infof("FUSE dir = %s", ctx.GlobalString("mountpoint"))
 
 		// Construct sysbox-fs services.
 		var nsenterService = nsenter.NewNSenterService()
@@ -395,6 +396,7 @@ func main() {
 			containerStateService,
 			processService,
 			ioService,
+			ctx.GlobalString("mountpoint"),
 		)
 
 		// If requested, launch cpu/mem profiling collection.
