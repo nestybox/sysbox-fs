@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2021 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,6 +71,7 @@ func Test_ipcService_Setup(t *testing.T) {
 		css        domain.ContainerStateServiceIface
 		prs        domain.ProcessServiceIface
 		ios        domain.IOServiceIface
+		fuseMp     string
 	}
 
 	var f1 = fields{
@@ -78,17 +79,20 @@ func Test_ipcService_Setup(t *testing.T) {
 		css:        css,
 		prs:        nil,
 		ios:        nil,
+		fuseMp:     "/var/lib/sysboxfs",
 	}
 
 	type args struct {
-		css domain.ContainerStateServiceIface
-		prs domain.ProcessServiceIface
-		ios domain.IOServiceIface
+		css    domain.ContainerStateServiceIface
+		prs    domain.ProcessServiceIface
+		ios    domain.IOServiceIface
+		fuseMp string
 	}
 	var a1 = args{
-		css: css,
-		prs: nil,
-		ios: nil,
+		css:    css,
+		prs:    nil,
+		ios:    nil,
+		fuseMp: "/var/lib/sysboxfs",
 	}
 
 	tests := []struct {
@@ -105,7 +109,7 @@ func Test_ipcService_Setup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ips := ipc.NewIpcService()
-			ips.Setup(tt.args.css, tt.args.prs, tt.args.ios)
+			ips.Setup(tt.args.css, tt.args.prs, tt.args.ios, tt.args.fuseMp)
 		})
 	}
 }
@@ -141,7 +145,7 @@ func TestContainerPreRegister(t *testing.T) {
 	}
 
 	var ctx = ipc.NewIpcService()
-	ctx.Setup(css, nil, nil)
+	ctx.Setup(css, nil, nil, "/var/lib/sysboxfs")
 
 	var a1 = args{
 		ctx: ctx,
@@ -216,7 +220,7 @@ func TestContainerRegister(t *testing.T) {
 	var c1 domain.ContainerIface
 
 	var ctx = ipc.NewIpcService()
-	ctx.Setup(css, nil, nil)
+	ctx.Setup(css, nil, nil, "/var/lib/sysboxfs")
 
 	var a1 = args{
 		ctx: ctx,
@@ -326,7 +330,7 @@ func TestContainerUnregister(t *testing.T) {
 	)
 
 	var ctx = ipc.NewIpcService()
-	ctx.Setup(css, nil, nil)
+	ctx.Setup(css, nil, nil, "/var/lib/sysboxfs")
 
 	var a1 = args{
 		ctx: ctx,
@@ -401,7 +405,7 @@ func TestContainerUpdate(t *testing.T) {
 	var c1 domain.ContainerIface
 
 	var ctx = ipc.NewIpcService()
-	ctx.Setup(css, nil, nil)
+	ctx.Setup(css, nil, nil, "/var/lib/sysboxfs")
 
 	var a1 = args{
 		ctx: ctx,
