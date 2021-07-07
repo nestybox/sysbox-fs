@@ -39,7 +39,8 @@ func NewIpcService() domain.IpcServiceIface {
 func (ips *ipcService) Setup(
 	css domain.ContainerStateServiceIface,
 	prs domain.ProcessServiceIface,
-	ios domain.IOServiceIface) {
+	ios domain.IOServiceIface,
+	fuseMp string) {
 
 	ips.css = css
 	ips.prs = prs
@@ -54,6 +55,7 @@ func (ips *ipcService) Setup(
 			grpc.ContainerUnregisterMessage:  ContainerUnregister,
 			grpc.ContainerUpdateMessage:      ContainerUpdate,
 		},
+		fuseMp,
 	)
 
 	logrus.Infof("Listening on %v", ips.grpcServer.GetAddr())
