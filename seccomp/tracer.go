@@ -372,7 +372,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 		// Return here to exit this goroutine in case of error as that implies
 		// that the seccomp-fd is not valid anymore.
 		if err := t.seccompSessionRead(seccompSession); err != nil {
-			logrus.Warnf("Failed to wait for seccomp session: %v", err)
+			logrus.Debugf("Failed to wait for seccomp session: %v", err)
 			return err
 		}
 
@@ -478,7 +478,7 @@ func (t *syscallTracer) process(
 
 	// TOCTOU check.
 	if err := libseccomp.NotifIdValid(libseccomp.ScmpFd(fd), req.Id); err != nil {
-		logrus.Warnf("TOCTOU check failed on fd %d pid %d cntr %s: req.Id is no longer valid (%s)",
+		logrus.Infof("TOCTOU check failed on fd %d pid %d cntr %s: req.Id is no longer valid (%s)",
 			fd, req.Pid, formatter.ContainerID{cntrID}, err)
 		return t.createErrorResponse(req.Id, err)
 	}
