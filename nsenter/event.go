@@ -344,7 +344,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 
 //
 // Auxiliary function to obtain the FS path associated to any given namespace.
-// Theese FS paths are utilized by sysbox-runc's nsexec logic to enter the
+// These FS paths are utilized by sysbox-runc's nsexec logic to enter the
 // desired namespaces.
 //
 // Expected format example: "mnt:/proc/<pid>/ns/mnt"

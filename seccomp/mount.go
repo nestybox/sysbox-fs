@@ -575,7 +575,7 @@ func (m *mountSyscallInfo) remountAllowed(
 		return true, nil
 	}
 
-	// Skip instructions targetting file-systems explicitly handled by sysbox-fs.
+	// Skip instructions targeting file-systems explicitly handled by sysbox-fs.
 	if m.FsType == "proc" || m.FsType == "sysfs" {
 		return true, nil
 	}
