@@ -144,7 +144,7 @@ func (u *umountSyscallInfo) umountAllowed(
 		return true, nil
 	}
 
-	// Skip instructions targetting file-systems explicitly handled by sysbox-fs.
+	// Skip instructions targeting file-systems explicitly handled by sysbox-fs.
 	if u.FsType == "proc" || u.FsType == "sysfs" {
 		return true, nil
 	}

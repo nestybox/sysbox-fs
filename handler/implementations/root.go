@@ -37,7 +37,7 @@ import (
 // (e.g., /proc/uptime, /proc/sys, etc); as part of the bind-mount, the kernel
 // walks the bind-source path, which results in sysbox-fs receiving lookups into
 // this handler. Thus, this handler only serves such lookups; all other handler
-// methods are purposefuly dummy, as we generally want to ignore accesses to
+// methods are purposefully dummy, as we generally want to ignore accesses to
 // sysbox-fs from host level.
 
 type Root struct {
