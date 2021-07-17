@@ -12,7 +12,7 @@ require (
 	github.com/nestybox/sysbox-ipc v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/capability v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/dockerUtils v0.0.0-00010101000000-000000000000
-	github.com/nestybox/sysbox-libs/formatter v0.0.0-20210407172909-16033800cb3d
+	github.com/nestybox/sysbox-libs/formatter v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/libseccomp-golang v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/pidmonitor v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
@@ -39,6 +39,8 @@ replace github.com/nestybox/sysbox-runc => ../sysbox-runc
 replace github.com/nestybox/sysbox-libs/utils => ../sysbox-libs/utils
 
 replace github.com/nestybox/sysbox-libs/dockerUtils => ../sysbox-libs/dockerUtils
+
+replace github.com/nestybox/sysbox-libs/formatter => ../sysbox-libs/formatter
 
 replace github.com/nestybox/sysbox-libs/libseccomp-golang => ../sysbox-libs/libseccomp-golang
 
