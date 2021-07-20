@@ -284,6 +284,8 @@ github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OS
 github.com/nestybox/sysbox-libs v0.0.0-20210407172909-16033800cb3d h1:o/a9z2qWxDWUsuZLiPm8raOEdM24zQR54pqmUfiTJW0=
 github.com/nestybox/sysbox-libs/formatter v0.0.0-20210407172909-16033800cb3d h1:ewzQbpo26gz6FlkeDcU6BI83SZpyB9Lt3sl/eT8VcUM=
 github.com/nestybox/sysbox-libs/formatter v0.0.0-20210407172909-16033800cb3d/go.mod h1:/ILpO0gYqOe73l4elvX2Jvrnym4ePdIcnKlPZmYCRcY=
+github.com/nestybox/sysbox-libs/formatter v0.0.0-20210709231355-1ea69f2f6dbb h1:ty3Z3BlK4xQgwsRDuS9xUAFgWaQVqHxCmMVSHMv0KfM=
+github.com/nestybox/sysbox-libs/formatter v0.0.0-20210709231355-1ea69f2f6dbb/go.mod h1:/ILpO0gYqOe73l4elvX2Jvrnym4ePdIcnKlPZmYCRcY=
 github.com/oklog/oklog v0.3.2/go.mod h1:FCV+B7mhrz4o+ueLpx+KqkyXRGMWOYEvfiXtdGtbWGs=
 github.com/oklog/run v1.0.0/go.mod h1:dlhp/R75TPv97u0XWUtDeV/lRKWPKSdTuV0TZvrmrQA=
 github.com/oklog/ulid v1.3.1/go.mod h1:CirwcVhetQ6Lv90oh/F+FBtV6XMibvdAFo93nm5qn4U=

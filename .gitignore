@@ -1,5 +1,5 @@
-# Ignore sysbox-fs compilation artifact, but not cmd/sysbox-fs package.
-/sysbox-fs
+# Ignore sysbox-fs compilation artifacts
+build
 
 # Ignore protobuf auto-generated code
 sysbox-ipc
