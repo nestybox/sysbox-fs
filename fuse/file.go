@@ -384,9 +384,9 @@ func convertFileInfoToFuse(info os.FileInfo) fuse.Attr {
 	a.Size = uint64(stat.Size)
 	a.Blocks = uint64(stat.Blocks)
 
-	a.Atime = time.Unix(stat.Atim.Sec, stat.Atim.Nsec)
-	a.Mtime = time.Unix(stat.Mtim.Sec, stat.Mtim.Nsec)
-	a.Ctime = time.Unix(stat.Ctim.Sec, stat.Ctim.Nsec)
+	a.Atime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+	a.Mtime = time.Unix(int64(stat.Mtim.Sec), int64(stat.Mtim.Nsec))
+	a.Ctime = time.Unix(int64(stat.Ctim.Sec), int64(stat.Ctim.Nsec))
 
 	a.Mode = os.FileMode(stat.Mode)
 	a.Nlink = uint32(stat.Nlink)
