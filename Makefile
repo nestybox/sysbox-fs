@@ -49,22 +49,22 @@ endif
 
 .DEFAULT: sysbox-fs
 
+sysbox-fs: $(SYSFS_BUILDDIR)/$(SYSFS_TARGET)
+
 $(SYSFS_BUILDDIR)/$(SYSFS_TARGET): $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
 	$(GO_XCOMPILE) $(GO) build -ldflags ${LDFLAGS}	-o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
 
-sysbox-fs: $(SYSFS_BUILDDIR)/$(SYSFS_TARGET)
+sysbox-fs-debug: $(SYSFS_BUILDDIR)/$(SYSFS_DEBUG_TARGET)
 
 $(SYSFS_BUILDDIR)/$(SYSFS_DEBUG_TARGET): $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
 	$(GO_XCOMPILE) $(GO) build -gcflags="all=-N -l" -ldflags ${LDFLAGS} -o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
 
-sysbox-fs-debug: $(SYSFS_BUILDDIR)/$(SYSFS_DEBUG_ TARGET)
+sysbox-fs-static: $(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET)
 
 $(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET): $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
 	$(GO_XCOMPILE) CGO_ENABLED=1 $(GO) build -tags "netgo osusergo static_build" \
 		-installsuffix netgo -ldflags "-w -extldflags -static" -ldflags ${LDFLAGS} \
 		-o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
-
-sysbox-fs-static: $(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET)
 
 lint:
 	$(GO) vet $(allpackages)
