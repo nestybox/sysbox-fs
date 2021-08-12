@@ -32,6 +32,8 @@ import (
 	"github.com/nestybox/sysbox-runc/libcontainer/user"
 	"golang.org/x/sys/unix"
 	setxid "gopkg.in/hlandau/service.v1/daemon/setuid"
+
+	"github.com/sirupsen/logrus"
 )
 
 type processService struct {
@@ -640,34 +642,41 @@ func (p *process) ResolveProcSelf(path string) (string, error) {
 	// TODO: this function is not capable of dealing with relative paths
 	// "../../proc/self/fd/X". It also assumes procfs is mounted on /proc.
 
+	currPath := path
+	linkCnt := 0
+
 	for {
-		if !strings.HasPrefix(path, "/proc/self/") {
+		if !strings.HasPrefix(currPath, "/proc/self/") {
 			break
 		}
 
-		procPid := fmt.Sprintf("/proc/%d/", p.pid)
-		procPidPath := strings.Replace(path, "/proc/self/", procPid, 1)
-
-		err := filepath.Walk(procPidPath, func(walkPath string, fi os.FileInfo, err error) error {
-
-			isSymlink := fi.Mode()&os.ModeSymlink == os.ModeSymlink
-			if isSymlink {
-				resolvedPath, err := os.Readlink(walkPath)
-				if err != nil {
-					return err
-				}
-				path = strings.Replace(procPidPath, walkPath, resolvedPath, 1)
-			}
-
-			return nil
-		})
-
+		fi, err := os.Lstat(currPath)
 		if err != nil {
-			return path, err
+			return "", err
+		}
+
+		if fi.Mode()&os.ModeSymlink != os.ModeSymlink {
+			break
+		}
+
+		linkCnt += 1
+		if linkCnt > domain.SymlinkMax {
+			logrus.Errorf("number of symlinks while resolving path %s exceeded the max allowed (40).", path)
+			return "", syscall.ELOOP
+		}
+
+		// path starts with "/proc/self/" and is a symlink, proceed to resolve it
+
+		procPid := fmt.Sprintf("/proc/%d/", p.pid)
+		procPidPath := strings.Replace(currPath, "/proc/self/", procPid, 1)
+
+		currPath, err = os.Readlink(procPidPath)
+		if err != nil {
+			return "", err
 		}
 	}
 
-	return path, nil
+	return currPath, nil
 }
 
 func (p *process) pathAccess(path string, mode domain.AccessMode) error {
