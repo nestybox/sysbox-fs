@@ -361,12 +361,14 @@ func main() {
 			ioService,
 		)
 
-		fuseServerService.Setup(
+		if err := fuseServerService.Setup(
 			ctx.GlobalString("mountpoint"),
 			containerStateService,
 			ioService,
 			handlerService,
-		)
+		); err != nil {
+			return err
+		}
 
 		containerStateService.Setup(
 			fuseServerService,

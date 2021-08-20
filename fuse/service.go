@@ -52,12 +52,18 @@ func (fss *FuseServerService) Setup(
 	mp string,
 	css domain.ContainerStateServiceIface,
 	ios domain.IOServiceIface,
-	hds domain.HandlerServiceIface) {
+	hds domain.HandlerServiceIface) error {
 
 	fss.css = css
 	fss.ios = ios
 	fss.hds = hds
 	fss.mountPoint = mp
+
+	if err := os.MkdirAll(mp, 0600); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // FuseServerService destructor.
@@ -65,6 +71,10 @@ func (fss *FuseServerService) DestroyFuseService() {
 
 	for k, _ := range fss.serversMap {
 		fss.DestroyFuseServer(k)
+	}
+
+	if err := os.RemoveAll(fss.mountPoint); err != nil {
+		logrus.Warnf("failed to remove %s: %s", fss.mountPoint, err)
 	}
 }
 

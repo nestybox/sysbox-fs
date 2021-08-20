@@ -21,7 +21,7 @@ type FuseServerServiceIface interface {
 		mp string,
 		css ContainerStateServiceIface,
 		ios IOServiceIface,
-		hds HandlerServiceIface)
+		hds HandlerServiceIface) error
 
 	CreateFuseServer(serveCntr, stateCntr ContainerIface) error
 	DestroyFuseServer(mp string) error
