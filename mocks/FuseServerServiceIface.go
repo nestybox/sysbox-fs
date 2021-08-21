@@ -46,6 +46,7 @@ func (_m *FuseServerServiceIface) DestroyFuseService() {
 }
 
 // Setup provides a mock function with given fields: mp, css, ios, hds
-func (_m *FuseServerServiceIface) Setup(mp string, css domain.ContainerStateServiceIface, ios domain.IOServiceIface, hds domain.HandlerServiceIface) {
+func (_m *FuseServerServiceIface) Setup(mp string, css domain.ContainerStateServiceIface, ios domain.IOServiceIface, hds domain.HandlerServiceIface) error {
 	_m.Called(mp, css, ios, hds)
+	return nil
 }
