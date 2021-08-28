@@ -473,8 +473,7 @@ func (p *process) UsernsRootUidGid() (uint32, uint32, error) {
 // the Linux kernel, as described in path_resolution(7).
 //
 // It checks if the process with the given pid can access the file or directory at the
-// given path. The given mode determines what type of access to check for (e.g., read,
-// write, execute, or a combination of these).
+// given path.
 //
 // The given path may be absolute or relative. Each component of the path is checked to
 // see if it exists and whether the process has permissions to access it, following the
@@ -482,6 +481,11 @@ func (p *process) UsernsRootUidGid() (uint32, uint32, error) {
 // "..", and symlinks. For absolute paths, the check is done starting from the process'
 // root directory. For relative paths, the check is done starting from the process'
 // current working directory.
+//
+// The given mode determines what type of access to check for (e.g., read,
+// write, execute, or a combination of these). If the mode is 0, this function checks
+// if the process has execute/search permissions on all components of the path, but
+// does not check access permissions on the the file itself.
 //
 // Returns nil if the process can access the path, or one of the following errors
 // otherwise:
@@ -733,7 +737,7 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 			return syscall.ENOTDIR
 		}
 
-		// Follow the symlink (unless it's the proc.procroot); may recurse if
+		// Follow the symlink (unless it's the process root); may recurse if
 		// symlink points to another symlink and so on; we stop at symlinkMax
 		// recursions (just as the Linux kernel does).
 
@@ -816,6 +820,11 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) 
 	fgid := st.Gid
 
 	mode := uint32(aMode)
+
+	// no access = permission granted
+	if mode == 0 {
+		return true, nil
+	}
 
 	// Note: the order of the checks below mimics those done by the Linux kernel.
 

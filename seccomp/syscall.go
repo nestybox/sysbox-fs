@@ -23,6 +23,7 @@ import (
 // Syscall generic information / state.
 type syscallCtx struct {
 	syscallNum  int32                 // Value representing the syscall
+	syscallName string                // Name of the syscall
 	reqId       uint64                // Id associated to the syscall request
 	pid         uint32                // Pid of the process generating the syscall
 	uid         uint32                // Uid of the process generating the syscall

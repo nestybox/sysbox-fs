@@ -64,31 +64,37 @@ var AllNSsButUser = []NStype{
 // by nsenterEvent class.
 //
 const (
-	LookupRequest         NSenterMsgType = "lookupRequest"
-	LookupResponse        NSenterMsgType = "lookupResponse"
-	OpenFileRequest       NSenterMsgType = "openFileRequest"
-	OpenFileResponse      NSenterMsgType = "openFileResponse"
-	ReadFileRequest       NSenterMsgType = "readFileRequest"
-	ReadFileResponse      NSenterMsgType = "readFileResponse"
-	WriteFileRequest      NSenterMsgType = "writeFileRequest"
-	WriteFileResponse     NSenterMsgType = "writeFileResponse"
-	ReadDirRequest        NSenterMsgType = "readDirRequest"
-	ReadDirResponse       NSenterMsgType = "readDirResponse"
-	SetAttrRequest        NSenterMsgType = "setAttrRequest"
-	SetAttrResponse       NSenterMsgType = "setAttrResponse"
-	MountSyscallRequest   NSenterMsgType = "mountSyscallRequest"
-	MountSyscallResponse  NSenterMsgType = "mountSyscallResponse"
-	UmountSyscallRequest  NSenterMsgType = "umountSyscallRequest"
-	UmountSyscallResponse NSenterMsgType = "umountSyscallResponse"
-	ChownSyscallRequest   NSenterMsgType = "chownSyscallRequest"
-	ChownSyscallResponse  NSenterMsgType = "chownSyscallResponse"
-	MountInfoRequest      NSenterMsgType = "mountInfoRequest"
-	MountInfoResponse     NSenterMsgType = "mountInfoResponse"
-	MountInodeRequest     NSenterMsgType = "mountInodeRequest"
-	MountInodeResponse    NSenterMsgType = "mountInodeResponse"
-	SleepRequest          NSenterMsgType = "sleepRequest"
-	SleepResponse         NSenterMsgType = "sleepResponse"
-	ErrorResponse         NSenterMsgType = "errorResponse"
+	LookupRequest              NSenterMsgType = "lookupRequest"
+	LookupResponse             NSenterMsgType = "lookupResponse"
+	OpenFileRequest            NSenterMsgType = "openFileRequest"
+	OpenFileResponse           NSenterMsgType = "openFileResponse"
+	ReadFileRequest            NSenterMsgType = "readFileRequest"
+	ReadFileResponse           NSenterMsgType = "readFileResponse"
+	WriteFileRequest           NSenterMsgType = "writeFileRequest"
+	WriteFileResponse          NSenterMsgType = "writeFileResponse"
+	ReadDirRequest             NSenterMsgType = "readDirRequest"
+	ReadDirResponse            NSenterMsgType = "readDirResponse"
+	MountSyscallRequest        NSenterMsgType = "mountSyscallRequest"
+	MountSyscallResponse       NSenterMsgType = "mountSyscallResponse"
+	UmountSyscallRequest       NSenterMsgType = "umountSyscallRequest"
+	UmountSyscallResponse      NSenterMsgType = "umountSyscallResponse"
+	ChownSyscallRequest        NSenterMsgType = "chownSyscallRequest"
+	ChownSyscallResponse       NSenterMsgType = "chownSyscallResponse"
+	MountInfoRequest           NSenterMsgType = "mountInfoRequest"
+	MountInfoResponse          NSenterMsgType = "mountInfoResponse"
+	MountInodeRequest          NSenterMsgType = "mountInodeRequest"
+	MountInodeResponse         NSenterMsgType = "mountInodeResponse"
+	SleepRequest               NSenterMsgType = "sleepRequest"
+	SleepResponse              NSenterMsgType = "sleepResponse"
+	SetxattrSyscallRequest     NSenterMsgType = "setxattrSyscallRequest"
+	SetxattrSyscallResponse    NSenterMsgType = "setxattrSyscallResponse"
+	GetxattrSyscallRequest     NSenterMsgType = "getxattrSyscallRequest"
+	GetxattrSyscallResponse    NSenterMsgType = "getxattrSyscallResponse"
+	RemovexattrSyscallRequest  NSenterMsgType = "RemovexattrSyscallRequest"
+	RemovexattrSyscallResponse NSenterMsgType = "RemovexattrSyscallResponse"
+	ListxattrSyscallRequest    NSenterMsgType = "ListxattrSyscallRequest"
+	ListxattrSyscallResponse   NSenterMsgType = "ListxattrSyscallResponse"
+	ErrorResponse              NSenterMsgType = "errorResponse"
 )
 
 //
@@ -191,6 +197,43 @@ type ChownSyscallPayload struct {
 	Target    string `json:"target"`
 	TargetUid int    `json:"uid"`
 	TargetGid int    `json:"gid"`
+}
+
+type SetxattrSyscallPayload struct {
+	Syscall string `json:"syscall"`
+	Path    string `json:"path"`
+	Name    string `json:"name"`
+	Val     []byte `json:"val"`
+	Flags   int    `json:"flags"`
+}
+
+type GetxattrSyscallPayload struct {
+	Syscall string `json:"syscall"`
+	Path    string `json:"path"`
+	Name    string `json:"name"`
+	Size    uint64 `json:"size"`
+}
+
+type GetxattrRespPayload struct {
+	Val  []byte `json:"val"`
+	Size int    `json:"size"`
+}
+
+type RemovexattrSyscallPayload struct {
+	Syscall string `json:"syscall"`
+	Path    string `json:"path"`
+	Name    string `json:"name"`
+}
+
+type ListxattrSyscallPayload struct {
+	Syscall string `json:"syscall"`
+	Path    string `json:"path"`
+	Size    uint64 `json:"size"`
+}
+
+type ListxattrRespPayload struct {
+	Val  []byte `json:"val"`
+	Size int    `json:"size"`
 }
 
 type MountInfoRespPayload struct {

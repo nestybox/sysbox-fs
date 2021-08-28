@@ -307,6 +307,62 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		}
 		break
 
+	case domain.SetxattrSyscallResponse:
+		logrus.Debug("Received nsenterEvent setxattrSyscallResponse message.")
+
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: "",
+		}
+		break
+
+	case domain.GetxattrSyscallResponse:
+		logrus.Debug("Received nsenterEvent getxattrSyscallResponse message.")
+
+		var p domain.GetxattrRespPayload
+
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
+
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+		break
+
+	case domain.RemovexattrSyscallResponse:
+		logrus.Debug("Received nsenterEvent removexattrSyscallResponse message.")
+
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: "",
+		}
+		break
+
+	case domain.ListxattrSyscallResponse:
+		logrus.Debug("Received nsenterEvent listxattrSyscallResponse message.")
+
+		var p domain.ListxattrRespPayload
+
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
+
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+		break
+
 	case domain.SleepResponse:
 		logrus.Debug("Received nsenterEvent sleepResponse message.")
 
@@ -918,6 +974,128 @@ func (e *NSenterEvent) processChownSyscallRequest() error {
 	return nil
 }
 
+func (e *NSenterEvent) processSetxattrSyscallRequest() error {
+	var err error
+
+	p := e.ReqMsg.Payload.(domain.SetxattrSyscallPayload)
+
+	if p.Syscall == "lsetxattr" {
+		err = unix.Lsetxattr(p.Path, p.Name, p.Val, p.Flags)
+	} else {
+		err = unix.Setxattr(p.Path, p.Name, p.Val, p.Flags)
+	}
+
+	if err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
+
+	e.ResMsg = &domain.NSenterMessage{
+		Type:    domain.SetxattrSyscallResponse,
+		Payload: "",
+	}
+
+	return nil
+}
+
+func (e *NSenterEvent) processGetxattrSyscallRequest() error {
+	var (
+		err  error
+		size int
+	)
+
+	p := e.ReqMsg.Payload.(domain.GetxattrSyscallPayload)
+	val := make([]byte, p.Size)
+
+	if p.Syscall == "lgetxattr" {
+		size, err = unix.Lgetxattr(p.Path, p.Name, val)
+	} else {
+		size, err = unix.Getxattr(p.Path, p.Name, val)
+	}
+
+	if err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
+
+	e.ResMsg = &domain.NSenterMessage{
+		Type: domain.GetxattrSyscallResponse,
+		Payload: domain.GetxattrRespPayload{
+			Val:  val,
+			Size: size,
+		},
+	}
+
+	return nil
+}
+
+func (e *NSenterEvent) processRemovexattrSyscallRequest() error {
+	var err error
+
+	p := e.ReqMsg.Payload.(domain.RemovexattrSyscallPayload)
+
+	if p.Syscall == "lremovexattr" {
+		err = unix.Lremovexattr(p.Path, p.Name)
+	} else {
+		err = unix.Removexattr(p.Path, p.Name)
+	}
+
+	if err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
+
+	e.ResMsg = &domain.NSenterMessage{
+		Type:    domain.RemovexattrSyscallResponse,
+		Payload: "",
+	}
+
+	return nil
+}
+
+func (e *NSenterEvent) processListxattrSyscallRequest() error {
+	var (
+		err  error
+		size int
+	)
+
+	p := e.ReqMsg.Payload.(domain.ListxattrSyscallPayload)
+	val := make([]byte, p.Size)
+
+	if p.Syscall == "llistxattr" {
+		size, err = unix.Llistxattr(p.Path, val)
+	} else {
+		size, err = unix.Listxattr(p.Path, val)
+	}
+
+	if err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
+
+	e.ResMsg = &domain.NSenterMessage{
+		Type: domain.ListxattrSyscallResponse,
+		Payload: domain.ListxattrRespPayload{
+			Val:  val,
+			Size: size,
+		},
+	}
+
+	return nil
+}
+
 func (e *NSenterEvent) getProcCreds(pipe *os.File) error {
 
 	socket := int(pipe.Fd())
@@ -1147,21 +1325,69 @@ func (e *NSenterEvent) processRequest(pipe *os.File) error {
 		}
 		return e.processDirReadRequest()
 
-	// case domain.SetAttrRequest:
-	// 	var p domain.SetAttrPayload
-	// 	if payload != nil {
-	// 		err := json.Unmarshal(payload, &p)
-	// 		if err != nil {
-	// 			logrus.Error(err)
-	// 			return err
-	// 		}
-	// 	}
+	case domain.SetxattrSyscallRequest:
+		var p domain.SetxattrSyscallPayload
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
 
-	// 	e.ReqMsg = &domain.NSenterMessage{
-	// 		Type:    nsenterMsg.Type,
-	// 		Payload: p,
-	// 	}
-	// 	return e.processSetAttrRequest()
+		e.ReqMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+		return e.processSetxattrSyscallRequest()
+
+	case domain.GetxattrSyscallRequest:
+		var p domain.GetxattrSyscallPayload
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
+
+		e.ReqMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+		return e.processGetxattrSyscallRequest()
+
+	case domain.RemovexattrSyscallRequest:
+		var p domain.RemovexattrSyscallPayload
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
+
+		e.ReqMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+		return e.processRemovexattrSyscallRequest()
+
+	case domain.ListxattrSyscallRequest:
+		var p domain.ListxattrSyscallPayload
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
+
+		e.ReqMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+		return e.processListxattrSyscallRequest()
 
 	case domain.MountSyscallRequest:
 		var p []domain.MountSyscallPayload

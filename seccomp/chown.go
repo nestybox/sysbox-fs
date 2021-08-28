@@ -228,5 +228,4 @@ func (ci *chownSyscallInfo) processChownNSenter(nstype []domain.NStype) (*sysRes
 	}
 
 	return ci.tracer.createSuccessResponse(ci.reqId), nil
-
 }
