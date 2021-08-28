@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2021 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package seccomp
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ import (
 	"github.com/nestybox/sysbox-libs/formatter"
 	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
 	"github.com/nestybox/sysbox-libs/pidmonitor"
+	"golang.org/x/sys/unix"
 
 	"github.com/sirupsen/logrus"
 )
@@ -52,6 +54,18 @@ var monitoredSyscalls = []string{
 	"chown",
 	"fchown",
 	"fchownat",
+	"setxattr",
+	"lsetxattr",
+	"fsetxattr",
+	"getxattr",
+	"lgetxattr",
+	"fgetxattr",
+	"removexattr",
+	"lremovexattr",
+	"fremovexattr",
+	"listxattr",
+	"llistxattr",
+	"flistxattr",
 }
 
 // Seccomp's syscall-monitoring/trapping service struct. External packages
@@ -432,9 +446,9 @@ func (t *syscallTracer) process(
 	}
 
 	syscallId := req.Data.Syscall
-	syscallStr := t.syscalls[syscallId]
+	syscallName := t.syscalls[syscallId]
 
-	switch syscallStr {
+	switch syscallName {
 	case "mount":
 		resp, err = t.processMount(req, fd, cntr)
 
@@ -459,6 +473,30 @@ func (t *syscallTracer) process(
 	case "fchownat":
 		resp, err = t.processFchownat(req, fd, cntr)
 
+	case "setxattr", "lsetxattr":
+		resp, err = t.processSetxattr(req, fd, cntr, syscallName)
+
+	case "fsetxattr":
+		resp, err = t.processFsetxattr(req, fd, cntr)
+
+	case "getxattr", "lgetxattr":
+		resp, err = t.processGetxattr(req, fd, cntr, syscallName)
+
+	case "fgetxattr":
+		resp, err = t.processFgetxattr(req, fd, cntr)
+
+	case "removexattr", "lremovexattr":
+		resp, err = t.processRemovexattr(req, fd, cntr, syscallName)
+
+	case "fremovexattr":
+		resp, err = t.processFremovexattr(req, fd, cntr)
+
+	case "listxattr", "llistxattr":
+		resp, err = t.processListxattr(req, fd, cntr, syscallName)
+
+	case "flistxattr":
+		resp, err = t.processFlistxattr(req, fd, cntr)
+
 	default:
 		logrus.Warnf("Unsupported syscall notification received (%v) on fd %d pid %d cntr %s",
 			syscallId, fd, req.Pid, formatter.ContainerID{cntrID})
@@ -472,7 +510,7 @@ func (t *syscallTracer) process(
 	// errors or inexistent "/proc/pid/mem" does.
 	if err != nil {
 		logrus.Warnf("Error during syscall %v processing on fd %d pid %d cntr %s (%v)",
-			syscallStr, fd, req.Pid, formatter.ContainerID{cntrID}, err)
+			syscallName, fd, req.Pid, formatter.ContainerID{cntrID}, err)
 		return t.createErrorResponse(req.Id, syscall.EINVAL)
 	}
 
@@ -500,7 +538,7 @@ func (t *syscallTracer) processMount(
 		req.Data.Args[4],
 	}
 
-	args, err := t.processMemParse(req.Pid, argPtrs)
+	args, err := t.parseStringArgs(req.Pid, argPtrs)
 	if err != nil {
 		return nil, err
 	}
@@ -574,7 +612,7 @@ func (t *syscallTracer) processUmount(
 	logrus.Debugf("Received umount syscall from pid %d", req.Pid)
 
 	argPtrs := []uint64{req.Data.Args[0]}
-	args, err := t.processMemParse(req.Pid, argPtrs)
+	args, err := t.parseStringArgs(req.Pid, argPtrs)
 	if err != nil {
 		return nil, err
 	}
@@ -640,7 +678,7 @@ func (t *syscallTracer) processChown(
 	cntr domain.ContainerIface) (*sysResponse, error) {
 
 	argPtrs := []uint64{req.Data.Args[0]}
-	args, err := t.processMemParse(req.Pid, argPtrs)
+	args, err := t.parseStringArgs(req.Pid, argPtrs)
 	if err != nil {
 		return nil, err
 	}
@@ -705,7 +743,7 @@ func (t *syscallTracer) processFchownat(
 
 	// Get the path argument
 	argPtrs := []uint64{req.Data.Args[1]}
-	args, err := t.processMemParse(req.Pid, argPtrs)
+	args, err := t.parseStringArgs(req.Pid, argPtrs)
 	if err != nil {
 		return nil, err
 	}
@@ -740,6 +778,334 @@ func (t *syscallTracer) processFchownat(
 	return chown.processFchownat()
 }
 
+func (t *syscallTracer) processSetxattr(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface,
+	syscallName string) (*sysResponse, error) {
+
+	// Parse the *path and *name arguments (null-delimited strings)
+	strArgPtrs := []uint64{
+		req.Data.Args[0],
+		req.Data.Args[1],
+	}
+
+	strArgs, err := t.parseStringArgs(req.Pid, strArgPtrs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the "*value" argument (delimited by the "size" argument)
+	byteArgs, err := t.parseByteArgs(req.Pid, []uint64{req.Data.Args[2]}, []uint64{req.Data.Args[3]})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(byteArgs) != 1 {
+		return t.createErrorResponse(req.Id, syscall.EINVAL), nil
+	}
+
+	path := strArgs[0]
+	name := strArgs[1]
+	val := byteArgs[0]
+	flags := int(req.Data.Args[4])
+
+	si := &setxattrSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum:  int32(req.Data.Syscall),
+			syscallName: syscallName,
+			reqId:       req.Id,
+			pid:         req.Pid,
+			cntr:        cntr,
+			tracer:      t,
+		},
+		path:  path,
+		name:  name,
+		val:   val,
+		flags: flags,
+	}
+
+	return si.processSetxattr()
+}
+
+func (t *syscallTracer) processFsetxattr(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface) (*sysResponse, error) {
+
+	pathFd := int32(req.Data.Args[0])
+
+	// Parse the *name argument (null-delimited string)
+	strArgs, err := t.parseStringArgs(req.Pid, []uint64{req.Data.Args[1]})
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the "*value" argument (delimited by the "size" argument)
+	byteArgs, err := t.parseByteArgs(req.Pid, []uint64{req.Data.Args[2]}, []uint64{req.Data.Args[3]})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(byteArgs) != 1 {
+		return t.createErrorResponse(req.Id, syscall.EINVAL), nil
+	}
+
+	name := strArgs[0]
+	val := byteArgs[0]
+	flags := int(req.Data.Args[4])
+
+	si := &setxattrSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum: int32(req.Data.Syscall),
+			reqId:      req.Id,
+			pid:        req.Pid,
+			cntr:       cntr,
+			tracer:     t,
+		},
+		pathFd: pathFd,
+		name:   name,
+		val:    val,
+		flags:  flags,
+	}
+
+	return si.processSetxattr()
+}
+
+func (t *syscallTracer) processGetxattr(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface,
+	syscallName string) (*sysResponse, error) {
+
+	// Parse the *path and *name arguments (null-delimited strings)
+	strArgPtrs := []uint64{
+		req.Data.Args[0],
+		req.Data.Args[1],
+	}
+
+	strArgs, err := t.parseStringArgs(req.Pid, strArgPtrs)
+	if err != nil {
+		return nil, err
+	}
+
+	path := strArgs[0]
+	name := strArgs[1]
+
+	// "addr" is the mem address where the syscall's result is stored; it's an
+	// address in the virtual memory of the process that performed the syscall.
+	// We will write the result there.
+	addr := uint64(req.Data.Args[2])
+
+	// "size" is the number of bytes in the buffer pointed to by "addr"; we must
+	// never write more than this amount of bytes into that buffer. If set to 0
+	// then getxattr will return the size of the extended attribute (and
+	// not write into the buffer pointed to by "addr").
+	size := uint64(req.Data.Args[3])
+
+	si := &getxattrSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum:  int32(req.Data.Syscall),
+			syscallName: syscallName,
+			reqId:       req.Id,
+			pid:         req.Pid,
+			cntr:        cntr,
+			tracer:      t,
+		},
+		path: path,
+		name: name,
+		addr: addr,
+		size: size,
+	}
+
+	return si.processGetxattr()
+}
+
+func (t *syscallTracer) processFgetxattr(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface) (*sysResponse, error) {
+
+	pathFd := int32(req.Data.Args[0])
+
+	// Parse the *name argument (null-delimited string)
+	strArgs, err := t.parseStringArgs(req.Pid, []uint64{req.Data.Args[1]})
+	if err != nil {
+		return nil, err
+	}
+
+	name := strArgs[0]
+
+	// "addr" is the mem address where the syscall's result is stored; it's an
+	// address in the virtual memory of the process that performed the syscall.
+	// We will write the result there.
+	addr := uint64(req.Data.Args[2])
+
+	// "size" is the number of bytes in the buffer pointed to by "addr"; we must
+	// never write more than this amount of bytes into that buffer. If set to 0
+	// then getxattr will return the size of the extended attribute (and
+	// not write into the buffer pointed to by "addr").
+	size := uint64(req.Data.Args[3])
+
+	si := &getxattrSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum: int32(req.Data.Syscall),
+			reqId:      req.Id,
+			pid:        req.Pid,
+			cntr:       cntr,
+			tracer:     t,
+		},
+		pathFd: pathFd,
+		name:   name,
+		addr:   addr,
+		size:   size,
+	}
+
+	return si.processGetxattr()
+}
+
+func (t *syscallTracer) processRemovexattr(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface,
+	syscallName string) (*sysResponse, error) {
+
+	// Parse the *path and *name arguments (null-delimited strings)
+	strArgPtrs := []uint64{
+		req.Data.Args[0],
+		req.Data.Args[1],
+	}
+
+	strArgs, err := t.parseStringArgs(req.Pid, strArgPtrs)
+	if err != nil {
+		return nil, err
+	}
+
+	path := strArgs[0]
+	name := strArgs[1]
+
+	si := &removexattrSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum:  int32(req.Data.Syscall),
+			syscallName: syscallName,
+			reqId:       req.Id,
+			pid:         req.Pid,
+			cntr:        cntr,
+			tracer:      t,
+		},
+		path: path,
+		name: name,
+	}
+
+	return si.processRemovexattr()
+}
+
+func (t *syscallTracer) processFremovexattr(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface) (*sysResponse, error) {
+
+	pathFd := int32(req.Data.Args[0])
+
+	// Parse the *name argument (null-delimited string)
+	strArgs, err := t.parseStringArgs(req.Pid, []uint64{req.Data.Args[1]})
+	if err != nil {
+		return nil, err
+	}
+
+	name := strArgs[0]
+
+	si := &removexattrSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum: int32(req.Data.Syscall),
+			reqId:      req.Id,
+			pid:        req.Pid,
+			cntr:       cntr,
+			tracer:     t,
+		},
+		pathFd: pathFd,
+		name:   name,
+	}
+
+	return si.processRemovexattr()
+}
+
+func (t *syscallTracer) processListxattr(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface,
+	syscallName string) (*sysResponse, error) {
+
+	// Parse the *path argument (null-delimited string)
+	strArgs, err := t.parseStringArgs(req.Pid, []uint64{req.Data.Args[0]})
+	if err != nil {
+		return nil, err
+	}
+
+	path := strArgs[0]
+
+	// "addr" is the mem address where the syscall's result is stored; it's an
+	// address in the virtual memory of the process that performed the syscall.
+	// We will write the result there.
+	addr := uint64(req.Data.Args[1])
+
+	// "size" is the number of bytes in the buffer pointed to by "addr"; we must
+	// never write more than this amount of bytes into that buffer. If set to 0
+	// then listxattr will return the size of the extended attribute (and
+	// not write into the buffer pointed to by "addr").
+	size := uint64(req.Data.Args[2])
+
+	si := &listxattrSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum:  int32(req.Data.Syscall),
+			syscallName: syscallName,
+			reqId:       req.Id,
+			pid:         req.Pid,
+			cntr:        cntr,
+			tracer:      t,
+		},
+		path: path,
+		addr: addr,
+		size: size,
+	}
+
+	return si.processListxattr()
+}
+
+func (t *syscallTracer) processFlistxattr(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface) (*sysResponse, error) {
+
+	pathFd := int32(req.Data.Args[0])
+
+	// "addr" is the mem address where the syscall's result is stored; it's an
+	// address in the virtual memory of the process that performed the syscall.
+	// We will write the result there.
+	addr := uint64(req.Data.Args[1])
+
+	// "size" is the number of bytes in the buffer pointed to by "addr"; we must
+	// never write more than this amount of bytes into that buffer. If set to 0
+	// then listxattr will return the size of the extended attribute (and
+	// not write into the buffer pointed to by "addr").
+	size := uint64(req.Data.Args[2])
+
+	si := &listxattrSyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum: int32(req.Data.Syscall),
+			reqId:      req.Id,
+			pid:        req.Pid,
+			cntr:       cntr,
+			tracer:     t,
+		},
+		pathFd: pathFd,
+		addr:   addr,
+		size:   size,
+	}
+
+	return si.processListxattr()
+}
+
 func (t *syscallTracer) processReboot(
 	req *sysRequest,
 	fd int32,
@@ -770,13 +1136,15 @@ func (t *syscallTracer) processSwapoff(
 	return t.createSuccessResponse(req.Id), nil
 }
 
-// processMemParser iterates through the tracee process' /proc/pid/mem file to
-// identify the indirect arguments utilized by the syscall in transit. The
-// assumption here is that the process instantiating the syscall is 'stopped'
-// at the time that this routine is executed. That is, tracee runs within a
-// a single execution context (single-thread), and thereby, its memory can be
-// safely referenced.
-func (t *syscallTracer) processMemParse(pid uint32, argPtrs []uint64) ([]string, error) {
+// parseStringArgs iterates through the tracee process' /proc/pid/mem file to
+// identify string (i.e., null-terminated) arguments utilized by the traced
+// syscall. The assumption here is that the process invoking the syscall is
+// 'stopped' at the time that this routine is executed. That is, tracee runs
+// within a a single execution context (single-thread), and thefore its memory
+// can be safely referenced.
+func (t *syscallTracer) parseStringArgs(pid uint32, argPtrs []uint64) ([]string, error) {
+
+	// TODO: consider using unix.ProcessVMReadv() to perform this operation (instead of /proc/<pid>/mem).
 
 	name := fmt.Sprintf("/proc/%d/mem", pid)
 	f, err := os.Open(name)
@@ -791,18 +1159,18 @@ func (t *syscallTracer) processMemParse(pid uint32, argPtrs []uint64) ([]string,
 	var line string
 
 	// Iterate through the memory locations passed by caller.
-	for i, address := range argPtrs {
-		if address == 0 {
+	for i, addr := range argPtrs {
+		if addr == 0 {
 			result[i] = ""
 		} else {
 			reader.Reset(f)
-			_, err := f.Seek(int64(address), 0)
+			_, err := f.Seek(int64(addr), 0)
 			if err != nil {
 				return nil, fmt.Errorf("seek of %s failed: %s", name, err)
 			}
 			line, err = reader.ReadString('\x00')
 			if err != nil {
-				return nil, fmt.Errorf("read of %s at offset %d failed: %s", name, address, err)
+				return nil, fmt.Errorf("read of %s at offset %d failed: %s", name, addr, err)
 			}
 			result[i] = strings.TrimSuffix(line, "\x00")
 		}
@@ -811,12 +1179,107 @@ func (t *syscallTracer) processMemParse(pid uint32, argPtrs []uint64) ([]string,
 	return result, nil
 }
 
+// parseByteArgs iterates through the tracee process' /proc/pid/mem file to
+// identify arbitrary byte data arguments utilized by the traced
+// syscall. argPtrs contains the mem addresses (in the tracee's address space)
+// where the data resides; argSize contains the size of the data associated
+// with each argPtr.
+func (t *syscallTracer) parseByteArgs(pid uint32, argPtrs []uint64, argSize []uint64) ([][]byte, error) {
+
+	if len(argSize) != len(argPtrs) {
+		return nil, fmt.Errorf("expected length of argSize and argPtrs to match; got %d %d", len(argSize), len(argPtrs))
+	}
+
+	// TODO: consider using unix.ProcessVMReadv() to perform this operation (instead of /proc/<pid>/mem).
+
+	name := fmt.Sprintf("/proc/%d/mem", pid)
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open %s: %s", name, err)
+	}
+	defer f.Close()
+
+	result := make([][]byte, len(argPtrs))
+	reader := bufio.NewReader(f)
+
+	for i, addr := range argPtrs {
+		if addr == 0 {
+			result[i] = []byte{}
+		} else {
+			size := argSize[i]
+
+			reader.Reset(f)
+			_, err := f.Seek(int64(addr), 0)
+			if err != nil {
+				return nil, fmt.Errorf("seek of %s failed: %s", name, err)
+			}
+
+			// read the number of bytes specified by "size" (exactly)
+			byteData := make([]byte, size)
+			_, err = io.ReadFull(reader, byteData)
+			if err != nil {
+				return nil, fmt.Errorf("read of %s at offset %d with size %d failed: %s", name, addr, size, err)
+			}
+
+			result[i] = byteData
+		}
+	}
+
+	return result, nil
+}
+
+func (t *syscallTracer) WriteRetVal(pid uint32, addr uint64, data []byte) error {
+
+	size := len(data)
+
+	if size == 0 {
+		return nil
+	}
+
+	localIov := []unix.Iovec{
+		{
+			Base: &data[0],
+			Len:  uint64(size),
+		},
+	}
+
+	remoteIov := []unix.RemoteIovec{
+		{
+			Base: uintptr(addr),
+			Len:  size,
+		},
+	}
+
+	// Write to the traced process' memory
+	n, err := unix.ProcessVMWritev(int(pid), localIov, remoteIov, 0)
+
+	if err != nil {
+		return fmt.Errorf("failed to write to mem of pid %d: %s", pid, err)
+	} else if n != size {
+		return fmt.Errorf("failed to write %d bytes to mem of pid %d: wrote %d bytes only", size, pid, n)
+	}
+
+	return nil
+}
+
 func (t *syscallTracer) createSuccessResponse(id uint64) *sysResponse {
 
 	resp := &sysResponse{
 		Id:    id,
 		Error: 0,
 		Val:   0,
+		Flags: 0,
+	}
+
+	return resp
+}
+
+func (t *syscallTracer) createSuccessResponseWithRetValue(id, val uint64) *sysResponse {
+
+	resp := &sysResponse{
+		Id:    id,
+		Error: 0,
+		Val:   val,
 		Flags: 0,
 	}
 
