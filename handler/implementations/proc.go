@@ -112,7 +112,8 @@ func (h *Proc) Open(
 		return nil
 
 	case "swaps", "uptime":
-		if flags != syscall.O_RDONLY {
+               if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
+                  flags&syscall.O_RDWR == syscall.O_RDWR {
 			return fuse.IOerror{Code: syscall.EACCES}
 		}
 	}
