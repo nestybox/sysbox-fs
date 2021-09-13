@@ -296,7 +296,8 @@ func (h *ProcSysKernel) Open(
 
 	switch resource {
 	case "cap_last_cap":
-		if flags != syscall.O_RDONLY {
+		if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
+		   flags&syscall.O_RDWR == syscall.O_RDWR {
 			return fuse.IOerror{Code: syscall.EACCES}
 		}
 		return nil
@@ -305,7 +306,8 @@ func (h *ProcSysKernel) Open(
 		return nil
 
 	case "ngroups_max":
-		if flags != syscall.O_RDONLY {
+		if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
+		   flags&syscall.O_RDWR == syscall.O_RDWR {
 			return fuse.IOerror{Code: syscall.EACCES}
 		}
 		return nil

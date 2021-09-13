@@ -112,7 +112,8 @@ func (h *SysDevicesVirtualDmiId) Open(
 		req.ID, h.Name, resource)
 
 	flags := n.OpenFlags()
-	if flags != syscall.O_RDONLY {
+	if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
+	   flags&syscall.O_RDWR == syscall.O_RDWR {
 		return fuse.IOerror{Code: syscall.EACCES}
 	}
 
