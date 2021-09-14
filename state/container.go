@@ -290,6 +290,20 @@ func (c *container) update(src *container) error {
 		c.service = src.service
 	}
 
+	// Unconditional malloc + copy -- think about how to optimize if no changes
+	// are detected.
+	c.procRoPaths = make([]string, len(src.procRoPaths))
+	copy(c.procRoPaths, src.procRoPaths)
+	c.procMaskPaths = make([]string, len(src.procMaskPaths))
+	copy(c.procMaskPaths, src.procMaskPaths)
+
+	return nil
+}
+
+func (c *container) InitializeMountInfo() error {
+	c.intLock.Lock()
+	defer c.intLock.Unlock()
+
 	// A per-container mountInfoParser object will be created here to hold the
 	// mount-state created by sysbox-runc during container initialization.
 	if c.mountInfoParser == nil {
@@ -300,15 +314,16 @@ func (c *container) update(src *container) error {
 		c.mountInfoParser = mip
 	}
 
-	// Unconditional malloc + copy -- think about how to optimize if no changes
-	// are detected.
-	c.procRoPaths = make([]string, len(src.procRoPaths))
-	copy(c.procRoPaths, src.procRoPaths)
-	c.procMaskPaths = make([]string, len(src.procMaskPaths))
-	copy(c.procMaskPaths, src.procMaskPaths)
-
 	return nil
 }
+
+func (c *container) IsMountInfoInitialized() bool {
+	c.intLock.RLock()
+	defer c.intLock.RUnlock()
+
+	return c.mountInfoParser != nil
+}
+
 
 // Container's stringer method. Notice that no internal lock is being acquired
 // in this method to avoid collisions (and potential deadlocks) with Container's
