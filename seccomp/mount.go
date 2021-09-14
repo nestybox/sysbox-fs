@@ -49,6 +49,16 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 	// Adjust mount attributes attending to the process' root path.
 	m.targetAdjust()
 
+	// Ensure that the mountInfoDB corresponding to the sys-container hosting
+	// this process has been already built. This info is necessary to be able
+	// to discern between 'initial' and 'regular' mounts, which is required
+	// for the proper operation of the mount-hardening feature.
+	if !m.cntr.IsMountInfoInitialized() {
+		if err := m.cntr.InitializeMountInfo(); err != nil {
+			return nil, err
+		}
+	}
+
 	// Handle requests that create a new mountpoint for filesystems managed by
 	// sysbox-fs.
 	if mh.IsNewMount(m.Flags) {

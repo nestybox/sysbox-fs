@@ -54,6 +54,16 @@ func (u *umountSyscallInfo) process() (*sysResponse, error) {
 		return nil, fmt.Errorf("unexpected mount-service handler")
 	}
 
+	// Ensure that the mountInfoDB corresponding to the sys-container hosting
+	// this process has been already built. This info is necessary to be able
+	// to discern between 'initial' and 'regular' mounts, which is required
+	// for the proper operation of the mount-hardening feature.
+	if !u.cntr.IsMountInfoInitialized() {
+		if err := u.cntr.InitializeMountInfo(); err != nil {
+			return nil, err
+		}
+	}
+
 	mip, err := mts.NewMountInfoParser(u.cntr, u.processInfo, true, true, false)
 	if err != nil {
 		return nil, err
