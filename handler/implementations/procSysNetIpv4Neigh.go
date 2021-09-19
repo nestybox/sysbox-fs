@@ -23,11 +23,13 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
@@ -163,7 +165,7 @@ func (h *ProcSysNetIpv4Neigh) Read(
 			&domain.EmuResource{Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))}
 	}
 
-	return readFileInt(h, n, req)
+	return readCntrData(h, n, req)
 }
 
 func (h *ProcSysNetIpv4Neigh) Write(
@@ -196,7 +198,11 @@ func (h *ProcSysNetIpv4Neigh) Write(
 			&domain.EmuResource{Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))}
 	}
 
-	return writeFileInt(h, n, req, 0, math.MaxInt32, false)
+	if !checkIntRange(req.Data, 0, math.MaxInt32) {
+		return 0, fuse.IOerror{Code: syscall.EINVAL}
+	}
+
+	return writeCntrData(h, n, req, nil)
 }
 
 func (h *ProcSysNetIpv4Neigh) ReadDirAll(

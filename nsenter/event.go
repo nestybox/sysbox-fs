@@ -198,7 +198,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 	case domain.ReadFileResponse:
 		logrus.Debug("Received nsenterEvent readResponse message.")
 
-		var p string
+		var p []byte
 
 		if payload != nil {
 			err := json.Unmarshal(payload, &p)
@@ -742,11 +742,15 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 }
 
 func (e *NSenterEvent) processFileReadRequest() error {
+	var (
+		fd  *os.File
+		err error
+		sz  int
+	)
 
 	payload := e.ReqMsg.Payload.(domain.ReadFilePayload)
 
-	// Perform read operation and return error msg should this one fail.
-	fileContent, err := ioutil.ReadFile(payload.File)
+	fd, err = os.Open(payload.File)
 	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
@@ -754,22 +758,46 @@ func (e *NSenterEvent) processFileReadRequest() error {
 		}
 		return nil
 	}
+	defer fd.Close()
 
-	// Create a response message.
+	data := make([]byte, payload.Len)
+
+	sz, err = fd.ReadAt(data, payload.Offset)
+	if err != nil && err != io.EOF {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
+
 	e.ResMsg = &domain.NSenterMessage{
 		Type:    domain.ReadFileResponse,
-		Payload: strings.TrimSpace(string(fileContent)),
+		Payload: data[:sz],
 	}
 
 	return nil
 }
 
 func (e *NSenterEvent) processFileWriteRequest() error {
+	var (
+		fd  *os.File
+		err error
+	)
 
 	payload := e.ReqMsg.Payload.(domain.WriteFilePayload)
 
-	// Perform write operation and return error msg should this one fail.
-	err := ioutil.WriteFile(payload.File, []byte(payload.Content), 0644)
+	fd, err = os.OpenFile(payload.File, os.O_WRONLY, 0)
+	if err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
+	defer fd.Close()
+
+	_, err = fd.WriteAt(payload.Data, payload.Offset)
 	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
@@ -778,7 +806,6 @@ func (e *NSenterEvent) processFileWriteRequest() error {
 		return nil
 	}
 
-	// Create a response message.
 	e.ResMsg = &domain.NSenterMessage{
 		Type:    domain.WriteFileResponse,
 		Payload: nil,

@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -232,31 +231,13 @@ func (h *Proc) readSwaps(
 		return 0, io.EOF
 	}
 
-	name := n.Name()
-	path := n.Path()
-	cntr := req.Container
+	// Pretend swapping is off
+	//
+	// TODO: fix this once Sysbox intercepts the swapon() and swapoff() syscalls.
 
-	// If no modification has been ever made to this container's swapping mode,
-	// then let's assume that swapping in OFF by default.
-	data, ok := cntr.Data(path, name)
-	if !ok || data == "swapoff" {
-		result := []byte(swapsHeader + "\n")
-		return copyResultBuffer(req.Data, result)
-	}
+	req.Data = []byte(swapsHeader + "\n")
 
-	var result []byte
-
-	// If swapping is enabled ("swapon" value was explicitly set), extract the
-	// information directly from the host fs. Note that this action displays
-	// stats of the overall system, and not of the container itself, but it's
-	// a valid approximation for now given that kernel doesn't expose anything
-	// close to this.
-	_, err := n.Read(result)
-	if err != nil && err != io.EOF {
-		return 0, err
-	}
-
-	return copyResultBuffer(req.Data, result)
+	return len(req.Data), nil
 }
 
 func (h *Proc) readUptime(
@@ -273,17 +254,10 @@ func (h *Proc) readUptime(
 
 	cntr := req.Container
 
-	// Ensure operation is generated from within a registered sys container.
-	if cntr == nil {
-		logrus.Errorf("Could not find the container originating this request (pid %v)",
-			req.Pid)
-		return 0, errors.New("Container not found")
-	}
-
 	//
 	// We can assume that by the time a user generates a request to read
 	// /proc/uptime, the embedding container has been fully initialized,
-	// so cs.ctime is already holding a valid value.
+	// so Ctime() is already holding a valid value.
 	//
 	data := cntr.Ctime()
 
@@ -293,14 +267,14 @@ func (h *Proc) readUptime(
 	//
 	// TODO: Notice that we are dumping the same values into the two columns
 	// expected in /proc/uptime. The value utilized for the first column is
-	// an accurate one (uptime seconds), however, the second one is just
+	// an accurate one (uptime seconds); however, the second one is just
 	// an approximation.
 	//
 	uptimeDur := time.Now().Sub(data) / time.Nanosecond
 	var uptime float64 = uptimeDur.Seconds()
 	uptimeStr := fmt.Sprintf("%.2f", uptime)
 
-	result := []byte(uptimeStr + " " + uptimeStr + "\n")
+	req.Data = []byte(uptimeStr + " " + uptimeStr + "\n")
 
-	return copyResultBuffer(req.Data, result)
+	return len(req.Data), nil
 }

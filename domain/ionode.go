@@ -51,10 +51,12 @@ type IOnodeIface interface {
 	Read(p []byte) (n int, err error)
 	Write(p []byte) (n int, err error)
 	Close() error
+	Seek(offset int64, whence int) (int64, error)
 	ReadAt(p []byte, off int64) (n int, err error)
 	ReadDirAll() ([]os.FileInfo, error)
 	ReadFile() ([]byte, error)
 	ReadLine() (string, error)
+	WriteAt(p []byte, off int64) (n int, err error)
 	WriteFile(p []byte) error
 	Mkdir() error
 	MkdirAll() error

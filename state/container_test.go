@@ -17,6 +17,7 @@
 package state
 
 import (
+	"io"
 	"reflect"
 	"testing"
 	"time"
@@ -119,55 +120,6 @@ func Test_container_Ctime(t *testing.T) {
 	}
 }
 
-func Test_container_Data(t *testing.T) {
-
-	var cs1 = &container{
-		dataStore: map[string](map[string]string){
-			"/proc/uptime":  {"uptime": "100"},
-			"/proc/cpuinfo": {"cpuinfo": "foo \n bar"},
-		},
-	}
-
-	var cs2 = &container{}
-
-	type args struct {
-		path string
-		name string
-	}
-	tests := []struct {
-		name  string
-		c     *container
-		args  args
-		want  string
-		want1 bool
-	}{
-		// Single-line data.
-		{"1", cs1, args{"/proc/uptime", "uptime"}, "100", true},
-
-		// Multi-line data.
-		{"2", cs1, args{"/proc/cpuinfo", "cpuinfo"}, "foo \n bar", true},
-
-		// Missing specific (handler) info being requested. 'False' result
-		// expected.
-		{"3", cs1, args{"/proc/missing", "missing"}, "", false},
-
-		// Missing the entire dataStorage map. 'False' result expected.
-		{"4", cs2, args{"/proc/cpuinfo", "cpuinfo"}, "", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := tt.c.Data(tt.args.path, tt.args.name)
-			if got != tt.want {
-				t.Errorf("container.Data() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("container.Data() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
-
 func Test_container_SetCtime(t *testing.T) {
 
 	var cs1 = &container{
@@ -201,44 +153,41 @@ func Test_container_SetCtime(t *testing.T) {
 func Test_container_SetData(t *testing.T) {
 
 	var cs1 = &container{
-		dataStore: map[string](map[string]string){
-			"/proc/cpuinfo": {"cpuinfo": "foo \n bar"},
-		},
+		dataStore: make(map[string][]byte),
 	}
 
-	var cs2 = &container{}
+	cs1.dataStore["/proc/cpuinfo"] = []byte("FOO")
 
 	type args struct {
-		path string
-		name string
-		data string
+		name   string
+		offset int64
+		data   []byte
 	}
+
 	tests := []struct {
 		name string
 		c    *container
 		args args
 	}{
 		// Insert new data record.
-		{"1", cs1, args{"/proc/testing", "testing", "12345"}},
+		{"1", cs1, args{"/proc/testing", 0, []byte("12345")}},
 
 		// Update existing data record.
-		{"2", cs1, args{"/proc/cpuinfo", "cpuinfo", "FOO \n BAR"}},
-
-		// Add new record over container with no dataStorage map.
-		{"3", cs2, args{"/proc/uptime", "uptime", "100"}},
+		{"2", cs1, args{"/proc/cpuinfo", 0, []byte("FOO \n BAR")}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.c.SetData(tt.args.path, tt.args.name, tt.args.data)
+			tt.c.SetData(tt.args.name, tt.args.offset, tt.args.data)
+
+			buf := make([]byte, 20)
+			_, err := tt.c.Data(tt.args.name, 0, &buf)
+			if err != nil && err != io.EOF {
+				t.Errorf("Unexpected result during execution of testcase %v", tt.name)
+			}
+
+			assert.Equal(t, tt.args.data, buf, "data fields are not matching")
 		})
-
-		data, ok := tt.c.Data(tt.args.path, tt.args.name)
-		if !ok {
-			t.Errorf("Unexpected result during execution of testcase %v", tt.name)
-		}
-
-		assert.Equal(t, tt.args.data, data, "data fields are not matching")
 	}
 }
 
@@ -254,7 +203,7 @@ func Test_container_update(t *testing.T) {
 		procRoPaths   []string
 		procMaskPaths []string
 		specPaths     map[string]struct{}
-		dataStore     domain.StateDataMap
+		dataStore     map[string][]byte
 		initProc      domain.ProcessIface
 		service       *containerStateService
 	}

@@ -21,11 +21,13 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
@@ -164,7 +166,7 @@ func (h *ProcSysKernelYama) Read(
 
 	switch resource {
 	case "ptrace_scope":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -182,7 +184,10 @@ func (h *ProcSysKernelYama) Write(
 
 	switch resource {
 	case "ptrace_scope":
-		return writeFileInt(h, n, req, minScopeVal, maxScopeVal, false)
+		if !checkIntRange(req.Data, minScopeVal, maxScopeVal) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		return writeCntrData(h, n, req, nil)
 	}
 
 	// Refer to generic handler if no node match is found above.

@@ -18,6 +18,7 @@ package state
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -42,7 +43,7 @@ type container struct {
 	procRoPaths     []string                    // OCI spec read-only proc paths
 	procMaskPaths   []string                    // OCI spec masked proc paths
 	mountInfoParser domain.MountInfoParserIface // Per container mountinfo DB & parser
-	dataStore       domain.StateDataMap         // Handler's container-specific storage blob
+	dataStore       map[string][]byte           // Per container data store for FUSE handlers (procfs, sysfs, etc); maps fuse path to data.
 	initProc        domain.ProcessIface         // container's init process
 	service         *containerStateService      // backpointer to service
 	intLock         sync.RWMutex                // internal lock
@@ -131,21 +132,6 @@ func (c *container) ProcMaskPaths() []string {
 	defer c.intLock.RUnlock()
 
 	return c.procMaskPaths
-}
-
-func (c *container) Data(path string, name string) (string, bool) {
-	c.intLock.RLock()
-	defer c.intLock.RUnlock()
-
-	if c.dataStore == nil {
-		return "", false
-	}
-
-	if _, ok := c.dataStore[path]; !ok {
-		return "", false
-	}
-
-	return c.dataStore[path][name], true
 }
 
 func (c *container) InitProc() domain.ProcessIface {
@@ -342,19 +328,83 @@ func (c *container) SetCtime(t time.Time) {
 	c.ctime = t
 }
 
-func (c *container) SetData(path string, name string, data string) {
+func (c *container) Data(name string, offset int64, data *[]byte) (int, error) {
+	var err error
+
+	c.intLock.RLock()
+	defer c.intLock.RUnlock()
+
+	if offset < 0 {
+		return 0, fmt.Errorf("invalid offset: %d", offset)
+	}
+
+	if c.dataStore == nil {
+		c.dataStore = make(map[string][]byte)
+	}
+
+	currData, ok := c.dataStore[name]
+	if !ok {
+		return 0, io.EOF
+	}
+
+	readLen := int64(len(*data))
+
+	// Out-of-bounds offset
+	if offset >= readLen {
+		return 0, io.EOF
+	}
+
+	if offset+readLen >= int64(len(currData)) {
+		// Out-of-bound length (read until end)
+		*data = currData[offset:]
+		err = io.EOF
+	} else {
+		// In-bound length
+		*data = currData[offset:(offset + readLen)]
+	}
+
+	return len(*data), err
+}
+
+func (c *container) SetData(name string, offset int64, data []byte) error {
+
 	c.intLock.Lock()
 	defer c.intLock.Unlock()
 
+	if offset < 0 {
+		return fmt.Errorf("invalid offset: %d", offset)
+	}
+
 	if c.dataStore == nil {
-		c.dataStore = make(domain.StateDataMap)
+		c.dataStore = make(map[string][]byte)
 	}
 
-	if _, ok := c.dataStore[path]; !ok {
-		c.dataStore[path] = make(domain.StateData)
+	currData, ok := c.dataStore[name]
+
+	// if this is the first write, we expect offset to be 0 (we don't support
+	// sparse files yet)
+	if !ok {
+		if offset != 0 {
+			return fmt.Errorf("invalid offset: %d", offset)
+		}
+
+		tmp := make([]byte, len(data))
+		copy(tmp, data)
+		c.dataStore[name] = tmp
+
+		return nil
 	}
 
-	c.dataStore[path][name] = data
+	// if this is not the first write, we expect it to either overwrite the
+	// existing data (or a subset of it), or extend it contiguously.
+	if offset > int64(len(currData)) {
+		return fmt.Errorf("invalid offset: %d", offset)
+	}
+
+	newData := append(currData[0:offset], data...)
+	c.dataStore[name] = newData
+
+	return nil
 }
 
 func (c *container) Lock() {
