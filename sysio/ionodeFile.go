@@ -109,7 +109,7 @@ func (i *IOnodeFile) Open() error {
 	return nil
 }
 
-func (i *IOnodeFile) Read(p []byte) (n int, err error) {
+func (i *IOnodeFile) Read(p []byte) (int, error) {
 
 	if i.file == nil {
 		return 0, fmt.Errorf("File not currently opened.")
@@ -119,7 +119,7 @@ func (i *IOnodeFile) Read(p []byte) (n int, err error) {
 
 }
 
-func (i *IOnodeFile) Write(p []byte) (n int, err error) {
+func (i *IOnodeFile) Write(p []byte) (int, error) {
 
 	if i.file == nil {
 		return 0, fmt.Errorf("File not currently opened.")
@@ -135,6 +135,15 @@ func (i *IOnodeFile) Close() error {
 	}
 
 	return i.file.Close()
+}
+
+func (i *IOnodeFile) Seek(offset int64, whence int) (int64, error) {
+
+	if i.file == nil {
+		return 0, fmt.Errorf("File not currently opened.")
+	}
+
+	return i.file.Seek(int64(offset), whence)
 }
 
 func (i *IOnodeFile) ReadAt(p []byte, off int64) (n int, err error) {
@@ -190,6 +199,15 @@ func (i *IOnodeFile) ReadLine() (string, error) {
 	res = scanner.Text()
 
 	return res, nil
+}
+
+func (i *IOnodeFile) WriteAt(p []byte, off int64) (n int, err error) {
+
+	if i.file == nil {
+		return 0, fmt.Errorf("File not currently opened.")
+	}
+
+	return i.file.WriteAt(p, off)
 }
 
 func (i *IOnodeFile) WriteFile(p []byte) error {

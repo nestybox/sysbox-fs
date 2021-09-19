@@ -124,41 +124,50 @@ func (h *SysDevicesVirtualDmiId) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	var resource = n.Name()
-
-	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, resource)
-
-	// We are dealing with a single boolean element being read, so we can save
-	// some cycles by returning right away if offset is any higher than zero.
-	if req.Offset > 0 {
-		return 0, io.EOF
-	}
-
 	path := n.Path()
 	cntr := req.Container
 
+	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, path)
+
 	cntr.Lock()
+	defer cntr.Unlock()
 
 	// Check if this resource has been initialized for this container. Otherwise,
 	// fetch the information from the host FS.
-	data, ok := cntr.Data(path, resource)
-	if !ok {
-		val, err := fetchFileData(h, n, cntr)
-		if err != nil && err != io.EOF {
-			cntr.Unlock()
-			return 0, err
-		}
 
-		data = h.GenerateProductUuid(val, cntr)
-		cntr.SetData(path, resource, data)
+	sz, err := cntr.Data(path, req.Offset, &req.Data)
+	if err != nil && err != io.EOF {
+		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 
-	cntr.Unlock()
+	if req.Offset == 0 && sz == 0 && err == io.EOF {
 
-	data += "\n"
+		// Per the SMBIOS 3.4 spec, UUID is 128 bytes but we double the space in
+		// the read buffer just in case.
+		hostUuid := make([]byte, 256)
 
-	return copyResultBuffer(req.Data, []byte(data))
+		sz, err = readFs(h, n, 0, &hostUuid)
+
+		if err != nil && err != io.EOF {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+
+		if sz == 0 && err == io.EOF {
+			return 0, nil
+		}
+
+		hostUuid = hostUuid[0:sz]
+		cntrUuidStr := h.GenerateProductUuid(string(hostUuid), cntr)
+		req.Data = []byte(cntrUuidStr + "\n")
+
+		err = cntr.SetData(path, 0, req.Data)
+		if err != nil {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+	}
+
+	return len(req.Data), nil
 }
 
 func (h *SysDevicesVirtualDmiId) Write(

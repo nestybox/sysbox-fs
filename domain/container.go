@@ -30,7 +30,7 @@ type ContainerIface interface {
 	ID() string
 	InitPid() uint32
 	Ctime() time.Time
-	Data(path string, name string) (string, bool)
+	Data(name string, offset int64, data *[]byte) (int, error)
 	UID() uint32
 	GID() uint32
 	ProcRoPaths() []string
@@ -51,7 +51,7 @@ type ContainerIface interface {
 	//
 	// Setters
 	//
-	SetData(path string, name string, data string)
+	SetData(name string, offset int64, data []byte) error
 	SetInitProc(pid, uid, gid uint32) error
 	//
 	// Locks for read-modify-write operations on container data via the Data()
@@ -60,13 +60,6 @@ type ContainerIface interface {
 	Lock()
 	Unlock()
 }
-
-//
-// Auxiliary types to deal with the per-container-state associated to all the
-// emulated resources.
-//
-type StateDataMap = map[string]map[string]string
-type StateData = map[string]string
 
 //
 // ContainerStateService interface defines the APIs that sysbox-fs components

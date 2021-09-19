@@ -21,11 +21,13 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
@@ -144,10 +146,10 @@ func (h *ProcSysVm) Read(
 
 	switch resource {
 	case "overcommit_memory":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "mmap_min_addr":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -174,10 +176,16 @@ func (h *ProcSysVm) Write(
 		//    also improves memory-intensive workloads.
 		// 2: Kernel will not overcommit memory, and only allocate as much memory as
 		//    defined in overcommit_ratio.
-		return writeFileInt(h, n, req, minOvercommitMem, maxOverCommitMem, false)
+		if !checkIntRange(req.Data, minOvercommitMem, maxOverCommitMem) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		return writeCntrData(h, n, req, nil)
 
 	case "mmap_min_addr":
-		return writeFileInt(h, n, req, 0, MaxInt, false)
+		if !checkIntRange(req.Data, 0, MaxInt) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		return writeCntrData(h, n, req, nil)
 	}
 
 	// Refer to generic handler if no node match is found above.

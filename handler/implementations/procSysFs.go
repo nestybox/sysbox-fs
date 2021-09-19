@@ -21,10 +21,12 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
@@ -142,16 +144,16 @@ func (h *ProcSysFs) Read(
 
 	switch resource {
 	case "file-max":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "nr_open":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "protected_hardlinks":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "protected_symlinks":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -169,16 +171,22 @@ func (h *ProcSysFs) Write(
 
 	switch resource {
 	case "file-max":
-		return writeFileMaxInt(h, n, req, false)
+		return writeCntrData(h, n, req, writeMaxIntToFs)
 
 	case "nr_open":
-		return writeFileMaxInt(h, n, req, false)
+		return writeCntrData(h, n, req, writeMaxIntToFs)
 
 	case "protected_hardlinks":
-		return writeFileInt(h, n, req, minProtectedHardlinksVal, maxProtectedHardlinksVal, false)
+		if !checkIntRange(req.Data, minProtectedHardlinksVal, maxProtectedHardlinksVal) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		return writeCntrData(h, n, req, nil)
 
 	case "protected_symlinks":
-		return writeFileInt(h, n, req, minProtectedSymlinksVal, maxProtectedSymlinksVal, false)
+		if !checkIntRange(req.Data, minProtectedSymlinksVal, maxProtectedSymlinksVal) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		return writeCntrData(h, n, req, nil)
 	}
 
 	// Refer to generic handler if no node match is found above.

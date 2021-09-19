@@ -21,10 +21,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 
 	"github.com/sirupsen/logrus"
 )
@@ -136,67 +137,98 @@ func (h *PassThrough) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	var resource = n.Name()
-
-	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, resource)
-
-	if req.Offset > 0 {
-		return 0, io.EOF
-	}
-
 	var (
-		data string
-		ok   bool
-		err  error
+		sz  int
+		err error
 	)
 
+	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
+
 	path := n.Path()
-	prs := h.Service.ProcessService()
-	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 	cntr := req.Container
 
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
+
 	//
-	// Caching here improves performance by avoiding dispatching the nsenter agent.  But
-	// note that caching is only helping processes at the sys container level, not in inner
-	// containers or unshared namespaces. To enable caching for those, we would need to
-	// have a cache per each namespace and this is expensive; plus we would also need to
-	// know when the namespace ceases to exist in order to destroy the cache associated
+	// The passthrough driver is slow because it must spawn a process that enters
+	// the container's namespaces (i.e., the nsenter agent) and read the data
+	// from there. To improve things, we cache the data on the first access to
+	// avoid dispatching the nsenter agent on subsequent accesess.
+	//
+	// A couple of caveats on the caching:
+	//
+	// 1) Caching is only done for processes at the sys container level, not in
+	// inner containers or inner unshared namespaces. To enable caching for
+	// those, we would need to have a cache per each namespace set (since the
+	// values under /proc/sys depend on the namespaces that the process belongs
+	// to). This would be expensive and would also require Sysbox to know when
+	// the namespace ceases to exist in order to destroy the cache associated
 	// with it.
 	//
+	// 2) As an optimization, we fetch data from the container's filesystem only
+	// when the req.Offset is 0. For req.Offset > 0, we assume that the data is
+	// cached already. Without this optimization, we will likely go through
+	// fetchFile() twice for each read: one with req.Offset 0, and one at
+	// req.Offset X, where X is the number of bytes of the resource being
+	// read. That is, the handler's Read() method is normally invoked twice: the
+	// first read returns X bytes, the second read returns 0 bytes.
+
 	if domain.ProcessNsMatch(process, cntr.InitProc()) {
 
-		// If this resource is cached, return it's data; otherwise fetch its data from the
-		// host FS and store it in the cache.
 		cntr.Lock()
-		data, ok = cntr.Data(path, resource)
-		if !ok {
-			data, err = h.fetchFile(n, process)
+
+		// Check the data cache
+		sz, err = cntr.Data(path, req.Offset, &req.Data)
+		if err != nil && err != io.EOF {
+			cntr.Unlock()
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+
+		if req.Offset == 0 && sz == 0 && err == io.EOF {
+
+			// Resource is not cached, read it from the filesystem.
+			sz, err = h.fetchFile(process, n, req.Offset, &req.Data)
 			if err != nil {
 				cntr.Unlock()
-				return 0, err
+				return 0, fuse.IOerror{Code: syscall.EINVAL}
 			}
 
-			cntr.SetData(path, resource, data)
+			if sz == 0 {
+				cntr.Unlock()
+				return 0, nil
+			}
+
+			err = cntr.SetData(path, req.Offset, req.Data)
+			if err != nil {
+				cntr.Unlock()
+				return 0, fuse.IOerror{Code: syscall.EINVAL}
+			}
 		}
+
 		cntr.Unlock()
+
 	} else {
-		data, err = h.fetchFile(n, process)
+		sz, err = h.fetchFile(process, n, req.Offset, &req.Data)
 		if err != nil {
-			return 0, err
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
 		}
 	}
 
-	data += "\n"
-
-	return copyResultBuffer(req.Data, []byte(data))
+	return sz, nil
 }
 
 func (h *PassThrough) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	var resource = n.Name()
+	var (
+		len int
+		err error
+	)
+
+	resource := n.Name()
 
 	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
@@ -204,29 +236,28 @@ func (h *PassThrough) Write(
 	path := n.Path()
 	cntr := req.Container
 
-	newContent := strings.TrimSpace(string(req.Data))
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 
-	// If write op is originated by a process within a registered sys-container
-	// (it fully matches its namespaces) then store the data in the cache and do
-	// a write-through to the host FS. Otherwise just do the write-through.
-	if domain.ProcessNsMatch(process, cntr.InitProc()) {
-		cntr.Lock()
-		if err := h.pushFile(n, process, newContent); err != nil {
-			cntr.Unlock()
-			return 0, err
-		}
-		cntr.SetData(path, resource, newContent)
-		cntr.Unlock()
-
-	} else {
-		if err := h.pushFile(n, process, newContent); err != nil {
-			return 0, err
-		}
+	if len, err = h.pushFile(process, n, req.Offset, req.Data); err != nil {
+		return 0, err
 	}
 
-	return len(req.Data), nil
+	// If the write comes from a process inside the sys container's namespaces,
+	// (not in inner containers or unshared namespaces) then cache the data.
+	// See explanation in Read() method above.
+
+	if domain.ProcessNsMatch(process, cntr.InitProc()) {
+		cntr.Lock()
+		err = cntr.SetData(path, req.Offset, req.Data)
+		if err != nil {
+			cntr.Unlock()
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		cntr.Unlock()
+	}
+
+	return len, nil
 }
 
 func (h *PassThrough) ReadDirAll(
@@ -317,18 +348,23 @@ func (h *PassThrough) Setattr(
 
 // Auxiliary method to fetch the content of any given file within a container.
 func (h *PassThrough) fetchFile(
+	process domain.ProcessIface,
 	n domain.IOnodeIface,
-	process domain.ProcessIface) (string, error) {
+	offset int64,
+	data *[]byte) (int, error) {
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
+
 	event := nss.NewEvent(
 		process.Pid(),
 		&domain.AllNSsButMount,
 		&domain.NSenterMessage{
 			Type: domain.ReadFileRequest,
 			Payload: &domain.ReadFilePayload{
-				File: n.Path(),
+				File:   n.Path(),
+				Offset: offset,
+				Len:    len(*data),
 			},
 		},
 		nil,
@@ -339,36 +375,39 @@ func (h *PassThrough) fetchFile(
 	// namespaces.
 	err := nss.SendRequestEvent(event)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 
 	// Obtain nsenter-event response.
 	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
-		return "", responseMsg.Payload.(error)
+		return 0, responseMsg.Payload.(error)
 	}
 
-	info := responseMsg.Payload.(string)
+	*data = responseMsg.Payload.([]byte)
 
-	return info, nil
+	return len(*data), nil
 }
 
 // Auxiliary method to inject content into any given file within a container.
 func (h *PassThrough) pushFile(
-	n domain.IOnodeIface,
 	process domain.ProcessIface,
-	s string) error {
+	n domain.IOnodeIface,
+	offset int64,
+	data []byte) (int, error) {
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
+
 	event := nss.NewEvent(
 		process.Pid(),
 		&domain.AllNSsButMount,
 		&domain.NSenterMessage{
 			Type: domain.WriteFileRequest,
 			Payload: &domain.WriteFilePayload{
-				File:    n.Path(),
-				Content: s,
+				File:   n.Path(),
+				Offset: offset,
+				Data:   data,
 			},
 		},
 		nil,
@@ -379,16 +418,16 @@ func (h *PassThrough) pushFile(
 	// namespaces.
 	err := nss.SendRequestEvent(event)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// Obtain nsenter-event response.
 	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
-		return responseMsg.Payload.(error)
+		return 0, responseMsg.Payload.(error)
 	}
 
-	return nil
+	return len(data), nil
 }
 
 func (h *PassThrough) GetName() string {

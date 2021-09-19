@@ -23,13 +23,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
@@ -156,19 +154,19 @@ func (h *ProcSysNetNetfilter) Read(
 
 	switch resource {
 	case "nf_conntrack_max":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "nf_conntrack_generic_timeout":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "nf_conntrack_tcp_be_liberal":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "nf_conntrack_tcp_timeout_established":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "nf_conntrack_tcp_timeout_close_wait":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -186,19 +184,19 @@ func (h *ProcSysNetNetfilter) Write(
 
 	switch resource {
 	case "nf_conntrack_max":
-		return writeFileMaxInt(h, n, req, true)
+		return writeCntrData(h, n, req, writeMaxIntToFs)
 
 	case "nf_conntrack_generic_timeout":
-		return writeFileMaxInt(h, n, req, true)
+		return writeCntrData(h, n, req, writeMaxIntToFs)
 
 	case "nf_conntrack_tcp_be_liberal":
-		return h.writeTcpLiberal(n, req)
+		return writeCntrData(h, n, req, writeTcpLiberal)
 
 	case "nf_conntrack_tcp_timeout_established":
-		return writeFileMaxInt(h, n, req, true)
+		return writeCntrData(h, n, req, writeMaxIntToFs)
 
 	case "nf_conntrack_tcp_timeout_close_wait":
-		return writeFileMaxInt(h, n, req, true)
+		return writeCntrData(h, n, req, writeMaxIntToFs)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -296,65 +294,19 @@ func (h *ProcSysNetNetfilter) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
 }
 
-func (h *ProcSysNetNetfilter) writeTcpLiberal(
-	n domain.IOnodeIface,
-	req *domain.HandlerRequest) (int, error) {
+func writeTcpLiberal(curr, new []byte) (bool, error) {
 
-	name := n.Name()
-	path := n.Path()
-	cntr := req.Container
-
-	newVal := strings.TrimSpace(string(req.Data))
-	newValInt, err := strconv.Atoi(newVal)
+	newStr := strings.TrimSpace(string(new))
+	newInt, err := strconv.Atoi(newStr)
 	if err != nil {
-		logrus.Errorf("Unexpected error: %v", err)
-		return 0, err
+		return false, err
 	}
 
-	if newValInt != tcpLiberalOff && newValInt != tcpLiberalOn {
-		return 0, fuse.IOerror{Code: syscall.EINVAL}
-	}
-
-	cntr.Lock()
-	defer cntr.Unlock()
-
-	// Check if this resource has been initialized for this container. If not,
-	// push it down to the kernel if, and only if, the new value is not equal
-	// to tcpLiberalOff (0), as we want to kernel's tcpLiberalOn mode to
-	// prevail.
-	curVal, ok := cntr.Data(path, name)
-	if !ok {
-		if newValInt != tcpLiberalOff {
-			if err := pushFileInt(h, n, cntr, newValInt); err != nil {
-				return 0, err
-			}
-		}
-
-		cntr.SetData(path, name, newVal)
-		return len(req.Data), nil
-	}
-
-	curValInt, err := strconv.Atoi(curVal)
+	currStr := strings.TrimSpace(string(curr))
+	currInt, err := strconv.Atoi(currStr)
 	if err != nil {
-		logrus.Errorf("Unexpected error: %v", err)
-		return 0, err
+		return false, err
 	}
 
-	// If the new value is 0 or the same as the current value, then let's update
-	// this new value into the container struct but not push it down to the
-	// kernel.
-	if newValInt == tcpLiberalOff || newValInt == curValInt {
-		cntr.SetData(path, name, newVal)
-		return len(req.Data), nil
-	}
-
-	// Push new value to the kernel.
-	if err := pushFileInt(h, n, cntr, newValInt); err != nil {
-		return 0, io.EOF
-	}
-
-	// Writing the new value into container-state struct.
-	cntr.SetData(path, name, newVal)
-
-	return len(req.Data), nil
+	return (newInt != currInt && newInt != tcpLiberalOff), nil
 }
