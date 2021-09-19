@@ -170,13 +170,15 @@ type OpenFilePayload struct {
 }
 
 type ReadFilePayload struct {
-	File    string `json:"file"`
-	Content string `json:"content"`
+	File   string `json:"file"`
+	Offset int64  `json:"offset"`
+	Len    int    `json:"len"`
 }
 
 type WriteFilePayload struct {
-	File    string `json:"file"`
-	Content string `json:"content"`
+	File   string `json:"file"`
+	Offset int64  `json:"offset"`
+	Data   []byte `json:"data"`
 }
 
 type ReadDirPayload struct {

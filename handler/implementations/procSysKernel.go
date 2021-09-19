@@ -355,34 +355,34 @@ func (h *ProcSysKernel) Read(
 
 	switch resource {
 	case "cap_last_cap":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "pid_max":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "ngroups_max":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "domainname":
-		return readFileString(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "hostname":
-		return readFileString(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "kptr_restrict":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "panic":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "panic_on_oops":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "sysrq":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "printk":
-		return readFileString(h, n, req)
+		return readCntrData(h, n, req)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -406,28 +406,37 @@ func (h *ProcSysKernel) Write(
 		return 0, nil
 
 	case "pid_max":
-		return writeFileMaxInt(h, n, req, false)
+		return writeCntrData(h, n, req, nil)
 
 	case "panic":
-		return writeFileString(h, n, req, false)
+		return writeCntrData(h, n, req, nil)
 
 	case "printk":
-		return writeFileString(h, n, req, false)
+		return writeCntrData(h, n, req, nil)
 
 	case "panic_on_oops":
-		return writeFileInt(h, n, req, minPanicOopsVal, maxPanicOopsVal, false)
+		// Even though only values 0 and 1 are defined for panic_on_oops, the
+		// kernel allows other values to be written; thus no range check is
+		// performed here.
+		return writeCntrData(h, n, req, nil)
 
 	case "kptr_restrict":
-		return writeFileInt(h, n, req, minRestrictVal, maxRestrictVal, false)
+		if !checkIntRange(req.Data, minRestrictVal, maxRestrictVal) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		return writeCntrData(h, n, req, nil)
 
 	case "sysrq":
-		return writeFileInt(h, n, req, minSysrqVal, maxSysrqVal, false)
+		if !checkIntRange(req.Data, minSysrqVal, maxSysrqVal) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		return writeCntrData(h, n, req, nil)
 
 	case "domainname":
-		return writeFileString(h, n, req, false)
+		return writeCntrData(h, n, req, nil)
 
 	case "hostname":
-		return writeFileString(h, n, req, false)
+		return writeCntrData(h, n, req, nil)
 	}
 
 	// Refer to generic handler if no node match is found above.

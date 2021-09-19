@@ -114,7 +114,7 @@ func (h *ProcSysNetUnix) Read(
 
 	switch resource {
 	case "max_dgram_qlen":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -132,7 +132,7 @@ func (h *ProcSysNetUnix) Write(
 
 	switch resource {
 	case "max_dgram_qlen":
-		return writeFileMaxInt(h, n, req, true)
+		return writeCntrData(h, n, req, writeMaxIntToFs)
 	}
 
 	// Refer to generic handler if no node match is found above.

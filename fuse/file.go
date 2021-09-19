@@ -204,9 +204,6 @@ func (f *File) Read(
 
 	ionode := f.server.service.ios.NewIOnode(f.name, f.path, f.attr.Mode)
 
-	// Adjust receiving buffer to the request's size.
-	resp.Data = resp.Data[:req.Size]
-
 	// Identify the associated handler and execute it accordingly.
 	handler, ok := f.server.service.hds.LookupHandler(ionode)
 	if !ok {
@@ -220,7 +217,7 @@ func (f *File) Read(
 		Uid:       req.Uid,
 		Gid:       req.Gid,
 		Offset:    req.Offset,
-		Data:      resp.Data,
+		Data:      make([]byte, req.Size),
 		Container: f.server.container,
 	}
 
@@ -231,8 +228,7 @@ func (f *File) Read(
 		return err
 	}
 
-	resp.Data = resp.Data[:n]
-
+	resp.Data = request.Data[:n]
 	return nil
 }
 
@@ -281,7 +277,6 @@ func (f *File) Write(
 	}
 
 	resp.Size = n
-
 	return nil
 }
 

@@ -491,7 +491,9 @@ func TestPassThrough_Read(t *testing.T) {
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.ReadFileRequest,
 						Payload: &domain.ReadFilePayload{
-							File: a1.n.Path(),
+							File:   a1.n.Path(),
+							Offset: 0,
+							Len:    len(string("file content 0123456789")),
 						},
 					},
 				}
@@ -500,7 +502,7 @@ func TestPassThrough_Read(t *testing.T) {
 				nsenterEventResp := &nsenter.NSenterEvent{
 					ResMsg: &domain.NSenterMessage{
 						Type:    domain.ReadFileResponse,
-						Payload: string("file content 0123456789"),
+						Payload: []byte("file content 0123456789"),
 					},
 				}
 
@@ -624,8 +626,9 @@ func TestPassThrough_Write(t *testing.T) {
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.WriteFileRequest,
 						Payload: &domain.WriteFilePayload{
-							File:    a1.n.Path(),
-							Content: "file content 0123456789",
+							File:   a1.n.Path(),
+							Offset: 0,
+							Data:   []byte("file content 0123456789"),
 						},
 					},
 				}
@@ -675,8 +678,9 @@ func TestPassThrough_Write(t *testing.T) {
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.WriteFileRequest,
 						Payload: &domain.WriteFilePayload{
-							File:    a1.n.Path(),
-							Content: "file content 0123456789",
+							File:   a1.n.Path(),
+							Offset: 0,
+							Data:   []byte("file content 0123456789"),
 						},
 					},
 				}

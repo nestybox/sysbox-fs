@@ -142,10 +142,10 @@ func (h *ProcSysNetCore) Read(
 
 	switch resource {
 	case "default_qdisc":
-		return readFileString(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "somaxconn":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -166,7 +166,7 @@ func (h *ProcSysNetCore) Write(
 		return h.writeDefaultQdisc(n, req)
 
 	case "somaxconn":
-		return writeFileMaxInt(h, n, req, true)
+		return writeCntrData(h, n, req, writeMaxIntToFs)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -270,5 +270,5 @@ func (h *ProcSysNetCore) writeDefaultQdisc(
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 
-	return writeFileString(h, n, req, false)
+	return writeCntrData(h, n, req, writeToFs)
 }

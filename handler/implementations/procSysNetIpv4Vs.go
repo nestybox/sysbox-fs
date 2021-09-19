@@ -21,11 +21,13 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
@@ -138,16 +140,16 @@ func (h *ProcSysNetIpv4Vs) Read(
 
 	switch resource {
 	case "conntrack":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "conn_reuse_mode":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "expire_nodest_conn":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 
 	case "expire_quiescent_template":
-		return readFileInt(h, n, req)
+		return readCntrData(h, n, req)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -165,16 +167,25 @@ func (h *ProcSysNetIpv4Vs) Write(
 
 	switch resource {
 	case "conntrack":
-		return writeFileMaxInt(h, n, req, true)
+		return writeCntrData(h, n, req, writeMaxIntToFs)
 
 	case "conn_reuse_mode":
-		return writeFileInt(h, n, req, minConnReuseMode, maxConnReuseMode, false)
+		if !checkIntRange(req.Data, minConnReuseMode, maxConnReuseMode) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		return writeCntrData(h, n, req, nil)
 
 	case "expire_nodest_conn":
-		return writeFileInt(h, n, req, MinInt, MaxInt, false)
+		if !checkIntRange(req.Data, MinInt, MaxInt) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		return writeCntrData(h, n, req, nil)
 
 	case "expire_quiescent_template":
-		return writeFileInt(h, n, req, MinInt, MaxInt, false)
+		if !checkIntRange(req.Data, MinInt, MaxInt) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+		return writeCntrData(h, n, req, nil)
 	}
 
 	// Refer to generic handler if no node match is found above.
