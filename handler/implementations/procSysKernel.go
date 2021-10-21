@@ -177,20 +177,31 @@ import (
 // the kernel. This is something that we may need to improve in the future.
 // Example: "4   4 	1	7".
 //
+//
+// * /proc/sys/kernel/pid_max (since Linux 2.5.34)
+//
+// Documentation: This file specifies the value at which PIDs wrap around (i.e.,
+// the value in this file is one greater than the maximum PID).  PIDs greater
+// than this value are not allocated; thus, the value in this file also acts as
+// a system-wide limit on the total number of processes and threads.  The
+// default value for this file, 32768, results in the same range of PIDs as on
+// earlier kernels.  On 32-bit platforms, 32768 is the maximum value for
+// pid_max.  On 64-bit systems, pid_max can be set to any value up to 2^22
+// (PID_MAX_LIMIT, approximately 4 million).
+//
 
 const (
 	minSysrqVal = 0
 	maxSysrqVal = 511
-)
 
-const (
 	minRestrictVal = 0
 	maxRestrictVal = 3
-)
 
-const (
 	minPanicOopsVal = 0
 	maxPanicOopsVal = 1
+
+	minPidMaxVal = 1
+	maxPidMaxVal = 4194304
 )
 
 type ProcSysKernel struct {
@@ -297,7 +308,7 @@ func (h *ProcSysKernel) Open(
 	switch resource {
 	case "cap_last_cap":
 		if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
-		   flags&syscall.O_RDWR == syscall.O_RDWR {
+			flags&syscall.O_RDWR == syscall.O_RDWR {
 			return fuse.IOerror{Code: syscall.EACCES}
 		}
 		return nil
@@ -307,7 +318,7 @@ func (h *ProcSysKernel) Open(
 
 	case "ngroups_max":
 		if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
-		   flags&syscall.O_RDWR == syscall.O_RDWR {
+			flags&syscall.O_RDWR == syscall.O_RDWR {
 			return fuse.IOerror{Code: syscall.EACCES}
 		}
 		return nil
@@ -406,6 +417,9 @@ func (h *ProcSysKernel) Write(
 		return 0, nil
 
 	case "pid_max":
+		if !checkIntRange(req.Data, minPidMaxVal, maxPidMaxVal) {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
 		return writeCntrData(h, n, req, nil)
 
 	case "panic":
