@@ -580,7 +580,7 @@ func (t *syscallTracer) processMount(
 	}
 
 	// Verify the process has the proper rights to access the target
-	err = process.PathAccess(mount.Target, 0)
+	err = process.PathAccess(mount.Target, 0, true)
 	if err != nil {
 		return t.createErrorResponse(req.Id, err), nil
 	}
@@ -648,7 +648,7 @@ func (t *syscallTracer) processUmount(
 	}
 
 	// Verify the process has the proper rights to access the target
-	err = process.PathAccess(umount.Target, 0)
+	err = process.PathAccess(umount.Target, 0, true)
 	if err != nil {
 		return t.createErrorResponse(req.Id, err), nil
 	}
