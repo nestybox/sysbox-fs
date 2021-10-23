@@ -79,7 +79,7 @@ type listxattrSyscallInfo struct {
 
 // sanitizePath normalizes the file path associated with the xattr operation and
 // ensures the process doing the syscall has access to it.
-func sanitizePath(process domain.ProcessIface, path string) (string, error) {
+func sanitizePath(process domain.ProcessIface, path string, followSymlink bool) (string, error) {
 	var err error
 
 	// It's rare that the xattr be applied on a /proc/self/* path, but it's
@@ -90,7 +90,7 @@ func sanitizePath(process domain.ProcessIface, path string) (string, error) {
 	}
 
 	// Verify the process has the proper rights to access the file
-	err = process.PathAccess(path, 0)
+	err = process.PathAccess(path, 0, followSymlink)
 	if err != nil {
 		return path, err
 	}
@@ -132,7 +132,9 @@ func (si *setxattrSyscallInfo) processSetxattr() (*sysResponse, error) {
 		}
 	}
 
-	si.path, err = sanitizePath(process, si.path)
+	followSymlink := si.syscallName != "lsetxattr"
+
+	si.path, err = sanitizePath(process, si.path, followSymlink)
 	if err != nil {
 		return t.createErrorResponse(si.reqId, err), nil
 	}
@@ -203,7 +205,9 @@ func (si *getxattrSyscallInfo) processGetxattr() (*sysResponse, error) {
 		}
 	}
 
-	si.path, err = sanitizePath(process, si.path)
+	followSymlink := si.syscallName != "lgetxattr"
+
+	si.path, err = sanitizePath(process, si.path, followSymlink)
 	if err != nil {
 		return t.createErrorResponse(si.reqId, err), nil
 	}
@@ -288,7 +292,9 @@ func (si *removexattrSyscallInfo) processRemovexattr() (*sysResponse, error) {
 		}
 	}
 
-	si.path, err = sanitizePath(process, si.path)
+	followSymlink := si.syscallName != "lremovexattr"
+
+	si.path, err = sanitizePath(process, si.path, followSymlink)
 	if err != nil {
 		return t.createErrorResponse(si.reqId, err), nil
 	}
@@ -346,7 +352,9 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 		}
 	}
 
-	si.path, err = sanitizePath(process, si.path)
+	followSymlink := si.syscallName != "llistxattr"
+
+	si.path, err = sanitizePath(process, si.path, followSymlink)
 	if err != nil {
 		return t.createErrorResponse(si.reqId, err), nil
 	}

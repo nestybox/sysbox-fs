@@ -495,7 +495,7 @@ func (p *process) UsernsRootUidGid() (uint32, uint32, error) {
 // syscall.EACCES: the process does not have permission to access at least one component of the path.
 // syscall.ELOOP: the path too many symlinks (e.g. > 40).
 
-func (p *process) PathAccess(path string, aMode domain.AccessMode) error {
+func (p *process) PathAccess(path string, aMode domain.AccessMode, followSymlink bool) error {
 
 	err := p.init()
 	if err != nil {
@@ -507,7 +507,7 @@ func (p *process) PathAccess(path string, aMode domain.AccessMode) error {
 		return syscall.EINVAL
 	}
 
-	return p.pathAccess(path, aMode)
+	return p.pathAccess(path, aMode, followSymlink)
 }
 
 // init() retrieves info about the process to initialize its main attributes.
@@ -683,7 +683,7 @@ func (p *process) ResolveProcSelf(path string) (string, error) {
 	return currPath, nil
 }
 
-func (p *process) pathAccess(path string, mode domain.AccessMode) error {
+func (p *process) pathAccess(path string, mode domain.AccessMode, followSymlink bool) error {
 
 	if path == "" {
 		return syscall.ENOENT
@@ -737,57 +737,60 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 			return syscall.ENOTDIR
 		}
 
-		// Follow the symlink (unless it's the process root); may recurse if
+		// Follow the symlink (unless it's the process root, or if it's the final
+		// component of the path and followSymlink is false); may recurse if
 		// symlink points to another symlink and so on; we stop at symlinkMax
 		// recursions (just as the Linux kernel does).
 
-		if symlink && cur != p.procroot {
-			for {
-				if linkCnt >= domain.SymlinkMax {
-					return syscall.ELOOP
+		if !final || followSymlink {
+			if symlink && cur != p.procroot {
+				for {
+					if linkCnt >= domain.SymlinkMax {
+						return syscall.ELOOP
+					}
+
+					link, err := os.Readlink(cur)
+					if err != nil {
+						return syscall.ENOENT
+					}
+
+					if filepath.IsAbs(link) {
+						cur = filepath.Join(p.procroot, link)
+					} else {
+						cur = filepath.Join(filepath.Dir(cur), link)
+					}
+
+					// If 'cur' ever matches 'p.procroot' then there's no need to continue
+					// iterating as we know for sure that 'p.procroot' is a valid /
+					// non-cyclical path. If we were to continue our iteration, we
+					// would end up dereferencing 'p.procroot' -- through readlink() --
+					// which would erroneously points us to "/" in the host fs.
+					if cur == p.procroot {
+						break
+					}
+
+					symlink, isDir, err = isSymlink(cur)
+					if err != nil {
+						return syscall.ENOENT
+					}
+
+					if !symlink {
+						break
+					}
+					linkCnt += 1
 				}
 
-				link, err := os.Readlink(cur)
-				if err != nil {
-					return syscall.ENOENT
+				if !final && !isDir {
+					return syscall.ENOTDIR
 				}
-
-				if filepath.IsAbs(link) {
-					cur = filepath.Join(p.procroot, link)
-				} else {
-					cur = filepath.Join(filepath.Dir(cur), link)
-				}
-
-				// If 'cur' ever matches 'p.procroot' then there's no need to continue
-				// iterating as we know for sure that 'p.procroot' is a valid /
-				// non-cyclical path. If we were to continue our iteration, we
-				// would end up dereferencing 'p.procroot' -- through readlink() --
-				// which would erroneously points us to "/" in the host fs.
-				if cur == p.procroot {
-					break
-				}
-
-				symlink, isDir, err = isSymlink(cur)
-				if err != nil {
-					return syscall.ENOENT
-				}
-
-				if !symlink {
-					break
-				}
-				linkCnt += 1
-			}
-
-			if !final && !isDir {
-				return syscall.ENOTDIR
 			}
 		}
 
 		perm := false
 		if !final {
-			perm, err = p.checkPerm(cur, domain.X_OK)
+			perm, err = p.checkPerm(cur, domain.X_OK, followSymlink)
 		} else {
-			perm, err = p.checkPerm(cur, mode)
+			perm, err = p.checkPerm(cur, mode, followSymlink)
 		}
 
 		if err != nil || !perm {
@@ -804,12 +807,22 @@ func (p *process) pathAccess(path string, mode domain.AccessMode) error {
 // given path must not be a symlink. Returns true if the given process has the
 // required permission, false otherwise. The returned error indicates if an
 // error occurred during the check.
-func (p *process) checkPerm(path string, aMode domain.AccessMode) (bool, error) {
+func (p *process) checkPerm(path string, aMode domain.AccessMode, followSymlink bool) (bool, error) {
+	var (
+		fi  os.FileInfo
+		err error
+	)
 
-	fi, err := os.Stat(path)
+	if followSymlink {
+		fi, err = os.Stat(path)
+	} else {
+		fi, err = os.Lstat(path)
+	}
+
 	if err != nil {
 		return false, err
 	}
+
 	fperm := fi.Mode().Perm()
 
 	st, ok := fi.Sys().(*syscall.Stat_t)

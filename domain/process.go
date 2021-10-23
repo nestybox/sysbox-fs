@@ -54,7 +54,7 @@ type ProcessIface interface {
 	UserNsInodeParent() (Inode, error)
 	UsernsRootUidGid() (uint32, uint32, error)
 	CreateNsInodes(Inode) error
-	PathAccess(path string, accessFlags AccessMode) error
+	PathAccess(path string, accessFlags AccessMode, followSymlink bool) error
 	ResolveProcSelf(string) (string, error)
 	GetEffCaps() [2]uint32
 	SetEffCaps(caps [2]uint32)
