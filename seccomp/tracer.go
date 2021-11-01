@@ -1228,13 +1228,13 @@ func (t *syscallTracer) parseByteArgs(pid uint32, argPtrs []uint64, argSize []ui
 	return result, nil
 }
 
-func (t *syscallTracer) WriteRetVal(pid uint32, addr uint64, data []byte) error {
-
-	size := len(data)
+func (t *syscallTracer) WriteRetVal(pid uint32, addr uint64, data []byte, size int) error {
 
 	if size == 0 {
 		return nil
 	}
+
+	data = data[:size]
 
 	localIov := []unix.Iovec{
 		{

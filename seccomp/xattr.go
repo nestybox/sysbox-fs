@@ -27,9 +27,7 @@
 package seccomp
 
 import (
-	"bytes"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
@@ -217,6 +215,14 @@ func (si *getxattrSyscallInfo) processGetxattr() (*sysResponse, error) {
 
 	// Perform the nsenter into the process namespaces (except the user-ns)
 	payload := domain.GetxattrSyscallPayload{
+		Header: domain.NSenterMsgHeader{
+			Pid:          si.pid,
+			Uid:          si.uid,
+			Gid:          si.gid,
+			Root:         si.root,
+			Cwd:          si.cwd,
+			Capabilities: process.GetEffCaps(),
+		},
 		Syscall: si.syscallName,
 		Path:    si.path,
 		Name:    si.name,
@@ -252,10 +258,11 @@ func (si *getxattrSyscallInfo) processGetxattr() (*sysResponse, error) {
 	resp := responseMsg.Payload.(domain.GetxattrRespPayload)
 
 	// Write the data returned by getxattr() to the memory of the process whose
-	// syscall we are processing.
+	// syscall we are processing. Refer to the comments written as part of the
+	// processListxattr() method for more details relevant to this code section.
 
-	if si.size > 0 {
-		if err := t.WriteRetVal(si.pid, si.addr, resp.Val); err != nil {
+	if si.size > 0 && resp.Size > 0 {
+		if err := t.WriteRetVal(si.pid, si.addr, resp.Val, resp.Size); err != nil {
 			sysResp := t.createErrorResponse(si.reqId, syscall.ENOTSUP)
 			return sysResp, nil
 		}
@@ -363,6 +370,14 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 
 	// Perform the nsenter into the process namespaces (except the user-ns)
 	payload := domain.ListxattrSyscallPayload{
+		Header: domain.NSenterMsgHeader{
+			Pid:          si.pid,
+			Uid:          si.uid,
+			Gid:          si.gid,
+			Root:         si.root,
+			Cwd:          si.cwd,
+			Capabilities: process.GetEffCaps(),
+		},
 		Syscall: si.syscallName,
 		Path:    si.path,
 		Size:    si.size,
@@ -397,23 +412,25 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 	resp := responseMsg.Payload.(domain.ListxattrRespPayload)
 
 	// Write the data returned by listxattr() to the memory of the process whose
-	// syscall we are processing. But since sysbox-fs did listxattr() as root, we
-	// must first filter out any xattr which the process performing the syscall
-	// has no permissions to list.
+	// syscall we are processing.
+	//
+	// Notice that the nsexec process executing this syscall in the container
+	// namespaces, is adopting the 'personality' of the original user process.
+	// Thus, there's no need to adjust the list of received xattrs as these ones
+	// should match those obtained if Sysbox were not in the picture.
+	//
+	// Also, bear in mind that the list of returned xattrs during the second
+	// listxattr(), may reflect a subset (or an empty set) of those reported in
+	// the first litstxattr() syscall, as it's only during the second one (i.e.,
+	// 'si.size != 0') when the kernel verifies the capabilities of the user
+	// process. That's just to say that the amount of data to write into the
+	// user's address-space must be exclusively based on the response given by
+	// the kernel during the second listxattr() syscall. That is, 'si.size' is
+	// not relevant as the kernel already handles the scenario where this one is
+	// smaller than 'resp.Size' by returning an 'ERANGE' error to the user.
 
-	if si.size > 0 {
-
-		// Filter out trusted.* if the process does not have CAP_SYS_ADMIN set.
-		if !process.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN) {
-			resp.Val = filterXattrList(resp.Val, "trusted.")
-		}
-
-		// Filter out security.capability.* if the process does not have CAP_SETFCAP set.
-		if !process.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_SETFCAP) {
-			resp.Val = filterXattrList(resp.Val, "security.capability")
-		}
-
-		if err := t.WriteRetVal(si.pid, si.addr, resp.Val); err != nil {
+	if si.size > 0 && resp.Size > 0 {
+		if err := t.WriteRetVal(si.pid, si.addr, resp.Val, resp.Size); err != nil {
 			sysResp := t.createErrorResponse(si.reqId, syscall.ENOTSUP)
 			return sysResp, nil
 		}
@@ -422,21 +439,4 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 	sysResp := t.createSuccessResponseWithRetValue(si.reqId, uint64(resp.Size))
 
 	return sysResp, nil
-}
-
-func filterXattrList(xattrList []byte, filterPrefix string) []byte {
-
-	xattrs := bytes.Split(xattrList, []byte{'\x00'})
-	filteredXattrs := []byte{}
-
-	for _, attr := range xattrs {
-		name := string(attr)
-		if strings.HasPrefix(name, filterPrefix) {
-			continue
-		}
-		attr = append(attr, byte('\x00'))
-		filteredXattrs = append(filteredXattrs, attr...)
-	}
-
-	return filteredXattrs
 }
