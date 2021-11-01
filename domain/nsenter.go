@@ -208,6 +208,7 @@ type SetxattrSyscallPayload struct {
 }
 
 type GetxattrSyscallPayload struct {
+	Header  NSenterMsgHeader
 	Syscall string `json:"syscall"`
 	Path    string `json:"path"`
 	Name    string `json:"name"`
@@ -226,6 +227,7 @@ type RemovexattrSyscallPayload struct {
 }
 
 type ListxattrSyscallPayload struct {
+	Header  NSenterMsgHeader
 	Syscall string `json:"syscall"`
 	Path    string `json:"path"`
 	Size    uint64 `json:"size"`

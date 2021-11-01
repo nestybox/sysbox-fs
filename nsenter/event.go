@@ -1010,6 +1010,28 @@ func (e *NSenterEvent) processGetxattrSyscallRequest() error {
 	p := e.ReqMsg.Payload.(domain.GetxattrSyscallPayload)
 	val := make([]byte, p.Size)
 
+	// Create a dummy 'process' struct to represent the 'sysbox-fs nsenter' process
+	// executing this logic.
+	this := e.service.prs.ProcessCreate(0, 0, 0)
+
+	// Adjust 'nsenter' process personality to match the end-user's original
+	// process.
+	if err := this.AdjustPersonality(
+		p.Header.Uid,
+		p.Header.Gid,
+		p.Header.Root,
+		p.Header.Cwd,
+		p.Header.Capabilities); err != nil {
+
+		// Send an error-message response.
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+
+		return nil
+	}
+
 	if p.Syscall == "lgetxattr" {
 		size, err = unix.Lgetxattr(p.Path, p.Name, val)
 	} else {
@@ -1070,6 +1092,28 @@ func (e *NSenterEvent) processListxattrSyscallRequest() error {
 
 	p := e.ReqMsg.Payload.(domain.ListxattrSyscallPayload)
 	val := make([]byte, p.Size)
+
+	// Create a dummy 'process' struct to represent the 'sysbox-fs nsenter' process
+	// executing this logic.
+	this := e.service.prs.ProcessCreate(0, 0, 0)
+
+	// Adjust 'nsenter' process personality to match the end-user's original
+	// process.
+	if err := this.AdjustPersonality(
+		p.Header.Uid,
+		p.Header.Gid,
+		p.Header.Root,
+		p.Header.Cwd,
+		p.Header.Capabilities); err != nil {
+
+		// Send an error-message response.
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+
+		return nil
+	}
 
 	if p.Syscall == "llistxattr" {
 		size, err = unix.Llistxattr(p.Path, val)
