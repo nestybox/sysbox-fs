@@ -204,7 +204,14 @@ func (h *PassThrough) Write(
 	path := n.Path()
 	cntr := req.Container
 
-	newContent := strings.TrimSpace(string(req.Data))
+	var newContent string
+
+	if req.Opaque {
+		newContent = string(req.Data)
+	} else {
+		newContent = strings.TrimSpace(string(req.Data))
+	}
+
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 
@@ -217,7 +224,10 @@ func (h *PassThrough) Write(
 			cntr.Unlock()
 			return 0, err
 		}
-		cntr.SetData(path, resource, newContent)
+
+		if !req.NoCache {
+			cntr.SetData(path, resource, newContent)
+		}
 		cntr.Unlock()
 
 	} else {
