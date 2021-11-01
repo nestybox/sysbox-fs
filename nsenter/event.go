@@ -847,7 +847,7 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 		// executing this logic.
 		this := e.service.prs.ProcessCreate(0, 0, 0)
 
-		// Adjust 'nsenter' process personality to match the end-user's original
+		// Adjust 'nsenter' process personality to match the container's original
 		// process.
 		if err := this.AdjustPersonality(
 			header.Uid,
@@ -1014,7 +1014,7 @@ func (e *NSenterEvent) processGetxattrSyscallRequest() error {
 	// executing this logic.
 	this := e.service.prs.ProcessCreate(0, 0, 0)
 
-	// Adjust 'nsenter' process personality to match the end-user's original
+	// Adjust 'nsenter' process personality to match the container's original
 	// process.
 	if err := this.AdjustPersonality(
 		p.Header.Uid,
@@ -1097,7 +1097,7 @@ func (e *NSenterEvent) processListxattrSyscallRequest() error {
 	// executing this logic.
 	this := e.service.prs.ProcessCreate(0, 0, 0)
 
-	// Adjust 'nsenter' process personality to match the end-user's original
+	// Adjust 'nsenter' process personality to match the container's original
 	// process.
 	if err := this.AdjustPersonality(
 		p.Header.Uid,
