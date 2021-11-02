@@ -99,8 +99,8 @@ func readFileString(
 			return 0, err
 		}
 
-		cntr.SetData(path, name, data)
 		data = val
+		cntr.SetData(path, name, data)
 	}
 
 	cntr.Unlock()
