@@ -18,6 +18,7 @@ package implementations
 
 import (
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -171,10 +172,10 @@ func (h *ProcSysNetIpv4Vs) Write(
 		return writeFileInt(h, n, req, minConnReuseMode, maxConnReuseMode, false)
 
 	case "expire_nodest_conn":
-		return writeFileInt(h, n, req, MinInt, MaxInt, false)
+		return writeFileInt(h, n, req, math.MinInt32, math.MaxInt32, false)
 
 	case "expire_quiescent_template":
-		return writeFileInt(h, n, req, MinInt, MaxInt, false)
+		return writeFileInt(h, n, req, math.MinInt32, math.MaxInt32, false)
 	}
 
 	// Refer to generic handler if no node match is found above.

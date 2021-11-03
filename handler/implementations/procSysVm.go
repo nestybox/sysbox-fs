@@ -18,6 +18,7 @@ package implementations
 
 import (
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -177,7 +178,7 @@ func (h *ProcSysVm) Write(
 		return writeFileInt(h, n, req, minOvercommitMem, maxOverCommitMem, false)
 
 	case "mmap_min_addr":
-		return writeFileInt(h, n, req, 0, MaxInt, false)
+		return writeFileInt(h, n, req, 0, math.MaxInt64, false)
 	}
 
 	// Refer to generic handler if no node match is found above.

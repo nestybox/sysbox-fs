@@ -18,6 +18,7 @@ package implementations
 
 import (
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -195,7 +196,7 @@ func (h *ProcSysNetIpv4Neigh) Write(
 			&domain.EmuResource{Kind: domain.FileEmuResource, Mode: os.FileMode(uint32(0644))}
 	}
 
-	return writeFileInt(h, n, req, 0, MaxInt, false)
+	return writeFileInt(h, n, req, 0, math.MaxInt32, false)
 }
 
 func (h *ProcSysNetIpv4Neigh) ReadDirAll(
