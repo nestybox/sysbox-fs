@@ -89,7 +89,7 @@ func (h *ProcSysNetIpv4) Read(
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
-	// We are dealing with a single boolean element being read, so we can save
+	// We are dealing with a short string element being read, so we can save
 	// some cycles by returning right away if offset is any higher than zero.
 	if req.Offset > 0 {
 		return 0, io.EOF
@@ -185,7 +185,7 @@ func (h *ProcSysNetIpv4) writePingGroupRange(
 
 	var name = n.Name()
 	var path = n.Path()
-	var	origDataLength = len(req.Data)
+	var origDataLength = len(req.Data)
 
 	fields := strings.Fields(string(req.Data))
 	if len(fields) != 2 {
@@ -206,17 +206,17 @@ func (h *ProcSysNetIpv4) writePingGroupRange(
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 
-	// Parse gid_map to extract the gid_size within the user-ns.
-	idMap, err := user.ParseIDMapFile(fmt.Sprintf("/proc/%d/gid_map", req.Pid))
-	if err != nil {
-		return 0, fuse.IOerror{Code: syscall.EINVAL}
-	}
-
 	// Sanity-check input values.
 	if intMinGid < 0 {
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 	if intMaxGid > math.MaxInt32 {
+		return 0, fuse.IOerror{Code: syscall.EINVAL}
+	}
+
+	// Parse gid_map to extract the gid_size within the user-ns.
+	idMap, err := user.ParseIDMapFile(fmt.Sprintf("/proc/%d/gid_map", req.Pid))
+	if err != nil {
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 
@@ -233,22 +233,16 @@ func (h *ProcSysNetIpv4) writePingGroupRange(
 	// Adjust the received minGid / maxGid values if these ones happen to fall
 	// beyond the user-namespace boundaries.
 
-	var adjustmentRequired = false
-
 	if intMinGid < (int(idMap[0].ID)) {
 		intMinGid = int(idMap[0].ID)
 		minGid = strconv.Itoa(intMinGid)
-		adjustmentRequired = true
 	}
 	if intMaxGid > (int(idMap[0].Count) - 1) {
 		intMaxGid = (int(idMap[0].Count) - 1)
 		maxGid = strconv.Itoa(intMaxGid)
-		adjustmentRequired = true
 	}
 
-	if adjustmentRequired {
-		req.Data = []byte(fmt.Sprintf("%s\t%s", minGid, maxGid))
-	}
+	req.Data = []byte(fmt.Sprintf("%s\t%s", minGid, maxGid))
 
 	// Tag the nsenter-request operation to prevent its handler from tampering
 	// with the already-formatted data, and from overwriting the already-cached

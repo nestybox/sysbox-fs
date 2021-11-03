@@ -177,7 +177,10 @@ func (h *PassThrough) Read(
 				return 0, err
 			}
 
-			cntr.SetData(path, resource, data)
+			if !req.NoCache {
+				cntr.SetData(path, resource, data)
+			}
+
 		}
 		cntr.Unlock()
 	} else {
