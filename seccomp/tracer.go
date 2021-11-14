@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -358,6 +359,14 @@ func (t *syscallTracer) seccompSessionsMonitor() error {
 	return nil
 }
 
+func track(msg string) (string, time.Time) {
+	return msg, time.Now()
+}
+
+func duration(msg string, start time.Time) {
+	logrus.Infof("++++ %v ival: %v\n", msg, time.Since(start))
+}
+
 // Tracer's connection-handler method. Executed within a dedicated goroutine (one
 // per connection).
 func (t *syscallTracer) connHandler(c *net.UnixConn) error {
@@ -367,6 +376,18 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 	if err != nil {
 		return err
 	}
+
+	var (
+		start_msg string
+		start_time time.Time
+		steady_msg string
+		steady_time time.Time
+		just_started = true
+		pid_str string
+	)
+
+	pid_str = strconv.Itoa(int(pid))
+	start_msg, start_time = track(fmt.Sprintf("Ready-to-read delay after start: %s", pid_str))
 
 	logrus.Debugf("seccompTracer connection on fd %d from pid %d cntrId %s",
 		fd, pid, formatter.ContainerID{cntrID})
@@ -382,12 +403,23 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) error {
 	}
 
 	for {
+		if !just_started {
+			steady_msg, steady_time = track(fmt.Sprintf("Ready-to-read delay after syscall: %s", pid_str))
+		}
+
 		// Wait for an incoming seccomp-notification msg to be available.
 		// Return here to exit this goroutine in case of error as that implies
 		// that the seccomp-fd is not valid anymore.
 		if err := t.seccompSessionRead(seccompSession); err != nil {
 			logrus.Debugf("Failed to wait for seccomp session: %v", err)
 			return err
+		}
+
+		if just_started {
+			duration(start_msg, start_time)
+			just_started = false
+		} else {
+			duration(steady_msg, steady_time)
 		}
 
 		// Retrieves seccomp-notification message.
