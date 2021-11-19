@@ -18,7 +18,6 @@ package implementations
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -88,12 +87,6 @@ func (h *ProcSysNetIpv4) Read(
 
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
-
-	// We are dealing with a short string element being read, so we can save
-	// some cycles by returning right away if offset is any higher than zero.
-	if req.Offset > 0 {
-		return 0, io.EOF
-	}
 
 	return h.Service.GetPassThroughHandler().Read(n, req)
 }
@@ -183,7 +176,6 @@ func (h *ProcSysNetIpv4) writePingGroupRange(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	var name = n.Name()
 	var path = n.Path()
 	var origDataLength = len(req.Data)
 
@@ -214,7 +206,8 @@ func (h *ProcSysNetIpv4) writePingGroupRange(
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
 	}
 
-	// Parse gid_map to extract the gid_size within the user-ns.
+	// Parse the container process' gid_map to extract the gid_size within the
+	// user-ns.
 	idMap, err := user.ParseIDMapFile(fmt.Sprintf("/proc/%d/gid_map", req.Pid))
 	if err != nil {
 		return 0, fuse.IOerror{Code: syscall.EINVAL}
@@ -226,12 +219,18 @@ func (h *ProcSysNetIpv4) writePingGroupRange(
 	// user, even though we may end up pushing slightly different values down
 	// to kernel.
 	cntr := req.Container
+	cacheData := []byte(fmt.Sprintf("%s\t%s", minGid, maxGid))
+
 	cntr.Lock()
-	cntr.SetData(path, name, fmt.Sprintf("%s\t%s", minGid, maxGid))
+	err = cntr.SetData(path, 0, cacheData)
+	if err != nil {
+		cntr.Unlock()
+		return 0, fuse.IOerror{Code: syscall.EINVAL}
+	}
 	cntr.Unlock()
 
 	// Adjust the received minGid / maxGid values if these ones happen to fall
-	// beyond the user-namespace boundaries.
+	// beyond the container's user-namespace boundaries.
 
 	if intMinGid < (int(idMap[0].ID)) {
 		intMinGid = int(idMap[0].ID)
@@ -247,7 +246,6 @@ func (h *ProcSysNetIpv4) writePingGroupRange(
 	// Tag the nsenter-request operation to prevent its handler from tampering
 	// with the already-formatted data, and from overwriting the already-cached
 	// information.
-	req.Opaque = true
 	req.NoCache = true
 
 	len, err := h.Service.GetPassThroughHandler().Write(n, req)

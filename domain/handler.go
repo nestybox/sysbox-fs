@@ -83,7 +83,6 @@ type HandlerRequest struct {
 	Gid       uint32
 	Offset    int64
 	NoCache   bool
-	Opaque    bool
 	Data      []byte
 	Container ContainerIface
 }
