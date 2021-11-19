@@ -17,7 +17,6 @@
 package implementations
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -145,12 +144,6 @@ func (h *ProcSysNetNetfilter) Read(
 
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
-
-	// We are dealing with a single boolean element being read, so we can save
-	// some cycles by returning right away if offset is any higher than zero.
-	if req.Offset > 0 {
-		return 0, io.EOF
-	}
 
 	switch resource {
 	case "nf_conntrack_max":
