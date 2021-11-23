@@ -129,7 +129,7 @@ func (s *fuseServer) Run() error {
 		fuse.DefaultPermissions(),
 	)
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.Error(err)
 		return err
 	}
 
