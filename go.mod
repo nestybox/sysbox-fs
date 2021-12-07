@@ -18,6 +18,7 @@ require (
 	github.com/nestybox/sysbox-libs/utils v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852 // indirect
+	github.com/opencontainers/runc v1.0.0-rc9.0.20210126000000-2be806d1391d
 	github.com/pinpt/go-common v9.1.81+incompatible
 	github.com/pkg/profile v1.5.0
 	github.com/sirupsen/logrus v1.7.0
