@@ -17,13 +17,14 @@
 package seccomp
 
 import (
+	"C"
 	"fmt"
 	"net"
 	"path/filepath"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
@@ -504,21 +505,10 @@ func (t *syscallTracer) processMount(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	source := string(sourceBuf)
-	posSource := strings.Index(source, "\x00")
-	source = source[0:posSource]
-
-	target := string(targetBuf)
-	posTarget := strings.Index(target, "\x00")
-	target = target[0:posTarget]
-
-	fstype := string(fstypeBuf)
-	posFstype := strings.Index(fstype, "\x00")
-	fstype = fstype[0:posFstype]
-
-	data := string(dataBuf)
-	posData := strings.Index(data, "\x00")
-	data = data[0:posData]
+	source := C.GoString((*C.char)(unsafe.Pointer(&sourceBuf[0])))
+	target := C.GoString((*C.char)(unsafe.Pointer(&targetBuf[0])))
+	fstype := C.GoString((*C.char)(unsafe.Pointer(&fstypeBuf[0])))
+	data := C.GoString((*C.char)(unsafe.Pointer(&dataBuf[0])))
 
 	mount := &mountSyscallInfo{
 		syscallCtx: syscallCtx{
@@ -600,9 +590,8 @@ func (t *syscallTracer) processUmount(
 		unix.PathMax); err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-	target := string(targetBuf)
-	posTarget := strings.Index(target, "\x00")
-	target = target[0:posTarget]
+
+	target := C.GoString((*C.char)(unsafe.Pointer(&targetBuf[0])))
 
 	umount := &umountSyscallInfo{
 		syscallCtx: syscallCtx{
@@ -677,9 +666,7 @@ func (t *syscallTracer) processChown(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	path := string(pathBuf)
-	posPath := strings.Index(path, "\x00")
-	path = path[0:posPath]
+	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
 
 	uid := int64(req.Data.Args[1])
 	gid := int64(req.Data.Args[2])
@@ -744,9 +731,8 @@ func (t *syscallTracer) processFchownat(
 		unix.PathMax); err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-	path := string(pathBuf)
-	posPath := strings.Index(path, "\x00")
-	path = path[0:posPath]
+
+	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
 
 	// Get the other args
 	dirFd := int32(req.Data.Args[0])
@@ -810,16 +796,9 @@ func (t *syscallTracer) processSetxattr(
 		return t.createErrorResponse(req.Id, syscall.EINVAL), nil
 	}
 
-	path := string(pathBuf)
-	posPath := strings.Index(path, "\x00")
-	path = path[0:posPath]
-
-	name := string(nameBuf)
-	posName := strings.Index(name, "\x00")
-	name = name[0:posName]
-
+	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
+	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
 	val := valBuf
-
 	flags := int(req.Data.Args[4])
 
 	si := &setxattrSyscallInfo{
@@ -859,9 +838,7 @@ func (t *syscallTracer) processFsetxattr(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	name := string(nameBuf)
-	posName := strings.Index(name, "\x00")
-	name = name[0:posName]
+	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
 
 	// Extract the "value" attribute (delimited by the "size" argument).
 	if err := t.ReadRetVal(
@@ -911,13 +888,8 @@ func (t *syscallTracer) processGetxattr(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	path := string(pathBuf)
-	posPath := strings.Index(path, "\x00")
-	path = path[0:posPath]
-
-	name := string(nameBuf)
-	posName := strings.Index(name, "\x00")
-	name = name[0:posName]
+	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
+	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
 
 	// "addr" is the mem address where the syscall's result is stored; it's an
 	// address in the virtual memory of the process that performed the syscall.
@@ -965,9 +937,8 @@ func (t *syscallTracer) processFgetxattr(
 		unix.NAME_MAX); err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-	name := string(nameBuf)
-	posName := strings.Index(name, "\x00")
-	name = name[0:posName]
+
+	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
 
 	// "addr" is the mem address where the syscall's result is stored; it's an
 	// address in the virtual memory of the process that performed the syscall.
@@ -1024,13 +995,8 @@ func (t *syscallTracer) processRemovexattr(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	path := string(pathBuf)
-	posPath := strings.Index(path, "\x00")
-	path = path[0:posPath]
-
-	name := string(nameBuf)
-	posName := strings.Index(name, "\x00")
-	name = name[0:posName]
+	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
+	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
 
 	si := &removexattrSyscallInfo{
 		syscallCtx: syscallCtx{
@@ -1066,9 +1032,7 @@ func (t *syscallTracer) processFremovexattr(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	name := string(nameBuf)
-	posName := strings.Index(name, "\x00")
-	name = name[0:posName]
+	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
 
 	si := &removexattrSyscallInfo{
 		syscallCtx: syscallCtx{
@@ -1101,9 +1065,8 @@ func (t *syscallTracer) processListxattr(
 		unix.PathMax); err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-	path := string(pathBuf)
-	posPath := strings.Index(path, "\x00")
-	path = path[0:posPath]
+
+	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
 
 	// "addr" is the mem address where the syscall's result is stored; it's an
 	// address in the virtual memory of the process that performed the syscall.
