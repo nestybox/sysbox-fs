@@ -23,14 +23,12 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
-	"time"
 	"unsafe"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
 	"github.com/nestybox/sysbox-libs/formatter"
 	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
-	"github.com/nestybox/sysbox-libs/pidmonitor"
 	"golang.org/x/sys/unix"
 
 	"github.com/sirupsen/logrus"
@@ -124,11 +122,9 @@ type syscallTracer struct {
 	srv                *unixIpc.Server                   // unix server listening to seccomp-notifs
 	pollsrv            *unixIpc.PollServer               // unix pollserver for non-blocking i/o on seccomp-fd
 	syscalls           map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls, indexed by seccomp syscall id
-	seccompSessionMap  map[uint32]int32                  // Tracks seccomp fd associated with a given pid
 	seccompSessionCMap map[string][]seccompSession       // Tracks all seccomp sessions associated with a given container
 	pidToContMap       map[uint32]string                 // Maps pid -> container id
 	seccompSessionMu   sync.RWMutex                      // Seccomp session table lock
-	pm                 *pidmonitor.PidMon                // Pid monitor (so we get notified when processes traced by seccomp die)
 	service            *SyscallMonitorService            // backpointer to syscall-monitor service
 }
 
@@ -138,7 +134,6 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 	tracer := &syscallTracer{
 		service:           sms,
 		syscalls:          make(map[libseccomp.ScmpSyscall]string),
-		seccompSessionMap: make(map[uint32]int32),
 	}
 
 	if sms.closeSeccompOnContExit {
@@ -186,12 +181,82 @@ func (t *syscallTracer) start() error {
 	return nil
 }
 
-func track(msg string) (string, time.Time) {
-	return msg, time.Now()
+func (t *syscallTracer) seccompSessionAdd(s seccompSession, cntrID string) {
+
+	t.seccompSessionMu.Lock()
+
+	if t.service.closeSeccompOnContExit {
+
+		// Collect seccomp fds associated with container so we can
+		// release them together when the container dies.
+
+		t.pidToContMap[s.pid] = cntrID
+		sessions, ok := t.seccompSessionCMap[cntrID]
+		if ok {
+			sessions = append(sessions, s)
+			t.seccompSessionCMap[cntrID] = sessions
+		} else {
+			t.seccompSessionCMap[cntrID] = []seccompSession{s}
+		}
+	}
+
+	t.seccompSessionMu.Unlock()
+
+	logrus.Debugf("Added session for seccomp-tracee: %v %v", s, cntrID)
 }
 
-func duration(msg string, start time.Time) {
-	logrus.Infof("++++ %v ival: %v\n", msg, time.Since(start))
+func (t *syscallTracer) seccompSessionDelete(s seccompSession) {
+	var closeFds []int32
+
+	t.seccompSessionMu.Lock()
+
+	if t.service.closeSeccompOnContExit {
+		cntrID, ok := t.pidToContMap[s.pid]
+		if !ok {
+			t.seccompSessionMu.Unlock()
+			logrus.Warnf("Unexpected error: no container found for seccomp session (pid %d, fd %d)",
+				 s.pid, s.fd)
+			t.seccompSessionMu.Unlock()
+			return
+		}
+
+		var cntrInitPid uint32
+
+		cntr := t.service.css.ContainerLookupById(cntrID)
+		if cntr != nil {
+			cntrInitPid = cntr.InitPid()
+		}
+
+		// If the container is no longer there, or the pid being deleted is the
+		// container's init pid, we close all seccomp sessions for that container
+		if cntr == nil || s.pid == cntrInitPid {
+			sessions := t.seccompSessionCMap[cntrID]
+			for _, s := range sessions {
+				closeFds = append(closeFds, s.fd)
+			}
+			delete(t.seccompSessionCMap, cntrID)
+		}
+
+		delete(t.pidToContMap, s.pid)
+
+	} else {
+		closeFds = []int32{s.fd}
+	}
+
+	t.seccompSessionMu.Unlock()
+
+	if len(closeFds) > 0 {
+		for _, fd := range closeFds {
+			// We are finally ready to close the seccomp-fd.
+			if err := syscall.Close(int(fd)); err != nil {
+				logrus.Errorf("Failed to close seccomp fd %v for pid %d: %v",
+					 s.fd, s.pid, err)
+			}
+		}
+
+		logrus.Debugf("Removed session for seccomp-tracee for pid %d, fd(s) %v",
+			s.pid, closeFds)
+	}
 }
 
 // Tracer's connection-handler method. Executed within a dedicated goroutine (one
@@ -204,6 +269,9 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 		return
 	}
 
+	session := seccompSession{uint32(pid), fd}
+	t.seccompSessionAdd(session, cntrID)
+
 	logrus.Debugf("Created seccomp-tracee session for pid: %d %s", pid, cntrID)
 
 	// Send Ack message back to sysbox-runc.
@@ -212,6 +280,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 	}
 
 	for {
+		// Poll the obtained seccomp-fd for incoming syscalls.
 		fds := []unix.PollFd{{int32(fd), unix.POLLIN, 0}}
 		_, err := unix.Poll(fds, -1)
 		if err != nil {
@@ -224,6 +293,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 			break
 		}
 
+		// Exit the poll event-loop whenever the received event is not the expected one.
 		if fds[0].Revents&unix.POLLIN!=unix.POLLIN {
 			logrus.Debugf("Revent (%v) received during Poll() execution on fd %d pid %d", fds[0].Revents, fd, pid)
 			break
@@ -239,107 +309,10 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 		go t.process(req, fd, cntrID)
 	}
 
-	// We are finally ready to close the seccomp-fd. We don't want to do
-	// this any earlier as kernel could potentially re-assign the same fd to
-	// new seccomp-bpf sessions without giving us a chance to complete the fd
-	// unregistration process.
-	if err := unix.Close(int(fd)); err != nil {
-		logrus.Errorf("failed to close seccomp fd %v for pid %d: %v", fd, pid, err)
-	}
+	t.seccompSessionDelete(session)
+
 	c.Close()
-
-	logrus.Debugf("Removed seccomp-tracee session for pid %d: fd(s) = %v", pid, fd)
 }
-
-// // Tracer's connection-handler method. Executed within a dedicated goroutine (one
-// // per connection).
-// func (t *syscallTracer) connHandler(c *net.UnixConn) error {
-
-// 	// Obtain seccomp-notification's file-descriptor and associated context.
-// 	pid, cntrID, fd, err := unixIpc.RecvSeccompInitMsg(c)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	var (
-// 		start_msg string
-// 		start_time time.Time
-// 		steady_msg string
-// 		steady_time time.Time
-// 		just_started = true
-// 		pid_str string
-// 	)
-
-// 	pid_str = strconv.Itoa(int(pid))
-// 	start_msg, start_time = track(fmt.Sprintf("Ready-to-read delay after start: %s", pid_str))
-
-// 	logrus.Debugf("seccompTracer connection on fd %d from pid %d cntrId %s",
-// 		fd, pid, formatter.ContainerID{cntrID})
-
-// 	seccompSession := seccompSession{uint32(pid), fd}
-// 	if err := t.seccompSessionAdd(seccompSession, cntrID); err != nil {
-// 		return err
-// 	}
-
-// 	// Send Ack message back to sysbox-runc.
-// 	if err = unixIpc.SendSeccompInitAckMsg(c); err != nil {
-// 		return err
-// 	}
-
-// 	for {
-// 		if !just_started {
-// 			steady_msg, steady_time = track(fmt.Sprintf("Ready-to-read delay after syscall: %s", pid_str))
-// 		}
-
-// 		// Wait for an incoming seccomp-notification msg to be available.
-// 		// Return here to exit this goroutine in case of error as that implies
-// 		// that the seccomp-fd is not valid anymore.
-// 		if err := t.seccompSessionRead(seccompSession); err != nil {
-// 			logrus.Debugf("Failed to wait for seccomp session: %v", err)
-// 			return err
-// 		}
-
-// 		if just_started {
-// 			duration(start_msg, start_time)
-// 			just_started = false
-// 		} else {
-// 			duration(steady_msg, steady_time)
-// 		}
-
-// 		// Retrieves seccomp-notification message.
-// 		req, err := libseccomp.NotifReceive(libseccomp.ScmpFd(fd))
-// 		if err != nil {
-// 			if err == syscall.EINTR {
-// 				logrus.Warnf("Incomplete NotifReceive() execution (%v) on fd %d pid %d",
-// 					err, fd, pid)
-// 				continue
-// 			}
-
-// 			logrus.Warnf("Unexpected error during NotifReceive() execution (%v) on fd %d pid %d",
-// 				err, fd, pid)
-// 			continue
-// 		}
-
-// 		// Process the incoming syscall and obtain response for seccomp-tracee.
-// 		resp := t.process(req, fd, cntrID)
-
-// 		// Responds to a previously received seccomp-notification.
-// 		err = libseccomp.NotifRespond(libseccomp.ScmpFd(fd), resp)
-// 		if err != nil {
-// 			if err == syscall.EINTR {
-// 				logrus.Warnf("Incomplete NotifRespond() execution (%v) on fd %d pid %d",
-// 					err, fd, pid)
-// 				continue
-// 			}
-
-// 			logrus.Warnf("Unexpected error during NotifRespond() execution (%v) on fd %d pid %d",
-// 				err, fd, pid)
-// 			continue
-// 		}
-// 	}
-
-// 	return nil
-// }
 
 func (t *syscallTracer) process(
 	req *sysRequest,
