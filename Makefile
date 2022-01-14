@@ -15,8 +15,11 @@ SYSFS_STATIC_TARGET := sysbox-fs-static
 SYSFS_DIR := $(CURDIR)
 SYSFS_SRC := $(shell find . 2>&1 | grep -E '.*\.(c|h|go)$$')
 
-SYSIPC_DIR := ../sysbox-ipc
-SYSIPC_SRC := $(shell find $(SYSIPC_DIR) 2>&1 | grep -E '.*\.(c|h|go|proto)$$')
+SYSFS_GRPC_DIR := ../sysbox-ipc/sysboxFsGrpc
+SYSFS_GRPC_SRC := $(shell find $(SYSFS_GRPC_DIR) 2>&1 | grep -E '.*\.(c|h|go|proto)$$')
+
+SYSLIB_DIR := ../sysbox-libs
+SYSLIB_SRC := $(shell find $(SYSLIB_DIR) 2>&1 | grep -E '.*\.(c|h|go|proto)$$')
 
 LIBSECCOMP_DIR := ../lib/seccomp-
 LIBSECCOMP_SRC := $(shell find $(LIBSECCOMP_DIR) 2>&1 | grep -E '.*\.(go)')
@@ -53,17 +56,17 @@ endif
 
 sysbox-fs: $(SYSFS_BUILDDIR)/$(SYSFS_TARGET)
 
-$(SYSFS_BUILDDIR)/$(SYSFS_TARGET): $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
+$(SYSFS_BUILDDIR)/$(SYSFS_TARGET): $(SYSFS_SRC) $(SYSFS_GRPC_SRC) $(SYSLIB_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
 	$(GO_XCOMPILE) $(GO) build -ldflags ${LDFLAGS}	-o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
 
 sysbox-fs-debug: $(SYSFS_BUILDDIR)/$(SYSFS_DEBUG_TARGET)
 
-$(SYSFS_BUILDDIR)/$(SYSFS_DEBUG_TARGET): $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
+$(SYSFS_BUILDDIR)/$(SYSFS_DEBUG_TARGET): $(SYSFS_SRC) $(SYSFS_GRPC_SRC) $(SYSLIB_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
 	$(GO_XCOMPILE) $(GO) build -gcflags="all=-N -l" -ldflags ${LDFLAGS} -o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
 
 sysbox-fs-static: $(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET)
 
-$(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET): $(SYSFS_SRC) $(SYSIPC_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
+$(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET): $(SYSFS_SRC) $(SYSFS_GRPC_SRC) $(SYSLIB_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
 	$(GO_XCOMPILE) CGO_ENABLED=1 $(GO) build -tags "netgo osusergo static_build" \
 		-installsuffix netgo -ldflags "-w -extldflags -static" -ldflags ${LDFLAGS} \
 		-o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
