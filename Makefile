@@ -71,6 +71,9 @@ $(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET): $(SYSFS_SRC) $(SYSFS_GRPC_SRC) $(SYSLI
 		-installsuffix netgo -ldflags "-w -extldflags -static" -ldflags ${LDFLAGS} \
 		-o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
 
+gomod-tidy:
+	$(GO) mod tidy
+
 lint:
 	$(GO) vet $(allpackages)
 	$(GO) fmt $(allpackages)

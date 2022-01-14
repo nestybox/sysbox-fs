@@ -24,7 +24,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/urfave/cli v1.22.5
 	github.com/vishvananda/netlink v1.1.0
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
 	google.golang.org/grpc v1.34.1
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/hlandau/service.v1 v1.0.7
@@ -47,6 +47,8 @@ replace github.com/nestybox/sysbox-libs/pidfd => ../sysbox-libs/pidfd
 replace github.com/nestybox/sysbox-libs/capability => ../sysbox-libs/capability
 
 replace github.com/nestybox/sysbox-libs/formatter => ../sysbox-libs/formatter
+
+replace github.com/nestybox/sysbox-libs/idShiftUtils => ../sysbox-libs/idShiftUtils
 
 replace github.com/opencontainers/runc => ./../sysbox-runc
 
