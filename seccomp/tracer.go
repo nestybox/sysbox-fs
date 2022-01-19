@@ -216,7 +216,6 @@ func (t *syscallTracer) seccompSessionDelete(s seccompSession) {
 			t.seccompSessionMu.Unlock()
 			logrus.Warnf("Unexpected error: no container found for seccomp session (pid %d, fd %d)",
 				 s.pid, s.fd)
-			t.seccompSessionMu.Unlock()
 			return
 		}
 
@@ -438,50 +437,24 @@ func (t *syscallTracer) processMount(
 
 	logrus.Debugf("Received mount syscall from pid %d", req.Pid)
 
-	sourceBuf := make([]byte, unix.PathMax)
-	targetBuf := make([]byte, unix.PathMax)
-	fstypeBuf := make([]byte, unix.PathMax)
-	dataBuf := make([]byte, unix.PathMax)
+	// Extract the "path", "name", "fstype" and "data" syscall attributes.
 
-	// Extract the "path", "name", "fstype" and "data" attributes (null-delimited
-	// strings).
-
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{sourceBuf},
-		[]uint64{req.Data.Args[0]},
-		unix.PathMax); err != nil {
+	source, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[0], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{targetBuf},
-		[]uint64{req.Data.Args[1]},
-		unix.PathMax); err != nil {
+	target, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[1], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{fstypeBuf},
-		[]uint64{req.Data.Args[2]},
-		unix.PathMax); err != nil {
+	fstype, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[2], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{dataBuf},
-		[]uint64{req.Data.Args[4]},
-		unix.PathMax); err != nil {
+	data, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[4], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	source := C.GoString((*C.char)(unsafe.Pointer(&sourceBuf[0])))
-	target := C.GoString((*C.char)(unsafe.Pointer(&targetBuf[0])))
-	fstype := C.GoString((*C.char)(unsafe.Pointer(&fstypeBuf[0])))
-	data := C.GoString((*C.char)(unsafe.Pointer(&dataBuf[0])))
 
 	mount := &mountSyscallInfo{
 		syscallCtx: syscallCtx{
@@ -508,8 +481,6 @@ func (t *syscallTracer) processMount(
 	if !process.IsSysAdminCapabilitySet() {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	var err error
 
 	mount.Source, err = process.ResolveProcSelf(mount.Source)
 	if err != nil {
@@ -553,18 +524,11 @@ func (t *syscallTracer) processUmount(
 
 	logrus.Debugf("Received umount syscall from pid %d", req.Pid)
 
-	targetBuf := make([]byte, unix.PathMax)
-
-	// Extract the "path" attribute.
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{targetBuf},
-		[]uint64{req.Data.Args[0]},
-		unix.PathMax); err != nil {
+	// Extract "target" syscall attribute.
+	target, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[0], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	target := C.GoString((*C.char)(unsafe.Pointer(&targetBuf[0])))
 
 	umount := &umountSyscallInfo{
 		syscallCtx: syscallCtx{
@@ -590,8 +554,6 @@ func (t *syscallTracer) processUmount(
 	if !(process.IsSysAdminCapabilitySet()) {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	var err error
 
 	umount.Target, err = process.ResolveProcSelf(umount.Target)
 	if err != nil {
@@ -628,18 +590,11 @@ func (t *syscallTracer) processChown(
 	fd int32,
 	cntr domain.ContainerIface) (*sysResponse, error) {
 
-	pathBuf := make([]byte, unix.PathMax)
-
-	// Extract the "path" attribute.
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{pathBuf},
-		[]uint64{req.Data.Args[0]},
-		unix.PathMax); err != nil {
+	// Extract "path" syscall attribute.
+	path, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[0], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
 
 	uid := int64(req.Data.Args[1])
 	gid := int64(req.Data.Args[2])
@@ -694,20 +649,13 @@ func (t *syscallTracer) processFchownat(
 
 	// We trap fchownat() for the same reason we trap chown() (see processChown()).
 
-	pathBuf := make([]byte, unix.PathMax)
-
-	// Extract the "path" attribute.
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{pathBuf},
-		[]uint64{req.Data.Args[1]},
-		unix.PathMax); err != nil {
+	// Extract "path" syscall attribute.
+	path, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[1], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
-
-	// Get the other args
+	// Get the other args.
 	dirFd := int32(req.Data.Args[0])
 	uid := int64(req.Data.Args[2])
 	gid := int64(req.Data.Args[3])
@@ -737,41 +685,24 @@ func (t *syscallTracer) processSetxattr(
 	cntr domain.ContainerIface,
 	syscallName string) (*sysResponse, error) {
 
-	pathBuf := make([]byte, unix.PathMax)
-	nameBuf := make([]byte, unix.PathMax)
+	// Extract the "path" and "name" syscall attributes.
+
+	path, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[0], unix.PathMax)
+	if err != nil {
+		return t.createErrorResponse(req.Id, syscall.EPERM), nil
+	}
+
+	name, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[1], unix.PathMax)
+	if err != nil {
+		return t.createErrorResponse(req.Id, syscall.EPERM), nil
+	}
+
 	// Value size is defined by the args[3] parameter -- see setxattr(2).
-	valBuf := make([]byte, req.Data.Args[3])
-
-	// Extract the "path" and "name" attributes (null-delimited strings).
-
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{pathBuf},
-		[]uint64{req.Data.Args[0]},
-		unix.PathMax); err != nil {
+	val, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[2], int(req.Data.Args[3]))
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{nameBuf},
-		[]uint64{req.Data.Args[1]},
-		unix.PathMax); err != nil {
-		return t.createErrorResponse(req.Id, syscall.EPERM), nil
-	}
-
-	// Exract the "value" attribute (delimited by the "size" argument).
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{valBuf},
-		[]uint64{req.Data.Args[2]},
-		int(req.Data.Args[3])); err != nil {
-		return t.createErrorResponse(req.Id, syscall.EINVAL), nil
-	}
-
-	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
-	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
-	val := valBuf
 	flags := int(req.Data.Args[4])
 
 	si := &setxattrSyscallInfo{
@@ -785,7 +716,7 @@ func (t *syscallTracer) processSetxattr(
 		},
 		path:  path,
 		name:  name,
-		val:   val,
+		val:   []byte(val),
 		flags: flags,
 	}
 
@@ -798,32 +729,19 @@ func (t *syscallTracer) processFsetxattr(
 	cntr domain.ContainerIface) (*sysResponse, error) {
 
 	pathFd := int32(req.Data.Args[0])
+	flags := int(req.Data.Args[4])
 
-	nameBuf := make([]byte, unix.PathMax)
-	valBuf := make([]byte, req.Data.Args[3])
-
-	// Extract the "name" attribute (null-delimited string).
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{nameBuf},
-		[]uint64{req.Data.Args[1]},
-		unix.PathMax); err != nil {
+	// Extract "name" syscall attribute.
+	name, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[1], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
-
-	// Extract the "value" attribute (delimited by the "size" argument).
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{valBuf},
-		[]uint64{req.Data.Args[2]},
-		int(req.Data.Args[3])); err != nil {
-		return t.createErrorResponse(req.Id, syscall.EINVAL), nil
+	// Value size is defined by the args[3] parameter -- see setxattr(2).
+	val, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[2], int(req.Data.Args[3]))
+	if err != nil {
+		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	val := valBuf
-	flags := int(req.Data.Args[4])
 
 	si := &setxattrSyscallInfo{
 		syscallCtx: syscallCtx{
@@ -835,7 +753,7 @@ func (t *syscallTracer) processFsetxattr(
 		},
 		pathFd: pathFd,
 		name:   name,
-		val:    val,
+		val:    []byte(val),
 		flags:  flags,
 	}
 
@@ -851,8 +769,8 @@ func (t *syscallTracer) processGetxattr(
 	pathBuf := make([]byte, unix.PathMax)
 	nameBuf := make([]byte, unix.NAME_MAX)
 
-	// Extract the "path" and "name" attributes (null-delimited strings).
-	if err := t.ReadRetVal(
+	// Extract the "path" and "name" syscall attributes.
+	if err := t.ReadProcessMem(
 		req.Pid,
 		[][]byte{pathBuf, nameBuf},
 		[]uint64{req.Data.Args[0], req.Data.Args[1]},
@@ -900,18 +818,11 @@ func (t *syscallTracer) processFgetxattr(
 
 	pathFd := int32(req.Data.Args[0])
 
-	nameBuf := make([]byte, unix.NAME_MAX)
-
-	// Extract tne "name" attribute.
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{nameBuf},
-		[]uint64{req.Data.Args[1]},
-		unix.NAME_MAX); err != nil {
+	// Extract "name" syscall attribute.
+	name, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[1], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
 
 	// "addr" is the mem address where the syscall's result is stored; it's an
 	// address in the virtual memory of the process that performed the syscall.
@@ -947,29 +858,17 @@ func (t *syscallTracer) processRemovexattr(
 	cntr domain.ContainerIface,
 	syscallName string) (*sysResponse, error) {
 
-	pathBuf := make([]byte, unix.PathMax)
-	nameBuf := make([]byte, unix.PathMax)
+	// Extract the "path" and "name" syscall attributes.
 
-	// Extract the "path" and "name" attributes (null-delimited strings).
-
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{pathBuf},
-		[]uint64{req.Data.Args[0]},
-		unix.PathMax); err != nil {
+	path, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[0], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{nameBuf},
-		[]uint64{req.Data.Args[1]},
-		unix.PathMax); err != nil {
+	name, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[1], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
-	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
 
 	si := &removexattrSyscallInfo{
 		syscallCtx: syscallCtx{
@@ -994,18 +893,11 @@ func (t *syscallTracer) processFremovexattr(
 
 	pathFd := int32(req.Data.Args[0])
 
-	nameBuf := make([]byte, unix.PathMax)
-
-	// Extract the "name" attribute (null-delimited string).
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{nameBuf},
-		[]uint64{req.Data.Args[1]},
-		unix.PathMax); err != nil {
+	// Extract "name" syscall attribute.
+	name, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[1], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	name := C.GoString((*C.char)(unsafe.Pointer(&nameBuf[0])))
 
 	si := &removexattrSyscallInfo{
 		syscallCtx: syscallCtx{
@@ -1028,18 +920,11 @@ func (t *syscallTracer) processListxattr(
 	cntr domain.ContainerIface,
 	syscallName string) (*sysResponse, error) {
 
-	pathBuf := make([]byte, unix.PathMax)
-
-	// Extract the "path" attribute.
-	if err := t.ReadRetVal(
-		req.Pid,
-		[][]byte{pathBuf},
-		[]uint64{req.Data.Args[0]},
-		unix.PathMax); err != nil {
+	// Extract "path" syscall attribute.
+	path, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[0], unix.PathMax)
+	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
-
-	path := C.GoString((*C.char)(unsafe.Pointer(&pathBuf[0])))
 
 	// "addr" is the mem address where the syscall's result is stored; it's an
 	// address in the virtual memory of the process that performed the syscall.
@@ -1133,7 +1018,24 @@ func (t *syscallTracer) processSwapoff(
 	return t.createSuccessResponse(req.Id), nil
 }
 
-func (t *syscallTracer) ReadRetVal(
+func (t *syscallTracer) ReadSyscallStringArg(pid uint32, arg uint64, size int) (string, error) {
+
+	dataBuf := make([]byte, size)
+
+	if err := t.ReadProcessMem(
+		pid,
+		[][]byte{dataBuf},
+		[]uint64{arg},
+		size); err != nil {
+		return "", err
+	}
+
+	data := C.GoString((*C.char)(unsafe.Pointer(&dataBuf[0])))
+
+	return data, nil
+}
+
+func (t *syscallTracer) ReadProcessMem(
 	pid uint32,
 	local [][]byte,
 	remote []uint64,
@@ -1184,7 +1086,7 @@ func (t *syscallTracer) ReadRetVal(
 	return nil
 }
 
-func (t *syscallTracer) WriteRetVal(pid uint32, addr uint64, data []byte, size int) error {
+func (t *syscallTracer) WriteProcessMem(pid uint32, addr uint64, data []byte, size int) error {
 
 	if size == 0 {
 		return nil
