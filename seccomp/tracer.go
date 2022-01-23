@@ -298,10 +298,14 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 			break
 		}
 
-		// Retrieves seccomp-notification message.
+		// Retrieves seccomp-notification message. Notice that we will not 'break'
+		// upon error detection as libseccomp/kernel could return non-fatal errors
+		// (i.e., ENOENT) to alert of a problem with a specific notification.
 		req, err := libseccomp.NotifReceive(libseccomp.ScmpFd(fd))
 		if err != nil {
-			break
+			logrus.Warnf("Unexpected error during NotifReceive() execution (%v) on fd %d pid %d",
+				err, fd, pid)
+			continue
 		}
 
 		// Process the incoming syscall and obtain response for seccomp-tracee.
