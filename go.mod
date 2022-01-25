@@ -12,14 +12,11 @@ require (
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/nestybox/sysbox-ipc v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/capability v0.0.0-00010101000000-000000000000
-	github.com/nestybox/sysbox-libs/dockerUtils v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/formatter v0.0.0-20210709231355-1ea69f2f6dbb
 	github.com/nestybox/sysbox-libs/libseccomp-golang v0.0.0-00010101000000-000000000000
-	github.com/nestybox/sysbox-libs/pidmonitor v0.0.0-00010101000000-000000000000
+	github.com/nestybox/sysbox-libs/pidfd v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/utils v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
-	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852 // indirect
-	github.com/pinpt/go-common v9.1.81+incompatible
 	github.com/pkg/profile v1.5.0
 	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/afero v1.4.1
@@ -44,6 +41,8 @@ replace github.com/nestybox/sysbox-libs/dockerUtils => ../sysbox-libs/dockerUtil
 replace github.com/nestybox/sysbox-libs/libseccomp-golang => ../sysbox-libs/libseccomp-golang
 
 replace github.com/nestybox/sysbox-libs/pidmonitor => ../sysbox-libs/pidmonitor
+
+replace github.com/nestybox/sysbox-libs/pidfd => ../sysbox-libs/pidfd
 
 replace github.com/nestybox/sysbox-libs/capability => ../sysbox-libs/capability
 
