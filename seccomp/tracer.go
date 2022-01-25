@@ -29,6 +29,8 @@ import (
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
 	"github.com/nestybox/sysbox-libs/formatter"
 	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
+	libpidfd "github.com/nestybox/sysbox-libs/pidfd"
+	libutils "github.com/nestybox/sysbox-libs/utils"
 	"golang.org/x/sys/unix"
 
 	"github.com/sirupsen/logrus"
@@ -113,8 +115,9 @@ func (scs *SyscallMonitorService) Setup(
 
 // SeccompSession holds state associated to every seccomp tracee session.
 type seccompSession struct {
-	pid uint32 // pid of the tracee process
-	fd  int32  // tracee's seccomp-fd to allow kernel interaction
+	pid         uint32 // pid of the tracee process
+	fd          int32  // tracee's seccomp-fd to allow kernel interaction
+	cntrId      string // container(id) on which each seccomp session lives
 }
 
 // Seccomp's syscall-monitor/tracer.
@@ -125,6 +128,7 @@ type syscallTracer struct {
 	seccompSessionCMap map[string][]seccompSession       // Tracks all seccomp sessions associated with a given container
 	pidToContMap       map[uint32]string                 // Maps pid -> container id
 	seccompSessionMu   sync.RWMutex                      // Seccomp session table lock
+	seccompUnusedNotif bool                              // Seccomp-fd unused notification feature
 	service            *SyscallMonitorService            // backpointer to syscall-monitor service
 }
 
@@ -150,6 +154,17 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 			return nil
 		}
 		tracer.syscalls[syscallId] = syscall
+	}
+
+	// Seccomp-fd's unused notification feature is provided by kernel starting with v5.8.
+	cmp, err := libutils.KernelCurrentVersionCmp(5, 8)
+	if err != nil {
+		logrus.Warnf("Seccomp-tracer initialization error: unable to parse kernel string (%v).",
+			err)
+		return nil
+	}
+	if cmp >= 0 {
+		tracer.seccompUnusedNotif = true
 	}
 
 	return tracer
@@ -211,17 +226,9 @@ func (t *syscallTracer) seccompSessionDelete(s seccompSession) {
 	t.seccompSessionMu.Lock()
 
 	if t.service.closeSeccompOnContExit {
-		cntrID, ok := t.pidToContMap[s.pid]
-		if !ok {
-			t.seccompSessionMu.Unlock()
-			logrus.Warnf("Unexpected error: no container found for seccomp session (pid %d, fd %d)",
-				 s.pid, s.fd)
-			return
-		}
-
 		var cntrInitPid uint32
 
-		cntr := t.service.css.ContainerLookupById(cntrID)
+		cntr := t.service.css.ContainerLookupById(s.cntrId)
 		if cntr != nil {
 			cntrInitPid = cntr.InitPid()
 		}
@@ -229,11 +236,11 @@ func (t *syscallTracer) seccompSessionDelete(s seccompSession) {
 		// If the container is no longer there, or the pid being deleted is the
 		// container's init pid, we close all seccomp sessions for that container
 		if cntr == nil || s.pid == cntrInitPid {
-			sessions := t.seccompSessionCMap[cntrID]
+			sessions := t.seccompSessionCMap[s.cntrId]
 			for _, s := range sessions {
 				closeFds = append(closeFds, s.fd)
 			}
-			delete(t.seccompSessionCMap, cntrID)
+			delete(t.seccompSessionCMap, s.cntrId)
 		}
 
 		delete(t.pidToContMap, s.pid)
@@ -268,7 +275,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 		return
 	}
 
-	session := seccompSession{uint32(pid), fd}
+	session := seccompSession{uint32(pid), fd, cntrID}
 	t.seccompSessionAdd(session, cntrID)
 
 	logrus.Debugf("Created seccomp-tracee session for pid: %d %s", pid, cntrID)
@@ -278,11 +285,36 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 		return
 	}
 
+	var (
+		pidfd libpidfd.PidFd
+		cntrInitPid uint32
+		skipPidDefunctDetect bool
+	)
+
+	//
+	if !t.seccompUnusedNotif {
+		pidfd, err = libpidfd.Open(int(pid), 0)
+		if err != nil {
+			logrus.Warnf("Unexpected error during pidfdOpen() execution (%v) on fd %d pid %d",
+				err, fd, pid)
+			return
+		}
+	}
+
 	for {
+		var fds []unix.PollFd
+
+		if t.seccompUnusedNotif || skipPidDefunctDetect {
+			fds = []unix.PollFd{{int32(fd), unix.POLLIN, 0}}
+		} else {
+			fds = []unix.PollFd{{int32(fd), unix.POLLIN, 0}, {int32(pidfd), unix.POLLIN, 0}}
+		}
+
 		// Poll the obtained seccomp-fd for incoming syscalls.
-		fds := []unix.PollFd{{int32(fd), unix.POLLIN, 0}}
 		_, err := unix.Poll(fds, -1)
 		if err != nil {
+			// As per signal(7), poll() syscall isn't restartable by kernel, so we
+			// must manually handle its potential interruption.
 			if err == syscall.EINTR {
 				logrus.Debugf("EINTR error during Poll() execution (%v) on fd %d pid %d", err, fd, pid)
 				continue
@@ -292,9 +324,30 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 			break
 		}
 
+		//
+		if !t.seccompUnusedNotif && !skipPidDefunctDetect && fds[1].Revents == unix.POLLIN {
+			logrus.Debugf("POLLIN event received on pidfd %d pid %d", pidfd, pid)
+
+			if t.service.closeSeccompOnContExit {
+				if cntrInitPid == 0 {
+					cntr := t.service.css.ContainerLookupById(cntrID)
+					if cntr != nil {
+						cntrInitPid = cntr.InitPid()
+					}
+				}
+				if pid != int32(cntrInitPid) {
+					logrus.Debugf("Continue polling on fd %d / pidfd %d associated to pid %d",
+						fd, pidfd, pid)
+					skipPidDefunctDetect = true
+					continue
+				}
+			}
+			break
+		}
+
 		// Exit the poll event-loop whenever the received event is not the expected one.
 		if fds[0].Revents&unix.POLLIN!=unix.POLLIN {
-			logrus.Debugf("Revent (%v) received during Poll() execution on fd %d pid %d", fds[0].Revents, fd, pid)
+			logrus.Debugf("POLLIN event received on fd %d pid %d", fds[0].Revents, fd, pid)
 			break
 		}
 
