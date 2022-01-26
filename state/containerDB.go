@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 	grpcCodes "google.golang.org/grpc/codes"
 	grpcStatus "google.golang.org/grpc/status"
 
@@ -295,6 +296,11 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 			"Container %s not found",
 			cntr.id,
 		)
+	}
+
+	// Close the container's initPidFd.
+	if cntr.initPidFd != 0 {
+		unix.Close(int(cntr.InitPidFd()))
 	}
 
 	// Remove the net-ns tracking info for the unregistered container.

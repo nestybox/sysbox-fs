@@ -18,6 +18,8 @@ package domain
 
 import (
 	"time"
+
+	libpidfd "github.com/nestybox/sysbox-libs/pidfd"
 )
 
 //
@@ -29,6 +31,7 @@ type ContainerIface interface {
 	//
 	ID() string
 	InitPid() uint32
+	InitPidFd() libpidfd.PidFd
 	Ctime() time.Time
 	Data(name string, offset int64, data *[]byte) (int, error)
 	UID() uint32
