@@ -126,10 +126,10 @@ type syscallTracer struct {
 	srv                *unixIpc.Server                   // unix server listening to seccomp-notifs
 	pollsrv            *unixIpc.PollServer               // unix pollserver for non-blocking i/o on seccomp-fd
 	syscalls           map[libseccomp.ScmpSyscall]string // hashmap of supported syscalls, indexed by seccomp syscall id
-	seccompSessionCMap map[string][]seccompSession       // Tracks all seccomp sessions associated with a given container
-	pidToContMap       map[uint32]string                 // Maps pid -> container id
-	seccompSessionMu   sync.RWMutex                      // Seccomp session table lock
-	seccompUnusedNotif bool                              // Seccomp-fd unused notification feature
+	seccompSessionCMap map[string][]seccompSession       // tracks all seccomp sessions associated with a given container
+	pidToContMap       map[uint32]string                 // maps pid -> container id
+	seccompSessionMu   sync.RWMutex                      // seccomp session table lock
+	seccompUnusedNotif bool                              // seccomp-fd unused notification feature supported by kernel
 	service            *SyscallMonitorService            // backpointer to syscall-monitor service
 }
 
@@ -255,6 +255,7 @@ func (t *syscallTracer) seccompSessionDelete(s seccompSession) {
 	} else {
 		closeFds = []int32{s.fd}
 
+		// pidfd = 0 implies we are not using pidfd to track the release of the seccomp-fd.
 		if s.pidfd != 0 {
 			closeFds = append(closeFds, s.pidfd)
 		}
@@ -276,6 +277,53 @@ func (t *syscallTracer) seccompSessionDelete(s seccompSession) {
 	}
 }
 
+func (t *syscallTracer) seccompSessionPidfd(
+	pid int32,
+	cntrID string,
+	fd int32) libpidfd.PidFd {
+
+	var (
+		pidfd libpidfd.PidFd
+		err error
+	)
+
+	// In scenarios lacking seccomp's unused-filter notifications, we rely on pidfd
+	// constructs to help us identify the precise time at which we must stop polling
+	// over seccomp-fds. Within these scenarios we handle the two following cases
+	// separately attending to the value of the '--seccomp-fd-release' cli knob:
+	//
+	// 1) 'Cntr-Exit': In this scenario, all the seccomp sessions make use of the
+	// same pidfd: the one associated with the container's initPid. By doing this
+	// we ensure that all seccomp sessions are kept alive until the container's
+	// initPid dies.
+	//
+	// 2) 'Proc-Exit' (default): In this case we want to associate the live-span of
+	// the seccomp-fd polling session with the one of the user-process that exec()
+	// into the container's namespaces (e.g., docker exec <cntr>). For this purpose
+	// we obtain a pidfd associated to the user-process pid.
+	if !t.seccompUnusedNotif {
+		if t.service.closeSeccompOnContExit {
+			cntr := t.service.css.ContainerLookupById(cntrID)
+			if cntr == nil {
+				logrus.Errorf("Unexpected error during cntr.Lookup(%s) execution on fd %d, pid %d",
+					cntrID, fd, pid)
+				return 0
+			}
+			pidfd = cntr.InitPidFd()
+
+		} else {
+			pidfd, err = libpidfd.Open(int(pid), 0)
+			if err != nil {
+				logrus.Errorf("Unexpected error during pidfd.Open() execution (%v) on fd %d, pid %d",
+					err, fd, pid)
+				return 0
+			}
+		}
+	}
+
+	return pidfd
+}
+
 // Tracer's connection-handler method. Executed within a dedicated goroutine (one
 // per connection).
 func (t *syscallTracer) connHandler(c *net.UnixConn) {
@@ -291,41 +339,8 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 		return
 	}
 
-	// In scenarios lacking seccomp's unused-filter notifications, we rely on pidfd
-	// constructs to help us identify the precise time at which we must stop polling
-	// over seccomp-fds. Within these scenarios we handle the two following cases
-	// separately attending to the value of the '--seccomp-fd-release' cli knob:
-	//
-	// 1) 'Cntr-Exit': In this scenario, all the seccomp sessions make use of the
-	// same pidfd: the one associated with the container's initPid. By doing this we
-	// ensure that all seccomp sessions are stopped whenever the container's initPid
-	// dies.
-	//
-	// 2) 'Proc-Exit' (default): In this case we want to associate the live-span of
-	// the seccomp-fd polling session with the one of the user-process that exec()
-	// into the container's namespaces (e.g., docker exec <cntr>). For this purpose
-	// we obtain a pidfd associated to the user-process pid.
-	var pidfd libpidfd.PidFd
-
-	if !t.seccompUnusedNotif {
-		if t.service.closeSeccompOnContExit {
-			cntr := t.service.css.ContainerLookupById(cntrID)
-			if cntr == nil {
-				logrus.Errorf("Unexpected error during cntr.Lookup(%s) execution (%v) on fd %d, pid %d",
-					cntrID, err, fd, pid)
-				return
-			}
-			pidfd = cntr.InitPidFd()
-
-		} else {
-			pidfd, err = libpidfd.Open(int(pid), 0)
-			if err != nil {
-				logrus.Errorf("Unexpected error during pidfd.Open() execution (%v) on fd %d, pid %d",
-					err, fd, pid)
-				return
-			}
-		}
-	}
+	// If needed, obtain pidfd associated to this seccomp-bfd session.
+	pidfd := t.seccompSessionPidfd(pid, cntrID, fd)
 
 	// Register the new seccomp-fd session.
 	session := seccompSession{uint32(pid), fd, int32(pidfd), cntrID}
@@ -351,26 +366,29 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 			// As per signal(7), poll() syscall isn't restartable by kernel, so we must
 			// manually handle its potential interruption.
 			if err == syscall.EINTR {
-				logrus.Debugf("EINTR error during Poll() execution (%v) on fd %d pid %d",
-					err, fd, pid)
+				logrus.Debugf("EINTR error during Poll() execution (%v) on fd %d, pid %d, cntr %s",
+					err, fd, pid, formatter.ContainerID{cntrID})
 				continue
 			}
 
-			logrus.Debugf("Error during Poll() execution (%v) on fd %d pid %d", err, fd, pid)
+			logrus.Debugf("Error during Poll() execution (%v) on fd %d, pid %d, cntr %s",
+				err, fd, pid, formatter.ContainerID{cntrID})
 			break
 		}
 
 		// As per pidfd_open(2), a pidfd becomes readable when its associated pid
 		// terminates. Exit the polling loop when this occurs.
 		if !t.seccompUnusedNotif && fds[1].Revents == unix.POLLIN {
-			logrus.Debugf("POLLIN event received on pidfd %d pid %d", pidfd, pid)
+			logrus.Debugf("POLLIN event received on pidfd %d, pid %d, cntr %s",
+				pidfd, pid, formatter.ContainerID{cntrID})
 			break
 		}
 
 		// Exit the polling loop whenever the received event on the seccomp-fd is not
 		// the expected one.
 		if fds[0].Revents != unix.POLLIN {
-			logrus.Debugf("POLLIN event received on fd %d pid %d", fds[0].Revents, fd, pid)
+			logrus.Debugf("POLLIN event received on fd %d, pid %d, cntr %s",
+				fds[0].Revents, fd, pid, formatter.ContainerID{cntrID})
 			break
 		}
 
@@ -379,8 +397,8 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 		// (i.e., ENOENT) to alert of a problem with a specific notification.
 		req, err := libseccomp.NotifReceive(libseccomp.ScmpFd(fd))
 		if err != nil {
-			logrus.Warnf("Unexpected error during NotifReceive() execution (%v) on fd %d pid %d",
-				err, fd, pid)
+			logrus.Infof("Unexpected error during NotifReceive() execution (%v) on fd %d, pid %d, cntr %s",
+				err, fd, pid, formatter.ContainerID{cntrID})
 			continue
 		}
 
@@ -399,11 +417,8 @@ func (t *syscallTracer) process(
 	cntrID string) {
 
 	// Process the incoming syscall and obtain response for seccomp-tracee.
-	//resp := t.processSyscall(req, fd, cntrID)
 	resp, err := t.processSyscall(req, fd, cntrID)
 	if err != nil {
-		logrus.Warnf("Syscall processing error: (%v) on fd %d pid %d",
-			err, fd, req.Pid)
 		return
 	}
 
@@ -484,7 +499,7 @@ func (t *syscallTracer) processSyscall(
 		resp, err = t.processFlistxattr(req, fd, cntr)
 
 	default:
-		logrus.Warnf("Unsupported syscall notification received (%v) on fd %d pid %d cntr %s",
+		logrus.Warnf("Unsupported syscall notification received (%v) on fd %d, pid %d, cntr %s",
 			syscallId, fd, req.Pid, formatter.ContainerID{cntrID})
 		return t.createErrorResponse(req.Id, syscall.EINVAL), nil
 	}
@@ -495,7 +510,7 @@ func (t *syscallTracer) processSyscall(
 	// error during Open() doesn't qualify, whereas 'nsenter' operational
 	// errors or inexistent "/proc/pid/mem" does.
 	if err != nil {
-		logrus.Warnf("Error during syscall %v processing on fd %d pid %d cntr %s (%v)",
+		logrus.Warnf("Error during syscall %v processing on fd %d, pid %d, cntr %s (%v)",
 			syscallName, fd, req.Pid, formatter.ContainerID{cntrID}, err)
 		return t.createErrorResponse(req.Id, syscall.EINVAL), nil
 	}
