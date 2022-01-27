@@ -388,7 +388,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 		// the expected one.
 		if fds[0].Revents != unix.POLLIN {
 			logrus.Debugf("POLLIN event received on fd %d, pid %d, cntr %s",
-				fds[0].Revents, fd, pid, formatter.ContainerID{cntrID})
+				fd, pid, formatter.ContainerID{cntrID})
 			break
 		}
 
