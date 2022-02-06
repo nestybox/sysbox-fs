@@ -6,10 +6,9 @@
 .PHONY: clean sysbox-fs-debug sysbox-fs-static lint list-packages
 
 GO := go
-ARCH := amd64
 
 SYSFS_BUILDROOT := build
-SYSFS_BUILDDIR := $(SYSFS_BUILDROOT)/$(ARCH)
+SYSFS_BUILDDIR := $(SYSFS_BUILDROOT)/$(TARGET_ARCH)
 SYSFS_TARGET := sysbox-fs
 SYSFS_DEBUG_TARGET := sysbox-fs-debug
 SYSFS_STATIC_TARGET := sysbox-fs-static
@@ -37,14 +36,17 @@ LDFLAGS := '-X "main.edition=${EDITION}" -X main.version=${VERSION} \
 		-X main.commitId=$(COMMIT) -X "main.builtAt=$(BUILT_AT)" \
 		-X "main.builtBy=$(BUILT_BY)"'
 
-ifeq ($(ARCH),armel)
-	GO_XCOMPILE := CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=6 CC=arm-linux-gnueabi-gcc
-else ifeq ($(ARCH),armhf)
-	GO_XCOMPILE := CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=7 CC=arm-linux-gnueabihf-gcc
-else ifeq ($(ARCH),arm64)
-	GO_XCOMPILE = CGO_ENABLED=1 GOOS=linux GOARCH=arm64 CC=aarch64-linux-gnu-gcc
-else
-	GO_XCOMPILE = GOARCH=amd64
+# Set cross-compilation flags if applicable.
+ifneq ($(SYS_ARCH),$(TARGET_ARCH))
+	ifeq ($(TARGET_ARCH),armel)
+		GO_XCOMPILE := CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=6 CC=arm-linux-gnueabi-gcc
+	else ifeq ($(TARGET_ARCH),armhf)
+		GO_XCOMPILE := CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=7 CC=arm-linux-gnueabihf-gcc
+	else ifeq ($(TARGET_ARCH),arm64)
+		GO_XCOMPILE = CGO_ENABLED=1 GOOS=linux GOARCH=arm64 CC=aarch64-linux-gnu-gcc
+	else ifeq ($(TARGET_ARCH),amd64)
+		GO_XCOMPILE = CGO_ENABLED=1 GOOS=linux GOARCH=amd64 CC=x86_64-linux-gnu-gcc
+	endif
 endif
 
 .DEFAULT: sysbox-fs
