@@ -35,9 +35,9 @@ COMMIT ?= $(if $(shell git status --porcelain --untracked-files=no),$(COMMIT_NO)
 BUILT_AT := $(shell date)
 BUILT_BY := $(shell git config user.name)
 
-LDFLAGS := '-X "main.edition=${EDITION}" -X main.version=${VERSION} \
-		-X main.commitId=$(COMMIT) -X "main.builtAt=$(BUILT_AT)" \
-		-X "main.builtBy=$(BUILT_BY)"'
+LDFLAGS := -X 'main.edition=${EDITION}' -X main.version=${VERSION} \
+		-X main.commitId=$(COMMIT) -X 'main.builtAt=$(BUILT_AT)' \
+		-X 'main.builtBy=$(BUILT_BY)'
 
 # Set cross-compilation flags if applicable.
 ifneq ($(SYS_ARCH),$(TARGET_ARCH))
@@ -57,18 +57,19 @@ endif
 sysbox-fs: $(SYSFS_BUILDDIR)/$(SYSFS_TARGET)
 
 $(SYSFS_BUILDDIR)/$(SYSFS_TARGET): $(SYSFS_SRC) $(SYSFS_GRPC_SRC) $(SYSLIB_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
-	$(GO_XCOMPILE) $(GO) build -ldflags ${LDFLAGS}	-o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
+	$(GO_XCOMPILE) $(GO) build -trimpath -ldflags "${LDFLAGS}" -o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
 
 sysbox-fs-debug: $(SYSFS_BUILDDIR)/$(SYSFS_DEBUG_TARGET)
 
 $(SYSFS_BUILDDIR)/$(SYSFS_DEBUG_TARGET): $(SYSFS_SRC) $(SYSFS_GRPC_SRC) $(SYSLIB_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
-	$(GO_XCOMPILE) $(GO) build -gcflags="all=-N -l" -ldflags ${LDFLAGS} -o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
+	$(GO_XCOMPILE) $(GO) build -trimpath -gcflags="all=-N -l" -ldflags "${LDFLAGS}" \
+		-o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
 
 sysbox-fs-static: $(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET)
 
 $(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET): $(SYSFS_SRC) $(SYSFS_GRPC_SRC) $(SYSLIB_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
-	$(GO_XCOMPILE) CGO_ENABLED=1 $(GO) build -tags "netgo osusergo static_build" \
-		-installsuffix netgo -ldflags "-w -extldflags -static" -ldflags ${LDFLAGS} \
+	CGO_ENABLED=1 $(GO_XCOMPILE) $(GO) build -trimpath -tags "netgo osusergo" \
+		-installsuffix netgo -ldflags "-extldflags -static ${LDFLAGS}" \
 		-o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
 
 gomod-tidy:
