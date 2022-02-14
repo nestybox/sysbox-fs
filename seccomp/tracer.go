@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2021 Nestybox, Inc.
+// Copyright 2019-2022 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -115,10 +115,10 @@ func (scs *SyscallMonitorService) Setup(
 
 // SeccompSession holds state associated to every seccomp tracee session.
 type seccompSession struct {
-	pid         uint32 // pid of the tracee process
-	fd          int32  // tracee's seccomp-fd to allow kernel interaction
-	pidfd       int32  // fd associated to tracee's pid to influence poll() cycle
-	cntrId      string // container(id) on which each seccomp session lives
+	pid    uint32 // pid of the tracee process
+	fd     int32  // tracee's seccomp-fd to allow kernel interaction
+	pidfd  int32  // fd associated to tracee's pid to influence poll() cycle
+	cntrId string // container(id) on which each seccomp session lives
 }
 
 // Seccomp's syscall-monitor/tracer.
@@ -130,6 +130,7 @@ type syscallTracer struct {
 	pidToContMap       map[uint32]string                 // maps pid -> container id
 	seccompSessionMu   sync.RWMutex                      // seccomp session table lock
 	seccompUnusedNotif bool                              // seccomp-fd unused notification feature supported by kernel
+	seccompNotifPidTrk *seccompNotifPidTracker           // Ensures seccomp notifs for the same pid are processed sequentially (not in parallel).
 	service            *SyscallMonitorService            // backpointer to syscall-monitor service
 }
 
@@ -137,8 +138,8 @@ type syscallTracer struct {
 func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 
 	tracer := &syscallTracer{
-		service:           sms,
-		syscalls:          make(map[libseccomp.ScmpSyscall]string),
+		service:  sms,
+		syscalls: make(map[libseccomp.ScmpSyscall]string),
 	}
 
 	if sms.closeSeccompOnContExit {
@@ -167,6 +168,8 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 	if cmp >= 0 {
 		tracer.seccompUnusedNotif = true
 	}
+
+	tracer.seccompNotifPidTrk = newSeccompNotifPidTracker()
 
 	return tracer
 }
@@ -268,7 +271,7 @@ func (t *syscallTracer) seccompSessionDelete(s seccompSession) {
 			// We are finally ready to close the seccomp-fd.
 			if err := unix.Close(int(fd)); err != nil {
 				logrus.Errorf("Failed to close seccomp fd %v for pid %d: %v",
-					 s.fd, s.pid, err)
+					s.fd, s.pid, err)
 			}
 		}
 
@@ -284,7 +287,7 @@ func (t *syscallTracer) seccompSessionPidfd(
 
 	var (
 		pidfd libpidfd.PidFd
-		err error
+		err   error
 	)
 
 	// In scenarios lacking seccomp's unused-filter notifications, we rely on pidfd
@@ -387,7 +390,7 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 		// Exit the polling loop whenever the received event on the seccomp-fd is not
 		// the expected one.
 		if fds[0].Revents != unix.POLLIN {
-			logrus.Debugf("POLLIN event received on fd %d, pid %d, cntr %s",
+			logrus.Debugf("Non-POLLIN event received on fd %d, pid %d, cntr %s",
 				fd, pid, formatter.ContainerID{cntrID})
 			break
 		}
@@ -415,6 +418,11 @@ func (t *syscallTracer) process(
 	req *sysRequest,
 	fd int32,
 	cntrID string) {
+
+	// This ensures that for a given pid, we only process one syscall at a time.
+	// Syscalls for different pids are processed in parallel.
+	t.seccompNotifPidTrk.Lock(req.Pid)
+	defer t.seccompNotifPidTrk.Unlock(req.Pid)
 
 	// Process the incoming syscall and obtain response for seccomp-tracee.
 	resp, err := t.processSyscall(req, fd, cntrID)
@@ -510,15 +518,15 @@ func (t *syscallTracer) processSyscall(
 	// error during Open() doesn't qualify, whereas 'nsenter' operational
 	// errors or inexistent "/proc/pid/mem" does.
 	if err != nil {
-		logrus.Warnf("Error during syscall %v processing on fd %d, pid %d, cntr %s (%v)",
-			syscallName, fd, req.Pid, formatter.ContainerID{cntrID}, err)
+		logrus.Warnf("Error during syscall %v processing on fd %d, pid %d, req Id %d, cntr %s (%v)",
+			syscallName, fd, req.Pid, req.Id, formatter.ContainerID{cntrID}, err)
 		return t.createErrorResponse(req.Id, syscall.EINVAL), nil
 	}
 
 	// TOCTOU check.
 	if err := libseccomp.NotifIdValid(libseccomp.ScmpFd(fd), req.Id); err != nil {
-		logrus.Infof("TOCTOU check failed on fd %d pid %d cntr %s: req.Id is no longer valid (%s)",
-			fd, req.Pid, formatter.ContainerID{cntrID}, err)
+		logrus.Debugf("TOCTOU check failed on fd %d pid %d cntr %s: req.Id %d is no longer valid (%s)",
+			fd, req.Pid, formatter.ContainerID{cntrID}, req.Id, err)
 		return t.createErrorResponse(req.Id, err), fmt.Errorf("TOCTOU error")
 	}
 
@@ -1137,12 +1145,12 @@ func (t *syscallTracer) ReadProcessMem(
 	sizes ...int) error {
 
 	var (
-		localElements int = len(local)
-		remoteElements int = len(remote)
-		localIovec []unix.Iovec = make([]unix.Iovec, localElements)
-		remoteIovec []unix.RemoteIovec = make([]unix.RemoteIovec, remoteElements)
+		localElements    int                = len(local)
+		remoteElements   int                = len(remote)
+		localIovec       []unix.Iovec       = make([]unix.Iovec, localElements)
+		remoteIovec      []unix.RemoteIovec = make([]unix.RemoteIovec, remoteElements)
 		expectedCopySize int
-		atLeastOne bool
+		atLeastOne       bool
 	)
 
 	for i := 0; i < localElements; i++ {
