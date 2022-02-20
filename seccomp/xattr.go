@@ -216,11 +216,11 @@ func (si *getxattrSyscallInfo) processGetxattr() (*sysResponse, error) {
 	// Perform the nsenter into the process namespaces (except the user-ns)
 	payload := domain.GetxattrSyscallPayload{
 		Header: domain.NSenterMsgHeader{
-			Pid:          si.pid,
-			Uid:          si.uid,
-			Gid:          si.gid,
-			Root:         si.root,
-			Cwd:          si.cwd,
+			Pid:          process.Pid(),
+			Uid:          process.Uid(),
+			Gid:          process.Gid(),
+			Root:         process.Root(),
+			Cwd:          process.Cwd(),
 			Capabilities: process.GetEffCaps(),
 		},
 		Syscall: si.syscallName,
@@ -371,11 +371,11 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 	// Perform the nsenter into the process namespaces (except the user-ns)
 	payload := domain.ListxattrSyscallPayload{
 		Header: domain.NSenterMsgHeader{
-			Pid:          si.pid,
-			Uid:          si.uid,
-			Gid:          si.gid,
-			Root:         si.root,
-			Cwd:          si.cwd,
+			Pid:          process.Pid(),
+			Uid:          process.Uid(),
+			Gid:          process.Gid(),
+			Root:         process.Root(),
+			Cwd:          process.Cwd(),
 			Capabilities: process.GetEffCaps(),
 		},
 		Syscall: si.syscallName,
