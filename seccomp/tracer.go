@@ -554,6 +554,10 @@ func (t *syscallTracer) processMount(
 	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
+
+	// Note: even though "data" is defined as a "void *" in the mount(2), we
+	// assume it's a string because the mount syscall does not specify its
+	// length.
 	data, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[4], unix.PathMax)
 	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
@@ -800,8 +804,11 @@ func (t *syscallTracer) processSetxattr(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	// Value size is defined by the args[3] parameter -- see setxattr(2).
-	val, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[2], int(req.Data.Args[3]))
+	// Per setxattr(2):
+	// Value is a "void *", not necessarily a string (i.e., it may not be null terminated).
+	// The size of value (in bytes) is defined by the args[3] parameter.
+	size := int(req.Data.Args[3])
+	val, err := t.ReadSyscallBytesArg(req.Pid, req.Data.Args[2], size)
 	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
@@ -840,8 +847,11 @@ func (t *syscallTracer) processFsetxattr(
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
 
-	// Value size is defined by the args[3] parameter -- see setxattr(2).
-	val, err := t.ReadSyscallStringArg(req.Pid, req.Data.Args[2], int(req.Data.Args[3]))
+	// Per setxattr(2):
+	// Value is a "void *", not necessarily a string (i.e., it may not be null terminated).
+	// The size of value (in bytes) is defined by the args[3] parameter.
+	size := int(req.Data.Args[3])
+	val, err := t.ReadSyscallBytesArg(req.Pid, req.Data.Args[2], size)
 	if err != nil {
 		return t.createErrorResponse(req.Id, syscall.EPERM), nil
 	}
@@ -1134,6 +1144,23 @@ func (t *syscallTracer) ReadSyscallStringArg(pid uint32, arg uint64, size int) (
 	}
 
 	data := C.GoString((*C.char)(unsafe.Pointer(&dataBuf[0])))
+
+	return data, nil
+}
+
+func (t *syscallTracer) ReadSyscallBytesArg(pid uint32, arg uint64, size int) (string, error) {
+
+	dataBuf := make([]byte, size)
+
+	if err := t.ReadProcessMem(
+		pid,
+		[][]byte{dataBuf},
+		[]uint64{arg},
+		size); err != nil {
+		return "", err
+	}
+
+	data := C.GoStringN((*C.char)(unsafe.Pointer(&dataBuf[0])), C.int(size))
 
 	return data, nil
 }
