@@ -161,7 +161,7 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 	// Elect the memParser to utilize based on the availability of process_vm_readv()
 	// syscall.
 	_, err := unix.ProcessVMReadv(int(1), nil, nil, 0)
-	if err != syscall.ENOSYS {
+	if err == syscall.ENOSYS {
 		tracer.memParser = &memParserProcfs{}
 		logrus.Info("Procfs memParser elected")
 	} else {
