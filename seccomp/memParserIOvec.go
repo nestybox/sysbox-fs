@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2022 Nestybox, Inc.
+// Copyright 2022 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,23 +24,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// File hosts a general memParser interface and specialization logic to allow
-// interaction with seccomp tracee's through a scatter-gather (IOvec) interface.
-// This approach is the default one in kernels built with 'CONFIG_CROSS_MEMORY_ATTACH'
-// flag enabled -- the usual case in most of the linux distros.
-
-
-type memParser interface {
-	ReadSyscallStringArgs(pid uint32, elems []memParserDataElem) ([]string, error)
-	ReadSyscallBytesArgs(pid uint32, elems []memParserDataElem) ([]string, error)
-	WriteSyscallBytesArgs(pid uint32, elems []memParserDataElem) error
-}
-
-type memParserDataElem struct {
-	addr uint64   // mem address in tracee's address space
-	size int      // size of the data element to read / write
-	data []byte   // data to write to tracee's address space
-}
+// File contains memParser specialization logic to allow interaction with seccomp
+// tracee's through a scatter-gather (IOvec) interface. This approach is the default
+// one in kernels built with 'CONFIG_CROSS_MEMORY_ATTACH' flag enabled -- the usual
+// case in most of the linux distros.
 
 type memParserIOvec struct {}
 
