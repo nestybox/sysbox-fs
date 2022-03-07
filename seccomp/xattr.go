@@ -262,7 +262,10 @@ func (si *getxattrSyscallInfo) processGetxattr() (*sysResponse, error) {
 	// processListxattr() method for more details relevant to this code section.
 
 	if si.size > 0 && resp.Size > 0 {
-		if err := t.WriteProcessMem(si.pid, si.addr, resp.Val, resp.Size); err != nil {
+		if err := t.memParser.WriteSyscallBytesArgs(
+			si.pid,
+			[]memParserDataElem{{si.addr, resp.Size, resp.Val}},
+		); err != nil {
 			sysResp := t.createErrorResponse(si.reqId, syscall.ENOTSUP)
 			return sysResp, nil
 		}
@@ -430,7 +433,10 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 	// smaller than 'resp.Size' by returning an 'ERANGE' error to the user.
 
 	if si.size > 0 && resp.Size > 0 {
-		if err := t.WriteProcessMem(si.pid, si.addr, resp.Val, resp.Size); err != nil {
+		if err := t.memParser.WriteSyscallBytesArgs(
+			si.pid,
+			[]memParserDataElem{{si.addr, resp.Size, resp.Val}},
+		); err != nil {
 			sysResp := t.createErrorResponse(si.reqId, syscall.ENOTSUP)
 			return sysResp, nil
 		}
