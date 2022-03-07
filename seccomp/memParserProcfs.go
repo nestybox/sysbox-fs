@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2022 Nestybox, Inc.
+// Copyright 2022 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,8 +25,6 @@ import (
 	"io"
 	"os"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 // File hosts memParser specialization logic to allow interaction with seccomp tracee's
@@ -155,20 +153,13 @@ func (mp *memParserProcfs) WriteSyscallBytesArgs(pid uint32, elems []memParserDa
 				return fmt.Errorf("seek of %s failed: %s", name, err)
 			}
 
-			n, err := writer.Write(data)
+			_, err = writer.Write(data)
 			if err != nil {
-				logrus.Errorf("Unable to write val %v to mem %v", data, e.addr)
 				return fmt.Errorf("write of %s at offset %d with size %d failed: %s",
 					name, e.addr, e.size, err)
 			}
-			// Debugging purposes -- remove me.
-			if n != e.size {
-				logrus.Errorf("Unable to write complete val %v to mem %v size %d/%d", data, e.addr, n, e.size)
-				return fmt.Errorf("write of %s at offset %d with size %d incompleted: %s",
-					name, e.addr, e.size, err)
-			}
+
 			if err = writer.Flush(); err != nil {
-				logrus.Errorf("Unable to flush write val %v to mem %v", data, e.addr)
 				return fmt.Errorf("write of %s at offset %d with size %d failed: %s",
 					name, e.addr, e.size, err)
 			}
