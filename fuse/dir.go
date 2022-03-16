@@ -313,7 +313,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 	// Handler execution.
 	files, err := handler.ReadDirAll(ionode, request)
 	if err != nil {
-		logrus.Errorf("ReadDirAll() error: %v", err)
+		logrus.Debugf("ReadDirAll() error: %v", err)
 		return nil, fuse.ENOENT
 	}
 
