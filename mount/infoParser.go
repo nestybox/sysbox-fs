@@ -365,7 +365,7 @@ func (mi *mountInfoParser) extractAllInodes() error {
 
 	respMounts, err := mi.extractInodes(reqMounts)
 	if err != nil {
-		logrus.Errorf("Unable to extract inodes, err: %s", err)
+		logrus.Warnf("Unable to extract inodes, err: %s", err)
 		return err
 	}
 
