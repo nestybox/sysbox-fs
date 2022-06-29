@@ -23,6 +23,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -37,6 +38,7 @@ import (
 	"github.com/nestybox/sysbox-fs/seccomp"
 	"github.com/nestybox/sysbox-fs/state"
 	"github.com/nestybox/sysbox-fs/sysio"
+	libutils "github.com/nestybox/sysbox-libs/utils"
 
 	systemd "github.com/coreos/go-systemd/daemon"
 
@@ -45,9 +47,9 @@ import (
 	"github.com/urfave/cli"
 )
 
-// TODO: Improve one-liner description.
 const (
-	usage = `sysbox-fs file-system
+	sysboxRunDir = "/run/sysbox"
+	usage        = `sysbox-fs file-system
 
 sysbox-fs is a daemon that emulates portions of the system container's
 file system (e.g., procfs, sysfs). It's purpose is to make the
@@ -115,6 +117,12 @@ func exitHandler(
 
 	// Deferring exit() to allow FUSE to dump unnmount() logs
 	time.Sleep(2)
+
+	// Delete pid file.
+	pidFile := filepath.Join(sysboxRunDir, "sysfs.pid")
+	if err := libutils.DestroyPidFile(pidFile); err != nil {
+		logrus.Warnf("failed to destroy sysbox-fs pid file: %v", err)
+	}
 
 	logrus.Info("Exiting ...")
 	os.Exit(0)
@@ -426,14 +434,28 @@ func main() {
 
 		logrus.Info("Ready ...")
 
-		if err := ipcService.Init(); err != nil {
-			logrus.Panic(err)
+		// Initialization completed. Create sysbox-fs pid file.
+		pidFile := filepath.Join(sysboxRunDir, "sysfs.pid")
+		err = libutils.CreatePidFile("sysbox-fs", pidFile)
+		if err != nil {
+			return fmt.Errorf("failed to create sysfs.pid file: %s", err)
 		}
+
+		if err := ipcService.Init(); err != nil {
+			logrus.Errorf("failed to start sysbox-fs: %v", err)
+		}
+
+		// Exited main event-loop. Delete pid file.
+		pidFile = filepath.Join(sysboxRunDir, "sysfs.pid")
+		if err := libutils.DestroyPidFile(pidFile); err != nil {
+			logrus.Warnf("failed to destroy sysbox-fs pid file: %v", err)
+		}
+		logrus.Info("Done.")
 
 		return nil
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		logrus.Panic(err)
+		logrus.Fatal(err)
 	}
 }
