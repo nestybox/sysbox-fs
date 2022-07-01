@@ -355,6 +355,13 @@ func main() {
 		var ipcService = ipc.NewIpcService()
 		var mountService = mount.NewMountService()
 
+		// Create sysbox-fs pid file.
+		pidFile := filepath.Join(sysboxRunDir, "sysfs.pid")
+		err := libutils.CreatePidFile("sysbox-fs", pidFile)
+		if err != nil {
+			return fmt.Errorf("failed to create sysfs.pid file: %s", err)
+		}
+
 		// Setup sysbox-fs services.
 		processService.Setup(ioService)
 
@@ -433,13 +440,6 @@ func main() {
 		systemd.SdNotify(false, systemd.SdNotifyReady)
 
 		logrus.Info("Ready ...")
-
-		// Initialization completed. Create sysbox-fs pid file.
-		pidFile := filepath.Join(sysboxRunDir, "sysfs.pid")
-		err = libutils.CreatePidFile("sysbox-fs", pidFile)
-		if err != nil {
-			return fmt.Errorf("failed to create sysfs.pid file: %s", err)
-		}
 
 		if err := ipcService.Init(); err != nil {
 			logrus.Errorf("failed to start sysbox-fs: %v", err)
