@@ -23,7 +23,6 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -48,8 +47,9 @@ import (
 )
 
 const (
-	sysboxRunDir = "/run/sysbox"
-	usage        = `sysbox-fs file-system
+	sysboxRunDir    string = "/run/sysbox"
+	sysboxFsPidFile string = sysboxRunDir + "/sysfs.pid"
+	usage           string = `sysbox-fs file-system
 
 sysbox-fs is a daemon that emulates portions of the system container's
 file system (e.g., procfs, sysfs). It's purpose is to make the
@@ -119,8 +119,7 @@ func exitHandler(
 	time.Sleep(2)
 
 	// Delete pid file.
-	pidFile := filepath.Join(sysboxRunDir, "sysfs.pid")
-	if err := libutils.DestroyPidFile(pidFile); err != nil {
+	if err := libutils.DestroyPidFile(sysboxFsPidFile); err != nil {
 		logrus.Warnf("failed to destroy sysbox-fs pid file: %v", err)
 	}
 
@@ -167,6 +166,13 @@ func runProfiler(ctx *cli.Context) (interface{ Stop() }, error) {
 	}
 
 	return prof, nil
+}
+
+func setupRunDir() error {
+	if err := os.MkdirAll(sysboxRunDir, 0700); err != nil {
+		return fmt.Errorf("failed to create %s: %s", sysboxRunDir, err)
+	}
+	return nil
 }
 
 //
@@ -328,6 +334,11 @@ func main() {
 
 		logrus.Info("Initiating sysbox-fs ...")
 
+		err := libutils.CheckPidFile("sysbox-fs", sysboxFsPidFile)
+		if err != nil {
+			return err
+		}
+
 		// Print key configuration knobs settings.
 		if ctx.BoolT("allow-immutable-remounts") {
 			logrus.Info("Initializing with 'allow-immutable-remounts' enabled")
@@ -355,11 +366,10 @@ func main() {
 		var ipcService = ipc.NewIpcService()
 		var mountService = mount.NewMountService()
 
-		// Create sysbox-fs pid file.
-		pidFile := filepath.Join(sysboxRunDir, "sysfs.pid")
-		err := libutils.CreatePidFile("sysbox-fs", pidFile)
+		// Create the sysbox run dir
+		err = setupRunDir()
 		if err != nil {
-			return fmt.Errorf("failed to create sysfs.pid file: %s", err)
+			return fmt.Errorf("failed to setup the sysbox run dir: %v", err)
 		}
 
 		// Setup sysbox-fs services.
@@ -439,6 +449,12 @@ func main() {
 
 		systemd.SdNotify(false, systemd.SdNotifyReady)
 
+		// Create sysbox-fs pid file.
+		err = libutils.CreatePidFile("sysbox-fs", sysboxFsPidFile)
+		if err != nil {
+			return fmt.Errorf("failed to create sysfs.pid file: %s", err)
+		}
+
 		logrus.Info("Ready ...")
 
 		if err := ipcService.Init(); err != nil {
@@ -446,8 +462,7 @@ func main() {
 		}
 
 		// Exited main event-loop. Delete pid file.
-		pidFile = filepath.Join(sysboxRunDir, "sysfs.pid")
-		if err := libutils.DestroyPidFile(pidFile); err != nil {
+		if err := libutils.DestroyPidFile(sysboxFsPidFile); err != nil {
 			logrus.Warnf("failed to destroy sysbox-fs pid file: %v", err)
 		}
 		logrus.Info("Done.")
