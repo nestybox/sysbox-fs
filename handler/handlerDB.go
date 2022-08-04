@@ -51,6 +51,8 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.ProcSysNetNetfilter_Handler,            // /proc/sys/net/netfilter
 	implementations.ProcSysNetUnix_Handler,                 // /proc/sys/net/unix
 	implementations.ProcSysVm_Handler,                      // /proc/sys/vm
+	implementations.Sys_Handler,                            // /sys
+	implementations.SysKernel_Handler,                      // /sys/kernel/
 	implementations.SysDevicesVirtualDmiId_Handler,         // /sys/devices/virtual/dmi/id
 	implementations.SysModuleNfconntrackParameters_Handler, // /sys/module/nf_conntrack/parameters
 }
