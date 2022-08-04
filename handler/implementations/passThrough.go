@@ -155,7 +155,7 @@ func (h *PassThrough) Read(
 	// The passthrough driver is slow because it must spawn a process that enters
 	// the container's namespaces (i.e., the nsenter agent) and read the data
 	// from there. To improve things, we cache the data on the first access to
-	// avoid dispatching the nsenter agent on subsequent accesess.
+	// avoid dispatching the nsenter agent on subsequent accesses.
 	//
 	// A couple of caveats on the caching:
 	//
