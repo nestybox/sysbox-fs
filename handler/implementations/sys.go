@@ -43,7 +43,7 @@ var Sys_Handler = &Sys{
 		EmuResourceMap: map[string]*domain.EmuResource{
 			"kernel": {
 				Kind:    domain.DirEmuResource,
-				Mode:    os.ModeDir | os.FileMode(uint32(0555)),
+				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
 				Enabled: true,
 			},
 		},
