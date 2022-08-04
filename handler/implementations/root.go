@@ -32,7 +32,7 @@ import (
 // Since the sysbox-fs root dir is not mounted inside a system container,
 // accesses to it are only possible from host level (e.g., via /var/lib/sysboxfs/<container-id>/).
 //
-// Such acccesses typically occur when sysbox-runc is creating the container and
+// Such accesses typically occur when sysbox-runc is creating the container and
 // it bind-mounts sysbox-fs to subdirs under the container's "/proc" or "/sys"
 // (e.g., /proc/uptime, /proc/sys, etc); as part of the bind-mount, the kernel
 // walks the bind-source path, which results in sysbox-fs receiving lookups into
