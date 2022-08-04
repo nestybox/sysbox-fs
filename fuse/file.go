@@ -78,10 +78,11 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 	// Also, this will help us to support "unshare -U -m --mount-proc" inside a
 	// sys container.
 	if a.Uid == 0 {
-		a.Uid = f.server.container.UID()
+		a.Uid = f.server.ContainerUID()
 	}
+
 	if a.Gid == 0 {
-		a.Gid = f.server.container.GID()
+		a.Gid = f.server.ContainerGID()
 	}
 
 	return nil

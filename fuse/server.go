@@ -36,6 +36,8 @@ type fuseServer struct {
 	path         string                // fs path to emulate -- "/" by default
 	mountPoint   string                // mountpoint -- "/var/lib/sysboxfs" by default
 	container    domain.ContainerIface // associated sys container
+	containerUid uint32                // container UID for caching purposes
+	containerGid uint32                // container GID for caching purposes
 	server       *fs.Server            // bazil-fuse server instance
 	nodeDB       map[string]*fs.Node   // map to store all fs nodes, e.g. "/proc/uptime" -> File
 	root         *Dir                  // root node of fuse fs -- "/" by default
@@ -213,4 +215,26 @@ func (s *fuseServer) MountPoint() string {
 func (s *fuseServer) Unmount() {
 
 	fuse.Unmount(s.mountPoint)
+}
+
+// Helper functions to extract the container UID and GID (below) corresponding to
+// the sys container associated to each fuseServer. Notice that by caching these
+// values we are reducing the level of contention between FUSE operations (e.g.,
+// every Attr() call) and syscall handling ones.
+func (s *fuseServer) ContainerUID() uint32 {
+
+	if s.containerUid == 0 {
+		s.containerUid = s.container.UID()
+	}
+
+	return s.containerUid
+}
+
+func (s *fuseServer) ContainerGID() uint32 {
+
+	if s.containerGid == 0 {
+		s.containerGid = s.container.GID()
+	}
+
+	return s.containerGid
 }
