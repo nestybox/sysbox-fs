@@ -34,7 +34,7 @@ import (
 // Default dentry-cache-timeout interval: This is the maximum
 // amount of time that VFS will hold on to dentry elements before starting
 // to forward lookup() operations to FUSE server. We want to set this to
-// infinite ideally; we set it to the max allowed value
+// infinite ideally; we set it to the max allowed value.
 var DentryCacheTimeout int64 = 0x7fffffffffffffff
 
 //
@@ -151,10 +151,25 @@ func (d *Dir) Lookup(
 	// Convert os.FileInfo attributes to fuseAttr format.
 	fuseAttrs := convertFileInfoToFuse(info)
 
+	// Identify the root uid & gid in the requester's user-ns.
+	prs := d.server.service.hds.ProcessService()
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
+
+	rootUid, rootGid, err := process.UsernsRootUidGid()
+	if err != nil {
+		return nil, err
+	}
+
 	// Override the uid & gid attributes with the root uid & gid in the
-	// requester's user-ns.
-	fuseAttrs.Uid = rootUid
-	fuseAttrs.Gid = rootGid
+	// requester's user-ns if, and only if, these ones have not been
+	// explicitly set to match the special maxUid/MaxGid values (refer to
+	// sysKernel for details).
+	if fuseAttrs.Uid != domain.MaxUid {
+		fuseAttrs.Uid = rootUid
+	}
+	if fuseAttrs.Gid != domain.MaxGid {
+		fuseAttrs.Gid = rootGid
+	}
 
 	var newNode fs.Node
 

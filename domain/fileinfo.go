@@ -22,6 +22,11 @@ import (
 	"time"
 )
 
+const (
+	MaxUid = 0xFFFF
+	MaxGid = 0xFFFF
+)
+
 // FileInfo is sysbox-fs' implementation of os.FileInfo interface. A concrete
 // type is required during serialization operations when exchanging state between
 // sysbox-fs' main and its re-exec instances.

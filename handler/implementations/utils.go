@@ -103,7 +103,7 @@ func writeCntrData(
 	return sz, nil
 }
 
-// readFs reads data from the given IO node
+// readFs reads data from the given IO node.
 func readFs(
 	h domain.HandlerIface,
 	n domain.IOnodeIface,
@@ -119,7 +119,6 @@ func readFs(
 			n.Path())
 		return 0, errors.New("no mutex found for emulated resource")
 	}
-
 	resourceMutex.Lock()
 	defer resourceMutex.Unlock()
 
@@ -141,9 +140,37 @@ func readFs(
 	return sz, err
 }
 
-// writeFs writes the given data to the given IO node; argument wrCondition
+// Same as above but without concurrency protection. To be utilized only when
+// reading from non-emulated nodes.
+//
+// TODO: Find a better name for this routine.
+func readFsDirect(
+	h domain.HandlerIface,
+	n domain.IOnodeIface,
+	offset int64,
+	data *[]byte) (int, error) {
+
+	// Read from the host FS to extract the existing value.
+	if err := n.Open(); err != nil {
+		logrus.Errorf("Could not open file %v", n.Path())
+		return 0, err
+	}
+	defer n.Close()
+
+	// TODO: ReadAt may not read all data; check sz and loop until we read all
+	// the data
+	sz, err := n.ReadAt(*data, offset)
+	if err != nil && err != io.EOF {
+		logrus.Errorf("Could not read from file %v at offset %d", n.Path(), offset)
+		return 0, err
+	}
+
+	return sz, err
+}
+
+// writeFs writes the given data to the given IO node. argument 'wrCondition'
 // is a function that the caller can pass to determine if the write should
-// actually happen given the IO node's current and new data. If set to nil,
+// actually happen given the IO node's current and new data. If set to nil
 // the write is skipped.
 func writeFs(
 	h domain.HandlerIface,
@@ -245,6 +272,30 @@ func writeFs(
 // Returns true unconditionally; meant to be used as the 'wrCondition' argument in writeFs()
 func writeToFs(curr, new []byte) (bool, error) {
 	return true, nil
+}
+
+// Same as above but without concurrency protection. To be utilized only when
+// writing into non-emulated nodes.
+//
+// TODO: Find a better name for this routine.
+func writeFsDirect(
+	h domain.HandlerIface,
+	n domain.IOnodeIface,
+	offset int64,
+	data []byte) (int, error) {
+
+	n.SetOpenFlags(int(os.O_RDWR))
+	if err := n.Open(); err != nil {
+		return 0, err
+	}
+	defer n.Close()
+
+	_, err := n.WriteAt(data, offset)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(data), nil
 }
 
 // writeMaxIntToFs interprets the given data as integers and returns true if new > curr; meant
