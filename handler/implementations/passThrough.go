@@ -151,7 +151,6 @@ func (h *PassThrough) Read(
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 
-	//
 	// The passthrough driver is slow because it must spawn a process that enters
 	// the container's namespaces (i.e., the nsenter agent) and read the data
 	// from there. To improve things, we cache the data on the first access to

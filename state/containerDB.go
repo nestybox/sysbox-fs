@@ -202,7 +202,7 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 
 	css.Lock()
 
-	// Ensure that container's id is already present (pregistration completed).
+	// Ensure that container's id is already present (preregistration completed).
 	currCntr, ok := css.idTable[cntr.id]
 	if !ok {
 		css.Unlock()

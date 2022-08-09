@@ -51,7 +51,7 @@ func newMountHelper(svc *MountService) *mountHelper {
 
 	resourceList := svc.hds.HandlersResourcesList()
 
-	for _, resources := range resourceList {
+	for _, resource := range resourceList {
 		//
 		// Out of all the resources emulated by the handler package, we are
 		// only interested in those that are bind-mounted by sysbox-runc during
@@ -66,14 +66,16 @@ func newMountHelper(svc *MountService) *mountHelper {
 		//   avoid generating a request to obtain the inodes associated to
 		//   these mountpoints -- see extractAllInodes(). The goal here is to
 		//   prevent recursive i/o operations from being able to arrive to
-		//   sysbox-fs which could potentially stall the FSM.
+		//   sysbox-fs which could potentially stall its FSM.
 		//
-		if filepath.Dir(resources) == "/proc" {
-			info.procMounts = append(info.procMounts, resources)
-			info.mapMounts[resources] = struct{}{}
-		} else if strings.HasPrefix(resources, "/sys") {
-			info.sysMounts = append(info.sysMounts, resources)
-			info.mapMounts[resources] = struct{}{}
+		if filepath.Dir(resource) == "/proc" {
+			info.procMounts = append(info.procMounts, resource)
+			info.mapMounts[resource] = struct{}{}
+		} else if resource == "/sys/kernel" ||
+			resource == "/sys/devices/virtual/dmi/id/product_uuid" ||
+			resource == "/sys/module/nf_conntrack/parameters/hashsize" {
+			info.sysMounts = append(info.sysMounts, resource)
+			info.mapMounts[resource] = struct{}{}
 		}
 	}
 

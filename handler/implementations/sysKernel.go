@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2022 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -31,7 +32,7 @@ import (
 // /sys/kernel handler
 //
 // The following sysfs nodes are exposed in order to satisfy applications that expect
-// these resources to be present (and accessible) in the system; these nodes would
+// these resources to be present (and accessible) in the system -- these nodes would
 // appear as 'nobody:nogroup' when queried from a process that is hosted within a
 // non-init user-ns. Having said that, be aware that the emulation being provided
 // as part of this handler is very shallow: we are simply exposing these nodes, no
@@ -44,6 +45,11 @@ import (
 // * /sys/kernel/debug
 //
 // * /sys/kernel/tracing
+//
+// Finally, notice that in this case we are not relying on the "passthrough" handler
+// to access the "/sys/kernel" file hierarchy through nsenter() into the container's
+// namespaces. In this case we are accessing the files directly through the host's
+// sysfs. This approach is feasible due to the global / system-wide nature of sysfs.
 //
 
 type SysKernel struct {
@@ -96,9 +102,20 @@ func (h *SysKernel) Lookup(
 		return info, nil
 	}
 
-	// If looked-up element hasn't been found by now, look into the actual
-	// container rootfs.
-	return h.Service.GetPassThroughHandler().Lookup(n, req)
+	info, err := n.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	// Users should not be allowed to alter any of the sysfs nodes being exposed. To
+	// enforce this, we hard-code the node's uid/gid to a value beyond the containers
+	// uid/gid ranges so that they are displayed as "nobody:nogroup" within the sys
+	// containers (yes, this value will be always considered out-of-range, even if
+	// '--subid-range-size' knob is in place).
+	info.Sys().(*syscall.Stat_t).Uid = domain.MaxUid
+	info.Sys().(*syscall.Stat_t).Gid = domain.MaxGid
+
+	return info, nil
 }
 
 func (h *SysKernel) Open(
@@ -122,27 +139,63 @@ func (h *SysKernel) Open(
 		return nil
 	}
 
-	return h.Service.GetPassThroughHandler().Open(n, req)
+	return n.Open()
 }
 
 func (h *SysKernel) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
+	var resource = n.Name()
+
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
-	return h.Service.GetPassThroughHandler().Read(n, req)
+	if req.Offset != 0 {
+		return 0, nil
+	}
+
+	switch resource {
+
+	case "config":
+		return 0, nil
+
+	case "debug":
+		return 0, nil
+
+	case "tracing":
+		return 0, nil
+	}
+
+	return readFsDirect(h, n, req.Offset, &req.Data)
 }
 
 func (h *SysKernel) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
+	var resource = n.Name()
+
 	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
-	return h.Service.GetPassThroughHandler().Write(n, req)
+	if req.Offset != 0 {
+		return 0, nil
+	}
+
+	switch resource {
+
+	case "config":
+		return 0, nil
+
+	case "debug":
+		return 0, nil
+
+	case "tracing":
+		return 0, nil
+	}
+
+	return writeFsDirect(h, n, req.Offset, req.Data)
 }
 
 func (h *SysKernel) ReadDirAll(
@@ -182,9 +235,8 @@ func (h *SysKernel) ReadDirAll(
 		fileEntries = append(fileEntries, info)
 	}
 
-	// Obtain the usual entries seen within container's namespaces and add them
-	// to the emulated ones.
-	usualEntries, err := h.Service.GetPassThroughHandler().ReadDirAll(n, req)
+	// Obtain the usual entries and add them to the emulated ones.
+	usualEntries, err := n.ReadDirAll()
 	if err == nil {
 		fileEntries = append(fileEntries, usualEntries...)
 	}
