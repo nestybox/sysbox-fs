@@ -37,6 +37,11 @@ import (
 // infinite ideally; we set it to the max allowed value.
 var DentryCacheTimeout int64 = 0x7fffffffffffffff
 
+// Attribute's cache-timeout: This is the maximum amount of time that
+// kernel will hold attributes associated to any given file/dir. Refer
+// to man fuse(4) for details.
+var AttribCacheTimeout int64 = 0x7fffffffffffffff
+
 //
 // Dir struct serves as a FUSE-friendly abstraction to represent directories
 // present in the host FS.
@@ -151,6 +156,10 @@ func (d *Dir) Lookup(
 		fuseAttrs.Gid = rootGid
 	}
 
+	// As per man fuse(4), set the attribute's cache-duration to the largest
+	// possible value to ensure getattr()s are only received once per node.
+	fuseAttrs.Valid = time.Duration(AttribCacheTimeout)
+
 	var newNode fs.Node
 
 	// Create a new file/dir entry associated to the received os.FileInfo.
@@ -166,7 +175,8 @@ func (d *Dir) Lookup(
 	d.server.nodeDB[path] = &newNode
 	d.server.Unlock()
 
-	// Adjust response to carry the proper dentry-cache-timeout value.
+	// Adjust response to carry the largest dentry-cache-timeout value
+	// to reduce lookups() to the minimum.
 	resp.EntryValid = time.Duration(DentryCacheTimeout)
 
 	return newNode, nil
