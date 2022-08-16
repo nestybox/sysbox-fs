@@ -80,37 +80,17 @@ func (d *Dir) Lookup(
 
 	path := filepath.Join(d.path, req.Name)
 
-	prs := d.server.service.hds.ProcessService()
-	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
-
-	rootUid, rootGid, err := process.UsernsRootUidGid()
-	if err != nil {
-		return nil, err
-	}
-
-	//
 	// nodeDB caches the attributes associated with each file. This way, we perform the
 	// lookup of a given procfs/sysfs dir/file only once, improving performance. This works
-	// because most of attributes of procfs/sysfs dirs/files are static (e.g., permissions
-	// never change). The only attribute that does change is uid and gid, as these must
-	// correspond to the root user of the user-namespace associated with the request. To
-	// deal with this, we get the attributes from the nodeDB cache (if present) and
-	// override the uid(gid) portion.
-	//
-	d.File.server.RLock()
+	// because:
+	//   * there's a dedicated nodeDB (fuseServer) per sys-container
+	//   * all attributes of procfs/sysfs dirs/files are static (e.g., permissions never
+	//     change, and uid/gid values match those of the root user in the sys-container's
+	//     user-ns as long as user-ns-nesting continue to be unsupported).
+	d.server.RLock()
 	node, ok := d.server.nodeDB[path]
 	if ok {
 		d.server.RUnlock()
-
-		// Overwrite uid & gid values with those of the root in the userns.
-		if file, ok := (*node).(*File); ok {
-			file.attr.Uid = rootUid
-			file.attr.Gid = rootGid
-		} else if dir, ok := (*node).(*Dir); ok {
-			dir.attr.Uid = rootUid
-			dir.attr.Gid = rootGid
-		}
-
 		return *node, nil
 	}
 	d.server.RUnlock()
