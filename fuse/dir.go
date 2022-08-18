@@ -81,7 +81,8 @@ func (d *Dir) Lookup(
 	req *fuse.LookupRequest,
 	resp *fuse.LookupResponse) (fs.Node, error) {
 
-	logrus.Debugf("Requested Lookup() operation for entry %v (req ID=%#x)", req.Name, uint64(req.ID))
+	logrus.Debugf("Requested Lookup() operation for entry %v (req ID=%#x)",
+		 req.Name, uint64(req.ID))
 
 	path := filepath.Join(d.path, req.Name)
 
@@ -156,10 +157,6 @@ func (d *Dir) Lookup(
 		fuseAttrs.Gid = rootGid
 	}
 
-	// As per man fuse(4), set the attribute's cache-duration to the largest
-	// possible value to ensure getattr()s are only received once per node.
-	fuseAttrs.Valid = time.Duration(AttribCacheTimeout)
-
 	var newNode fs.Node
 
 	// Create a new file/dir entry associated to the received os.FileInfo.
@@ -170,13 +167,12 @@ func (d *Dir) Lookup(
 		newNode = NewFile(req.Name, path, &fuseAttrs, d.File.server)
 	}
 
-	// Insert new fs node into nodeDB.
 	d.server.Lock()
 	d.server.nodeDB[path] = &newNode
 	d.server.Unlock()
 
 	// Adjust response to carry the largest dentry-cache-timeout value
-	// to reduce lookups() to the minimum.
+	// possible to reduce lookups() to the minimum.
 	resp.EntryValid = time.Duration(DentryCacheTimeout)
 
 	return newNode, nil

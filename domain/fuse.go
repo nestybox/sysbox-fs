@@ -26,6 +26,7 @@ type FuseServerServiceIface interface {
 	CreateFuseServer(serveCntr, stateCntr ContainerIface) error
 	DestroyFuseServer(mp string) error
 	DestroyFuseService()
+	FuseServerCntrRegComplete(cntr ContainerIface) error
 }
 
 type FuseServerIface interface {
@@ -35,4 +36,6 @@ type FuseServerIface interface {
 	MountPoint() string
 	Unmount()
 	InitWait()
+	SetCntrRegComplete()
+	IsCntrRegCompleted() bool
 }

@@ -42,6 +42,7 @@ type fuseServer struct {
 	nodeDB       map[string]*fs.Node   // map to store all fs nodes, e.g. "/proc/uptime" -> File
 	root         *Dir                  // root node of fuse fs -- "/" by default
 	initDone     chan bool             // sync-up channel to alert about fuse-server's init-completion
+	cntrReg      bool                  // flag to track the container's registration state
 	service      *FuseServerService    // backpointer to parent service
 }
 
@@ -237,4 +238,12 @@ func (s *fuseServer) ContainerGID() uint32 {
 	}
 
 	return s.containerGid
+}
+
+func (s *fuseServer) SetCntrRegComplete() {
+	s.cntrReg = true
+}
+
+func (s *fuseServer) IsCntrRegCompleted() bool {
+	return s.cntrReg
 }

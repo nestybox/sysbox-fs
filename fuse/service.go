@@ -177,3 +177,23 @@ func (fss *FuseServerService) DestroyFuseServer(cntrId string) error {
 
 	return nil
 }
+
+func (fss *FuseServerService) FuseServerCntrRegComplete(cntr domain.ContainerIface) error {
+
+	cntrId := cntr.ID()
+
+	// Ensure fuse-server to eliminate is present.
+	fss.RLock()
+	srv, ok := fss.serversMap[cntrId]
+	if !ok {
+		fss.RUnlock()
+		logrus.Errorf("FuseServer to update is not present for container id %s",
+			cntrId)
+		return nil
+	}
+	fss.RUnlock()
+
+	srv.SetCntrRegComplete()
+
+	return nil
+}

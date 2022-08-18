@@ -85,6 +85,22 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 		a.Gid = f.server.ContainerGID()
 	}
 
+	// As per man fuse(4), here we set the attribute's cache-duration to the
+	// largest possible value to ensure getattr()s are only received once per
+	// node. Notice that this behavior can be only enforced once the container
+	// is fully initialized as we don't want interim node attrs (i.e., during
+	// registration the container's uid/gid attrs are temporarily absent) to
+	// be permanently recorded in the FUSE nodes DB. By setting this value to
+	// zero during container initialization, we are slowing this process down
+	// (around 1/3rd extra file-ops), but that's the price to pay to be able
+	// to offer a consistent experience: users will always see the proper
+	// node attrs, regardless of the timing of the incoming file-ops.
+	if !f.server.IsCntrRegCompleted() {
+		a.Valid = time.Duration(0)
+	} else {
+		a.Valid = time.Duration(AttribCacheTimeout)
+	}
+
 	return nil
 }
 
