@@ -42,6 +42,7 @@ type container struct {
 	uidSize         uint32                      // Uid range size
 	gidFirst        uint32                      // first value of Gid range (host side)
 	gidSize         uint32                      // Gid range size
+	regCompleted    bool                        // registration completion flag
 	procRoPaths     []string                    // OCI spec read-only proc paths
 	procMaskPaths   []string                    // OCI spec masked proc paths
 	mountInfoParser domain.MountInfoParserIface // Per container mountinfo DB & parser
