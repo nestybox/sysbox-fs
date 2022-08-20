@@ -1,5 +1,5 @@
 //
-// Copyright 2022 Nestybox, Inc.
+// Copyright 2019-2022 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,12 +31,15 @@ import (
 //
 // /sys/kernel handler
 //
-// The following sysfs nodes are exposed in order to satisfy applications that expect
-// these resources to be present (and accessible) in the system -- these nodes would
-// appear as 'nobody:nogroup' when queried from a process that is hosted within a
-// non-init user-ns. Having said that, be aware that the emulation being provided
-// as part of this handler is very shallow: we are simply exposing these nodes, no
-// inner content is displayed for security / isolation purposes.
+// The following sysfs nodes are emulated to ensure that they are exposed within sys
+// containers regardless of the system's kernel configuration in place (i.e., they
+// are absent in systems where configfs, debugfs and tracefs kernel modules are
+// dissabled). Moreover, even if these modules were to be loaded, their associated
+// sysfs nodes would still appear as 'nobody:nogroup' as they are being accessed by
+// process hosted within a non-init user-ns. Having said that, be aware that, as of
+// today, the emulation provided as part of this handler is quite shallow: we are
+// simply exposing these nodes with the proper permissions, no actual content is
+// displayed within these folders for security / isolation purposes.
 //
 // Emulated resources:
 //
@@ -48,8 +51,8 @@ import (
 //
 // Finally, notice that in this case we are not relying on the "passthrough" handler
 // to access the "/sys/kernel" file hierarchy through nsenter() into the container's
-// namespaces. In this case we are accessing the files directly through the host's
-// sysfs. This approach is feasible due to the global / system-wide nature of sysfs.
+// namespaces. Rather, we are accessing the files directly through the host's sysfs.
+// This approach is feasible due to the global / system-wide nature of /sys/kernel.
 //
 
 type SysKernel struct {
@@ -167,7 +170,7 @@ func (h *SysKernel) Read(
 		return 0, nil
 	}
 
-	return readFsDirect(h, n, req.Offset, &req.Data)
+	return readHostFs(h, n, req.Offset, &req.Data)
 }
 
 func (h *SysKernel) Write(
@@ -195,7 +198,7 @@ func (h *SysKernel) Write(
 		return 0, nil
 	}
 
-	return writeFsDirect(h, n, req.Offset, req.Data)
+	return writeHostFs(h, n, req.Offset, req.Data)
 }
 
 func (h *SysKernel) ReadDirAll(
@@ -209,21 +212,22 @@ func (h *SysKernel) ReadDirAll(
 
 	var fileEntries []os.FileInfo
 
-	// Obtain relative path to the element being read.
+	// Obtain relative path to the node being readdir().
 	relpath, err := filepath.Rel(h.Path, n.Path())
 	if err != nil {
 		return nil, err
 	}
 
-	// Iterate through map of emulated components.
-	for k, v := range h.EmuResourceMap {
+	var emulatedElemsAdded bool
 
+	// Create info entries for emulated components.
+	for k, v := range h.EmuResourceMap {
 		if relpath != filepath.Dir(k) {
 			continue
 		}
 
 		info := &domain.FileInfo{
-			Fname:    resource,
+			Fname:    k,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
 		}
@@ -233,12 +237,19 @@ func (h *SysKernel) ReadDirAll(
 		}
 
 		fileEntries = append(fileEntries, info)
+
+		emulatedElemsAdded = true
 	}
 
-	// Obtain the usual entries and add them to the emulated ones.
+	// Obtain the usual node entries.
 	usualEntries, err := n.ReadDirAll()
 	if err == nil {
 		fileEntries = append(fileEntries, usualEntries...)
+	}
+
+	// Uniquify entries to return.
+	if emulatedElemsAdded {
+		fileEntries = domain.FileInfoSliceUniquify(fileEntries)
 	}
 
 	return fileEntries, nil
