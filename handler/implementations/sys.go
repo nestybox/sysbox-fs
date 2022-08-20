@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2022 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package implementations
 import (
 	"os"
 	"path/filepath"
+	"fmt"
 	"sync"
 	"time"
 
@@ -120,7 +121,11 @@ func (h *Sys) ReadDirAll(
 
 	switch resource {
 	case "kernel":
-		return h.Service.GetPassThroughHandler().ReadDirAll(n, req)
+		hk, ok := h.Service.FindHandler("/sys/kernel/")
+		if !ok {
+			return nil, fmt.Errorf("handler %s not found in handlerDB", resource)
+		}
+		return hk.ReadDirAll(n, req)
 	}
 
 	return nil, nil

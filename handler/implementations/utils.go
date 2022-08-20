@@ -142,9 +142,7 @@ func readFs(
 
 // Same as above but without concurrency protection. To be utilized only when
 // reading from non-emulated nodes.
-//
-// TODO: Find a better name for this routine.
-func readFsDirect(
+func readHostFs(
 	h domain.HandlerIface,
 	n domain.IOnodeIface,
 	offset int64,
@@ -276,9 +274,7 @@ func writeToFs(curr, new []byte) (bool, error) {
 
 // Same as above but without concurrency protection. To be utilized only when
 // writing into non-emulated nodes.
-//
-// TODO: Find a better name for this routine.
-func writeFsDirect(
+func writeHostFs(
 	h domain.HandlerIface,
 	n domain.IOnodeIface,
 	offset int64,

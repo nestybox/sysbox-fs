@@ -62,3 +62,20 @@ func (c FileInfo) IsDir() bool {
 func (c FileInfo) Sys() interface{} {
 	return c.Fsys
 }
+
+// Utility function to eliminate duplicates from FileInfo slice.
+func FileInfoSliceUniquify(s []os.FileInfo) []os.FileInfo {
+	var result = []os.FileInfo{}
+
+	var keys = make(map[string]bool)
+
+	for _, info := range s {
+		fname := info.Name()
+		if _, ok := keys[fname]; !ok {
+			keys[fname] = true
+			result = append(result, info)
+		}
+	}
+
+	return result
+}
