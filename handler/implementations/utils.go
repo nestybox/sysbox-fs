@@ -124,7 +124,7 @@ func readFs(
 
 	// Read from the host FS to extract the existing value.
 	if err := n.Open(); err != nil {
-		logrus.Errorf("Could not open file %v", n.Path())
+		logrus.Debugf("Could not open file %v", n.Path())
 		return 0, err
 	}
 	defer n.Close()
@@ -150,7 +150,7 @@ func readHostFs(
 
 	// Read from the host FS to extract the existing value.
 	if err := n.Open(); err != nil {
-		logrus.Errorf("Could not open file %v", n.Path())
+		logrus.Debugf("Could not open file %v", n.Path())
 		return 0, err
 	}
 	defer n.Close()
