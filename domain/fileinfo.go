@@ -63,7 +63,9 @@ func (c FileInfo) Sys() interface{} {
 	return c.Fsys
 }
 
-// Utility function to eliminate duplicates from FileInfo slice.
+// Utility function to eliminate duplicates from FileInfo slice. Notice that
+// if duplicated elements are present, the first one is left untouched while
+// the subsequent ones are eliminated.
 func FileInfoSliceUniquify(s []os.FileInfo) []os.FileInfo {
 	var result = []os.FileInfo{}
 

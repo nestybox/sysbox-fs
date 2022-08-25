@@ -177,28 +177,11 @@ func (h *SysKernel) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
-	if req.Offset != 0 {
-		return 0, nil
-	}
-
-	switch resource {
-
-	case "config":
-		return 0, nil
-
-	case "debug":
-		return 0, nil
-
-	case "tracing":
-		return 0, nil
-	}
-
-	return writeHostFs(h, n, req.Offset, req.Data)
+	// No write() access is allowed within "/sys/kernel" file hierarchy.
+	return 0, nil
 }
 
 func (h *SysKernel) ReadDirAll(
