@@ -71,6 +71,7 @@ const (
 type EmuResource struct {
 	Kind    EmuResourceType
 	Mode    os.FileMode
+	Size    int64
 	Enabled bool
 	Mutex   sync.Mutex
 }
@@ -136,4 +137,6 @@ type HandlerServiceIface interface {
 	// Auxiliar methods.
 	HostUserNsInode() Inode
 	FindUserNsInode(pid uint32) (Inode, error)
+	HostUuid() string
+	FindHostUuid() (string, error)
 }

@@ -19,6 +19,8 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"sync"
 
@@ -30,12 +32,10 @@ import (
 	iradix "github.com/hashicorp/go-immutable-radix"
 )
 
-//
 // Slice of sysbox-fs' default handlers and the respective paths where they
 // apply. Notice that the path associated to the pass-through handler is
 // symbolic as this one can be invoked from within any of the other handlers,
 // regardless of the FS location where they operate.
-//
 var DefaultHandlers = []domain.HandlerIface{
 	implementations.PassThrough_Handler,                    // *
 	implementations.Root_Handler,                           // /
@@ -79,6 +79,9 @@ type handlerService struct {
 
 	// Represents the user-namespace inode of the host's true-root.
 	hostUserNsInode domain.Inode
+
+	// Holds value of the host's UUID.
+	hostUuid string
 
 	// Passthrough handler.
 	passThroughHandler domain.HandlerIface
@@ -127,6 +130,12 @@ func (hs *handlerService) Setup(
 		logrus.Fatalf("Invalid init user-namespace found")
 	}
 	hs.hostUserNsInode = hostUserNsInode
+
+	// Obtain the host's UUID value.
+	hs.hostUuid, err = hs.FindHostUuid()
+	if err != nil {
+		logrus.Fatalf("Unable to determine the host UUID value")
+	}
 }
 
 func (hs *handlerService) RegisterHandler(h domain.HandlerIface) error {
@@ -312,4 +321,25 @@ func (hs *handlerService) FindUserNsInode(pid uint32) (domain.Inode, error) {
 	}
 
 	return userNsInode, nil
+}
+
+func (hs *handlerService) HostUuid() string {
+	return hs.hostUuid
+}
+
+func (hs *handlerService) FindHostUuid() (string, error) {
+
+	hostUuid, err := ioutil.ReadFile("/sys/devices/virtual/dmi/id/product_uuid")
+
+	// Careful here: a missing 'product_uuid' is a perfectly valid scenario.
+	// Refer to 'handler/implementations/sysDevicesVirtualDmiId.go' for details.
+	if err != nil && err != io.EOF {
+		if os.IsNotExist(err) {
+			hostUuid = []byte("00000000-0000-0000-0000-000000000000")
+		} else {
+			return "", err
+		}
+	}
+
+	return string(hostUuid), nil
 }
