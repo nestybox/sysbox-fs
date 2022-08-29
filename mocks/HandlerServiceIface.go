@@ -63,6 +63,27 @@ func (_m *HandlerServiceIface) FindHandler(s string) (domain.HandlerIface, bool)
 	return r0, r1
 }
 
+// FindHostUuid provides a mock function with given fields:
+func (_m *HandlerServiceIface) FindHostUuid() (string, error) {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindUserNsInode provides a mock function with given fields: pid
 func (_m *HandlerServiceIface) FindUserNsInode(pid uint32) (uint64, error) {
 	ret := _m.Called(pid)
@@ -125,6 +146,20 @@ func (_m *HandlerServiceIface) HostUserNsInode() uint64 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
+// HostUuid provides a mock function with given fields:
+func (_m *HandlerServiceIface) HostUuid() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

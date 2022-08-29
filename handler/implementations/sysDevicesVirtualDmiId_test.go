@@ -24,70 +24,112 @@ import (
 	"github.com/nestybox/sysbox-fs/handler/implementations"
 )
 
-func TestSysDevicesVirtualDmiIdProductUuid_generateProductUuid(t *testing.T) {
+func TestSysDevicesVirtualDmiId_CreateCntrUuid(t *testing.T) {
 	type fields struct {
 		HandlerBase domain.HandlerBase
 	}
 	var f1 = fields{
 		domain.HandlerBase{
-			Name: "SysDevicesVirtualDmiId",
-			Path: "/sys/devices/virtual/dmi/id",
+			Name:    "SysDevicesVirtualDmiId",
+			Path:    "/sys/devices/virtual/dmi/id",
+			Service: hds,
 		},
 	}
 
-	var c1 = css.ContainerCreate(
-		"012345678901",
-		uint32(1001),
-		time.Time{},
-		231072,
-		65535,
-		231072,
-		65535,
-		nil,
-		nil,
-		nil,
-	)
-
-	var c2 = css.ContainerCreate(
-		"0123",
-		uint32(1001),
-		time.Time{},
-		231072,
-		65535,
-		231072,
-		65535,
-		nil,
-		nil,
-		nil,
-	)
-
 	type args struct {
-		hostUuid string
-		cntr     domain.ContainerIface
+		cntr domain.ContainerIface
 	}
+
+	var a1 = args{
+		cntr: css.ContainerCreate(
+			"012345678901",
+			uint32(1001),
+			time.Time{},
+			231072,
+			65535,
+			231072,
+			65535,
+			nil,
+			nil,
+			nil,
+		),
+	}
+
+	var a2 = args{
+		cntr: css.ContainerCreate(
+			"0123",
+			uint32(1001),
+			time.Time{},
+			231072,
+			65535,
+			231072,
+			65535,
+			nil,
+			nil,
+			nil,
+		),
+	}
+
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   string
+		name    string
+		fields  fields
+		args    args
+		want    string
+		prepare func()
 	}{
-		// Expected product_uuid and contr-id lengths.
-		{"1", f1, args{"abcdefgh-ijkl-mnop-qrst-uvwxyz123456", c1}, "abcdefgh-ijkl-mnop-qrst-012345678901"},
-
-		// Shorter than expected cntr-id. Padding expected.
-		{"2", f1, args{"abcdefgh-ijkl-mnop-qrst-uvwxyz123456", c2}, "abcdefgh-ijkl-mnop-qrst-012300000000"},
-
-		// Shorter than expected product_uuid. Padding expected.
-		{"3", f1, args{"abcdefgh-bogus-", c1}, "abcdefgh-bogus-000000000012345678901"},
+		{
+			// Test-case 1: Proper product_uuid and and full cntr-id length.
+			name:   "1",
+			fields: f1,
+			args:   a1,
+			want:   "abcdefgh-ijkl-mnop-qrst-012345678901",
+			prepare: func() {
+				hds.On("HostUuid").Return("abcdefgh-ijkl-mnop-qrst-uvwxyz123456")
+			},
+		},
+		{
+			// Test-case 2: Proper product_uuid and partial cntr-id length.
+			name:   "2",
+			fields: f1,
+			args:   a2,
+			want:   "abcdefgh-ijkl-mnop-qrst-012300000000",
+			prepare: func() {
+				hds.On("HostUuid").Return("abcdefgh-ijkl-mnop-qrst-uvwxyz123456")
+			},
+		},
+		{
+			// Test-case 3: Missing product_uuid and full cntr-id length.
+			name:   "3",
+			fields: f1,
+			args:   a1,
+			want:   "00000000-0000-0000-0000-012345678901",
+			prepare: func() {
+				hds.On("HostUuid").Return("00000000-0000-0000-0000-000000000000")
+			},
+		},
 	}
+
+	//
+	// Testcase executions.
+	//
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &implementations.SysDevicesVirtualDmiId{
 				HandlerBase: tt.fields.HandlerBase,
 			}
-			if got := h.GenerateProductUuid(tt.args.hostUuid, tt.args.cntr); got != tt.want {
-				t.Errorf("SysDevicesVirtualDmiIdProductUuid.generateProductUuid() = %v, want %v", got, tt.want)
+
+			// Prepare the mocks.
+			if tt.prepare != nil {
+				tt.prepare()
 			}
+
+			if got := h.CreateCntrUuid(tt.args.cntr); got != tt.want {
+				t.Errorf("SysDevicesVirtualDmiId_createCntrUuid() = %v, want %v", got, tt.want)
+			}
+
+			// Ensure that mocks were properly invoked and reset expectedCalls
+			// object.
+			hds.ExpectedCalls = nil
 		})
 	}
 }
