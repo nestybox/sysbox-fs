@@ -316,7 +316,7 @@ func (h *SysDevicesVirtualDmiId) readProductUuid(
 	if req.Offset == 0 && sz == 0 && err == io.EOF {
 		// Create an artificial (but consistent) container uuid value and store it
 		// in cache.
-		cntrUuid := h.createCntrUuid(cntr)
+		cntrUuid := h.CreateCntrUuid(cntr)
 
 		req.Data = []byte(cntrUuid + "\n")
 		err = cntr.SetData(path, 0, req.Data)
@@ -328,7 +328,8 @@ func (h *SysDevicesVirtualDmiId) readProductUuid(
 	return len(req.Data), nil
 }
 
-func (h *SysDevicesVirtualDmiId) createCntrUuid(cntr domain.ContainerIface) string {
+// Method is public exclusively for unit-testing purposes.
+func (h *SysDevicesVirtualDmiId) CreateCntrUuid(cntr domain.ContainerIface) string {
 
 	hostUuid := h.Service.HostUuid()
 	hostUuidPref := hostUuid[:timeFieldLen-1]
