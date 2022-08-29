@@ -42,6 +42,20 @@ func (_m *FuseServerIface) InitWait() {
 	_m.Called()
 }
 
+// IsCntrRegCompleted provides a mock function with given fields:
+func (_m *FuseServerIface) IsCntrRegCompleted() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // MountPoint provides a mock function with given fields:
 func (_m *FuseServerIface) MountPoint() string {
 	ret := _m.Called()
@@ -68,6 +82,11 @@ func (_m *FuseServerIface) Run() error {
 	}
 
 	return r0
+}
+
+// SetCntrRegComplete provides a mock function with given fields:
+func (_m *FuseServerIface) SetCntrRegComplete() {
+	_m.Called()
 }
 
 // Unmount provides a mock function with given fields:
