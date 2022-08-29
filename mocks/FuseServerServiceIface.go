@@ -45,8 +45,30 @@ func (_m *FuseServerServiceIface) DestroyFuseService() {
 	_m.Called()
 }
 
+// FuseServerCntrRegComplete provides a mock function with given fields: cntr
+func (_m *FuseServerServiceIface) FuseServerCntrRegComplete(cntr domain.ContainerIface) error {
+	ret := _m.Called(cntr)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(domain.ContainerIface) error); ok {
+		r0 = rf(cntr)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Setup provides a mock function with given fields: mp, css, ios, hds
 func (_m *FuseServerServiceIface) Setup(mp string, css domain.ContainerStateServiceIface, ios domain.IOServiceIface, hds domain.HandlerServiceIface) error {
-	_m.Called(mp, css, ios, hds)
-	return nil
+	ret := _m.Called(mp, css, ios, hds)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, domain.ContainerStateServiceIface, domain.IOServiceIface, domain.HandlerServiceIface) error); ok {
+		r0 = rf(mp, css, ios, hds)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }

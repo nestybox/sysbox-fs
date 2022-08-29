@@ -390,6 +390,9 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 
 				c1.service.MountService().(*mocks.MountServiceIface).On(
 					"NewMountInfoParser", c1, c1.initProc, true, true, true).Return(nil, nil)
+
+				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
+					"FuseServerCntrRegComplete", c1).Return(nil)
 			},
 		},
 		{
@@ -420,6 +423,9 @@ func Test_containerStateService_ContainerRegister(t *testing.T) {
 
 				css.MountService().(*mocks.MountServiceIface).On(
 					"NewMountInfoParser", c3, c3.initProc, true, true, true).Return(nil, nil)
+
+				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
+					"FuseServerCntrRegComplete", c3).Return(nil)
 			},
 		},
 	}
