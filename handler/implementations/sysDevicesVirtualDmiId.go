@@ -60,7 +60,7 @@ import (
 // * The last 12 characters will be extracted from the container ID field.
 //
 // In scenarios where no UUID is available for a given host (e.g., vm launched
-// without kvm's --uuid parameter), no reference 'product_uuid' file will be
+// without qemu's --uuid parameter), no reference 'product_uuid' file will be
 // found at the host level, so in this case we will set the first 24 characters
 // of each container's UUID to zero.
 //
