@@ -42,10 +42,8 @@ var DentryCacheTimeout int64 = 0x7fffffffffffffff
 // to man fuse(4) for details.
 var AttribCacheTimeout int64 = 0x7fffffffffffffff
 
-//
 // Dir struct serves as a FUSE-friendly abstraction to represent directories
 // present in the host FS.
-//
 type Dir struct {
 	//
 	// Underlying File struct representing each directory.
@@ -61,28 +59,24 @@ type Dir struct {
 	//
 }
 
-//
 // NewDir method serves as Dir constructor.
-//
-func NewDir(name string, path string, attr *fuse.Attr, srv *fuseServer) *Dir {
+func NewDir(req *domain.HandlerRequest, attr *fuse.Attr, srv *fuseServer) *Dir {
 
 	newDir := &Dir{
-		File: *NewFile(name, path, attr, srv),
+		File: *NewFile(req, attr, srv),
 	}
 
 	return newDir
 }
 
-//
 // Lookup FS operation.
-//
 func (d *Dir) Lookup(
 	ctx context.Context,
 	req *fuse.LookupRequest,
 	resp *fuse.LookupResponse) (fs.Node, error) {
 
 	logrus.Debugf("Requested Lookup() operation for entry %v (req ID=%#x)",
-		 req.Name, uint64(req.ID))
+		req.Name, uint64(req.ID))
 
 	path := filepath.Join(d.path, req.Name)
 
@@ -120,8 +114,10 @@ func (d *Dir) Lookup(
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
 	}
 
-	request := &domain.HandlerRequest{
+	handlerReq := &domain.HandlerRequest{
 		ID:        uint64(req.ID),
+		Name:      req.Name,
+		Path:      path,
 		Pid:       req.Pid,
 		Uid:       req.Uid,
 		Gid:       req.Gid,
@@ -129,7 +125,7 @@ func (d *Dir) Lookup(
 	}
 
 	// Handler execution.
-	info, err := handler.Lookup(ionode, request)
+	info, err := handler.Lookup(ionode, handlerReq)
 	if err != nil {
 		return nil, fuse.ENOENT
 	}
@@ -146,14 +142,11 @@ func (d *Dir) Lookup(
 		return nil, err
 	}
 
-	// Override the uid & gid attributes with the root uid & gid in the
-	// requester's user-ns if, and only if, these ones have not been
-	// explicitly set to match the special maxUid/MaxGid values (refer to
-	// sysKernel for details).
-	if fuseAttrs.Uid != domain.MaxUid {
+	// Override the uid & gid attributes with the root uid & gid in the requester's
+	// user-ns if, and only if, these ones have not been explicitly banned from
+	// being remapped.
+	if !handlerReq.SkipIdRemap {
 		fuseAttrs.Uid = rootUid
-	}
-	if fuseAttrs.Gid != domain.MaxGid {
 		fuseAttrs.Gid = rootGid
 	}
 
@@ -162,9 +155,9 @@ func (d *Dir) Lookup(
 	// Create a new file/dir entry associated to the received os.FileInfo.
 	if info.IsDir() {
 		fuseAttrs.Mode |= os.ModeDir
-		newNode = NewDir(req.Name, path, &fuseAttrs, d.File.server)
+		newNode = NewDir(handlerReq, &fuseAttrs, d.File.server)
 	} else {
-		newNode = NewFile(req.Name, path, &fuseAttrs, d.File.server)
+		newNode = NewFile(handlerReq, &fuseAttrs, d.File.server)
 	}
 
 	d.server.Lock()
@@ -178,9 +171,7 @@ func (d *Dir) Lookup(
 	return newNode, nil
 }
 
-//
 // Open FS operation.
-//
 func (d *Dir) Open(
 	ctx context.Context,
 	req *fuse.OpenRequest,
@@ -202,9 +193,7 @@ func (d *Dir) Open(
 	return d, nil
 }
 
-//
 // Create FS operation.
-//
 func (d *Dir) Create(
 	ctx context.Context,
 	req *fuse.CreateRequest,
@@ -234,8 +223,10 @@ func (d *Dir) Create(
 		return nil, nil, fmt.Errorf("No supported handler for %v resource", path)
 	}
 
-	request := &domain.HandlerRequest{
+	handlerReq := &domain.HandlerRequest{
 		ID:        uint64(req.ID),
+		Name:      req.Name,
+		Path:      path,
 		Pid:       req.Pid,
 		Uid:       req.Uid,
 		Gid:       req.Gid,
@@ -244,7 +235,7 @@ func (d *Dir) Create(
 
 	// Handler execution. 'Open' handler will create new element if requesting
 	// process has the proper credentials / capabilities.
-	err := handler.Open(ionode, request)
+	err := handler.Open(ionode, handlerReq)
 	if err != nil && err != io.EOF {
 		logrus.Debugf("Open() error: %v", err)
 		return nil, nil, err
@@ -253,7 +244,7 @@ func (d *Dir) Create(
 
 	// To satisfy Bazil FUSE lib we are expected to return a lookup-response
 	// and an open-response, let's start with the lookup() one.
-	info, err := handler.Lookup(ionode, request)
+	info, err := handler.Lookup(ionode, handlerReq)
 	if err != nil {
 		return nil, nil, fuse.ENOENT
 	}
@@ -265,7 +256,7 @@ func (d *Dir) Create(
 	resp.EntryValid = time.Duration(DentryCacheTimeout)
 
 	var newNode fs.Node
-	newNode = NewFile(req.Name, path, &fuseAttrs, d.File.server)
+	newNode = NewFile(handlerReq, &fuseAttrs, d.File.server)
 
 	// Insert new fs node into nodeDB.
 	d.server.Lock()
@@ -275,9 +266,7 @@ func (d *Dir) Create(
 	return newNode, newNode, nil
 }
 
-//
 // ReadDirAll FS operation.
-//
 func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dirent, error) {
 
 	var children []fuse.Dirent
@@ -303,7 +292,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 		return nil, fmt.Errorf("No supported handler for %v resource", d.path)
 	}
 
-	request := &domain.HandlerRequest{
+	handlerReq := &domain.HandlerRequest{
 		ID:        uint64(req.ID),
 		Pid:       req.Pid,
 		Uid:       req.Uid,
@@ -312,7 +301,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 	}
 
 	// Handler execution.
-	files, err := handler.ReadDirAll(ionode, request)
+	files, err := handler.ReadDirAll(ionode, handlerReq)
 	if err != nil {
 		logrus.Debugf("ReadDirAll() error: %v", err)
 		return nil, fuse.ENOENT
@@ -344,9 +333,7 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 	return children, nil
 }
 
-//
 // Mkdir FS operation.
-//
 func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error) {
 
 	logrus.Debugf("Requested Mkdir() on directory %v (Req ID=%#v)", req.Name, uint64(req.ID))
@@ -360,14 +347,18 @@ func (d *Dir) Mkdir(ctx context.Context, req *fuse.MkdirRequest) (fs.Node, error
 	}
 
 	path := filepath.Join(d.path, req.Name)
-	newDir := NewDir(req.Name, path, &fuse.Attr{}, d.File.server)
+
+	handlerReq := &domain.HandlerRequest{
+		Name: req.Name,
+		Path: path,
+	}
+
+	newDir := NewDir(handlerReq, &fuse.Attr{}, d.File.server)
 
 	return newDir, nil
 }
 
-//
 // Forget FS operation.
-//
 func (d *Dir) Forget() {
 
 	d.File.Forget()

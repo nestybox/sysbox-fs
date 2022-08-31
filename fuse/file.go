@@ -41,28 +41,28 @@ type File struct {
 	// File attributes.
 	attr *fuse.Attr
 
+	// Skip remapping uid/gid values.
+	skipIdRemap bool
+
 	// Pointer to parent fuseService hosting this file/dir.
 	server *fuseServer
 }
 
-//
 // NewFile method serves as File constructor.
-//
-func NewFile(name string, path string, attr *fuse.Attr, srv *fuseServer) *File {
+func NewFile(req *domain.HandlerRequest, attr *fuse.Attr, srv *fuseServer) *File {
 
 	newFile := &File{
-		name:   name,
-		path:   path,
-		attr:   attr,
-		server: srv,
+		name:        req.Name,
+		path:        req.Path,
+		attr:        attr,
+		skipIdRemap: req.SkipIdRemap,
+		server:      srv,
 	}
 
 	return newFile
 }
 
-//
 // Attr FS operation.
-//
 func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 
 	logrus.Debugf("Requested Attr() operation for entry %v", f.path)
@@ -77,11 +77,13 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 	// from the sys container's one if request is originated from an L2 container.
 	// Also, this will help us to support "unshare -U -m --mount-proc" inside a
 	// sys container.
-	if a.Uid == 0 {
+	//
+	// Notice, that in certain cases we may want to skip this uid/gid remapping
+	// process for certain nodes if its associated handler requests so.
+	if a.Uid == 0 && !f.skipIdRemap {
 		a.Uid = f.server.ContainerUID()
 	}
-
-	if a.Gid == 0 {
+	if a.Gid == 0 && !f.skipIdRemap {
 		a.Gid = f.server.ContainerGID()
 	}
 
@@ -104,9 +106,7 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 	return nil
 }
 
-//
 // Open FS operation.
-//
 func (f *File) Open(
 	ctx context.Context,
 	req *fuse.OpenRequest,
@@ -133,7 +133,7 @@ func (f *File) Open(
 		return nil, fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
-	request := &domain.HandlerRequest{
+	handlerReq := &domain.HandlerRequest{
 		ID:        uint64(req.ID),
 		Pid:       req.Pid,
 		Uid:       req.Uid,
@@ -142,7 +142,7 @@ func (f *File) Open(
 	}
 
 	// Handler execution.
-	err := handler.Open(ionode, request)
+	err := handler.Open(ionode, handlerReq)
 	if err != nil && err != io.EOF {
 		logrus.Debugf("Open() error: %v", err)
 		return nil, err
@@ -167,9 +167,7 @@ func (f *File) Open(
 	return f, nil
 }
 
-//
 // Release FS operation.
-//
 func (f *File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 
 	logrus.Debugf("Requested Release() operation for entry %v (Req ID=%#v)",
@@ -200,9 +198,7 @@ func (f *File) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
 	return nil
 }
 
-//
 // Read FS operation.
-//
 func (f *File) Read(
 	ctx context.Context,
 	req *fuse.ReadRequest,
@@ -228,7 +224,7 @@ func (f *File) Read(
 		return fmt.Errorf("No supported handler for %v resource", f.path)
 	}
 
-	request := &domain.HandlerRequest{
+	handlerReq := &domain.HandlerRequest{
 		ID:        uint64(req.ID),
 		Pid:       req.Pid,
 		Uid:       req.Uid,
@@ -239,19 +235,17 @@ func (f *File) Read(
 	}
 
 	// Handler execution.
-	n, err := handler.Read(ionode, request)
+	n, err := handler.Read(ionode, handlerReq)
 	if err != nil && err != io.EOF {
 		logrus.Debugf("Read() error: %v", err)
 		return err
 	}
 
-	resp.Data = request.Data[:n]
+	resp.Data = handlerReq.Data[:n]
 	return nil
 }
 
-//
 // Write FS operation.
-//
 func (f *File) Write(
 	ctx context.Context,
 	req *fuse.WriteRequest,
@@ -297,9 +291,7 @@ func (f *File) Write(
 	return nil
 }
 
-//
 // Setattr FS operation.
-//
 func (f *File) Setattr(
 	ctx context.Context,
 	req *fuse.SetattrRequest,
@@ -326,9 +318,7 @@ func (f *File) Setattr(
 	return fuse.EPERM
 }
 
-//
 // Forget FS operation.
-//
 func (f *File) Forget() {
 
 	logrus.Debugf("Requested Forget() operation for entry %v", f.path)
@@ -343,28 +333,21 @@ func (f *File) Forget() {
 	delete(f.server.nodeDB, f.path)
 }
 
-//
 // Size method returns the 'size' of a File element.
-//
 func (f *File) Size() uint64 {
 	return f.attr.Size
 }
 
-//
 // Mode method returns the 'mode' of a File element.
-//
 func (f *File) Mode() os.FileMode {
 	return f.attr.Mode
 }
 
-//
 // ModTime method returns the modification-time of a File element.
-//
 func (f *File) ModTime() time.Time {
 	return f.attr.Mtime
 }
 
-//
 // convertFileInfoToFuse function translates FS node-attributes from a kernel
 // friendly DS type, to those expected by Bazil-FUSE-lib to interact with
 // FUSE-clients.
@@ -375,7 +358,6 @@ func (f *File) ModTime() time.Time {
 //
 // For reference, the attributes' format expected by Bazil-FUSE-lib are defined
 // here: bazil/fuse.go (fuse.Attr DS).
-//
 func convertFileInfoToFuse(info os.FileInfo) fuse.Attr {
 
 	var a fuse.Attr
