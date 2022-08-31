@@ -78,14 +78,17 @@ type EmuResource struct {
 
 // HandlerRequest represents a request to be processed by a handler
 type HandlerRequest struct {
-	ID        uint64
-	Pid       uint32
-	Uid       uint32
-	Gid       uint32
-	Offset    int64
-	NoCache   bool
-	Data      []byte
-	Container ContainerIface
+	ID          uint64
+	Name        string
+	Path        string
+	Pid         uint32
+	Uid         uint32
+	Gid         uint32
+	SkipIdRemap bool
+	Offset      int64
+	NoCache     bool
+	Data        []byte
+	Container   ContainerIface
 }
 
 // HandlerIface is the interface that each handler must implement

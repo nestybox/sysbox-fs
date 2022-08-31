@@ -105,7 +105,11 @@ func (s *fuseServer) Create() error {
 	attr.Mode = os.ModeDir | os.FileMode(int(0600))
 
 	// Build sysbox-fs top-most directory (root).
-	s.root = NewDir(s.path, s.path, &attr, s)
+	request := &domain.HandlerRequest{
+		Name: s.path,
+		Path: s.path,
+	}
+	s.root = NewDir(request, &attr, s)
 
 	// Initialize pending members.
 	s.nodeDB = make(map[string]*fs.Node)

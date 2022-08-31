@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -110,13 +109,12 @@ func (h *SysKernel) Lookup(
 		return nil, err
 	}
 
-	// Users should not be allowed to alter any of the sysfs nodes being exposed. To
-	// enforce this, we hard-code the node's uid/gid to a value beyond the containers
-	// uid/gid ranges so that they are displayed as "nobody:nogroup" within the sys
-	// containers (yes, this value will be always considered out-of-range, even if
-	// '--subid-range-size' knob is in place).
-	info.Sys().(*syscall.Stat_t).Uid = domain.MaxUid
-	info.Sys().(*syscall.Stat_t).Gid = domain.MaxGid
+	// Users should not be allowed to alter any of the sysfs nodes being exposed. We
+	// accomplish this by returning "nobody:nogroup" to the user during lookup() /
+	// getattr() operations. This behavior is enforced by setting the handler's
+	// SkipIdRemap value to 'true' to alert callers of the need to leave the returned
+	// uid/gid as is (uid=0, gid=0).
+	req.SkipIdRemap = true
 
 	return info, nil
 }
