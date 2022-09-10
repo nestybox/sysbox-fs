@@ -35,7 +35,7 @@ import (
 //
 // Handler for all non-emulated resources. It does a simple "passthrough" of the
 // access by entering all the namespaces of the process that is doing the I/O
-// operation and performs this one on behalf of it.
+// operation and performs the access on behalf of it.
 //
 // Currently, this handler serves non-emulated resources within the /proc/sys
 // subtree, but there's nothing specific to this path in this handler's

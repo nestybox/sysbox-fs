@@ -39,8 +39,9 @@ import (
 var DefaultHandlers = []domain.HandlerIface{
 	implementations.PassThrough_Handler,                    // *
 	implementations.Root_Handler,                           // /
-	implementations.Proc_Handler,                           // /proc
-	implementations.ProcSys_Handler,                        // /proc/sys/
+	implementations.ProcUptime_Handler,                     // /proc/uptime
+	implementations.ProcSwaps_Handler,                      // /proc/swaps
+	implementations.ProcSys_Handler,                        // /proc/sys
 	implementations.ProcSysFs_Handler,                      // /proc/sys/fs
 	implementations.ProcSysKernel_Handler,                  // /proc/sys/kernel
 	implementations.ProcSysKernelYama_Handler,              // /proc/sys/kernel/yama
@@ -51,8 +52,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.ProcSysNetNetfilter_Handler,            // /proc/sys/net/netfilter
 	implementations.ProcSysNetUnix_Handler,                 // /proc/sys/net/unix
 	implementations.ProcSysVm_Handler,                      // /proc/sys/vm
-	implementations.Sys_Handler,                            // /sys
-	implementations.SysKernel_Handler,                      // /sys/kernel/
+	implementations.SysKernel_Handler,                      // /sys/kernel
 	implementations.SysDevicesVirtual_Handler,              // /sys/devices/virtual
 	implementations.SysDevicesVirtualDmi_Handler,           // /sys/devices/virtual/dmi
 	implementations.SysDevicesVirtualDmiId_Handler,         // /sys/devices/virtual/dmi/id

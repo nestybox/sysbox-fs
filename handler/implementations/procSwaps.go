@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2022 Nestybox, Inc.
+// Copyright 2019-2020 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,41 +17,39 @@
 package implementations
 
 import (
-	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
-// /sys handler
+// /proc/swaps handler
 //
 
-type Sys struct {
+// /proc/swaps static header
+var swapsHeader = "Filename                                Type            Size    Used    Priority"
+
+type ProcSwaps struct {
 	domain.HandlerBase
 }
 
-var Sys_Handler = &Sys{
+var ProcSwaps_Handler = &ProcSwaps{
 	domain.HandlerBase{
-		Name:    "Sys",
-		Path:    "/sys",
+		Name:    "ProcSwaps",
+		Path:    "/proc/swaps",
 		Enabled: true,
-		EmuResourceMap: map[string]*domain.EmuResource{
-			"kernel": {
-				Kind:    domain.DirEmuResource,
-				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
-				Enabled: true,
-			},
-		},
 	},
 }
 
-func (h *Sys) Lookup(
+func (h *ProcSwaps) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
@@ -60,46 +58,44 @@ func (h *Sys) Lookup(
 	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
-	// Return an artificial fileInfo if looked-up element matches any of the
-	// emulated components.
-	if v, ok := h.EmuResourceMap[resource]; ok {
-		info := &domain.FileInfo{
-			Fname:    resource,
-			Fmode:    v.Mode,
-			FmodTime: time.Now(),
-		}
-
-		if v.Kind == domain.DirEmuResource {
-			info.FisDir = true
-		}
-
-		return info, nil
+	info := &domain.FileInfo{
+		Fname:    resource,
+		Fmode:    os.FileMode(uint32(0444)),
+		FmodTime: time.Now(),
+		FisDir:   false,
 	}
 
-	return n.Stat()
+	return info, nil
 }
 
-func (h *Sys) Open(
+func (h *ProcSwaps) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
+	flags := n.OpenFlags()
+
+	if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
+		flags&syscall.O_RDWR == syscall.O_RDWR {
+		return fuse.IOerror{Code: syscall.EACCES}
+	}
+
 	return nil
 }
 
-func (h *Sys) Read(
+func (h *ProcSwaps) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
-	return 0, nil
+	return h.readSwaps(n, req)
 }
 
-func (h *Sys) Write(
+func (h *ProcSwaps) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
@@ -109,7 +105,7 @@ func (h *Sys) Write(
 	return 0, nil
 }
 
-func (h *Sys) ReadDirAll(
+func (h *ProcSwaps) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
@@ -118,39 +114,30 @@ func (h *Sys) ReadDirAll(
 	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
-	switch resource {
-	case "kernel":
-		hk, ok := h.Service.FindHandler("/sys/kernel/")
-		if !ok {
-			return nil, fmt.Errorf("handler %s not found in handlerDB", resource)
-		}
-		return hk.ReadDirAll(n, req)
-	}
-
 	return nil, nil
 }
 
-func (h *Sys) GetName() string {
+func (h *ProcSwaps) GetName() string {
 	return h.Name
 }
 
-func (h *Sys) GetPath() string {
+func (h *ProcSwaps) GetPath() string {
 	return h.Path
 }
 
-func (h *Sys) GetService() domain.HandlerServiceIface {
+func (h *ProcSwaps) GetService() domain.HandlerServiceIface {
 	return h.Service
 }
 
-func (h *Sys) GetEnabled() bool {
+func (h *ProcSwaps) GetEnabled() bool {
 	return h.Enabled
 }
 
-func (h *Sys) SetEnabled(b bool) {
+func (h *ProcSwaps) SetEnabled(b bool) {
 	h.Enabled = b
 }
 
-func (h *Sys) GetResourcesList() []string {
+func (h *ProcSwaps) GetResourcesList() []string {
 
 	var resources []string
 
@@ -168,7 +155,7 @@ func (h *Sys) GetResourcesList() []string {
 	return resources
 }
 
-func (h *Sys) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
+func (h *ProcSwaps) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
 	resource, ok := h.EmuResourceMap[n.Name()]
 	if !ok {
 		return nil
@@ -177,6 +164,25 @@ func (h *Sys) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
 	return &resource.Mutex
 }
 
-func (h *Sys) SetService(hs domain.HandlerServiceIface) {
+func (h *ProcSwaps) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
+}
+
+func (h *ProcSwaps) readSwaps(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (int, error) {
+
+	logrus.Debugf("Executing %v Read() method", h.Name)
+
+	if req.Offset > 0 {
+		return 0, io.EOF
+	}
+
+	// Pretend swapping is off
+	//
+	// TODO: fix this once Sysbox intercepts the swapon() and swapoff() syscalls.
+
+	req.Data = []byte(swapsHeader + "\n")
+
+	return len(req.Data), nil
 }
