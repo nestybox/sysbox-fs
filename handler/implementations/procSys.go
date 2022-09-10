@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2022 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/nestybox/sysbox-fs/domain"
 
@@ -27,11 +28,10 @@ import (
 )
 
 //
-// /proc/sys/ handler
+// /proc/sys handler
 //
-// Currently just a thin wrapper over the pass-through handler to serve accesses
-// to the content of the "/proc/sys/" folder. The "/proc/sys" node itself is
-// served as part of the "proc" handler.
+// Handles all accesses to /proc/sys. Currently just a thin wrapper over the
+// pass-through handler.
 //
 
 type ProcSys struct {
@@ -41,8 +41,15 @@ type ProcSys struct {
 var ProcSys_Handler = &ProcSys{
 	domain.HandlerBase{
 		Name:    "ProcSys",
-		Path:    "/proc/sys/",
+		Path:    "/proc/sys",
 		Enabled: true,
+		EmuResourceMap: map[string]*domain.EmuResource{
+			".": {
+				Kind:    domain.DirEmuResource,
+				Mode:    os.ModeDir | os.FileMode(uint32(0555)),
+				Enabled: true,
+			},
+		},
 	},
 }
 
@@ -52,6 +59,30 @@ func (h *ProcSys) Lookup(
 
 	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
+
+	relpath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return nil, err
+	}
+
+	var resource = relpath
+
+	if v, ok := h.EmuResourceMap[resource]; ok {
+		if resource == "." {
+			resource = "kernel"
+		}
+		info := &domain.FileInfo{
+			Fname:    resource,
+			Fmode:    v.Mode,
+			FmodTime: time.Now(),
+		}
+
+		if v.Kind == domain.DirEmuResource {
+			info.FisDir = true
+		}
+
+		return info, nil
+	}
 
 	return h.Service.GetPassThroughHandler().Lookup(n, req)
 }

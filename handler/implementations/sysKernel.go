@@ -30,28 +30,26 @@ import (
 //
 // /sys/kernel handler
 //
-// The following sysfs nodes are emulated to ensure that they are exposed within sys
-// containers regardless of the system's kernel configuration in place (i.e., they
-// are absent in systems where configfs, debugfs and tracefs kernel modules are
-// dissabled). Moreover, even if these modules were to be loaded, their associated
-// sysfs nodes would still appear as 'nobody:nogroup' as they are being accessed by
-// process hosted within a non-init user-ns. Having said that, be aware that, as of
-// today, the emulation provided as part of this handler is quite shallow: we are
-// simply exposing these nodes with the proper permissions, no actual content is
-// displayed within these folders for security / isolation purposes.
+// The following dirs are emulated within /sys/kernel directory to ensure that
+// they are exposed within sys containers regardless of the system's kernel
+// configuration in place (i.e., they are absent in systems where configfs,
+// debugfs and tracefs kernel modules are dissabled). Moreover, even if these
+// modules were to be loaded, their associated sysfs nodes would still appear as
+// 'nobody:nogroup' as they are being accessed by process hosted within a
+// non-init user-ns. By virtue of emulating them, we expose them with proper
+// permissions.
 //
 // Emulated resources:
 //
 // * /sys/kernel/config
-//
 // * /sys/kernel/debug
-//
 // * /sys/kernel/tracing
 //
-// Finally, notice that in this case we are not relying on the "passthrough" handler
-// to access the "/sys/kernel" file hierarchy through nsenter() into the container's
-// namespaces. Rather, we are accessing the files directly through the host's sysfs.
-// This approach is feasible due to the global / system-wide nature of /sys/kernel.
+// Finally, notice that unlike the procSys handler, we don't rely on the
+// "passthrough" handler to access the "/sys/kernel" file hierarchy through
+// nsenter() into the container's namespaces. Rather, we are accessing the files
+// directly through the host's sysfs. This approach is feasible due to the
+// global (i.e., system-wide) nature of /sys/kernel.
 //
 
 type SysKernel struct {
@@ -61,8 +59,10 @@ type SysKernel struct {
 var SysKernel_Handler = &SysKernel{
 	domain.HandlerBase{
 		Name:    "SysKernel",
-		Path:    "/sys/kernel/",
+		Path:    "/sys/kernel",
 		Enabled: true,
+
+		// Emulated components under /sys/kernel
 		EmuResourceMap: map[string]*domain.EmuResource{
 			"config": {
 				Kind:    domain.DirEmuResource,
@@ -104,19 +104,11 @@ func (h *SysKernel) Lookup(
 		return info, nil
 	}
 
-	info, err := n.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	// Users should not be allowed to alter any of the sysfs nodes being exposed. We
-	// accomplish this by returning "nobody:nogroup" to the user during lookup() /
-	// getattr() operations. This behavior is enforced by setting the handler's
-	// SkipIdRemap value to 'true' to alert callers of the need to leave the returned
-	// uid/gid as is (uid=0, gid=0).
+	// Non-emulated files/dirs under /sys/kernel should show up without
+	// permissions inside the sysbox container.
 	req.SkipIdRemap = true
 
-	return info, nil
+	return n.Stat()
 }
 
 func (h *SysKernel) Open(
@@ -126,18 +118,13 @@ func (h *SysKernel) Open(
 	var resource = n.Name()
 
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, n.Name())
+		req.ID, h.Name, resource)
 
-	switch resource {
-
-	case "config":
-		return nil
-
-	case "debug":
-		return nil
-
-	case "tracing":
-		return nil
+	// All emulated resources are currently dummy / empty
+	for emu, _ := range h.EmuResourceMap {
+		if emu == resource {
+			return nil
+		}
 	}
 
 	return n.Open()
@@ -150,22 +137,17 @@ func (h *SysKernel) Read(
 	var resource = n.Name()
 
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, n.Name())
+		req.ID, h.Name, resource)
 
 	if req.Offset != 0 {
 		return 0, nil
 	}
 
-	switch resource {
-
-	case "config":
-		return 0, nil
-
-	case "debug":
-		return 0, nil
-
-	case "tracing":
-		return 0, nil
+	// All emulated resources are currently dummy / empty
+	for emu, _ := range h.EmuResourceMap {
+		if emu == resource {
+			return 0, nil
+		}
 	}
 
 	return readHostFs(h, n, req.Offset, &req.Data)
@@ -175,10 +157,6 @@ func (h *SysKernel) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, n.Name())
-
-	// No write() access is allowed within "/sys/kernel" file hierarchy.
 	return 0, nil
 }
 
@@ -201,7 +179,7 @@ func (h *SysKernel) ReadDirAll(
 
 	var emulatedElemsAdded bool
 
-	// Create info entries for emulated components.
+	// Create info entries for emulated components under /sys/kernel
 	for k, v := range h.EmuResourceMap {
 		if relpath != filepath.Dir(k) {
 			continue
