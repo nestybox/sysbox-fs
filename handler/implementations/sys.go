@@ -17,9 +17,9 @@
 package implementations
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
-	"fmt"
 	"sync"
 	"time"
 
@@ -83,10 +83,8 @@ func (h *Sys) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, resource)
+		req.ID, h.Name, n.Name())
 
 	return nil
 }
@@ -95,10 +93,8 @@ func (h *Sys) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, resource)
+		req.ID, h.Name, n.Name())
 
 	return 0, nil
 }
@@ -106,6 +102,9 @@ func (h *Sys) Read(
 func (h *Sys) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
+
+	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
 
 	return 0, nil
 }

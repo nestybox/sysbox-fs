@@ -53,6 +53,8 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.ProcSysVm_Handler,                      // /proc/sys/vm
 	implementations.Sys_Handler,                            // /sys
 	implementations.SysKernel_Handler,                      // /sys/kernel/
+	implementations.SysDevicesVirtual_Handler,              // /sys/devices/virtual
+	implementations.SysDevicesVirtualDmi_Handler,           // /sys/devices/virtual/dmi
 	implementations.SysDevicesVirtualDmiId_Handler,         // /sys/devices/virtual/dmi/id
 	implementations.SysModuleNfconntrackParameters_Handler, // /sys/module/nf_conntrack/parameters
 }

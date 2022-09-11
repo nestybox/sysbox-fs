@@ -36,6 +36,13 @@ import (
 //
 // Emulated resources:
 //
+// * /sys/devices/virtual/dmi/id
+//
+// In hardware platforms with reduced (or lacking) SMBIOS support (e.g., arm64),
+// the kernel is usually built without DMI support. In these machines we must
+// explictly expose the "id" directoy as this one contains critical nodes utilized
+// by certain applications (see below).
+//
 // * /sys/devices/virtual/dmi/id/product_uuid
 //
 // The main purpose here is to allow each sys container to have a unique and
@@ -91,6 +98,12 @@ var SysDevicesVirtualDmiId_Handler = &SysDevicesVirtualDmiId{
 		Path:    "/sys/devices/virtual/dmi/id",
 		Enabled: true,
 		EmuResourceMap: map[string]*domain.EmuResource{
+			".": {
+				Kind:    domain.DirEmuResource,
+				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
+				Size:    4096,
+				Enabled: true,
+			},
 			"product_uuid": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0400)),
@@ -105,19 +118,35 @@ func (h *SysDevicesVirtualDmiId) Lookup(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (os.FileInfo, error) {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, resource)
+		req.ID, h.Name, n.Name())
+
+	relpath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return nil, err
+	}
+
+	var resource = relpath
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated components.
 	if v, ok := h.EmuResourceMap[resource]; ok {
+
+		if resource == "." {
+			resource = "id"
+			// Skip id remaps for 'id' folder node.
+			req.SkipIdRemap = true
+		}
+
 		info := &domain.FileInfo{
 			Fname:    resource,
 			Fmode:    v.Mode,
 			Fsize:    v.Size,
 			FmodTime: time.Now(),
+		}
+
+		if v.Kind == domain.DirEmuResource {
+			info.FisDir = true
 		}
 
 		return info, nil
@@ -128,11 +157,7 @@ func (h *SysDevicesVirtualDmiId) Lookup(
 		return nil, err
 	}
 
-	// Users should not be allowed to alter any of the sysfs nodes being exposed. We
-	// accomplish this by returning "nobody:nogroup" to the user during lookup() /
-	// getattr() operations. This behavior is enforced by setting the handler's
-	// SkipIdRemap value to 'true' to alert callers of the need to leave the returned
-	// uid/gid as is (uid=0, gid=0).
+	// Skip id remaps for all other (non-emulated) resources.
 	req.SkipIdRemap = true
 
 	return info, nil
@@ -142,14 +167,22 @@ func (h *SysDevicesVirtualDmiId) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) error {
 
-	var resource = n.Name()
-
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, resource)
+		req.ID, h.Name, n.Name())
+
+	relpath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return err
+	}
+
+	var resource = relpath
 
 	flags := n.OpenFlags()
 
 	switch resource {
+
+	case ".":
+		return nil
 
 	case "product_uuid":
 		if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
@@ -195,12 +228,13 @@ func (h *SysDevicesVirtualDmiId) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	var resource = n.Name()
+	var (
+		fileEntries        []os.FileInfo
+		emulatedElemsAdded bool
+	)
 
 	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
-		req.ID, h.Name, resource)
-
-	var fileEntries []os.FileInfo
+		req.ID, h.Name, n.Name())
 
 	// Obtain relative path to the node being readdir().
 	relpath, err := filepath.Rel(h.Path, n.Path())
@@ -208,10 +242,12 @@ func (h *SysDevicesVirtualDmiId) ReadDirAll(
 		return nil, err
 	}
 
-	var emulatedElemsAdded bool
-
 	// Create info entries for emulated components.
 	for k, v := range h.EmuResourceMap {
+		if k == "." {
+			continue
+		}
+
 		if relpath != filepath.Dir(k) {
 			continue
 		}
