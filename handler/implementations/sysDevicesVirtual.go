@@ -51,7 +51,6 @@ var SysDevicesVirtual_Handler = &SysDevicesVirtual{
 			"dmi": {
 				Kind:    domain.DirEmuResource,
 				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
-				Size:    4096,
 				Enabled: true,
 			},
 		},
@@ -92,12 +91,7 @@ func (h *SysDevicesVirtual) Lookup(
 		return info, nil
 	}
 
-	info, err := n.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	return info, nil
+	return n.Stat()
 }
 
 func (h *SysDevicesVirtual) Open(
