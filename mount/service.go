@@ -20,6 +20,20 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
+// List of sysbox-fs mountpoints within a sysbox container's procfs
+var ProcfsMounts = []string{
+	"/proc/uptime",
+	"/proc/swaps",
+	"/proc/sys",
+}
+
+// List of sysbox-fs mountpoints within a sysbox container's sysfs
+var SysfsMounts = []string{
+	"/sys/kernel",
+	"/sys/devices/virtual",
+	"/sys/module/nf_conntrack/parameters",
+}
+
 type MountService struct {
 	mh  *mountHelper                      // mountHelper instance for mount-clients
 	css domain.ContainerStateServiceIface // for container-state interactions

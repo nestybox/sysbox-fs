@@ -17,7 +17,6 @@
 package mount
 
 import (
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -45,38 +44,10 @@ type mountHelper struct {
 func newMountHelper(svc *MountService) *mountHelper {
 
 	info := &mountHelper{
-		mapMounts: make(map[string]struct{}),
-		service:   svc,
-	}
-
-	resourceList := svc.hds.HandlersResourcesList()
-
-	for _, resource := range resourceList {
-		//
-		// Out of all the resources emulated by the handler package, we are
-		// only interested in those that are bind-mounted by sysbox-runc during
-		// the container initialization. These mountpoints need to be tracked
-		// here to ensure that they are handled with special care. That is:
-		//
-		// * These mountpoints must be exported (propagated) in new procfs /
-		//   sysfs file-systems created within a sys container (e.g. chroot
-		//   jails, l2 containers, etc).
-		//
-		// * During the sys container initialization process, sysbox-fs must
-		//   avoid generating a request to obtain the inodes associated to
-		//   these mountpoints -- see extractAllInodes(). The goal here is to
-		//   prevent recursive i/o operations from being able to arrive to
-		//   sysbox-fs which could potentially stall its FSM.
-		//
-		if filepath.Dir(resource) == "/proc" {
-			info.procMounts = append(info.procMounts, resource)
-			info.mapMounts[resource] = struct{}{}
-		} else if resource == "/sys/kernel" ||
-			resource == "/sys/devices/virtual/dmi/id/product_uuid" ||
-			resource == "/sys/module/nf_conntrack/parameters/hashsize" {
-			info.sysMounts = append(info.sysMounts, resource)
-			info.mapMounts[resource] = struct{}{}
-		}
+		mapMounts:  make(map[string]struct{}),
+		service:    svc,
+		procMounts: ProcfsMounts,
+		sysMounts:  SysfsMounts,
 	}
 
 	// Both procMounts and sysMounts slices should be sorted (alphanumerically
