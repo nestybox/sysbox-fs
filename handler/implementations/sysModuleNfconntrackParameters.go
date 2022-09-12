@@ -48,6 +48,7 @@ var SysModuleNfconntrackParameters_Handler = &SysModuleNfconntrackParameters{
 			"hashsize": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0600)),
+				Size:    4096,
 				Enabled: true,
 			},
 		},
@@ -70,10 +71,18 @@ func (h *SysModuleNfconntrackParameters) Lookup(
 			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
+			Fsize:    v.Size,
+		}
+
+		if v.Kind == domain.DirEmuResource {
+			info.FisDir = true
 		}
 
 		return info, nil
 	}
+
+	// Users should not be allowed to alter any of the non-emulated sysfs nodes.
+	req.SkipIdRemap = true
 
 	return n.Stat()
 }
@@ -94,7 +103,17 @@ func (h *SysModuleNfconntrackParameters) Read(
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
-	return readCntrData(h, n, req)
+	if req.Offset != 0 {
+		return 0, nil
+	}
+
+	for emu, _ := range h.EmuResourceMap {
+		if emu == resource {
+			return readCntrData(h, n, req)
+		}
+	}
+
+	return readHostFs(h, n, req.Offset, &req.Data)
 }
 
 func (h *SysModuleNfconntrackParameters) Write(
@@ -106,14 +125,71 @@ func (h *SysModuleNfconntrackParameters) Write(
 	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
-	return writeCntrData(h, n, req, writeToFs)
+	if req.Offset != 0 {
+		return 0, nil
+	}
+
+	for emu, _ := range h.EmuResourceMap {
+		if emu == resource {
+			return writeCntrData(h, n, req, writeToFs)
+		}
+	}
+
+	return writeHostFs(h, n, req.Offset, req.Data)
 }
 
 func (h *SysModuleNfconntrackParameters) ReadDirAll(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) ([]os.FileInfo, error) {
 
-	return nil, nil
+	var resource = n.Name()
+
+	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, resource)
+
+	var fileEntries []os.FileInfo
+
+	// Obtain relative path to the node being readdir().
+	relpath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return nil, err
+	}
+
+	var emulatedElemsAdded bool
+
+	// Create info entries for emulated resources under /sys/module/nf_conntrack/parameters
+	for k, v := range h.EmuResourceMap {
+		if relpath != filepath.Dir(k) {
+			continue
+		}
+
+		info := &domain.FileInfo{
+			Fname:    k,
+			Fmode:    v.Mode,
+			FmodTime: time.Now(),
+		}
+
+		if v.Kind == domain.DirEmuResource {
+			info.FisDir = true
+		}
+
+		fileEntries = append(fileEntries, info)
+
+		emulatedElemsAdded = true
+	}
+
+	// Obtain the usual node entries.
+	usualEntries, err := n.ReadDirAll()
+	if err == nil {
+		fileEntries = append(fileEntries, usualEntries...)
+	}
+
+	// Uniquify entries to return.
+	if emulatedElemsAdded {
+		fileEntries = domain.FileInfoSliceUniquify(fileEntries)
+	}
+
+	return fileEntries, nil
 }
 
 func (h *SysModuleNfconntrackParameters) GetName() string {
