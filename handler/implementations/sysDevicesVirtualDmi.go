@@ -58,13 +58,11 @@ var SysDevicesVirtualDmi_Handler = &SysDevicesVirtualDmi{
 			".": {
 				Kind:    domain.DirEmuResource,
 				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
-				Size:    4096,
 				Enabled: true,
 			},
 			"id": {
 				Kind:    domain.DirEmuResource,
 				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
-				Size:    4096,
 				Enabled: true,
 			},
 		},
@@ -113,12 +111,7 @@ func (h *SysDevicesVirtualDmi) Lookup(
 		return info, nil
 	}
 
-	info, err := n.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	return info, nil
+	return n.Stat()
 }
 
 func (h *SysDevicesVirtualDmi) Open(
@@ -240,14 +233,29 @@ func (h *SysDevicesVirtualDmi) GetResourcesList() []string {
 		}
 		resource.Mutex.Unlock()
 
-		resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+		// Resource name must be adjusted to account for the presence of the "dmi"
+		// directory (i.e., ".") as one of the emulated resources.
+		if resourceKey == "." {
+			resources = append(resources, h.Path)
+		} else {
+			resources = append(resources, filepath.Join(h.GetPath(), resourceKey))
+		}
 	}
 
 	return resources
 }
 
 func (h *SysDevicesVirtualDmi) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
-	resource, ok := h.EmuResourceMap[n.Name()]
+
+	// Resource name must be adjusted to account for the possibility of caller asking
+	// for the "dmi" directory itself (i.e., "." resource).
+	relpath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return nil
+	}
+	var node = relpath
+
+	resource, ok := h.EmuResourceMap[node]
 	if !ok {
 		return nil
 	}
