@@ -383,9 +383,9 @@ func (m *mountSyscallInfo) createSysPayload(
 	// If sysfs has a read-only attribute at super-block level, we must also
 	// apply this to the new mountpoint (otherwise we will get a permission
 	// denied from the kernel when doing the mount).
-	procInfo := mip.GetInfo("/sys")
-	if procInfo != nil {
-		if _, ok := procInfo.VfsOptions["ro"]; ok {
+	sysInfo := mip.GetInfo("/sys")
+	if sysInfo != nil {
+		if _, ok := sysInfo.VfsOptions["ro"]; ok {
 			payload[0].Flags |= unix.MS_RDONLY
 		}
 	}
