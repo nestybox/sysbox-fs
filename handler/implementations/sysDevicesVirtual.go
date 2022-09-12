@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2022 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,10 +32,10 @@ import (
 //
 // * /sys/devices/virtual/dmi
 //
-// In hardware platforms with reduced (or lacking) SMBIOS support (e.g., arm64),
-// the kernel is usually built without DMI support. In these machines we must
-// explictly expose the "dmi" directoy as this one contains folders with critical
-// nodes utilized by certain applications (see below).
+// In hardware platforms with reduced (or lacking) SMBIOS/DMI support (e.g., arm64),
+// the "/sys/devices/virtual/dmi" path hierarchy is absent. In consequence, Sysbox
+// must explictly expose the "dmi" directoy as this one contains critical system
+// nodes utilized by certain applications.
 //
 
 type SysDevicesVirtual struct {
@@ -48,12 +48,6 @@ var SysDevicesVirtual_Handler = &SysDevicesVirtual{
 		Path:    "/sys/devices/virtual",
 		Enabled: true,
 		EmuResourceMap: map[string]*domain.EmuResource{
-			".": {
-				Kind:    domain.DirEmuResource,
-				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
-				Size:    4096,
-				Enabled: true,
-			},
 			"dmi": {
 				Kind:    domain.DirEmuResource,
 				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
@@ -71,12 +65,7 @@ func (h *SysDevicesVirtual) Lookup(
 	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
-	relpath, err := filepath.Rel(h.Path, n.Path())
-	if err != nil {
-		return nil, err
-	}
-
-	var resource = relpath
+	var resource = n.Name()
 
 	// Users should not be allowed to alter any of the sysfs nodes being exposed. We
 	// accomplish this by returning "nobody:nogroup" to the user during lookup() /
@@ -88,10 +77,6 @@ func (h *SysDevicesVirtual) Lookup(
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated components.
 	if v, ok := h.EmuResourceMap[resource]; ok {
-
-		if resource == "." {
-			resource = "virtual"
-		}
 
 		info := &domain.FileInfo{
 			Fname:    resource,

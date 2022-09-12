@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2022 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,10 +38,10 @@ import (
 //
 // * /sys/devices/virtual/dmi/id
 //
-// In hardware platforms with reduced (or lacking) SMBIOS support (e.g., arm64),
-// the kernel is usually built without DMI support. In these machines we must
-// explictly expose the "id" directoy as this one contains critical nodes utilized
-// by certain applications (see below).
+// In hardware platforms with reduced (or lacking) SMBIOS/DMI support (e.g., arm64),
+// the "/sys/devices/virtual/dmi/id" path hierarchy is absent. In consequence, Sysbox
+// must explictly expose the "dmi" directoy as this one contains critical system
+// nodes utilized by certain applications (see below).
 //
 // * /sys/devices/virtual/dmi/id/product_uuid
 //
@@ -134,7 +134,7 @@ func (h *SysDevicesVirtualDmiId) Lookup(
 
 		if resource == "." {
 			resource = "id"
-			// Skip id remaps for 'id' folder node.
+			// Skip uid/gid remaps for 'id' folder node.
 			req.SkipIdRemap = true
 		}
 
@@ -157,7 +157,7 @@ func (h *SysDevicesVirtualDmiId) Lookup(
 		return nil, err
 	}
 
-	// Skip id remaps for all other (non-emulated) resources.
+	// Skip uid/gid remaps for all other (non-emulated) resources.
 	req.SkipIdRemap = true
 
 	return info, nil
