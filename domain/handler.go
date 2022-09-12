@@ -40,10 +40,11 @@ type HandlerBase struct {
 	// Camel-case representation of every handler path.
 	Name string
 
-	// Full FS path of the node being served by every handler.
+	// Abs path of the resource emulated by the handler.
 	Path string
 
-	// Map of resources served within every handler.
+	// Map of additional resources emulated by the handler (e.g., for handlers
+	// emulating directories, these would list any subdirs that they emulate).
 	EmuResourceMap map[string]*EmuResource
 
 	Enabled bool
