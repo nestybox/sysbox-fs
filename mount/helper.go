@@ -17,9 +17,9 @@
 package mount
 
 import (
-	"sort"
 	"strings"
 
+	libutils "github.com/nestybox/sysbox-libs/utils"
 	"golang.org/x/sys/unix"
 )
 
@@ -50,10 +50,10 @@ func newMountHelper(svc *MountService) *mountHelper {
 		sysMounts:  SysfsMounts,
 	}
 
-	// Both procMounts and sysMounts slices should be sorted (alphanumerically
-	// in this case), for mount / umount operations to succeed.
-	sort.Sort(sort.StringSlice(info.procMounts))
-	sort.Sort(sort.StringSlice(info.sysMounts))
+	// Sort proc and sys mounts hierarchically in case later mounts depend on
+	// earlier ones.
+	libutils.FilepathSort(info.procMounts)
+	libutils.FilepathSort(info.sysMounts)
 
 	//
 	// Initialize a flagsMap to help in "/proc/pid/mountHelper" parsing. Note that
