@@ -20,14 +20,26 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
-// List of sysbox-fs mountpoints within a sysbox container's procfs
+// List of sysbox-fs mountpoints within a sysbox container's procfs and sysfs.
+//
+// These mountpoints need to be tracked here to ensure that they are handled
+// with special care. That is:
+//
+// * These mountpoints must be exposed in new procfs / sysfs file-systems
+//   created within a sys container (e.g. chroot jails, l2 containers, etc).
+//
+// * During the sys container initialization process, sysbox-fs must avoid
+//   generating a request to obtain the inodes associated to these mountpoints
+//   -- see extractAllInodes(). The goal here is to prevent recursive i/o
+//   operations from being able to arrive to sysbox-fs which could potentially
+//   stall its FSM.
+
 var ProcfsMounts = []string{
 	"/proc/uptime",
 	"/proc/swaps",
 	"/proc/sys",
 }
 
-// List of sysbox-fs mountpoints within a sysbox container's sysfs
 var SysfsMounts = []string{
 	"/sys/kernel",
 	"/sys/devices/virtual",

@@ -105,7 +105,11 @@ func (h *SysKernel) Lookup(
 	}
 
 	// Non-emulated files/dirs under /sys/kernel should show up without
-	// permissions inside the sysbox container.
+	// permissions inside the sysbox container. We accomplish this by returning
+	// "nobody:nogroup" to the user during lookup() / getattr() operations. This
+	// behavior is enforced by setting the handler's SkipIdRemap value to 'true'
+	// to alert callers of the need to leave the returned uid/gid as is (uid=0,
+	// gid=0).
 	req.SkipIdRemap = true
 
 	return n.Stat()
@@ -121,10 +125,13 @@ func (h *SysKernel) Open(
 		req.ID, h.Name, resource)
 
 	// All emulated resources are currently dummy / empty
-	for emu, _ := range h.EmuResourceMap {
-		if emu == resource {
-			return nil
-		}
+	switch resource {
+	case "config":
+		return nil
+	case "debug":
+		return nil
+	case "tracing":
+		return nil
 	}
 
 	return n.Open()
@@ -144,10 +151,13 @@ func (h *SysKernel) Read(
 	}
 
 	// All emulated resources are currently dummy / empty
-	for emu, _ := range h.EmuResourceMap {
-		if emu == resource {
-			return 0, nil
-		}
+	switch resource {
+	case "config":
+		return 0, nil
+	case "debug":
+		return 0, nil
+	case "tracing":
+		return 0, nil
 	}
 
 	return readHostFs(h, n, req.Offset, &req.Data)

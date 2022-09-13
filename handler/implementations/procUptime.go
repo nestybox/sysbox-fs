@@ -60,7 +60,6 @@ func (h *ProcUptime) Lookup(
 		Fname:    resource,
 		Fmode:    os.FileMode(uint32(0444)),
 		FmodTime: time.Now(),
-		FisDir:   false,
 	}
 
 	return info, nil
