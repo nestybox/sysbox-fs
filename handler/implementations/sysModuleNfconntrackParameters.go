@@ -107,10 +107,9 @@ func (h *SysModuleNfconntrackParameters) Read(
 		return 0, nil
 	}
 
-	for emu, _ := range h.EmuResourceMap {
-		if emu == resource {
-			return readCntrData(h, n, req)
-		}
+	switch resource {
+	case "hashsize":
+		return readCntrData(h, n, req)
 	}
 
 	return readHostFs(h, n, req.Offset, &req.Data)
@@ -129,10 +128,9 @@ func (h *SysModuleNfconntrackParameters) Write(
 		return 0, nil
 	}
 
-	for emu, _ := range h.EmuResourceMap {
-		if emu == resource {
-			return writeCntrData(h, n, req, writeToFs)
-		}
+	switch resource {
+	case "hashsize":
+		return writeCntrData(h, n, req, writeToFs)
 	}
 
 	return writeHostFs(h, n, req.Offset, req.Data)
