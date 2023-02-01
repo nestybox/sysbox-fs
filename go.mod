@@ -16,6 +16,9 @@ require (
 	github.com/nestybox/sysbox-libs/libseccomp-golang v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/pidfd v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/utils v0.0.0-00010101000000-000000000000
+	github.com/nestybox/sysbox-libs/idShiftUtils v0.0.0-00010101000000-000000000000
+	github.com/nestybox/sysbox-libs/mount v0.0.0-00010101000000-000000000000
+	github.com/nestybox/sysbox-libs/overlayUtils v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
 	github.com/pkg/profile v1.5.0
 	github.com/sirupsen/logrus v1.7.0
@@ -49,6 +52,10 @@ replace github.com/nestybox/sysbox-libs/capability => ../sysbox-libs/capability
 replace github.com/nestybox/sysbox-libs/formatter => ../sysbox-libs/formatter
 
 replace github.com/nestybox/sysbox-libs/idShiftUtils => ../sysbox-libs/idShiftUtils
+
+replace github.com/nestybox/sysbox-libs/overlayUtils => ../sysbox-libs/overlayUtils
+
+replace github.com/nestybox/sysbox-libs/mount => ../sysbox-libs/mount
 
 replace github.com/opencontainers/runc => ./../sysbox-runc
 
