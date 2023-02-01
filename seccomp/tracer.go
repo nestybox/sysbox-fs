@@ -28,8 +28,8 @@ import (
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
 	"github.com/nestybox/sysbox-libs/formatter"
 	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
+	linuxUtils "github.com/nestybox/sysbox-libs/linuxUtils"
 	libpidfd "github.com/nestybox/sysbox-libs/pidfd"
-	libutils "github.com/nestybox/sysbox-libs/utils"
 	"golang.org/x/sys/unix"
 
 	"github.com/sirupsen/logrus"
@@ -170,7 +170,7 @@ func newSyscallTracer(sms *SyscallMonitorService) *syscallTracer {
 	}
 
 	// Seccomp-fd's unused notification feature is provided by kernel starting with v5.8.
-	cmp, err := libutils.KernelCurrentVersionCmp(5, 8)
+	cmp, err := linuxUtils.KernelCurrentVersionCmp(5, 8)
 	if err != nil {
 		logrus.Warnf("Seccomp-tracer initialization error: unable to parse kernel string (%v).",
 			err)
@@ -570,7 +570,7 @@ func (t *syscallTracer) processMount(
 	source := parsedArgs[0]
 	target := parsedArgs[1]
 	fstype := parsedArgs[2]
-	data   := parsedArgs[3]
+	data := parsedArgs[3]
 
 	mount := &mountSyscallInfo{
 		syscallCtx: syscallCtx{
@@ -785,8 +785,8 @@ func (t *syscallTracer) processFchownat(
 
 	// Get the other args.
 	dirFd := int32(req.Data.Args[0])
-	uid   := int64(req.Data.Args[2])
-	gid   := int64(req.Data.Args[3])
+	uid := int64(req.Data.Args[2])
+	gid := int64(req.Data.Args[3])
 	flags := int(req.Data.Args[4])
 
 	chown := &chownSyscallInfo{

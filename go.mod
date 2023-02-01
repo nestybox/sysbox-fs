@@ -14,51 +14,40 @@ require (
 	github.com/nestybox/sysbox-libs/capability v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/formatter v0.0.0-20210709231355-1ea69f2f6dbb
 	github.com/nestybox/sysbox-libs/libseccomp-golang v0.0.0-00010101000000-000000000000
+	github.com/nestybox/sysbox-libs/linuxUtils v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/pidfd v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/utils v0.0.0-00010101000000-000000000000
-	github.com/nestybox/sysbox-libs/idShiftUtils v0.0.0-00010101000000-000000000000
-	github.com/nestybox/sysbox-libs/mount v0.0.0-00010101000000-000000000000
-	github.com/nestybox/sysbox-libs/overlayUtils v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
 	github.com/pkg/profile v1.5.0
-	github.com/sirupsen/logrus v1.7.0
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/afero v1.4.1
 	github.com/stretchr/objx v0.3.0 // indirect
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli v1.22.5
 	github.com/vishvananda/netlink v1.1.0
-	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
 	google.golang.org/grpc v1.34.1
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/hlandau/service.v1 v1.0.7
 )
 
-replace github.com/nestybox/sysbox-ipc => ../sysbox-ipc
-
-replace github.com/nestybox/sysbox-runc => ../sysbox-runc
-
-replace github.com/nestybox/sysbox-libs/utils => ../sysbox-libs/utils
-
-replace github.com/nestybox/sysbox-libs/dockerUtils => ../sysbox-libs/dockerUtils
-
-replace github.com/nestybox/sysbox-libs/libseccomp-golang => ../sysbox-libs/libseccomp-golang
-
-replace github.com/nestybox/sysbox-libs/pidmonitor => ../sysbox-libs/pidmonitor
-
-replace github.com/nestybox/sysbox-libs/pidfd => ../sysbox-libs/pidfd
-
-replace github.com/nestybox/sysbox-libs/capability => ../sysbox-libs/capability
-
-replace github.com/nestybox/sysbox-libs/formatter => ../sysbox-libs/formatter
-
-replace github.com/nestybox/sysbox-libs/idShiftUtils => ../sysbox-libs/idShiftUtils
-
-replace github.com/nestybox/sysbox-libs/overlayUtils => ../sysbox-libs/overlayUtils
-
-replace github.com/nestybox/sysbox-libs/mount => ../sysbox-libs/mount
-
-replace github.com/opencontainers/runc => ./../sysbox-runc
-
-replace bazil.org/fuse => ./bazil
-
-replace github.com/godbus/dbus => github.com/godbus/dbus/v5 v5.0.3
+replace (
+	github.com/nestybox/sysbox-ipc => ../sysbox-ipc
+	github.com/nestybox/sysbox-runc => ../sysbox-runc
+	github.com/nestybox/sysbox-libs/utils => ../sysbox-libs/utils
+	github.com/nestybox/sysbox-libs/linuxUtils => ../sysbox-libs/linuxUtils
+	github.com/nestybox/sysbox-libs/dockerUtils => ../sysbox-libs/dockerUtils
+	github.com/nestybox/sysbox-libs/libseccomp-golang => ../sysbox-libs/libseccomp-golang
+	github.com/nestybox/sysbox-libs/pidmonitor => ../sysbox-libs/pidmonitor
+	github.com/nestybox/sysbox-libs/pidfd => ../sysbox-libs/pidfd
+	github.com/nestybox/sysbox-libs/capability => ../sysbox-libs/capability
+	github.com/nestybox/sysbox-libs/formatter => ../sysbox-libs/formatter
+	github.com/nestybox/sysbox-libs/idShiftUtils => ../sysbox-libs/idShiftUtils
+	github.com/nestybox/sysbox-libs/overlayUtils => ../sysbox-libs/overlayUtils
+	github.com/nestybox/sysbox-libs/mount => ../sysbox-libs/mount
+	github.com/nestybox/sysbox-libs/shiftfs => ../sysbox-libs/shiftfs
+	github.com/nestybox/sysbox-libs/idMap => ../sysbox-libs/idMap
+	github.com/opencontainers/runc => ./../sysbox-runc
+	bazil.org/fuse => ./bazil
+	github.com/godbus/dbus => github.com/godbus/dbus/v5 v5.0.3
+)
