@@ -35,7 +35,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
-	github.com/docker/docker v20.10.2+incompatible // indirect
+	github.com/docker/docker v20.10.24+incompatible // indirect
 	github.com/godbus/dbus/v5 v5.0.3 // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
