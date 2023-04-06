@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2022 Nestybox, Inc.
+// Copyright 2019-2023 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,17 +33,23 @@ import (
 // The following dirs are emulated within /sys/kernel directory to ensure that
 // they are exposed within sys containers regardless of the system's kernel
 // configuration in place (i.e., they are absent in systems where configfs,
-// debugfs and tracefs kernel modules are dissabled). Moreover, even if these
+// debugfs and tracefs kernel modules are disabled). Moreover, even if these
 // modules were to be loaded, their associated sysfs nodes would still appear as
 // 'nobody:nogroup' as they are being accessed by process hosted within a
 // non-init user-ns. By virtue of emulating them, we expose them with proper
 // permissions.
+//
+// We are also including "/sys/kernel/security" dir as part of the emulated
+// resources to ensure that system-wide security-related details are not exposed
+// within sysbox containers. In the future, we could expose specific nodes within
+// this hierarchy if we see a need for it.
 //
 // Emulated resources:
 //
 // * /sys/kernel/config
 // * /sys/kernel/debug
 // * /sys/kernel/tracing
+// * /sys/kernel/security
 //
 // Finally, notice that unlike the procSys handler, we don't rely on the
 // "passthrough" handler to access the "/sys/kernel" file hierarchy through
@@ -77,6 +83,11 @@ var SysKernel_Handler = &SysKernel{
 			"tracing": {
 				Kind:    domain.DirEmuResource,
 				Mode:    os.ModeDir | os.FileMode(uint32(0700)),
+				Enabled: true,
+			},
+			"security": {
+				Kind:    domain.DirEmuResource,
+				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
 				Enabled: true,
 			},
 		},
@@ -132,6 +143,8 @@ func (h *SysKernel) Open(
 		return nil
 	case "tracing":
 		return nil
+	case "security":
+		return nil
 	}
 
 	return n.Open()
@@ -157,6 +170,8 @@ func (h *SysKernel) Read(
 	case "debug":
 		return 0, nil
 	case "tracing":
+		return 0, nil
+	case "security":
 		return 0, nil
 	}
 
@@ -189,7 +204,7 @@ func (h *SysKernel) ReadDirAll(
 
 	var emulatedElemsAdded bool
 
-	// Create info entries for emulated components under /sys/kernel
+	// Create info entries for emulated components under /sys/kernel.
 	for k, v := range h.EmuResourceMap {
 		if relpath != filepath.Dir(k) {
 			continue

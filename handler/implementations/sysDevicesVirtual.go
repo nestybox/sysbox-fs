@@ -34,7 +34,7 @@ import (
 //
 // In hardware platforms with reduced (or lacking) SMBIOS/DMI support (e.g., arm64),
 // the "/sys/devices/virtual/dmi" path hierarchy is absent. In consequence, Sysbox
-// must explictly expose the "dmi" directoy as this one contains critical system
+// must explicitly expose the "dmi" directory as this one contains critical system
 // nodes utilized by certain applications.
 //
 
