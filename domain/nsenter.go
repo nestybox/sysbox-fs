@@ -106,6 +106,7 @@ type NSenterServiceIface interface {
 	NewEvent(
 		pid uint32,
 		ns *[]NStype,
+		cloneFlags uint32,
 		req *NSenterMessage,
 		res *NSenterMessage,
 		async bool) NSenterEventIface
@@ -160,29 +161,39 @@ type NSenterMsgHeader struct {
 }
 
 type LookupPayload struct {
-	Entry string `json:"entry"`
+	Entry       string `json:"entry"`
+	MountSysfs  bool   `json:mountSysfs`
+	MountProcfs bool   `json:mountProcfs`
 }
 
 type OpenFilePayload struct {
-	File  string `json:"file"`
-	Flags string `json:"flags"`
-	Mode  string `json:"mode"`
+	File        string `json:"file"`
+	Flags       string `json:"flags"`
+	Mode        string `json:"mode"`
+	MountSysfs  bool   `json:mountSysfs`
+	MountProcfs bool   `json:mountProcfs`
 }
 
 type ReadFilePayload struct {
-	File   string `json:"file"`
-	Offset int64  `json:"offset"`
-	Len    int    `json:"len"`
+	File        string `json:"file"`
+	Offset      int64  `json:"offset"`
+	Len         int    `json:"len"`
+	MountSysfs  bool   `json:mountSysfs`
+	MountProcfs bool   `json:mountProcfs`
 }
 
 type WriteFilePayload struct {
-	File   string `json:"file"`
-	Offset int64  `json:"offset"`
-	Data   []byte `json:"data"`
+	File        string `json:"file"`
+	Offset      int64  `json:"offset"`
+	Data        []byte `json:"data"`
+	MountSysfs  bool   `json:mountSysfs`
+	MountProcfs bool   `json:mountProcfs`
 }
 
 type ReadDirPayload struct {
-	Dir string `json:"dir"`
+	Dir         string `json:"dir"`
+	MountSysfs  bool   `json:mountSysfs`
+	MountProcfs bool   `json:mountProcfs`
 }
 
 type MountSyscallPayload struct {

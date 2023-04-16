@@ -380,6 +380,7 @@ func (u *umountSyscallInfo) processUmount(
 	event := nss.NewEvent(
 		u.syscallCtx.pid,
 		&domain.AllNSs,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.UmountSyscallRequest,
 			Payload: payload,

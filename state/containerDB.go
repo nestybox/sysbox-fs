@@ -245,6 +245,8 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 		return grpcStatus.Errorf(grpcCodes.NotFound, err.Error(), cntr.id)
 	}
 
+	currCntr.SetRegistrationCompleted()
+
 	css.Unlock()
 
 	logrus.Infof("Container registration completed: %v", cntr.string())

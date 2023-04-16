@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -28,19 +29,20 @@ import (
 	"github.com/nestybox/sysbox-fs/fuse"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 //
 // Pass-through handler
 //
-// Handler for all non-emulated resources. It does a simple "passthrough" of the
-// access by entering all the namespaces of the process that is doing the I/O
-// operation and performs the access on behalf of it.
-//
-// Currently, this handler serves non-emulated resources within the /proc/sys
-// subtree, but there's nothing specific to this path in this handler's
-// implementation (see that the Path attribute is set to "*"), so this one could
-// be utilized for pass-through operations in other subtrees too.
+// Handler for all non-emulated resources under /proc/sys or /sys. It does a
+// simple "passthrough" of the access by entering the namespaces of the
+// container process that is doing the I/O operation and performs the access on
+// behalf of it. It enters the namespaces by dispatching an "nsenter agent"
+// process that enters the namespaces, performs the filesystem operation, and
+// returns the result.  Note that the nsenter agent does NOT enter the mount
+// namespace of the container process, to avoid a recursion of sysbox-fs mounts
+// /proc/sys and /sys.
 //
 
 type PassThrough struct {
@@ -62,15 +64,20 @@ func (h *PassThrough) Lookup(
 	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
+	mountSysfs, mountProcfs, cloneFlags := checkProcAndSysRemount(n)
+
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
 		&domain.AllNSsButMount,
+		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.LookupRequest,
 			Payload: &domain.LookupPayload{
-				Entry: n.Path(),
+				Entry:       n.Path(),
+				MountSysfs:  mountSysfs,
+				MountProcfs: mountProcfs,
 			},
 		},
 		nil,
@@ -101,17 +108,22 @@ func (h *PassThrough) Open(
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
+	mountSysfs, mountProcfs, cloneFlags := checkProcAndSysRemount(n)
+
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
 		&domain.AllNSsButMount,
+		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
 			Payload: &domain.OpenFilePayload{
-				File:  n.Path(),
-				Flags: strconv.Itoa(n.OpenFlags()),
-				Mode:  strconv.Itoa(int(n.OpenMode())),
+				File:        n.Path(),
+				Flags:       strconv.Itoa(n.OpenFlags()),
+				Mode:        strconv.Itoa(int(n.OpenMode())),
+				MountSysfs:  mountSysfs,
+				MountProcfs: mountProcfs,
 			},
 		},
 		nil,
@@ -270,15 +282,20 @@ func (h *PassThrough) ReadDirAll(
 	logrus.Debugf("Executing ReadDirAll() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
+	mountSysfs, mountProcfs, cloneFlags := checkProcAndSysRemount(n)
+
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
 		&domain.AllNSsButMount,
+		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.ReadDirRequest,
 			Payload: &domain.ReadDirPayload{
-				Dir: n.Path(),
+				Dir:         n.Path(),
+				MountSysfs:  mountSysfs,
+				MountProcfs: mountProcfs,
 			},
 		},
 		nil,
@@ -317,17 +334,22 @@ func (h *PassThrough) Setattr(
 	logrus.Debugf("Executing Setattr() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
+	mountSysfs, mountProcfs, cloneFlags := checkProcAndSysRemount(n)
+
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
 		&domain.AllNSsButMount,
+		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
 			Payload: &domain.OpenFilePayload{
-				File:  n.Path(),
-				Flags: strconv.Itoa(n.OpenFlags()),
-				Mode:  strconv.Itoa(int(n.OpenMode())),
+				File:        n.Path(),
+				Flags:       strconv.Itoa(n.OpenFlags()),
+				Mode:        strconv.Itoa(int(n.OpenMode())),
+				MountSysfs:  mountSysfs,
+				MountProcfs: mountProcfs,
 			},
 		},
 		nil,
@@ -356,18 +378,23 @@ func (h *PassThrough) fetchFile(
 	offset int64,
 	data *[]byte) (int, error) {
 
+	mountSysfs, mountProcfs, cloneFlags := checkProcAndSysRemount(n)
+
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 
 	event := nss.NewEvent(
 		process.Pid(),
 		&domain.AllNSsButMount,
+		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.ReadFileRequest,
 			Payload: &domain.ReadFilePayload{
-				File:   n.Path(),
-				Offset: offset,
-				Len:    len(*data),
+				File:        n.Path(),
+				Offset:      offset,
+				Len:         len(*data),
+				MountSysfs:  mountSysfs,
+				MountProcfs: mountProcfs,
 			},
 		},
 		nil,
@@ -399,18 +426,23 @@ func (h *PassThrough) pushFile(
 	offset int64,
 	data []byte) (int, error) {
 
+	mountSysfs, mountProcfs, cloneFlags := checkProcAndSysRemount(n)
+
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
 
 	event := nss.NewEvent(
 		process.Pid(),
 		&domain.AllNSsButMount,
+		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.WriteFileRequest,
 			Payload: &domain.WriteFilePayload{
-				File:   n.Path(),
-				Offset: offset,
-				Data:   data,
+				File:        n.Path(),
+				Offset:      offset,
+				Data:        data,
+				MountSysfs:  mountSysfs,
+				MountProcfs: mountProcfs,
 			},
 		},
 		nil,
@@ -482,4 +514,35 @@ func (h *PassThrough) GetResourceMutex(n domain.IOnodeIface) *sync.Mutex {
 
 func (h *PassThrough) SetService(hs domain.HandlerServiceIface) {
 	h.Service = hs
+}
+
+// checkProcAndSysRemount checks if the nsenter agent deployed by the passthrough handler
+// should remount procfs and sysfs.
+func checkProcAndSysRemount(n domain.IOnodeIface) (bool, bool, uint32) {
+	var (
+		mountSysfs  bool
+		mountProcfs bool
+		cloneFlags  uint32
+	)
+
+	// The nsenter agent will enter the namespaces of the container (except the
+	// mount ns to avoid a recursion with sysbox-fs). However, when accessing
+	// files under /proc or /sys, the agent needs to remount these as otherwise
+	// they won't pick up the container's assigned resources (e.g., net devices,
+	// etc). We do this by having the nsenter agent in a new mount namespace so
+	// as to not mess up mounts in the host or in the container.
+
+	if strings.HasPrefix(n.Path(), "/sys/") {
+		mountSysfs = true
+	}
+
+	if strings.HasPrefix(n.Path(), "/proc/") {
+		mountProcfs = true
+	}
+
+	if mountSysfs || mountProcfs {
+		cloneFlags = unix.CLONE_NEWNS
+	}
+
+	return mountSysfs, mountProcfs, cloneFlags
 }

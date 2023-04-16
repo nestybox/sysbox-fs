@@ -69,7 +69,7 @@ func (h *ProcSys) Lookup(
 
 	if v, ok := h.EmuResourceMap[resource]; ok {
 		if resource == "." {
-			resource = "kernel"
+			resource = "sys"
 		}
 		info := &domain.FileInfo{
 			Fname:    resource,

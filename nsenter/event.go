@@ -78,6 +78,9 @@ type NSenterEvent struct {
 	// namespace-types to attach to.
 	Namespace *[]domain.NStype `json:"namespace"`
 
+	// namepsaces to create (i.e., unshare)
+	CloneFlags uint32
+
 	// Request message to be sent.
 	ReqMsg *domain.NSenterMessage `json:"request"`
 
@@ -460,12 +463,17 @@ func (e *NSenterEvent) SendRequest() error {
 		return fmt.Errorf("Error setting socket options on nsenter pipe: %v", err)
 	}
 
-	// Obtain the FS path for all the namespaces to be nsenter'ed into, and
-	// define the associated netlink-payload to transfer to child process.
-	namespaces := e.namespacePaths()
-
 	// Create the nsenter instruction packet
 	r := nl.NewNetlinkRequest(int(libcontainer.InitMsg), 0)
+
+	// new namespaces to create
+	r.AddData(&libcontainer.Int32msg{
+		Type:  libcontainer.CloneFlagsAttr,
+		Value: e.CloneFlags,
+	})
+
+	// existing namespaces to join
+	namespaces := e.namespacePaths()
 	r.AddData(&libcontainer.Bytemsg{
 		Type:  libcontainer.NsPathsAttr,
 		Value: []byte(strings.Join(namespaces, ",")),
@@ -658,6 +666,14 @@ func (e *NSenterEvent) processLookupRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.LookupPayload)
 
+	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
+
 	// Verify if the resource being looked up is reachable and obtain FileInfo
 	// details.
 	info, err := os.Stat(payload.Entry)
@@ -698,6 +714,14 @@ func (e *NSenterEvent) processLookupRequest() error {
 func (e *NSenterEvent) processOpenFileRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.OpenFilePayload)
+
+	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
 
 	// Extract openflags from the incoming payload.
 	openFlags, err := strconv.Atoi(payload.Flags)
@@ -750,6 +774,14 @@ func (e *NSenterEvent) processFileReadRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.ReadFilePayload)
 
+	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
+
 	fd, err = os.Open(payload.File)
 	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
@@ -787,6 +819,14 @@ func (e *NSenterEvent) processFileWriteRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.WriteFilePayload)
 
+	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
+
 	fd, err = os.OpenFile(payload.File, os.O_WRONLY, 0)
 	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
@@ -817,6 +857,14 @@ func (e *NSenterEvent) processFileWriteRequest() error {
 func (e *NSenterEvent) processDirReadRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.ReadDirPayload)
+
+	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
 
 	// Perform readDir operation and return error msg should this one fail.
 	dirContent, err := ioutil.ReadDir(payload.Dir)

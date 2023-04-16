@@ -153,6 +153,7 @@ func (si *setxattrSyscallInfo) processSetxattr() (*sysResponse, error) {
 	event := nss.NewEvent(
 		si.pid,
 		&domain.AllNSsButUser,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.SetxattrSyscallRequest,
 			Payload: payload,
@@ -233,6 +234,7 @@ func (si *getxattrSyscallInfo) processGetxattr() (*sysResponse, error) {
 	event := nss.NewEvent(
 		si.pid,
 		&domain.AllNSsButUser,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.GetxattrSyscallRequest,
 			Payload: payload,
@@ -322,6 +324,7 @@ func (si *removexattrSyscallInfo) processRemovexattr() (*sysResponse, error) {
 	event := nss.NewEvent(
 		si.pid,
 		&domain.AllNSsButUser,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.RemovexattrSyscallRequest,
 			Payload: payload,
@@ -390,6 +393,7 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 	event := nss.NewEvent(
 		si.pid,
 		&domain.AllNSsButUser,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.ListxattrSyscallRequest,
 			Payload: payload,
