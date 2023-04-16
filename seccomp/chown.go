@@ -206,6 +206,7 @@ func (ci *chownSyscallInfo) processChownNSenter(nstype []domain.NStype) (*sysRes
 	event := nss.NewEvent(
 		ci.pid,
 		&nstype,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.ChownSyscallRequest,
 			Payload: chownPayload,

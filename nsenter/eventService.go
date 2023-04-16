@@ -43,17 +43,19 @@ func (s *nsenterService) Setup(
 func (s *nsenterService) NewEvent(
 	pid uint32,
 	ns *[]domain.NStype,
+	cloneFlags uint32,
 	req *domain.NSenterMessage,
 	res *domain.NSenterMessage,
 	async bool) domain.NSenterEventIface {
 
 	event := &NSenterEvent{
-		Pid:       pid,
-		Namespace: ns,
-		ReqMsg:    req,
-		ResMsg:    res,
-		Async:     async,
-		reaper:    s.reaper,
+		Pid:        pid,
+		Namespace:  ns,
+		CloneFlags: cloneFlags,
+		ReqMsg:     req,
+		ResMsg:     res,
+		Async:      async,
+		reaper:     s.reaper,
 	}
 
 	return event

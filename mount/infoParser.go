@@ -301,6 +301,7 @@ func (mi *mountInfoParser) extractMountInfo() ([]byte, error) {
 	asyncEvent := mi.service.nss.NewEvent(
 		mi.process.Pid(),
 		&domain.AllNSs,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.SleepRequest,
 			Payload: &domain.SleepReqPayload{Ival: strconv.Itoa(30)},
@@ -327,6 +328,7 @@ func (mi *mountInfoParser) extractMountInfo() ([]byte, error) {
 	event := mi.service.nss.NewEvent(
 		asyncEventPid,
 		&domain.AllNSs,
+		0,
 		&domain.NSenterMessage{Type: domain.MountInfoRequest},
 		nil,
 		false,
@@ -437,6 +439,7 @@ func (mi *mountInfoParser) extractInodes(mps []string) ([]domain.Inode, error) {
 	event := nss.NewEvent(
 		mi.process.Pid(),
 		&domain.AllNSsButUser,
+		0,
 		&domain.NSenterMessage{
 			Type: domain.MountInodeRequest,
 			Payload: &domain.MountInodeReqPayload{

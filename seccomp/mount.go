@@ -169,6 +169,7 @@ func (m *mountSyscallInfo) processProcMount(
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
 		&domain.AllNSs,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,
@@ -345,6 +346,7 @@ func (m *mountSyscallInfo) processSysMount(
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
 		&domain.AllNSs,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,
@@ -459,6 +461,7 @@ func (m *mountSyscallInfo) processOverlayMount(
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
 		&domain.AllNSsButUser,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,
@@ -531,6 +534,7 @@ func (m *mountSyscallInfo) processNfsMount(
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
 		&domain.AllNSsButUser,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,
@@ -857,6 +861,7 @@ func (m *mountSyscallInfo) processRemount(
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
 		&domain.AllNSsButUser,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,
@@ -981,6 +986,7 @@ func (m *mountSyscallInfo) processBindMount(
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
 		&domain.AllNSs,
+		0,
 		&domain.NSenterMessage{
 			Type:    domain.MountSyscallRequest,
 			Payload: payload,

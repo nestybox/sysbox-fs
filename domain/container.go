@@ -51,11 +51,13 @@ type ContainerIface interface {
 	IsImmutableMountpoint(mp string) bool
 	IsImmutableRoMountpoint(mp string) bool
 	IsImmutableOverlapMountpoint(mp string) bool
+	IsRegistrationCompleted() bool
 	//
 	// Setters
 	//
 	SetData(name string, offset int64, data []byte) error
 	SetInitProc(pid, uid, gid uint32) error
+	SetRegistrationCompleted()
 	//
 	// Locks for read-modify-write operations on container data via the Data()
 	// and SetData() methods.

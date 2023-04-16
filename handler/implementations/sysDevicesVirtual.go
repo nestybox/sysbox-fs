@@ -48,6 +48,11 @@ var SysDevicesVirtual_Handler = &SysDevicesVirtual{
 		Path:    "/sys/devices/virtual",
 		Enabled: true,
 		EmuResourceMap: map[string]*domain.EmuResource{
+			".": {
+				Kind:    domain.DirEmuResource,
+				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
+				Enabled: true,
+			},
 			"dmi": {
 				Kind:    domain.DirEmuResource,
 				Mode:    os.ModeDir | os.FileMode(uint32(0755)),
@@ -64,8 +69,6 @@ func (h *SysDevicesVirtual) Lookup(
 	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
-	var resource = n.Name()
-
 	// Users should not be allowed to alter any of the sysfs nodes being exposed. We
 	// accomplish this by returning "nobody:nogroup" to the user during lookup() /
 	// getattr() operations. This behavior is enforced by setting the handler's
@@ -75,7 +78,17 @@ func (h *SysDevicesVirtual) Lookup(
 
 	// Return an artificial fileInfo if looked-up element matches any of the
 	// emulated components.
+	relpath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return nil, err
+	}
+
+	var resource = relpath
+
 	if v, ok := h.EmuResourceMap[resource]; ok {
+		if resource == "." {
+			resource = "virtual"
+		}
 
 		info := &domain.FileInfo{
 			Fname:    resource,
@@ -91,7 +104,7 @@ func (h *SysDevicesVirtual) Lookup(
 		return info, nil
 	}
 
-	return n.Stat()
+	return h.Service.GetPassThroughHandler().Lookup(n, req)
 }
 
 func (h *SysDevicesVirtual) Open(
@@ -168,12 +181,13 @@ func (h *SysDevicesVirtual) ReadDirAll(
 	}
 
 	// Obtain the usual node entries.
-	usualEntries, err := n.ReadDirAll()
-	if err == nil {
-		fileEntries = append(fileEntries, usualEntries...)
+	usualEntries, err := h.Service.GetPassThroughHandler().ReadDirAll(n, req)
+	if err != nil {
+		return nil, err
 	}
 
-	// Uniquify entries to return.
+	fileEntries = append(fileEntries, usualEntries...)
+
 	if emulatedElemsAdded {
 		fileEntries = domain.FileInfoSliceUniquify(fileEntries)
 	}

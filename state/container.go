@@ -102,7 +102,7 @@ func (c *container) InitPid() uint32 {
 	return c.initPid
 }
 
-func (c *container) InitPidFd() libpidfd.PidFd  {
+func (c *container) InitPidFd() libpidfd.PidFd {
 	c.intLock.RLock()
 	defer c.intLock.RUnlock()
 
@@ -243,6 +243,12 @@ func (c *container) IsImmutableRoBindMount(info *domain.MountInfo) bool {
 	return c.mountInfoParser.IsRoBindMount(info)
 }
 
+func (c *container) IsRegistrationCompleted() bool {
+	c.intLock.RLock()
+	defer c.intLock.RUnlock()
+	return c.regCompleted
+}
+
 //
 // Setters implementations.
 //
@@ -326,7 +332,6 @@ func (c *container) IsMountInfoInitialized() bool {
 
 	return c.mountInfoParser != nil
 }
-
 
 // Container's stringer method. Notice that no internal lock is being acquired
 // in this method to avoid collisions (and potential deadlocks) with Container's
@@ -445,4 +450,10 @@ func (c *container) SetInitProc(pid, uid, gid uint32) error {
 	c.initProc = c.service.ProcessService().ProcessCreate(pid, uid, gid)
 
 	return nil
+}
+
+func (c *container) SetRegistrationCompleted() {
+	c.intLock.Lock()
+	defer c.intLock.Unlock()
+	c.regCompleted = true
 }
