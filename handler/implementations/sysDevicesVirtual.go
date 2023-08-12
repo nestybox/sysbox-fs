@@ -19,6 +19,7 @@ package implementations
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,6 +41,7 @@ import (
 
 type SysDevicesVirtual struct {
 	domain.HandlerBase
+	passthruNodes map[string]bool
 }
 
 var SysDevicesVirtual_Handler = &SysDevicesVirtual{
@@ -59,6 +61,9 @@ var SysDevicesVirtual_Handler = &SysDevicesVirtual{
 				Enabled: true,
 			},
 		},
+	},
+	map[string]bool{
+		"net": true,
 	},
 }
 
@@ -104,15 +109,19 @@ func (h *SysDevicesVirtual) Lookup(
 		return info, nil
 	}
 
-	// XXX: for non emulated resources under /sys/devices/virtual, we should
-	// ideally request the passthrough handler to perform the lookup; however
-	// this slows down the lookup and causes sysbox containers with systemd
-	// inside to fail in hosts with kernel < 5.19 (i.e., systemd takes too long
-	// to boot because for some reason it's doing lots of lookups of
-	// /sys/virtual/devices/block/loopX devices, causing it to timeout).  Instead
-	// we do the lookup at host level, which is perfectly fine except since we
-	// don't know of any files under /sys/virtual/devices which Linux exposes at
-	// host level but not inside containers.
+	// For non emulated resources under /sys/devices/virtual, we should
+	// ideally request the passthrough handler to always perform the lookup;
+	// however this slows down the lookup and causes sysbox containers with
+	// systemd inside to fail in hosts with kernel < 5.19 (i.e., systemd takes
+	// too long to boot because for some reason it's doing lots of lookups of
+	// /sys/virtual/devices/block/loopX devices, causing it to timeout). Instead
+	// we do the lookup at host level, except for resources under /sys/devices/virtual
+	// for which we know we must enter the container namespaces.
+	for node, _ := range h.passthruNodes {
+		if node == resource || strings.HasPrefix(resource, node+"/") {
+			return h.Service.GetPassThroughHandler().Lookup(n, req)
+		}
+	}
 	return n.Stat()
 }
 
@@ -133,6 +142,19 @@ func (h *SysDevicesVirtual) Read(
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
+	relpath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return 0, err
+	}
+
+	var resource = relpath
+
+	for node, _ := range h.passthruNodes {
+		if node == resource || strings.HasPrefix(resource, node+"/") {
+			return h.Service.GetPassThroughHandler().Read(n, req)
+		}
+	}
+
 	return 0, nil
 }
 
@@ -142,6 +164,19 @@ func (h *SysDevicesVirtual) Write(
 
 	logrus.Debugf("Executing Write() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
+
+	relpath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return 0, err
+	}
+
+	var resource = relpath
+
+	for node, _ := range h.passthruNodes {
+		if node == resource || strings.HasPrefix(resource, node+"/") {
+			return h.Service.GetPassThroughHandler().Write(n, req)
+		}
+	}
 
 	return 0, nil
 }
