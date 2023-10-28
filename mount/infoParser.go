@@ -136,7 +136,6 @@ func (mi *mountInfoParser) parseData(data []byte) error {
 
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	for scanner.Scan() {
-
 		data := scanner.Text()
 		parsedMounts, err := mi.parseComponents(data)
 		if err != nil {
@@ -576,6 +575,26 @@ func (mi *mountInfoParser) ExtractAncestorInodes(info *domain.MountInfo) error {
 	return mi.extractAncestorInodes(info)
 }
 
+// IsRootMount returns true if the given mount is the root mount (i.e., "/")
+func (mi *mountInfoParser) IsRootMount(info *domain.MountInfo) (bool, error) {
+	rootMntInfo, found := mi.mpInfo["/"]
+	if !found {
+		return false, nil
+	}
+
+	if info.MountID == rootMntInfo.MountID {
+		return true, nil
+	}
+
+	mh := mi.service.mh
+	isClone, err := isCloneMount(mh, rootMntInfo, info)
+	if err != nil {
+		return false, err
+	}
+
+	return isClone, nil
+}
+
 // IsSysboxfsBaseMount checks if the given mountpoint is a sysbox-fs managed
 // base mount (e.g., a procfs or sysfs mountpoint).
 func (mi *mountInfoParser) IsSysboxfsBaseMount(mountpoint string) bool {
@@ -728,7 +747,6 @@ func (mi *mountInfoParser) IsRoMount(info *domain.MountInfo) bool {
 //
 // 3544 3503 0:129 / /usr/src/linux-headers-5.4.0-48 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-48 rw
 // 3413 3544 0:129 / /usr/src/linux-headers-5.4.0-48 ro,relatime - shiftfs /usr/src/linux-headers-5.4.0-48 rw
-//
 func (mi *mountInfoParser) IsRecursiveBindMount(info *domain.MountInfo) bool {
 
 	if info == nil {
@@ -765,7 +783,6 @@ func (mi *mountInfoParser) IsRecursiveBindMount(info *domain.MountInfo) bool {
 //
 // 2706 2192 0:155 /resolv.conf /etc/resolv.conf rw,relatime - shiftfs /var/lib/docker/containers... rw
 // 3074 2706 0:155 /resolv.conf /etc/resolv.conf rw,relatime - shiftfs /var/lib/docker/containers... rw
-//
 func (mi *mountInfoParser) IsSelfMount(info *domain.MountInfo) bool {
 
 	if info == nil {
@@ -795,7 +812,6 @@ func (mi *mountInfoParser) IsSelfMount(info *domain.MountInfo) bool {
 //
 // 2706 2192 0:155 /resolv.conf /etc/resolv.conf rw,relatime - shiftfs /var/lib/docker/containers... rw
 // 3074 2706 0:6 /null /etc/resolv.conf rw,nosuid,noexec,relatime master:2 - devtmpfs udev rw,size=4048120k,nr_inodes=1012030,mode=755
-//
 func (mi *mountInfoParser) IsOverlapMount(info *domain.MountInfo) bool {
 
 	if info == nil {
@@ -829,7 +845,6 @@ func (mi *mountInfoParser) IsOverlapMount(info *domain.MountInfo) bool {
 // systems (e.g. 'tmpfs') allocate a unique fs-id for every tmpfs mountpoint
 // being created. In consequence, this method's logic has some limitations when
 // there's a need to identify bind-mounted resources across different namespaces.
-//
 func (mi *mountInfoParser) IsBindMount(info *domain.MountInfo) bool {
 
 	if info == nil {
@@ -898,85 +913,89 @@ func (mi *mountInfoParser) IsRoBindMount(info *domain.MountInfo) bool {
 // IsCloneMount exposes the 'readonly' parameter to allow callee to request
 // 'clone' elements that are necessarily read-only mountpoints.
 func (mi *mountInfoParser) IsCloneMount(
-	procInfo *domain.MountInfo,
-	readonly bool) bool {
+	mntInfo *domain.MountInfo,
+	readonly bool) (bool, error) {
 
 	mh := mi.service.mh
-	if mh == nil {
-		return false
-	}
 
-	var candidateList []*domain.MountInfo
+	// Extract the list of mountpoints matching the given mount's filesystem
+	// maj:min numbers.
+	candidates := mi.fsIdInfo[mntInfo.MajorMinorVer]
 
-	// Extract the list of mountpoints matching the incoming process' maj-min-id.
-	fsIdSlice := mi.fsIdInfo[procInfo.MajorMinorVer]
+	for _, candidate := range candidates {
 
-	// Extract procInfo flags
-	procInfoFlags := mh.StringToFlags(procInfo.Options)
-
-	for _, cntrInfo := range fsIdSlice {
-
-		// A mountpoint with the same ID can't be a clone (by definition)".
-		if cntrInfo.MountID == procInfo.MountID {
+		// Skip check if it doesn't fit the readonly criteria.
+		candidateFlags := mh.StringToFlags(candidate.Options)
+		if readonly && !mh.IsReadOnlyMount(candidateFlags) {
 			continue
 		}
 
-		// Skip this candidate if it doesn't fit the readonly criteria.
-		cntrInfoFlags := mh.StringToFlags(cntrInfo.Options)
-		if readonly && !mh.IsReadOnlyMount(cntrInfoFlags) {
-			continue
+		isClone, err := isCloneMount(mh, candidate, mntInfo)
+		if err != nil {
+			return false, err
 		}
 
-		// All candidates must meet a minimum set of criteria.
-		if cntrInfo.Root != procInfo.Root ||
-			cntrInfo.Source != procInfo.Source ||
-			cntrInfoFlags&^unix.MS_RDONLY != procInfoFlags&^unix.MS_RDONLY {
-			continue
-		}
-
-		// If not already present, fetch the inodes of the elements being
-		// compared, and also those within their ancestry line. This last point
-		// is an optimization that takes into account the relatively-low cost
-		// of obtaining multiple inodes vs the cost of collecting a single one
-		// in various (nsenter) iterations.
-		if cntrInfo.MpInode == 0 {
-			err := mi.extractAncestorInodes(cntrInfo)
-			if err != nil {
-				return false
-			}
-		}
-		if procInfo.MpInode == 0 {
-			err := procInfo.Mip.ExtractAncestorInodes(procInfo)
-			if err != nil {
-				return false
-			}
-		}
-		// Add entry to the list of candidates for further processing.
-		if cntrInfo.MpInode == procInfo.MpInode {
-			candidateList = append(candidateList, cntrInfo)
+		if isClone {
+			return true, nil
 		}
 	}
 
-	// Iterate through all the candidates to compare their ancestry line
-	// with the one of the entry in question (procInfo).
-	for _, cntrInfo := range candidateList {
-		if mi.ancestryLineMatch(procInfo, cntrInfo) {
-			return true
-		}
-	}
-
-	return false
+	return false, nil
 }
 
-// ancestryLineMatch determines if the passed mountpoints are referring to the
-// same exact file-system resource. We do this by comparing the elements of the
-// ancestry line of each mountpoint.
-func (mi *mountInfoParser) ancestryLineMatch(m1, m2 *domain.MountInfo) bool {
+// isCloneMount returns true if the given mounts are clones.
+func isCloneMount(mh *mountHelper, mnt1, mnt2 *domain.MountInfo) (bool, error) {
 
-	mh := mi.service.mh
-	if mh == nil {
-		return false
+	// A mountpoint with the same ID can't be a clone (by definition).
+	if mnt1.MountID == mnt2.MountID {
+		return false, nil
 	}
+
+	mip1 := mnt1.Mip
+	mip2 := mnt2.Mip
+
+	mnt1Flags := mh.StringToFlags(mnt1.Options)
+	mnt2Flags := mh.StringToFlags(mnt2.Options)
+
+	// All clones must meet a minimum set of criteria.
+	if mnt1.Root != mnt2.Root ||
+		mnt1.Source != mnt2.Source ||
+		mnt1Flags&^unix.MS_RDONLY != mnt2Flags&^unix.MS_RDONLY {
+		return false, nil
+	}
+
+	// If not already present, fetch the inodes of the elements being
+	// compared, and also those within their ancestry line. This last point
+	// is an optimization that takes into account the relatively-low cost
+	// of obtaining multiple inodes vs the cost of collecting a single one
+	// in various (nsenter) iterations.
+	if mnt1.MpInode == 0 {
+		err := mip1.ExtractAncestorInodes(mnt1)
+		if err != nil {
+			return false, err
+		}
+	}
+	if mnt2.MpInode == 0 {
+		err := mip2.ExtractAncestorInodes(mnt2)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// If the mountpoint inodes match and parent mount (i.e., ancestry) is the
+	// same, it's a clone.
+	if mnt1.MpInode == mnt2.MpInode {
+		if ancestryLineMatch(mh, mnt2, mnt1) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// ancestryLineMatch determines if the passed mountpoints have the same
+// ancestry (i.e., same parent mount, same grandparent mount, etc.)
+func ancestryLineMatch(mh *mountHelper, m1, m2 *domain.MountInfo) bool {
 
 	for {
 		m1 = m1.Mip.GetParentMount(m1)
