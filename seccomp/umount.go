@@ -148,14 +148,7 @@ func (u *umountSyscallInfo) process() (*sysResponse, error) {
 func (u *umountSyscallInfo) umountAllowed(
 	mip domain.MountInfoParserIface) (bool, *sysResponse) {
 
-	// Skip this verification process unless explicitly requested by the user.
-	// Notice that, currently, this is the default behavior.
 	if u.tracer.service.allowImmutableUnmounts {
-		return true, nil
-	}
-
-	// Skip instructions targeting file-systems explicitly handled by sysbox-fs.
-	if u.FsType == "proc" || u.FsType == "sysfs" {
 		return true, nil
 	}
 
@@ -211,8 +204,25 @@ func (u *umountSyscallInfo) umountAllowed(
 	// namespaces.
 	if processMountNs == initProcMountNs {
 
-		if ok := u.cntr.IsImmutableMountID(info.MountID); ok == true {
+		// Allow unmounts of the container's root mount (i.e., "/"). This is
+		// required in order for processes to perform a pivot-root operation,
+		// where the process changes root to a container subdir and then usually
+		// unmount the original root mount (i.e., we want that unmount to
+		// succeed). It's safe to allow unmounts of the container's root mount
+		// because unless there's a pivot-root, the kernel will actually deny the
+		// unmount (EBUSY) since the process is operating under that mount. Even
+		// if the kernel were to allow it, the only thing it would expose is the
+		// empty host dir on top of which the container root dir was mounted
+		// (e.g., /var/lib/docker/overlay2/<uuid>/merged or similar).
+		isRootMnt, err := u.cntr.IsRootMountID(info.MountID)
+		if err != nil {
+			return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
+		}
+		if isRootMnt {
+			return true, nil
+		}
 
+		if u.cntr.IsImmutableMountID(info.MountID) {
 			logrus.Infof("Rejected unmount operation on immutable target: %s",
 				u.Target)
 
@@ -259,10 +269,12 @@ func (u *umountSyscallInfo) umountAllowed(
 
 			// Scenario 5): unshare(mnt) & no-pivot() & no-chroot()
 			if processRootInode == syscntrRootInode {
+
 				// We need to check if we're dealing with an overlapped mount, as
 				// this is a case that we usually (see exception below) want to
 				// allow.
 				if mip.IsOverlapMount(info) {
+
 					// The exception mentioned above refer to the scenario where
 					// the overlapped mountpoint is an immutable itself, hence the
 					// checkpoint below.
@@ -275,9 +287,14 @@ func (u *umountSyscallInfo) umountAllowed(
 				}
 
 				// In this scenario we have full access to all the mountpoints
-				// within the sys-container (different mount-id though), so we
-				// can safely rely on their mountinfo attributes to determine
+				// within the sys-container, though with different mount-IDs
+				// due to a different mount-ns. But we can safely rely on the
+				// mountinfo attributes (e.g., mountpoint path) to determine
 				// resource's immutability.
+				if info.MountPoint == "/" {
+					return true, nil
+				}
+
 				if u.cntr.IsImmutableMountpoint(info.MountPoint) {
 					logrus.Infof("Rejected unmount operation on immutable target: %s (scenario 5)",
 						u.Target)
@@ -293,11 +310,24 @@ func (u *umountSyscallInfo) umountAllowed(
 					return true, nil
 				}
 
-				if u.cntr.IsImmutableMount(info) {
+				isRootMnt, err := u.cntr.IsRootMount(info)
+				if err != nil {
+					return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
+				}
+				if isRootMnt {
+					return true, nil
+				}
+
+				isImmutable, err := u.cntr.IsImmutableMount(info)
+				if err != nil {
+					return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
+				}
+				if isImmutable {
 					logrus.Infof("Rejected unmount operation on immutable target: %s (scenario 6)",
 						u.Target)
 					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
 				}
+
 				return true, nil
 			}
 
@@ -305,6 +335,7 @@ func (u *umountSyscallInfo) umountAllowed(
 		}
 
 		if u.processInfo.Root() != "/" {
+
 			// We are dealing with a chroot'ed process, so obtain the inode of "/"
 			// as seen within the process' namespaces, and *not* the one associated
 			// to the process' root-path.
@@ -315,10 +346,12 @@ func (u *umountSyscallInfo) umountAllowed(
 
 			// Scenario 7): unshare(mnt) & no-pivot() & chroot()
 			if processRootInode == syscntrRootInode {
+
 				// We need to check if we're dealing with an overlapped mount, as
 				// this is a case that we usually (see exception below) want to
 				// allow.
 				if mip.IsOverlapMount(info) {
+
 					// The exception mentioned above refer to the scenario where
 					// the overlapped mountpoint is an immutable itself, hence the
 					// checkpoint below.
@@ -330,10 +363,10 @@ func (u *umountSyscallInfo) umountAllowed(
 					return true, nil
 				}
 
-				// In this scenario we have full access to all the mountpoints
-				// within the sys-container (different mount-id though), so we
-				// can safely rely on their mountinfo attributes to determine
-				// resource's immutability.
+				if info.MountPoint == "/" {
+					return true, nil
+				}
+
 				if u.cntr.IsImmutableMountpoint(info.MountPoint) {
 					logrus.Infof("Rejected unmount operation on immutable target: %s (scenario 7)",
 						u.Target)
@@ -345,8 +378,13 @@ func (u *umountSyscallInfo) umountAllowed(
 
 			// Scenario 8): unshare(mnt) & pivot() & chroot()
 			if processRootInode != syscntrRootInode {
+
 				if mip.IsOverlapMount(info) {
-					if u.cntr.IsImmutableMount(info) {
+					isImmutable, err := u.cntr.IsImmutableMount(info)
+					if err != nil {
+						return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
+					}
+					if isImmutable {
 						logrus.Infof("Rejected unmount operation on immutable overlapped target: %s (scenario 8)",
 							u.Target)
 						return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)
@@ -354,7 +392,19 @@ func (u *umountSyscallInfo) umountAllowed(
 					return true, nil
 				}
 
-				if u.cntr.IsImmutableMount(info) {
+				isRoot, err := u.cntr.IsRootMount(info)
+				if err != nil {
+					return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
+				}
+				if isRoot {
+					return true, nil
+				}
+
+				isImmutable, err := u.cntr.IsImmutableMount(info)
+				if err != nil {
+					return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
+				}
+				if isImmutable {
 					logrus.Infof("Rejected unmount operation on immutable target: %s (scenario 8)",
 						u.Target)
 					return false, u.tracer.createErrorResponse(u.reqId, syscall.EPERM)

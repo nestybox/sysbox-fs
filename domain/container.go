@@ -22,9 +22,7 @@ import (
 	libpidfd "github.com/nestybox/sysbox-libs/pidfd"
 )
 
-//
 // Container interface.
-//
 type ContainerIface interface {
 	//
 	// Getters
@@ -42,8 +40,10 @@ type ContainerIface interface {
 	ExtractInode(path string) (Inode, error)
 	IsMountInfoInitialized() bool
 	InitializeMountInfo() error
-	IsImmutableMount(info *MountInfo) bool
-	IsImmutableRoMount(info *MountInfo) bool
+	IsRootMount(info *MountInfo) (bool, error)
+	IsRootMountID(id int) (bool, error)
+	IsImmutableMount(info *MountInfo) (bool, error)
+	IsImmutableRoMount(info *MountInfo) (bool, error)
 	IsImmutableMountID(id int) bool
 	IsImmutableRoMountID(id int) bool
 	IsImmutableBindMount(info *MountInfo) bool
@@ -66,10 +66,8 @@ type ContainerIface interface {
 	Unlock()
 }
 
-//
 // ContainerStateService interface defines the APIs that sysbox-fs components
 // must utilize to interact with the sysbox-fs state-storage backend.
-//
 type ContainerStateServiceIface interface {
 	Setup(
 		fss FuseServerServiceIface,

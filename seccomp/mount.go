@@ -761,7 +761,11 @@ func (m *mountSyscallInfo) remountAllowed(
 
 			// Scenario 6): unshare(mnt) & pivot() & no-chroot()
 			if processRootInode != syscntrRootInode {
-				if m.cntr.IsImmutableRoMount(info) {
+				isImmutable, err := m.cntr.IsImmutableRoMount(info)
+				if err != nil {
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
+				}
+				if isImmutable {
 					logrus.Infof("Rejected remount operation over read-only immutable target: %s (scenario 6)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
@@ -825,7 +829,11 @@ func (m *mountSyscallInfo) remountAllowed(
 
 			// Scenario 8): unshare(mnt) & pivot() & chroot()
 			if processRootInode != syscntrRootInode {
-				if m.cntr.IsImmutableRoMount(info) {
+				isImmutable, err := m.cntr.IsImmutableRoMount(info)
+				if err != nil {
+					return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
+				}
+				if isImmutable {
 					logrus.Infof("Rejected remount operation over read-only immutable target: %s (scenario 8)",
 						m.Target)
 					return false, m.tracer.createErrorResponse(m.reqId, syscall.EPERM)
