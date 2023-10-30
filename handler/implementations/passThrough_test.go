@@ -34,6 +34,7 @@ import (
 	"github.com/nestybox/sysbox-fs/state"
 	"github.com/nestybox/sysbox-fs/sysio"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 // Sysbox-fs global services for all handler's testing consumption.
@@ -136,7 +137,7 @@ func TestPassThrough_Lookup(t *testing.T) {
 					Namespace: &domain.AllNSsButMount,
 					ReqMsg: &domain.NSenterMessage{
 						Type:    domain.LookupRequest,
-						Payload: &domain.LookupPayload{a1.n.Path()},
+						Payload: &domain.LookupPayload{a1.n.Path(), false, true},
 					},
 				}
 
@@ -153,6 +154,7 @@ func TestPassThrough_Lookup(t *testing.T) {
 					"NewEvent",
 					a1.req.Pid,
 					&domain.AllNSsButMount,
+					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
 					false).Return(nsenterEventReq)
@@ -180,7 +182,7 @@ func TestPassThrough_Lookup(t *testing.T) {
 					Namespace: &domain.AllNSsButMount,
 					ReqMsg: &domain.NSenterMessage{
 						Type:    domain.LookupRequest,
-						Payload: &domain.LookupPayload{a1.n.Path()},
+						Payload: &domain.LookupPayload{a1.n.Path(), false, true},
 					},
 				}
 
@@ -196,6 +198,7 @@ func TestPassThrough_Lookup(t *testing.T) {
 					"NewEvent",
 					a1.req.Pid,
 					&domain.AllNSsButMount,
+					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
 					false).Return(nsenterEventReq)
@@ -311,9 +314,12 @@ func TestPassThrough_Open(t *testing.T) {
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.OpenFileRequest,
 						Payload: &domain.OpenFilePayload{
-							File:  a1.n.Path(),
-							Flags: strconv.Itoa(a1.n.OpenFlags()),
-							Mode:  strconv.Itoa(int(a1.n.OpenMode()))},
+							File:        a1.n.Path(),
+							Flags:       strconv.Itoa(a1.n.OpenFlags()),
+							Mode:        strconv.Itoa(int(a1.n.OpenMode())),
+							MountSysfs:  false,
+							MountProcfs: true,
+						},
 					},
 				}
 
@@ -329,6 +335,7 @@ func TestPassThrough_Open(t *testing.T) {
 					"NewEvent",
 					a1.req.Pid,
 					&domain.AllNSsButMount,
+					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
 					false).Return(nsenterEventReq)
@@ -356,9 +363,12 @@ func TestPassThrough_Open(t *testing.T) {
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.OpenFileRequest,
 						Payload: &domain.OpenFilePayload{
-							File:  a1.n.Path(),
-							Flags: strconv.Itoa(a1.n.OpenFlags()),
-							Mode:  strconv.Itoa(int(a1.n.OpenMode()))},
+							File:        a1.n.Path(),
+							Flags:       strconv.Itoa(a1.n.OpenFlags()),
+							Mode:        strconv.Itoa(int(a1.n.OpenMode())),
+							MountSysfs:  false,
+							MountProcfs: true,
+						},
 					},
 				}
 
@@ -374,6 +384,7 @@ func TestPassThrough_Open(t *testing.T) {
 					"NewEvent",
 					a1.req.Pid,
 					&domain.AllNSsButMount,
+					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
 					false).Return(nsenterEventReq)
@@ -491,9 +502,11 @@ func TestPassThrough_Read(t *testing.T) {
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.ReadFileRequest,
 						Payload: &domain.ReadFilePayload{
-							File:   a1.n.Path(),
-							Offset: 0,
-							Len:    len(string("file content 0123456789")),
+							File:        a1.n.Path(),
+							Offset:      0,
+							Len:         len(string("file content 0123456789")),
+							MountSysfs:  false,
+							MountProcfs: true,
 						},
 					},
 				}
@@ -510,6 +523,7 @@ func TestPassThrough_Read(t *testing.T) {
 					"NewEvent",
 					a1.req.Pid,
 					&domain.AllNSsButMount,
+					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
 					false).Return(nsenterEventReq)
@@ -626,9 +640,11 @@ func TestPassThrough_Write(t *testing.T) {
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.WriteFileRequest,
 						Payload: &domain.WriteFilePayload{
-							File:   a1.n.Path(),
-							Offset: 0,
-							Data:   []byte("file content 0123456789"),
+							File:        a1.n.Path(),
+							Offset:      0,
+							Data:        []byte("file content 0123456789"),
+							MountSysfs:  false,
+							MountProcfs: true,
 						},
 					},
 				}
@@ -645,6 +661,7 @@ func TestPassThrough_Write(t *testing.T) {
 					"NewEvent",
 					a1.req.Pid,
 					&domain.AllNSsButMount,
+					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
 					false).Return(nsenterEventReq)
@@ -678,9 +695,11 @@ func TestPassThrough_Write(t *testing.T) {
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.WriteFileRequest,
 						Payload: &domain.WriteFilePayload{
-							File:   a1.n.Path(),
-							Offset: 0,
-							Data:   []byte("file content 0123456789"),
+							File:        a1.n.Path(),
+							Offset:      0,
+							Data:        []byte("file content 0123456789"),
+							MountSysfs:  false,
+							MountProcfs: true,
 						},
 					},
 				}
@@ -697,6 +716,7 @@ func TestPassThrough_Write(t *testing.T) {
 					"NewEvent",
 					a1.req.Pid,
 					&domain.AllNSsButMount,
+					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
 					false).Return(nsenterEventReq)
@@ -822,7 +842,9 @@ func TestPassThrough_ReadDirAll(t *testing.T) {
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.ReadDirRequest,
 						Payload: &domain.ReadDirPayload{
-							Dir: a1.n.Path(),
+							Dir:         a1.n.Path(),
+							MountSysfs:  false,
+							MountProcfs: true,
 						},
 					},
 				}
@@ -846,6 +868,7 @@ func TestPassThrough_ReadDirAll(t *testing.T) {
 					"NewEvent",
 					a1.req.Pid,
 					&domain.AllNSsButMount,
+					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
 					false).Return(nsenterEventReq)
@@ -879,7 +902,9 @@ func TestPassThrough_ReadDirAll(t *testing.T) {
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.ReadDirRequest,
 						Payload: &domain.ReadDirPayload{
-							Dir: a1.n.Path(),
+							Dir:         a1.n.Path(),
+							MountSysfs:  false,
+							MountProcfs: true,
 						},
 					},
 				}
@@ -896,6 +921,7 @@ func TestPassThrough_ReadDirAll(t *testing.T) {
 					"NewEvent",
 					a1.req.Pid,
 					&domain.AllNSsButMount,
+					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
 					false).Return(nsenterEventReq)
