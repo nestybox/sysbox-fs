@@ -9,12 +9,12 @@ require (
 	github.com/nestybox/sysbox-ipc v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/capability v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/formatter v0.0.0-20210709231355-1ea69f2f6dbb
-	github.com/nestybox/sysbox-libs/libseccomp-golang v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/linuxUtils v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/pidfd v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-libs/utils v0.0.0-00010101000000-000000000000
 	github.com/nestybox/sysbox-runc v0.0.0-00010101000000-000000000000
 	github.com/pkg/profile v1.5.0
+	github.com/seccomp/libseccomp-golang v0.10.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/afero v1.4.1
 	github.com/stretchr/testify v1.7.0
@@ -57,7 +57,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
-	github.com/seccomp/libseccomp-golang v0.10.0 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
@@ -79,7 +78,6 @@ replace (
 	github.com/nestybox/sysbox-libs/formatter => ../sysbox-libs/formatter
 	github.com/nestybox/sysbox-libs/idMap => ../sysbox-libs/idMap
 	github.com/nestybox/sysbox-libs/idShiftUtils => ../sysbox-libs/idShiftUtils
-	github.com/nestybox/sysbox-libs/libseccomp-golang => ../sysbox-libs/libseccomp-golang
 	github.com/nestybox/sysbox-libs/linuxUtils => ../sysbox-libs/linuxUtils
 	github.com/nestybox/sysbox-libs/mount => ../sysbox-libs/mount
 	github.com/nestybox/sysbox-libs/overlayUtils => ../sysbox-libs/overlayUtils

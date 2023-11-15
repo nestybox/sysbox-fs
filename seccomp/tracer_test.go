@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
-	libseccomp "github.com/nestybox/sysbox-libs/libseccomp-golang"
+	libseccomp "github.com/seccomp/libseccomp-golang"
 )
 
 func Test_syscallTracer_createErrorResponse(t *testing.T) {
@@ -45,13 +45,13 @@ func Test_syscallTracer_createErrorResponse(t *testing.T) {
 	// Expected results.
 
 	var r1 = &sysResponse{
-		Id:    0,
+		ID:    0,
 		Error: int32(syscall.EPERM),
 		Val:   0,
 		Flags: 0,
 	}
 	var r2 = &sysResponse{
-		Id:    1,
+		ID:    1,
 		Error: int32(syscall.EINVAL),
 		Val:   0,
 		Flags: 0,
