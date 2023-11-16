@@ -28,6 +28,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var interceptedMountTypes = []string{"proc", "sysfs", "overlay", "nfs", "cifs"}
+
 // MountSyscall information structure.
 type mountSyscallInfo struct {
 	syscallCtx                  // syscall generic info

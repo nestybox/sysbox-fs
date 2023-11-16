@@ -632,6 +632,23 @@ func (p *process) getStatus(fields []string) error {
 	return nil
 }
 
+// Replaces the given path such as "/proc/self/*" with "/proc/<pid>/*", or
+// "/proc/self/task/<tid>/*" with "/proc/<pid>/task/<tid>/*".
+func replaceProcSelfWithProcPid(path string, pid uint32, tid uint32) string {
+	var repl, p string
+
+	pidMatch := regexp.MustCompile(`^/proc/self/(.*)`)
+	tidMatch := regexp.MustCompile(`^/proc/self/task/[0-9]+/(.*)`)
+
+	repl = fmt.Sprintf("/proc/self/task/%d/${1}", tid)
+	p = tidMatch.ReplaceAllString(path, repl)
+
+	repl = fmt.Sprintf("/proc/%d/${1}", pid)
+	p = pidMatch.ReplaceAllString(p, repl)
+
+	return p
+}
+
 // Given a path "/proc/self/path/to/symlink" it resolves it to the location
 // pointed to by symlink. For example, if path is "/proc/self/fd/3" and
 // "/proc/self/fd/3" is a symlink to "/some/path", then this function returns
@@ -643,8 +660,16 @@ func (p *process) getStatus(fields []string) error {
 
 func (p *process) ResolveProcSelf(path string) (string, error) {
 
-	// TODO: this function is not capable of dealing with relative paths
-	// "../../proc/self/fd/X". It also assumes procfs is mounted on /proc.
+	// NOTE: this function assumes procfs is mounted on /proc and path is
+	// absolute.
+
+	if !filepath.IsAbs(path) {
+		return path, nil
+	}
+
+	if !strings.HasPrefix(path, "/proc/self/") {
+		return path, nil
+	}
 
 	currPath := path
 	linkCnt := 0
@@ -653,6 +678,17 @@ func (p *process) ResolveProcSelf(path string) (string, error) {
 		if !strings.HasPrefix(currPath, "/proc/self/") {
 			break
 		}
+
+		// Note: for paths such as /proc/self/task/<tid>/*, it's easy to replace
+		// /proc/self with /proc/<pid> since we have the container's process pid
+		// in sysbox's pid-namespace. However, that's not the case for the <tid>,
+		// which is in the container's pid namespace and we have no good/easy way
+		// to translate it sysbox's pid-ns. For now, assume that <tid> = <pid>.
+		// It's not ideal, but it's normally the case when we receive such paths in
+		// mount syscalls.
+
+		tid := p.pid
+		currPath = replaceProcSelfWithProcPid(currPath, p.pid, tid)
 
 		fi, err := os.Lstat(currPath)
 		if err != nil {
@@ -669,12 +705,8 @@ func (p *process) ResolveProcSelf(path string) (string, error) {
 			return "", syscall.ELOOP
 		}
 
-		// path starts with "/proc/self/" and is a symlink, proceed to resolve it
-
-		procPid := fmt.Sprintf("/proc/%d/", p.pid)
-		procPidPath := strings.Replace(currPath, "/proc/self/", procPid, 1)
-
-		currPath, err = os.Readlink(procPidPath)
+		// path starts with "/proc/self/" and it's a symlink, resolve it
+		currPath, err = os.Readlink(currPath)
 		if err != nil {
 			return "", err
 		}
