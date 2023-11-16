@@ -920,6 +920,31 @@ func TestPathAccessSymlink(t *testing.T) {
 	}
 }
 
+func TestReplaceProcSelfWithProcPid(t *testing.T) {
+
+	type testInput struct {
+		path string
+		pid  uint32
+		tid  uint32
+	}
+
+	test := map[testInput]string{
+		{"/proc/self/mem", 10, 100}:         "/proc/10/mem",
+		{"/proc/self/task/123/io", 20, 200}: "/proc/20/task/200/io",
+		{"/proc/123/task/456/mem", 20, 200}: "/proc/123/task/456/mem",
+		{"/some/other/path", 20, 200}:       "/some/other/path",
+	}
+
+	for k, v := range test {
+		res := replaceProcSelfWithProcPid(k.path, k.pid, k.tid)
+		if res != v {
+			t.Fatalf("failed: replaceProcSelfWithProcPid(%s, %d, %d): got %s, want %s",
+				k.path, k.pid, k.tid, res, v)
+		}
+	}
+}
+
 // TODO:
+// Improve PathAccess tests:
 // * test symlink resolution limit
 // * test long path
