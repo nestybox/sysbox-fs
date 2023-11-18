@@ -128,6 +128,20 @@ func (c *container) GID() uint32 {
 	return c.gidFirst
 }
 
+func (c *container) UidSize() uint32 {
+	c.intLock.RLock()
+	defer c.intLock.RUnlock()
+
+	return c.uidSize
+}
+
+func (c *container) GidSize() uint32 {
+	c.intLock.RLock()
+	defer c.intLock.RUnlock()
+
+	return c.gidSize
+}
+
 func (c *container) ProcRoPaths() []string {
 	c.intLock.RLock()
 	defer c.intLock.RUnlock()

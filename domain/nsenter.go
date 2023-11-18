@@ -59,10 +59,8 @@ var AllNSsButUser = []NStype{
 	string(NStypeUts),
 }
 
-//
 // NSenterEvent types. Define all possible messages that can be handled
 // by nsenterEvent class.
-//
 const (
 	LookupRequest              NSenterMsgType = "lookupRequest"
 	LookupResponse             NSenterMsgType = "lookupResponse"
@@ -94,14 +92,16 @@ const (
 	RemovexattrSyscallResponse NSenterMsgType = "RemovexattrSyscallResponse"
 	ListxattrSyscallRequest    NSenterMsgType = "ListxattrSyscallRequest"
 	ListxattrSyscallResponse   NSenterMsgType = "ListxattrSyscallResponse"
+	UidInfoRequest             NSenterMsgType = "uidInfoRequest"
+	UidInfoResponse            NSenterMsgType = "uidInfoResponse"
+	GidInfoRequest             NSenterMsgType = "gidInfoRequest"
+	GidInfoResponse            NSenterMsgType = "gidInfoResponse"
 	ErrorResponse              NSenterMsgType = "errorResponse"
 )
 
-//
 // NSenterService interface serves as a wrapper construct to provide a
 // communication channel between sysbox-fs 'master' and sysbox-fs 'child'
 // entities. See more details further below.
-//
 type NSenterServiceIface interface {
 	NewEvent(
 		pid uint32,
@@ -118,7 +118,6 @@ type NSenterServiceIface interface {
 	GetEventProcessID(e NSenterEventIface) uint32
 }
 
-//
 // NSenterEvent struct serves as a transport abstraction (envelope) to carry
 // all the potential messages that can be exchanged between sysbox-fs master
 // instance and secondary (forked) ones. These sysbox-fs' auxiliary instances
@@ -129,7 +128,6 @@ type NSenterServiceIface interface {
 // (nsenterEvent), which holds both 'request' and 'response' messages, as well
 // as the context necessary to complete any action demanding inter-namespace
 // message exchanges.
-//
 type NSenterEventIface interface {
 	SendRequest() error
 	TerminateRequest() error
@@ -264,4 +262,20 @@ type MountInodeRespPayload struct {
 
 type SleepReqPayload struct {
 	Ival string `json:"attr"`
+}
+
+type UidInfoReqPayload struct {
+	User string `json:"user"`
+}
+
+type UidInfoRespPayload struct {
+	Uid string `json:"uid"`
+}
+
+type GidInfoReqPayload struct {
+	Group string `json:"group"`
+}
+
+type GidInfoRespPayload struct {
+	Gid string `json:"gid"`
 }
