@@ -35,6 +35,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
+	github.com/deckarep/golang-set/v2 v2.3.1 // indirect
 	github.com/docker/docker v20.10.2+incompatible // indirect
 	github.com/godbus/dbus/v5 v5.0.3 // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
@@ -51,11 +52,12 @@ require (
 	github.com/nestybox/sysbox-libs/overlayUtils v0.0.0-00010101000000-000000000000 // indirect
 	github.com/nestybox/sysbox-libs/shiftfs v0.0.0-00010101000000-000000000000 // indirect
 	github.com/opencontainers/runc v1.1.4 // indirect
-	github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d // indirect
+	github.com/opencontainers/runtime-spec v1.1.1-0.20230823135140-4fec88fd00a4 // indirect
 	github.com/opencontainers/selinux v1.8.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
+	github.com/seccomp/libseccomp-golang v0.10.0 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
