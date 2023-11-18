@@ -34,6 +34,8 @@ type ContainerIface interface {
 	Data(name string, offset int64, data *[]byte) (int, error)
 	UID() uint32
 	GID() uint32
+	UidSize() uint32
+	GidSize() uint32
 	ProcRoPaths() []string
 	ProcMaskPaths() []string
 	InitProc() ProcessIface
