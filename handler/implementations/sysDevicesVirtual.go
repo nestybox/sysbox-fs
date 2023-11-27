@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2022 Nestybox, Inc.
+// Copyright 2019-2023 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -122,7 +122,8 @@ func (h *SysDevicesVirtual) Lookup(
 			return h.Service.GetPassThroughHandler().Lookup(n, req)
 		}
 	}
-	return n.Stat()
+
+	return n.Lstat()
 }
 
 func (h *SysDevicesVirtual) Open(
@@ -199,6 +200,17 @@ func (h *SysDevicesVirtual) ReadDirAll(
 		return nil, err
 	}
 
+	var resource = relpath
+
+	// Invoke the passthrough handler for the corresponding resources (e.g., /sys/devices/virtual/net).
+	// We return here since we are looking for the host's view of these resources -- i.e., we don't
+	// want to include emulated resources here (emuResourceMap).
+	for node, _ := range h.passthruNodes {
+		if node == resource || strings.HasPrefix(resource, node+"/") {
+			return h.Service.GetPassThroughHandler().ReadDirAll(n, req)
+		}
+	}
+
 	// Create info entries for emulated components.
 	for k, v := range h.EmuResourceMap {
 		if k == "." {
@@ -225,7 +237,7 @@ func (h *SysDevicesVirtual) ReadDirAll(
 	}
 
 	// Obtain the usual node entries.
-	usualEntries, err := h.Service.GetPassThroughHandler().ReadDirAll(n, req)
+	usualEntries, err := n.ReadDirAll()
 	if err != nil {
 		return nil, err
 	}
@@ -237,6 +249,31 @@ func (h *SysDevicesVirtual) ReadDirAll(
 	}
 
 	return fileEntries, nil
+}
+
+func (h *SysDevicesVirtual) ReadLink(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (string, error) {
+
+	logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
+
+	// Obtain relative path to the node being readlink().
+	relpath, err := filepath.Rel(h.Path, n.Path())
+	if err != nil {
+		return "", err
+	}
+
+	var resource = relpath
+
+	// Invoke the passthrough handler for the passthrough resources.
+	for node, _ := range h.passthruNodes {
+		if node == resource || strings.HasPrefix(resource, node+"/") {
+			return h.Service.GetPassThroughHandler().ReadLink(n, req)
+		}
+	}
+
+	return n.ReadLink()
 }
 
 func (h *SysDevicesVirtual) GetName() string {

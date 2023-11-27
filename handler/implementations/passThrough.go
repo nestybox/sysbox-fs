@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2023 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -325,6 +325,52 @@ func (h *PassThrough) ReadDirAll(
 	}
 
 	return osFileEntries, nil
+}
+
+func (h *PassThrough) ReadLink(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (string, error) {
+
+	logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
+
+	mountSysfs, mountProcfs, cloneFlags := checkProcAndSysRemount(n)
+
+	// Create nsenterEvent to initiate interaction with container namespaces.
+	nss := h.Service.NSenterService()
+
+	event := nss.NewEvent(
+		req.Pid,
+		&domain.AllNSsButMount,
+		cloneFlags,
+		&domain.NSenterMessage{
+			Type: domain.ReadLinkRequest,
+			Payload: &domain.ReadLinkPayload{
+				Link:        n.Path(),
+				MountSysfs:  mountSysfs,
+				MountProcfs: mountProcfs,
+			},
+		},
+		nil,
+		false,
+	)
+
+	// Launch nsenter-event to obtain file state within container
+	// namespaces.
+	err := nss.SendRequestEvent(event)
+	if err != nil {
+		return "", err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		return "", responseMsg.Payload.(error)
+	}
+
+	resp := responseMsg.Payload.(string)
+
+	return resp, nil
 }
 
 func (h *PassThrough) Setattr(

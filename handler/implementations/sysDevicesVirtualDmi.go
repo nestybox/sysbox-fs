@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2022 Nestybox, Inc.
+// Copyright 2019-2023 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ func (h *SysDevicesVirtualDmi) Lookup(
 		return info, nil
 	}
 
-	return n.Stat()
+	return n.Lstat()
 }
 
 func (h *SysDevicesVirtualDmi) Open(
@@ -199,6 +199,16 @@ func (h *SysDevicesVirtualDmi) ReadDirAll(
 	}
 
 	return fileEntries, nil
+}
+
+func (h *SysDevicesVirtualDmi) ReadLink(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (string, error) {
+
+	logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
+
+	return n.ReadLink()
 }
 
 func (h *SysDevicesVirtualDmi) GetName() string {

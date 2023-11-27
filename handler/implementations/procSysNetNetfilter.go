@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2023 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -235,6 +235,16 @@ func (h *ProcSysNetNetfilter) ReadDirAll(
 	}
 
 	return fileEntries, nil
+}
+
+func (h *ProcSysNetNetfilter) ReadLink(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (string, error) {
+
+	logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
+
+	return h.Service.GetPassThroughHandler().ReadLink(n, req)
 }
 
 func (h *ProcSysNetNetfilter) GetName() string {

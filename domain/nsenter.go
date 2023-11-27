@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2023 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -72,6 +72,8 @@ const (
 	WriteFileResponse          NSenterMsgType = "writeFileResponse"
 	ReadDirRequest             NSenterMsgType = "readDirRequest"
 	ReadDirResponse            NSenterMsgType = "readDirResponse"
+	ReadLinkRequest            NSenterMsgType = "readLinkRequest"
+	ReadLinkResponse           NSenterMsgType = "readLinkResponse"
 	MountSyscallRequest        NSenterMsgType = "mountSyscallRequest"
 	MountSyscallResponse       NSenterMsgType = "mountSyscallResponse"
 	UmountSyscallRequest       NSenterMsgType = "umountSyscallRequest"
@@ -190,6 +192,12 @@ type WriteFilePayload struct {
 
 type ReadDirPayload struct {
 	Dir         string `json:"dir"`
+	MountSysfs  bool   `json:mountSysfs`
+	MountProcfs bool   `json:mountProcfs`
+}
+
+type ReadLinkPayload struct {
+	Link        string `json:"link"`
 	MountSysfs  bool   `json:mountSysfs`
 	MountProcfs bool   `json:mountProcfs`
 }

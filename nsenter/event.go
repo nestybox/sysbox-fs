@@ -242,6 +242,25 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		}
 		break
 
+	case domain.ReadLinkResponse:
+		logrus.Debug("Received nsenterEvent readLinkResponse message.")
+
+		var p string
+
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
+
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+		break
+
 	case domain.MountSyscallResponse:
 		logrus.Debug("Received nsenterEvent mountSyscallResponse message.")
 
@@ -707,7 +726,7 @@ func (e *NSenterEvent) processLookupRequest() error {
 
 	// Verify if the resource being looked up is reachable and obtain FileInfo
 	// details.
-	info, err := os.Stat(payload.Entry)
+	info, err := os.Lstat(payload.Entry)
 	if err != nil {
 		// Send an error-message response.
 		e.ResMsg = &domain.NSenterMessage{
@@ -924,6 +943,37 @@ func (e *NSenterEvent) processDirReadRequest() error {
 	e.ResMsg = &domain.NSenterMessage{
 		Type:    domain.ReadDirResponse,
 		Payload: dirContentList,
+	}
+
+	return nil
+}
+
+func (e *NSenterEvent) processReadLinkRequest() error {
+
+	payload := e.ReqMsg.Payload.(domain.ReadLinkPayload)
+
+	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: err,
+		}
+		return nil
+	}
+
+	// Perform readLink operation and return error msg should this one fail.
+	link, err := os.Readlink(payload.Link)
+	if err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: err,
+		}
+		return nil
+	}
+
+	// Create a response message.
+	e.ResMsg = &domain.NSenterMessage{
+		Type:    domain.ReadLinkResponse,
+		Payload: link,
 	}
 
 	return nil
@@ -1514,6 +1564,22 @@ func (e *NSenterEvent) processRequest(pipe *os.File) error {
 			Payload: p,
 		}
 		return e.processDirReadRequest()
+
+	case domain.ReadLinkRequest:
+		var p domain.ReadLinkPayload
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
+
+		e.ReqMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+		return e.processReadLinkRequest()
 
 	case domain.SetxattrSyscallRequest:
 		var p domain.SetxattrSyscallPayload

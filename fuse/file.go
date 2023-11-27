@@ -291,6 +291,46 @@ func (f *File) Write(
 	return nil
 }
 
+func (f *File) Readlink(
+	ctx context.Context,
+	req *fuse.ReadlinkRequest) (string, error) {
+
+	logrus.Debugf("Requested Readlink() operation for entry %v (Req ID=%#v)",
+		f.path, uint64(req.ID))
+
+	// Ensure operation is generated from within a registered sys container.
+	if f.server.container == nil {
+		logrus.Errorf("Could not find the container originating this request (pid %v)", req.Pid)
+		return "", fmt.Errorf("Could not find container originating this request (pid %v)", req.Pid)
+	}
+
+	ionode := f.server.service.ios.NewIOnode(f.name, f.path, f.attr.Mode)
+
+	// Lookup the associated handler within handler-DB.
+	handler, ok := f.server.service.hds.LookupHandler(ionode)
+	if !ok {
+		logrus.Errorf("Readlink() error: No supported handler for %v resource", f.path)
+		return "", fmt.Errorf("No supported handler for %v resource", f.path)
+	}
+
+	request := &domain.HandlerRequest{
+		ID:        uint64(req.ID),
+		Pid:       req.Pid,
+		Uid:       req.Uid,
+		Gid:       req.Gid,
+		Container: f.server.container,
+	}
+
+	// Handler execution.
+	link, err := handler.ReadLink(ionode, request)
+	if err != nil && err != io.EOF {
+		logrus.Debugf("Readlink() error: %v", err)
+		return "", err
+	}
+
+	return link, nil
+}
+
 // Setattr FS operation.
 func (f *File) Setattr(
 	ctx context.Context,
