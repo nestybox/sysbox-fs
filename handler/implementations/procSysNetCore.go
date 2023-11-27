@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2023 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ import (
 	"github.com/nestybox/sysbox-fs/fuse"
 )
 
-//
 // /proc/sys/net/core handler
 //
 // Emulated resources:
@@ -51,11 +50,11 @@ import (
 //
 // Supported schedulers (https://github.com/torvalds/linux/blob/master/net/sched/Kconfig#L478):
 //
-// 	- "pfifo_fast"
-//	- "fq"
-//	- "fq_codel"
-//	- "sfq"
-//	- "pfifo_fast"
+//   - "pfifo_fast"
+//   - "fq"
+//   - "fq_codel"
+//   - "sfq"
+//   - "pfifo_fast"
 //
 // As this is a system-wide attribute with mutually-exclusive values, changes
 // will be only made superficially (at sys-container level). IOW, the host FS
@@ -66,7 +65,6 @@ import (
 // Description: Limit of socket listen() backlog, known in userspace as SOMAXCONN.
 // Somaxconn refers to the maximum number of clients that the server can accept
 // to process data, that is, to complete the connection limit. Defaults to 128.
-//
 type ProcSysNetCore struct {
 	domain.HandlerBase
 }
@@ -198,6 +196,16 @@ func (h *ProcSysNetCore) ReadDirAll(
 	}
 
 	return fileEntries, nil
+}
+
+func (h *ProcSysNetCore) ReadLink(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (string, error) {
+
+	logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
+
+	return h.Service.GetPassThroughHandler().ReadLink(n, req)
 }
 
 func (h *ProcSysNetCore) GetName() string {

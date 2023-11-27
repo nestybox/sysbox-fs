@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2021 Nestybox, Inc.
+// Copyright 2019-2023 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,13 +34,11 @@ import (
 	"github.com/nestybox/sysbox-runc/libcontainer/user"
 )
 
-//
 // /proc/sys/net/ipv4 handler
 //
 // Emulated resources:
 //
 // * /proc/sys/net/ipv4/ping_group_range
-//
 type ProcSysNetIpv4 struct {
 	domain.HandlerBase
 }
@@ -120,6 +118,16 @@ func (h *ProcSysNetIpv4) ReadDirAll(
 
 	// Return all entries as seen within container's namespaces.
 	return h.Service.GetPassThroughHandler().ReadDirAll(n, req)
+}
+
+func (h *ProcSysNetIpv4) ReadLink(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (string, error) {
+
+	logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
+
+	return h.Service.GetPassThroughHandler().ReadLink(n, req)
 }
 
 func (h *ProcSysNetIpv4) GetName() string {

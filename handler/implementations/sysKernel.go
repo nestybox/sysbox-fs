@@ -123,7 +123,7 @@ func (h *SysKernel) Lookup(
 	// gid=0).
 	req.SkipIdRemap = true
 
-	return n.Stat()
+	return n.Lstat()
 }
 
 func (h *SysKernel) Open(
@@ -237,6 +237,16 @@ func (h *SysKernel) ReadDirAll(
 	}
 
 	return fileEntries, nil
+}
+
+func (h *SysKernel) ReadLink(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (string, error) {
+
+	logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
+
+	return n.ReadLink()
 }
 
 func (h *SysKernel) GetName() string {

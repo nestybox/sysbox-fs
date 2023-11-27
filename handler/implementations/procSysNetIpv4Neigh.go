@@ -256,6 +256,16 @@ func (h *ProcSysNetIpv4Neigh) ReadDirAll(
 	return fileEntries, nil
 }
 
+func (h *ProcSysNetIpv4Neigh) ReadLink(
+        n domain.IOnodeIface,
+	req *domain.HandlerRequest) (string, error) {
+
+        logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
+	        req.ID, h.Name, n.Name())
+
+	return h.Service.GetPassThroughHandler().ReadLink(n, req)
+}
+
 func (h *ProcSysNetIpv4Neigh) GetName() string {
 	return h.Name
 }

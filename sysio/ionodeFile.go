@@ -34,9 +34,7 @@ import (
 var _ domain.IOServiceIface = (*ioFileService)(nil)
 var _ domain.IOnodeIface = (*IOnodeFile)(nil)
 
-//
 // I/O Service providing FS interaction capabilities.
-//
 type ioFileService struct {
 	fsType domain.IOServiceType
 	appFs  afero.Fs
@@ -85,9 +83,7 @@ func (i *ioFileService) GetServiceType() domain.IOServiceType {
 	return i.fsType
 }
 
-//
 // IOnode class specialization for FS interaction.
-//
 type IOnodeFile struct {
 	name  string
 	path  string
@@ -201,6 +197,10 @@ func (i *IOnodeFile) ReadLine() (string, error) {
 	return res, nil
 }
 
+func (i *IOnodeFile) ReadLink() (string, error) {
+	return os.Readlink(i.path)
+}
+
 func (i *IOnodeFile) WriteAt(p []byte, off int64) (n int, err error) {
 
 	if i.file == nil {
@@ -265,6 +265,10 @@ func (i *IOnodeFile) GetNsInode() (domain.Inode, error) {
 
 func (i *IOnodeFile) Stat() (os.FileInfo, error) {
 	return i.fss.appFs.Stat(i.path)
+}
+
+func (i *IOnodeFile) Lstat() (os.FileInfo, error) {
+	return os.Lstat(i.path)
 }
 
 func (i *IOnodeFile) SeekReset() (int64, error) {

@@ -100,6 +100,7 @@ type HandlerIface interface {
 	Read(node IOnodeIface, req *HandlerRequest) (int, error)
 	Write(node IOnodeIface, req *HandlerRequest) (int, error)
 	ReadDirAll(node IOnodeIface, req *HandlerRequest) ([]os.FileInfo, error)
+	ReadLink(node IOnodeIface, req *HandlerRequest) (string, error)
 
 	// getters/setters.
 	GetName() string

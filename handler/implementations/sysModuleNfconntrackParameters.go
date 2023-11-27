@@ -1,5 +1,5 @@
 //
-// Copyright 2019-2020 Nestybox, Inc.
+// Copyright 2019-2023 Nestybox, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ func (h *SysModuleNfconntrackParameters) Lookup(
 	// Users should not be allowed to alter any of the non-emulated sysfs nodes.
 	req.SkipIdRemap = true
 
-	return n.Stat()
+	return n.Lstat()
 }
 
 func (h *SysModuleNfconntrackParameters) Open(
@@ -188,6 +188,16 @@ func (h *SysModuleNfconntrackParameters) ReadDirAll(
 	}
 
 	return fileEntries, nil
+}
+
+func (h *SysModuleNfconntrackParameters) ReadLink(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (string, error) {
+
+	logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
+
+	return n.ReadLink()
 }
 
 func (h *SysModuleNfconntrackParameters) GetName() string {

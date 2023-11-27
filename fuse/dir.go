@@ -156,10 +156,14 @@ func (d *Dir) Lookup(
 	if info.IsDir() {
 		fuseAttrs.Mode |= os.ModeDir
 		newNode = NewDir(handlerReq, &fuseAttrs, d.File.server)
+	} else if info.Mode()&os.ModeSymlink != 0 {
+		fuseAttrs.Mode |= os.ModeSymlink
+		newNode = NewFile(handlerReq, &fuseAttrs, d.File.server)
 	} else {
 		newNode = NewFile(handlerReq, &fuseAttrs, d.File.server)
 	}
 
+	// Insert new fs node into nodeDB.
 	d.server.Lock()
 	d.server.nodeDB[path] = &newNode
 	d.server.Unlock()
@@ -325,6 +329,8 @@ func (d *Dir) ReadDirAll(ctx context.Context, req *fuse.ReadRequest) ([]fuse.Dir
 			elem.Type = fuse.DT_Dir
 		} else if node.Mode().IsRegular() {
 			elem.Type = fuse.DT_File
+		} else if node.Mode()&os.ModeSymlink != 0 {
+			elem.Type = fuse.DT_Link
 		}
 
 		children = append(children, elem)
