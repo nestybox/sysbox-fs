@@ -45,9 +45,7 @@ import (
 // Emulated resources:
 //
 // * /proc/sys/net/ipv4/vs/conn_reuse_mode handler
-//
 // * /proc/sys/net/ipv4/vs/expire_nodest_conn handler
-//
 // * /proc/sys/net/ipv4/vs/expire_quiescent_template handler
 //
 
@@ -70,21 +68,25 @@ var ProcSysNetIpv4Vs_Handler = &ProcSysNetIpv4Vs{
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    2,
 			},
 			"conn_reuse_mode": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    2,
 			},
 			"expire_nodest_conn": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    2,
 			},
 			"expire_quiescent_template": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    2,
 			},
 		},
 	},
@@ -106,6 +108,7 @@ func (h *ProcSysNetIpv4Vs) Lookup(
 			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
+			Fsize:    v.Size,
 		}
 
 		return info, nil
