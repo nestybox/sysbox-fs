@@ -110,6 +110,7 @@ var ProcSysKernelYama_Handler = &ProcSysKernelYama{
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    2, // value + newline
 			},
 		},
 	},
@@ -131,6 +132,7 @@ func (h *ProcSysKernelYama) Lookup(
 			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
+			Fsize:    v.Size,
 		}
 
 		return info, nil
