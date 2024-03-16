@@ -79,11 +79,13 @@ var ProcSysNetCore_Handler = &ProcSysNetCore{
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 			"somaxconn": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 		},
 	},
@@ -105,6 +107,7 @@ func (h *ProcSysNetCore) Lookup(
 			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
+			Fsize:    v.Size,
 		}
 
 		return info, nil
