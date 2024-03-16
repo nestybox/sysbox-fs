@@ -195,6 +195,8 @@ func (h *ProcSysNetCore) ReadDirAll(
 		fileEntries = append(fileEntries, usualEntries...)
 	}
 
+	fileEntries = domain.FileInfoSliceUniquify(fileEntries)
+
 	return fileEntries, nil
 }
 
