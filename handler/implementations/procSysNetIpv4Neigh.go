@@ -37,10 +37,9 @@ import (
 // Emulated resources:
 //
 // * /proc/sys/net/ipv4/default/gc_thresh1
-//
 // * /proc/sys/net/ipv4/default/gc_thresh2
-//
 // * /proc/sys/net/ipv4/default/gc_thresh3
+
 type ProcSysNetIpv4Neigh struct {
 	domain.HandlerBase
 }
@@ -60,16 +59,19 @@ var ProcSysNetIpv4Neigh_Handler = &ProcSysNetIpv4Neigh{
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 			"default/gc_thresh2": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 			"default/gc_thresh3": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 		},
 	},
@@ -103,6 +105,7 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 		info := &domain.FileInfo{
 			Fname:    resource,
 			FmodTime: time.Now(),
+			Fsize:    v.Size,
 		}
 
 		if v.Kind == domain.DirEmuResource {
