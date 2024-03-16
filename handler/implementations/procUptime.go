@@ -60,6 +60,7 @@ func (h *ProcUptime) Lookup(
 		Fname:    resource,
 		Fmode:    os.FileMode(uint32(0444)),
 		FmodTime: time.Now(),
+		Fsize:    4096,
 	}
 
 	return info, nil
@@ -208,9 +209,9 @@ func (h *ProcUptime) readUptime(
 	//
 	uptimeDur := time.Now().Sub(data) / time.Nanosecond
 	var uptime float64 = uptimeDur.Seconds()
-	uptimeStr := fmt.Sprintf("%.2f", uptime)
+	uptimeStr := fmt.Sprintf("%.2f %.2f\n", uptime, uptime)
 
-	req.Data = []byte(uptimeStr + " " + uptimeStr + "\n")
+	req.Data = []byte(uptimeStr)
 
 	return len(req.Data), nil
 }
