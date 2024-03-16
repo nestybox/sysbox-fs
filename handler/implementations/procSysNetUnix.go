@@ -32,6 +32,7 @@ import (
 // Emulated resources:
 //
 // * /proc/sys/net/unix/max_dgram_qlen
+
 type ProcSysNetUnix struct {
 	domain.HandlerBase
 }
@@ -46,6 +47,7 @@ var ProcSysNetUnix_Handler = &ProcSysNetUnix{
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 		},
 	},
@@ -67,6 +69,7 @@ func (h *ProcSysNetUnix) Lookup(
 			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
+			Fsize:    v.Size,
 		}
 
 		return info, nil
@@ -167,6 +170,8 @@ func (h *ProcSysNetUnix) ReadDirAll(
 	if err == nil {
 		fileEntries = append(fileEntries, usualEntries...)
 	}
+
+	fileEntries = domain.FileInfoSliceUniquify(fileEntries)
 
 	return fileEntries, nil
 }
