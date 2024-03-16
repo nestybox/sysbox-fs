@@ -234,6 +234,8 @@ func (h *ProcSysNetNetfilter) ReadDirAll(
 		fileEntries = append(fileEntries, usualEntries...)
 	}
 
+	fileEntries = domain.FileInfoSliceUniquify(fileEntries)
+
 	return fileEntries, nil
 }
 

@@ -217,6 +217,8 @@ func (h *ProcSysNetIpv4Vs) ReadDirAll(
 		fileEntries = append(fileEntries, usualEntries...)
 	}
 
+	fileEntries = domain.FileInfoSliceUniquify(fileEntries)
+
 	return fileEntries, nil
 }
 

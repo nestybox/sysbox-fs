@@ -32,7 +32,6 @@ import (
 	"github.com/nestybox/sysbox-fs/fuse"
 )
 
-//
 // /proc/sys/net/ipv4/neigh handler
 //
 // Emulated resources:
@@ -42,7 +41,6 @@ import (
 // * /proc/sys/net/ipv4/default/gc_thresh2
 //
 // * /proc/sys/net/ipv4/default/gc_thresh3
-//
 type ProcSysNetIpv4Neigh struct {
 	domain.HandlerBase
 }
@@ -253,15 +251,17 @@ func (h *ProcSysNetIpv4Neigh) ReadDirAll(
 		fileEntries = append(fileEntries, usualEntries...)
 	}
 
+	fileEntries = domain.FileInfoSliceUniquify(fileEntries)
+
 	return fileEntries, nil
 }
 
 func (h *ProcSysNetIpv4Neigh) ReadLink(
-        n domain.IOnodeIface,
+	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (string, error) {
 
-        logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
-	        req.ID, h.Name, n.Name())
+	logrus.Debugf("Executing ReadLink() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
 
 	return h.Service.GetPassThroughHandler().ReadLink(n, req)
 }
