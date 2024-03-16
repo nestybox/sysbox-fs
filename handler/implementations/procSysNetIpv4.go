@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -39,6 +40,7 @@ import (
 // Emulated resources:
 //
 // * /proc/sys/net/ipv4/ping_group_range
+
 type ProcSysNetIpv4 struct {
 	domain.HandlerBase
 }
@@ -53,6 +55,7 @@ var ProcSysNetIpv4_Handler = &ProcSysNetIpv4{
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 		},
 	},
@@ -66,6 +69,19 @@ func (h *ProcSysNetIpv4) Lookup(
 
 	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
+
+	// Return an artificial fileInfo if looked-up element matches any of the
+	// emulated nodes.
+	if v, ok := h.EmuResourceMap[resource]; ok {
+		info := &domain.FileInfo{
+			Fname:    resource,
+			Fmode:    v.Mode,
+			FmodTime: time.Now(),
+			Fsize:    v.Size,
+		}
+
+		return info, nil
+	}
 
 	return h.Service.GetPassThroughHandler().Lookup(n, req)
 }
