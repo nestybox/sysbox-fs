@@ -236,56 +236,67 @@ var ProcSysKernel_Handler = &ProcSysKernel{
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    4096,
 			},
 			"hostname": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    4096,
 			},
 			"kptr_restrict": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    2,
 			},
 			"dmesg_restrict": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    2,
 			},
 			"ngroups_max": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0444)),
 				Enabled: true,
+				Size:    1024,
 			},
 			"cap_last_cap": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0444)),
 				Enabled: true,
+				Size:    1024,
 			},
 			"panic": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    4096,
 			},
 			"panic_on_oops": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    2,
 			},
 			"printk": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 			"sysrq": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 			"pid_max": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 		},
 	},
@@ -307,6 +318,7 @@ func (h *ProcSysKernel) Lookup(
 			Fname:    resource,
 			Fmode:    v.Mode,
 			FmodTime: time.Now(),
+			Fsize:    v.Size,
 		}
 
 		return info, nil
