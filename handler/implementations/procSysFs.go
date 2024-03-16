@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -34,11 +35,8 @@ import (
 // Emulated resources:
 //
 // * /proc/sys/fs/file-max
-//
 // * /proc/sys/fs/nr_open
-//
 // * /proc/sys/fs/protected_hardlinks
-//
 // * /proc/sys/fs/protected_symlinks
 //
 
@@ -66,21 +64,25 @@ var ProcSysFs_Handler = &ProcSysFs{
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 			"nr_open": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0644)),
 				Enabled: true,
+				Size:    1024,
 			},
 			"protected_hardlinks": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0600)),
 				Enabled: true,
+				Size:    1024,
 			},
 			"protected_symlinks": {
 				Kind:    domain.FileEmuResource,
 				Mode:    os.FileMode(uint32(0600)),
 				Enabled: true,
+				Size:    1024,
 			},
 		},
 	},
@@ -94,6 +96,19 @@ func (h *ProcSysFs) Lookup(
 
 	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
+
+	// Return an artificial fileInfo if looked-up element matches any of the
+	// emulated nodes.
+	if v, ok := h.EmuResourceMap[resource]; ok {
+		info := &domain.FileInfo{
+			Fname:    resource,
+			Fmode:    v.Mode,
+			FmodTime: time.Now(),
+			Fsize:    v.Size,
+		}
+
+		return info, nil
+	}
 
 	// If looked-up element hasn't been found by now, let's look into the actual
 	// sys container rootfs.
