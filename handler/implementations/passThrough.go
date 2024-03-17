@@ -98,6 +98,19 @@ func (h *PassThrough) Lookup(
 
 	info := responseMsg.Payload.(domain.FileInfo)
 
+	// The file size will be 0 when passing through to files under /proc (i.e.,
+	// because /proc is a virtual filesystem). This was not a problem in the
+	// past, but starting with Linux kernel 6.5, returning a size of 0 causes the
+	// kernel show the file as empty when read. Thus we need to return a size >
+	// 0. However what size to we return? The size needs to be >= largest file
+	// size that could be passed through, otherwise the contents of the file will
+	// be cutoff. We choose size = 32K since it should be large enough to hold
+	// the contents of any file under /proc. Note that files under /sys have a
+	// size (typically 4096), so this override does not apply to them.
+	if info.Fsize == 0 {
+		info.Fsize = 32768
+	}
+
 	return info, nil
 }
 
