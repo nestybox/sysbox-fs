@@ -399,11 +399,11 @@ func (f *File) ModTime() time.Time {
 // For reference, the attributes' format expected by Bazil-FUSE-lib are defined
 // here: bazil/fuse.go (fuse.Attr DS).
 func convertFileInfoToFuse(info os.FileInfo) fuse.Attr {
-
 	var a fuse.Attr
 
-	// Rely in os.FileInfo interface methods if lower-level details are not
-	// present (typically the case in virtual fs entries).
+	// If the fileInfo does not have a stat() method (e.g., for files that are
+	// virtual and not present in the host file system), translate using the
+	// available file info.
 	stat := info.Sys().(*syscall.Stat_t)
 	if stat == nil {
 		a.Size = uint64(info.Size())
@@ -414,14 +414,15 @@ func convertFileInfoToFuse(info os.FileInfo) fuse.Attr {
 		return a
 	}
 
-	a.Inode = uint64(stat.Ino)
-	a.Size = uint64(stat.Size)
-	a.Blocks = uint64(stat.Blocks)
+	// Otherwise, translate using the file info returned by stat(), except for
+	// the file size, which is always picked up from the file info.
+	a.Size = uint64(info.Size())
 
+	a.Inode = uint64(stat.Ino)
+	a.Blocks = uint64(stat.Blocks)
 	a.Atime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
 	a.Mtime = time.Unix(int64(stat.Mtim.Sec), int64(stat.Mtim.Nsec))
 	a.Ctime = time.Unix(int64(stat.Ctim.Sec), int64(stat.Ctim.Nsec))
-
 	a.Mode = os.FileMode(stat.Mode)
 	a.Nlink = uint32(stat.Nlink)
 	a.Uid = uint32(stat.Uid)
