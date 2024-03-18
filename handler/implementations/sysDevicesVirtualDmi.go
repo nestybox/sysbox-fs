@@ -116,12 +116,12 @@ func (h *SysDevicesVirtualDmi) Lookup(
 
 func (h *SysDevicesVirtualDmi) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
-	return nil
+	return false, nil
 }
 
 func (h *SysDevicesVirtualDmi) Read(

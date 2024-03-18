@@ -70,7 +70,7 @@ func (h *ProcSwaps) Lookup(
 
 func (h *ProcSwaps) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
@@ -79,10 +79,10 @@ func (h *ProcSwaps) Open(
 
 	if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
 		flags&syscall.O_RDWR == syscall.O_RDWR {
-		return fuse.IOerror{Code: syscall.EACCES}
+		return false, fuse.IOerror{Code: syscall.EACCES}
 	}
 
-	return nil
+	return false, nil
 }
 
 func (h *ProcSwaps) Read(

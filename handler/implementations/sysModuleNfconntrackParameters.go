@@ -89,9 +89,9 @@ func (h *SysModuleNfconntrackParameters) Lookup(
 
 func (h *SysModuleNfconntrackParameters) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
-	return nil
+	return false, nil
 }
 
 func (h *SysModuleNfconntrackParameters) Read(

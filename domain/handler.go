@@ -95,7 +95,7 @@ type HandlerRequest struct {
 // HandlerIface is the interface that each handler must implement
 type HandlerIface interface {
 	// FS operations.
-	Open(node IOnodeIface, req *HandlerRequest) error
+	Open(node IOnodeIface, req *HandlerRequest) (bool, error)
 	Lookup(n IOnodeIface, req *HandlerRequest) (os.FileInfo, error)
 	Read(node IOnodeIface, req *HandlerRequest) (int, error)
 	Write(node IOnodeIface, req *HandlerRequest) (int, error)

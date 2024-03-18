@@ -142,7 +142,7 @@ func (f *File) Open(
 	}
 
 	// Handler execution.
-	err := handler.Open(ionode, handlerReq)
+	nonSeekable, err := handler.Open(ionode, handlerReq)
 	if err != nil && err != io.EOF {
 		logrus.Debugf("Open() error: %v", err)
 		return nil, err
@@ -163,6 +163,10 @@ func (f *File) Open(
 	// pose a problem for Sysbox as we are dealing with special FSs.
 	//
 	resp.Flags |= fuse.OpenDirectIO
+
+	if nonSeekable {
+		resp.Flags |= fuse.OpenNonSeekable
+	}
 
 	return f, nil
 }

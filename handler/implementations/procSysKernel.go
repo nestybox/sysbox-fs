@@ -331,7 +331,7 @@ func (h *ProcSysKernel) Lookup(
 
 func (h *ProcSysKernel) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	var resource = n.Name()
 
@@ -344,43 +344,43 @@ func (h *ProcSysKernel) Open(
 	case "cap_last_cap":
 		if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
 			flags&syscall.O_RDWR == syscall.O_RDWR {
-			return fuse.IOerror{Code: syscall.EACCES}
+			return false, fuse.IOerror{Code: syscall.EACCES}
 		}
-		return nil
+		return false, nil
 
 	case "pid_max":
-		return nil
+		return false, nil
 
 	case "ngroups_max":
 		if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
 			flags&syscall.O_RDWR == syscall.O_RDWR {
-			return fuse.IOerror{Code: syscall.EACCES}
+			return false, fuse.IOerror{Code: syscall.EACCES}
 		}
-		return nil
+		return false, nil
 
 	case "domainname":
-		return nil
+		return false, nil
 
 	case "hostname":
-		return nil
+		return false, nil
 
 	case "kptr_restrict":
-		return nil
+		return false, nil
 
 	case "dmesg_restrict":
-		return nil
+		return false, nil
 
 	case "panic":
-		return nil
+		return false, nil
 
 	case "panic_on_oops":
-		return nil
+		return false, nil
 
 	case "sysrq":
-		return nil
+		return false, nil
 
 	case "printk":
-		return nil
+		return false, nil
 	}
 
 	// Refer to generic handler if no node match is found above.

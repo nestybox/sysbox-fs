@@ -89,7 +89,7 @@ func (h *ProcSys) Lookup(
 
 func (h *ProcSys) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())

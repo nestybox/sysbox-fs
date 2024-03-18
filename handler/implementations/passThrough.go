@@ -116,7 +116,7 @@ func (h *PassThrough) Lookup(
 
 func (h *PassThrough) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
@@ -146,16 +146,16 @@ func (h *PassThrough) Open(
 	// Launch nsenter-event.
 	err := nss.SendRequestEvent(event)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	// Obtain nsenter-event response.
 	responseMsg := nss.ReceiveResponseEvent(event)
 	if responseMsg.Type == domain.ErrorResponse {
-		return responseMsg.Payload.(error)
+		return false, responseMsg.Payload.(error)
 	}
 
-	return nil
+	return false, nil
 }
 
 func (h *PassThrough) Read(
