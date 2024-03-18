@@ -159,14 +159,14 @@ func (h *SysDevicesVirtualDmiId) Lookup(
 
 func (h *SysDevicesVirtualDmiId) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
 	relpath, err := filepath.Rel(h.Path, n.Path())
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	var resource = relpath
@@ -176,17 +176,17 @@ func (h *SysDevicesVirtualDmiId) Open(
 	switch resource {
 
 	case ".":
-		return nil
+		return false, nil
 
 	case "product_uuid":
 		if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
 			flags&syscall.O_RDWR == syscall.O_RDWR {
-			return fuse.IOerror{Code: syscall.EACCES}
+			return false, fuse.IOerror{Code: syscall.EACCES}
 		}
-		return nil
+		return false, nil
 	}
 
-	return n.Open()
+	return false, n.Open()
 }
 
 func (h *SysDevicesVirtualDmiId) Read(

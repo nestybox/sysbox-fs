@@ -117,7 +117,7 @@ func (h *ProcSysFs) Lookup(
 
 func (h *ProcSysFs) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	var resource = n.Name()
 
@@ -126,16 +126,16 @@ func (h *ProcSysFs) Open(
 
 	switch resource {
 	case "file-max":
-		return nil
+		return false, nil
 
 	case "nr_open":
-		return nil
+		return false, nil
 
 	case "protected_hardlinks":
-		return nil
+		return false, nil
 
 	case "protected_symlinks":
-		return nil
+		return false, nil
 	}
 
 	return h.Service.GetPassThroughHandler().Open(n, req)

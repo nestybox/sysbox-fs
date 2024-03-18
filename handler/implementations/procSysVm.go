@@ -114,7 +114,7 @@ func (h *ProcSysVm) Lookup(
 
 func (h *ProcSysVm) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	var resource = n.Name()
 
@@ -123,10 +123,10 @@ func (h *ProcSysVm) Open(
 
 	switch resource {
 	case "overcommit_memory":
-		return nil
+		return false, nil
 
 	case "mmap_min_addr":
-		return nil
+		return false, nil
 	}
 
 	return h.Service.GetPassThroughHandler().Open(n, req)

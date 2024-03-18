@@ -128,7 +128,7 @@ func (h *SysKernel) Lookup(
 
 func (h *SysKernel) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	var resource = n.Name()
 
@@ -138,16 +138,16 @@ func (h *SysKernel) Open(
 	// All emulated resources are currently dummy / empty
 	switch resource {
 	case "config":
-		return nil
+		return false, nil
 	case "debug":
-		return nil
+		return false, nil
 	case "tracing":
-		return nil
+		return false, nil
 	case "security":
-		return nil
+		return false, nil
 	}
 
-	return n.Open()
+	return false, n.Open()
 }
 
 func (h *SysKernel) Read(

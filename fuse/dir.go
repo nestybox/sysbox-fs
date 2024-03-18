@@ -239,12 +239,16 @@ func (d *Dir) Create(
 
 	// Handler execution. 'Open' handler will create new element if requesting
 	// process has the proper credentials / capabilities.
-	err := handler.Open(ionode, handlerReq)
+	nonSeekable, err := handler.Open(ionode, handlerReq)
 	if err != nil && err != io.EOF {
 		logrus.Debugf("Open() error: %v", err)
 		return nil, nil, err
 	}
+
 	resp.Flags |= fuse.OpenDirectIO
+	if nonSeekable {
+		resp.Flags |= fuse.OpenNonSeekable
+	}
 
 	// To satisfy Bazil FUSE lib we are expected to return a lookup-response
 	// and an open-response, let's start with the lookup() one.

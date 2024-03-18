@@ -125,9 +125,9 @@ func (h *ProcSysNetIpv4Neigh) Lookup(
 
 func (h *ProcSysNetIpv4Neigh) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
-	return nil
+	return false, nil
 }
 
 func (h *ProcSysNetIpv4Neigh) Read(

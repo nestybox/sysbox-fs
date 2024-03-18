@@ -82,7 +82,7 @@ func (h *ProcSysNetUnix) Lookup(
 
 func (h *ProcSysNetUnix) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	var resource = n.Name()
 
@@ -91,7 +91,7 @@ func (h *ProcSysNetUnix) Open(
 
 	switch resource {
 	case "max_dgram_qlen":
-		return nil
+		return false, nil
 	}
 
 	return h.Service.GetPassThroughHandler().Open(n, req)

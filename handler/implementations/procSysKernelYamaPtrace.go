@@ -145,9 +145,9 @@ func (h *ProcSysKernelYama) Lookup(
 
 func (h *ProcSysKernelYama) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
-	return nil
+	return false, nil
 }
 
 func (h *ProcSysKernelYama) Read(

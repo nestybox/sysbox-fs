@@ -66,9 +66,9 @@ func (h *Root) Lookup(
 
 func (h *Root) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
-	return nil
+	return false, nil
 }
 
 func (h *Root) Read(

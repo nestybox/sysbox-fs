@@ -135,11 +135,11 @@ func (h *ProcSysNetNetfilter) Lookup(
 
 func (h *ProcSysNetNetfilter) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	logrus.Debugf("Executing %v Open() method\n", h.Name)
 
-	return nil
+	return false, nil
 }
 
 func (h *ProcSysNetNetfilter) Read(

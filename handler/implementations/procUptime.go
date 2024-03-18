@@ -68,7 +68,7 @@ func (h *ProcUptime) Lookup(
 
 func (h *ProcUptime) Open(
 	n domain.IOnodeIface,
-	req *domain.HandlerRequest) error {
+	req *domain.HandlerRequest) (bool, error) {
 
 	var resource = n.Name()
 
@@ -79,10 +79,11 @@ func (h *ProcUptime) Open(
 
 	if flags&syscall.O_WRONLY == syscall.O_WRONLY ||
 		flags&syscall.O_RDWR == syscall.O_RDWR {
-		return fuse.IOerror{Code: syscall.EACCES}
+		return false, fuse.IOerror{Code: syscall.EACCES}
 	}
 
-	return nil
+	// /proc/uptime is not seekable
+	return true, nil
 }
 
 func (h *ProcUptime) Read(
