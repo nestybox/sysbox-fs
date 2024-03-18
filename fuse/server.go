@@ -33,6 +33,7 @@ import (
 // FuseServer class in charge of running/hosting sysbox-fs' FUSE server features.
 type fuseServer struct {
 	sync.RWMutex                       // nodeDB protection
+	conn         *fuse.Conn            // Associated fuse connection
 	path         string                // fs path to emulate -- "/" by default
 	mountPoint   string                // mountpoint -- "/var/lib/sysboxfs" by default
 	container    domain.ContainerIface // associated sys container
@@ -94,7 +95,7 @@ func (s *fuseServer) Create() error {
 		}
 	}
 
-	// Creating a first node corresponding to the root (dir) element in
+	// Create a first node corresponding to the root (dir) element in
 	// sysbox-fs.
 	var attr fuse.Attr
 	if s.service.ios.GetServiceType() == domain.IOMemFileService {
@@ -120,7 +121,7 @@ func (s *fuseServer) Create() error {
 
 func (s *fuseServer) Run() error {
 	//
-	// Creating a FUSE mount at the requested mountpoint.
+	// Creating a FUSE mount at the associated mountpoint.
 	//
 	// The "AllowOther" flag allows unprivileged users to access the resources
 	// exposed on this mountpoint.
@@ -139,6 +140,7 @@ func (s *fuseServer) Run() error {
 		logrus.Error(err)
 		return err
 	}
+	s.conn = c
 
 	// Deferred routine to enforce a clean exit should an unrecoverable error is
 	// ever returned from fuse-lib.
@@ -193,14 +195,13 @@ func (s *fuseServer) Destroy() error {
 	s.server = nil
 	s.root = nil
 	s.service = nil
+	s.conn = nil
 
 	return nil
 }
 
-//
 // Root method. This is a Bazil-FUSE-lib requirement. Function returns
 // sysbox-fs' root-node.
-//
 func (s *fuseServer) Root() (fs.Node, error) {
 
 	return s.root, nil
