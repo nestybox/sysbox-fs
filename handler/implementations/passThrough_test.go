@@ -126,7 +126,7 @@ func TestPassThrough_Lookup(t *testing.T) {
 			name:       "1",
 			fields:     f1,
 			args:       a1,
-			want:       domain.FileInfo{Fname: a1.n.Path()},
+			want:       domain.FileInfo{Fname: a1.n.Path(), Fsize: 32768},
 			wantErr:    false,
 			wantErrVal: nil,
 			prepare: func() {
@@ -413,7 +413,7 @@ func TestPassThrough_Open(t *testing.T) {
 				tt.prepare()
 			}
 
-			err := h.Open(tt.args.n, tt.args.req)
+			_, err := h.Open(tt.args.n, tt.args.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("PassThrough.Open() error = %v, wantErr %v", err, tt.wantErr)
 			}
