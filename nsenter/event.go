@@ -83,7 +83,7 @@ type NSenterEvent struct {
 	// Request message to be sent.
 	ReqMsg *domain.NSenterMessage `json:"request"`
 
-	// Request message to be received.
+	// Response message to be received.
 	ResMsg *domain.NSenterMessage `json:"response"`
 
 	// Sysbox-fs' spawned process carrying out the nsexec instruction.
