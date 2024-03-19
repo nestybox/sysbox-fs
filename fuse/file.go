@@ -103,6 +103,8 @@ func (f *File) Attr(ctx context.Context, a *fuse.Attr) error {
 		a.Valid = time.Duration(AttribCacheTimeout)
 	}
 
+	logrus.Debugf("Attr() operation for entry %v: %+v", f.path, *a)
+
 	return nil
 }
 
