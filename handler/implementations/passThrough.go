@@ -70,7 +70,7 @@ func (h *PassThrough) Lookup(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
-		&domain.AllNSsButMount,
+		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.LookupRequest,
@@ -127,7 +127,7 @@ func (h *PassThrough) Open(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
-		&domain.AllNSsButMount,
+		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
@@ -301,7 +301,7 @@ func (h *PassThrough) ReadDirAll(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
-		&domain.AllNSsButMount,
+		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.ReadDirRequest,
@@ -354,7 +354,7 @@ func (h *PassThrough) ReadLink(
 
 	event := nss.NewEvent(
 		req.Pid,
-		&domain.AllNSsButMount,
+		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.ReadLinkRequest,
@@ -399,7 +399,7 @@ func (h *PassThrough) Setattr(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
-		&domain.AllNSsButMount,
+		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
@@ -444,7 +444,7 @@ func (h *PassThrough) fetchFile(
 
 	event := nss.NewEvent(
 		process.Pid(),
-		&domain.AllNSsButMount,
+		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.ReadFileRequest,
@@ -492,7 +492,7 @@ func (h *PassThrough) pushFile(
 
 	event := nss.NewEvent(
 		process.Pid(),
-		&domain.AllNSsButMount,
+		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.WriteFileRequest,
@@ -584,12 +584,21 @@ func checkProcAndSysRemount(n domain.IOnodeIface) (bool, bool, uint32) {
 		cloneFlags  uint32
 	)
 
-	// The nsenter agent will enter the namespaces of the container (except the
-	// mount ns to avoid a recursion with sysbox-fs). However, when accessing
-	// files under /proc or /sys, the agent needs to remount these as otherwise
-	// they won't pick up the container's assigned resources (e.g., net devices,
-	// etc). We do this by having the nsenter agent in a new mount namespace so
-	// as to not mess up mounts in the host or in the container.
+	// The nsenter agent will enter/join the namespaces of the container,
+	// including the mount ns. This way, the nsenter process no longer carries
+	// the sysbox-fs mounts as it enters the container.
+	//
+	// However, when accessing files under /proc or /sys, the agent needs to
+	// remount these as otherwise they won't pick up the container's assigned
+	// resources (e.g., net devices, etc).
+	//
+	// To avoid the container processes seeing the nsenter process mounts of
+	// procfs and sysfs, we direct the nsenter agent create a new mount namespace
+	// so as to not mess up mounts in the container (see cloneFlags below). The
+	// creation of this new mount ns occurs **after** the nsenter process has
+	// joined the container namespaces (see sysbox-runc/libcontainer/nsexec). Thus it's
+	// equivalent to a "setns" to join all container namespaces, immediately
+	// followed by an "unshare" of the mount namespace.
 
 	if strings.HasPrefix(n.Path(), "/sys/") {
 		mountSysfs = true
@@ -599,6 +608,8 @@ func checkProcAndSysRemount(n domain.IOnodeIface) (bool, bool, uint32) {
 		mountProcfs = true
 	}
 
+	// Tell nsenter agent to unshare the mount-ns (occurs after nsenter has
+	// already joined container namespaces).
 	if mountSysfs || mountProcfs {
 		cloneFlags = unix.CLONE_NEWNS
 	}

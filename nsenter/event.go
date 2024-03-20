@@ -516,17 +516,17 @@ func (e *NSenterEvent) SendRequest() error {
 	// Create the nsenter instruction packet
 	r := nl.NewNetlinkRequest(int(libcontainer.InitMsg), 0)
 
-	// new namespaces to create
-	r.AddData(&libcontainer.Int32msg{
-		Type:  libcontainer.CloneFlagsAttr,
-		Value: e.CloneFlags,
-	})
-
-	// existing namespaces to join
+	// existing namespaces to join (if any)
 	namespaces := e.namespacePaths()
 	r.AddData(&libcontainer.Bytemsg{
 		Type:  libcontainer.NsPathsAttr,
 		Value: []byte(strings.Join(namespaces, ",")),
+	})
+
+	// new namespaces to create (after joining existing namespaces)
+	r.AddData(&libcontainer.Int32msg{
+		Type:  libcontainer.CloneFlagsAttr,
+		Value: e.CloneFlags,
 	})
 
 	// Prepare exec.cmd in charge of running: "sysbox-fs nsenter".
@@ -716,13 +716,17 @@ func (e *NSenterEvent) processLookupRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.LookupPayload)
 
-	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+	pmi, err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs)
+	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: &fuse.IOerror{RcvError: err},
 		}
 		return nil
 	}
+	defer pmi.cleanup()
+
+	payload.Entry = replaceProcfsAndSysfsPaths(payload.Entry, pmi)
 
 	// Verify if the resource being looked up is reachable and obtain FileInfo
 	// details.
@@ -763,13 +767,17 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.OpenFilePayload)
 
-	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+	pmi, err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs)
+	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: &fuse.IOerror{RcvError: err},
 		}
 		return nil
 	}
+	defer pmi.cleanup()
+
+	payload.File = replaceProcfsAndSysfsPaths(payload.File, pmi)
 
 	// Extract openflags from the incoming payload.
 	openFlags, err := strconv.Atoi(payload.Flags)
@@ -822,13 +830,17 @@ func (e *NSenterEvent) processFileReadRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.ReadFilePayload)
 
-	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+	pmi, err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs)
+	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: &fuse.IOerror{RcvError: err},
 		}
 		return nil
 	}
+	defer pmi.cleanup()
+
+	payload.File = replaceProcfsAndSysfsPaths(payload.File, pmi)
 
 	fd, err = os.Open(payload.File)
 	if err != nil {
@@ -867,13 +879,17 @@ func (e *NSenterEvent) processFileWriteRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.WriteFilePayload)
 
-	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+	pmi, err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs)
+	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: &fuse.IOerror{RcvError: err},
 		}
 		return nil
 	}
+	defer pmi.cleanup()
+
+	payload.File = replaceProcfsAndSysfsPaths(payload.File, pmi)
 
 	fd, err = os.OpenFile(payload.File, os.O_WRONLY, 0)
 	if err != nil {
@@ -906,13 +922,17 @@ func (e *NSenterEvent) processDirReadRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.ReadDirPayload)
 
-	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+	pmi, err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs)
+	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: &fuse.IOerror{RcvError: err},
 		}
 		return nil
 	}
+	defer pmi.cleanup()
+
+	payload.Dir = replaceProcfsAndSysfsPaths(payload.Dir, pmi)
 
 	// Perform readDir operation and return error msg should this one fail.
 	dirContent, err := ioutil.ReadDir(payload.Dir)
@@ -952,13 +972,17 @@ func (e *NSenterEvent) processReadLinkRequest() error {
 
 	payload := e.ReqMsg.Payload.(domain.ReadLinkPayload)
 
-	if err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs); err != nil {
+	pmi, err := processPayloadMounts(payload.MountSysfs, payload.MountProcfs)
+	if err != nil {
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: err,
 		}
 		return nil
 	}
+	defer pmi.cleanup()
+
+	payload.Link = replaceProcfsAndSysfsPaths(payload.Link, pmi)
 
 	// Perform readLink operation and return error msg should this one fail.
 	link, err := os.Readlink(payload.Link)
