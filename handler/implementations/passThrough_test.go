@@ -134,7 +134,7 @@ func TestPassThrough_Lookup(t *testing.T) {
 				// Expected nsenter request.
 				nsenterEventReq := &nsenter.NSenterEvent{
 					Pid:       a1.req.Pid,
-					Namespace: &domain.AllNSsButMount,
+					Namespace: &domain.AllNSs,
 					ReqMsg: &domain.NSenterMessage{
 						Type:    domain.LookupRequest,
 						Payload: &domain.LookupPayload{a1.n.Path(), false, true},
@@ -153,7 +153,7 @@ func TestPassThrough_Lookup(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
-					&domain.AllNSsButMount,
+					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
@@ -179,7 +179,7 @@ func TestPassThrough_Lookup(t *testing.T) {
 				// Expected nsenter request.
 				nsenterEventReq := &nsenter.NSenterEvent{
 					Pid:       a1.req.Pid,
-					Namespace: &domain.AllNSsButMount,
+					Namespace: &domain.AllNSs,
 					ReqMsg: &domain.NSenterMessage{
 						Type:    domain.LookupRequest,
 						Payload: &domain.LookupPayload{a1.n.Path(), false, true},
@@ -197,7 +197,7 @@ func TestPassThrough_Lookup(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
-					&domain.AllNSsButMount,
+					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
@@ -310,7 +310,7 @@ func TestPassThrough_Open(t *testing.T) {
 				// Expected nsenter request.
 				nsenterEventReq := &nsenter.NSenterEvent{
 					Pid:       a1.req.Pid,
-					Namespace: &domain.AllNSsButMount,
+					Namespace: &domain.AllNSs,
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.OpenFileRequest,
 						Payload: &domain.OpenFilePayload{
@@ -334,7 +334,7 @@ func TestPassThrough_Open(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
-					&domain.AllNSsButMount,
+					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
@@ -359,7 +359,7 @@ func TestPassThrough_Open(t *testing.T) {
 				// Expected nsenter request.
 				nsenterEventReq := &nsenter.NSenterEvent{
 					Pid:       a1.req.Pid,
-					Namespace: &domain.AllNSsButMount,
+					Namespace: &domain.AllNSs,
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.OpenFileRequest,
 						Payload: &domain.OpenFilePayload{
@@ -383,7 +383,7 @@ func TestPassThrough_Open(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
-					&domain.AllNSsButMount,
+					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
@@ -498,7 +498,7 @@ func TestPassThrough_Read(t *testing.T) {
 				// Expected nsenter request.
 				nsenterEventReq := &nsenter.NSenterEvent{
 					Pid:       a1.req.Pid,
-					Namespace: &domain.AllNSsButMount,
+					Namespace: &domain.AllNSs,
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.ReadFileRequest,
 						Payload: &domain.ReadFilePayload{
@@ -522,7 +522,7 @@ func TestPassThrough_Read(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
-					&domain.AllNSsButMount,
+					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
@@ -636,7 +636,7 @@ func TestPassThrough_Write(t *testing.T) {
 				// Expected nsenter request.
 				nsenterEventReq := &nsenter.NSenterEvent{
 					Pid:       a1.req.Pid,
-					Namespace: &domain.AllNSsButMount,
+					Namespace: &domain.AllNSs,
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.WriteFileRequest,
 						Payload: &domain.WriteFilePayload{
@@ -660,7 +660,7 @@ func TestPassThrough_Write(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
-					&domain.AllNSsButMount,
+					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
@@ -691,7 +691,7 @@ func TestPassThrough_Write(t *testing.T) {
 				// Expected nsenter request.
 				nsenterEventReq := &nsenter.NSenterEvent{
 					Pid:       a1.req.Pid,
-					Namespace: &domain.AllNSsButMount,
+					Namespace: &domain.AllNSs,
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.WriteFileRequest,
 						Payload: &domain.WriteFilePayload{
@@ -715,7 +715,7 @@ func TestPassThrough_Write(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
-					&domain.AllNSsButMount,
+					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
@@ -838,7 +838,7 @@ func TestPassThrough_ReadDirAll(t *testing.T) {
 				// Expected nsenter request.
 				nsenterEventReq := &nsenter.NSenterEvent{
 					Pid:       a1.req.Pid,
-					Namespace: &domain.AllNSsButMount,
+					Namespace: &domain.AllNSs,
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.ReadDirRequest,
 						Payload: &domain.ReadDirPayload{
@@ -867,7 +867,7 @@ func TestPassThrough_ReadDirAll(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
-					&domain.AllNSsButMount,
+					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),
@@ -898,7 +898,7 @@ func TestPassThrough_ReadDirAll(t *testing.T) {
 				// Expected nsenter request.
 				nsenterEventReq := &nsenter.NSenterEvent{
 					Pid:       a1.req.Pid,
-					Namespace: &domain.AllNSsButMount,
+					Namespace: &domain.AllNSs,
 					ReqMsg: &domain.NSenterMessage{
 						Type: domain.ReadDirRequest,
 						Payload: &domain.ReadDirPayload{
@@ -920,7 +920,7 @@ func TestPassThrough_ReadDirAll(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
-					&domain.AllNSsButMount,
+					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
 					(*domain.NSenterMessage)(nil),

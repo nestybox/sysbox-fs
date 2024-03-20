@@ -31,20 +31,18 @@ const (
 	NStypeMount  NStype = "mnt"
 )
 
+// Security note: nsenter processes spawned by sysbox-fs that enter the pid
+// namespace must also enter the container's mount ns, as otherwise the nsenter
+// process will inherit sysbox-fs host mounts, resulting in a process inside the
+// container that exposes info about those mounts. If needed, the nsenter
+// process can always unshare the mount ns inside the container so that it can
+// perform mounts without affecting the container processes.
+
 var AllNSs = []NStype{
 	string(NStypeUser),
 	string(NStypePid),
 	string(NStypeNet),
 	string(NStypeMount),
-	string(NStypeIpc),
-	string(NStypeCgroup),
-	string(NStypeUts),
-}
-
-var AllNSsButMount = []NStype{
-	string(NStypeUser),
-	string(NStypePid),
-	string(NStypeNet),
 	string(NStypeIpc),
 	string(NStypeCgroup),
 	string(NStypeUts),
