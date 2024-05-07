@@ -118,6 +118,14 @@ func (h *PassThrough) Open(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (bool, error) {
 
+	return h.OpenWithNS(n, req, domain.AllNSs)
+}
+
+func (h *PassThrough) OpenWithNS(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest,
+	namespaces []domain.NStype) (bool, error) {
+
 	logrus.Debugf("Executing Open() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
@@ -127,7 +135,7 @@ func (h *PassThrough) Open(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
-		&domain.AllNSs,
+		&namespaces,
 		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.OpenFileRequest,
@@ -158,9 +166,21 @@ func (h *PassThrough) Open(
 	return false, nil
 }
 
+// Reads the given node by entering all container namespaces.
+// Caches the result after reading, to avoid the performance hit of entering the
+// container namespaces in future calls (unless req.noCache is set).
 func (h *PassThrough) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
+
+	return h.ReadWithNS(n, req, domain.AllNSs)
+}
+
+// Same as Read(), but enters the given container namespaces only.
+func (h *PassThrough) ReadWithNS(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest,
+	namespaces []domain.NStype) (int, error) {
 
 	var (
 		sz  int
@@ -213,7 +233,7 @@ func (h *PassThrough) Read(
 		if req.Offset == 0 && sz == 0 && err == io.EOF {
 
 			// Resource is not cached, read it from the filesystem.
-			sz, err = h.fetchFile(process, n, req.Offset, &req.Data)
+			sz, err = h.fetchFile(process, namespaces, n, req.Offset, &req.Data)
 			if err != nil {
 				cntr.Unlock()
 				return 0, fuse.IOerror{Code: syscall.EINVAL}
@@ -236,7 +256,7 @@ func (h *PassThrough) Read(
 		cntr.Unlock()
 
 	} else {
-		sz, err = h.fetchFile(process, n, req.Offset, &req.Data)
+		sz, err = h.fetchFile(process, namespaces, n, req.Offset, &req.Data)
 		if err != nil {
 			return 0, fuse.IOerror{Code: syscall.EINVAL}
 		}
@@ -245,9 +265,21 @@ func (h *PassThrough) Read(
 	return sz, nil
 }
 
+// Writes to the given node by entering all the container namespaces.
+// Caches the result after writing, to avoid the performance hit of entering the
+// container namespaces in future read calls (unless req.noCache is set).
 func (h *PassThrough) Write(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
+
+	return h.WriteWithNS(n, req, domain.AllNSs)
+}
+
+// Same as Write(), but enters the given container namespaces only.
+func (h *PassThrough) WriteWithNS(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest,
+	namespaces []domain.NStype) (int, error) {
 
 	var (
 		len int
@@ -265,7 +297,7 @@ func (h *PassThrough) Write(
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 
-	if len, err = h.pushFile(process, n, req.Offset, req.Data); err != nil {
+	if len, err = h.pushFile(process, namespaces, n, req.Offset, req.Data); err != nil {
 		return 0, err
 	}
 
@@ -433,6 +465,7 @@ func (h *PassThrough) Setattr(
 // Auxiliary method to fetch the content of any given file within a container.
 func (h *PassThrough) fetchFile(
 	process domain.ProcessIface,
+	namespaces []domain.NStype,
 	n domain.IOnodeIface,
 	offset int64,
 	data *[]byte) (int, error) {
@@ -444,7 +477,7 @@ func (h *PassThrough) fetchFile(
 
 	event := nss.NewEvent(
 		process.Pid(),
-		&domain.AllNSs,
+		&namespaces,
 		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.ReadFileRequest,
@@ -481,6 +514,7 @@ func (h *PassThrough) fetchFile(
 // Auxiliary method to inject content into any given file within a container.
 func (h *PassThrough) pushFile(
 	process domain.ProcessIface,
+	namespaces []domain.NStype,
 	n domain.IOnodeIface,
 	offset int64,
 	data []byte) (int, error) {
@@ -492,7 +526,7 @@ func (h *PassThrough) pushFile(
 
 	event := nss.NewEvent(
 		process.Pid(),
-		&domain.AllNSs,
+		&namespaces,
 		cloneFlags,
 		&domain.NSenterMessage{
 			Type: domain.WriteFileRequest,

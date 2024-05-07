@@ -381,6 +381,13 @@ func (h *ProcSysKernel) Open(
 
 	case "printk":
 		return false, nil
+
+	case "shmall":
+		fallthrough
+	case "shmmax":
+		fallthrough
+	case "shmmni":
+		return h.Service.GetPassThroughHandler().OpenWithNS(n, req, domain.AllNSsButUser)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -429,6 +436,13 @@ func (h *ProcSysKernel) Read(
 
 	case "printk":
 		return readCntrData(h, n, req)
+
+	case "shmall":
+		fallthrough
+	case "shmmax":
+		fallthrough
+	case "shmmni":
+		return h.Service.GetPassThroughHandler().ReadWithNS(n, req, domain.AllNSsButUser)
 	}
 
 	// Refer to generic handler if no node match is found above.
@@ -492,6 +506,18 @@ func (h *ProcSysKernel) Write(
 
 	case "hostname":
 		return writeCntrData(h, n, req, nil)
+
+	case "shmall":
+		fallthrough
+	case "shmmax":
+		fallthrough
+	case "shmmni":
+		// The kernel only allows true root to write to /proc/sys/kernel/shm*.
+		// Root in the container's user-namespaces is not allowed to modify these
+		// values, even though they are namespaced via the IPC namespace.
+		// Therefore ask the passhthrough handler to enter all namespaces except
+		// the user-ns, as otherwise we get permission denied.
+		return h.Service.GetPassThroughHandler().WriteWithNS(n, req, domain.AllNSsButUser)
 	}
 
 	// Refer to generic handler if no node match is found above.

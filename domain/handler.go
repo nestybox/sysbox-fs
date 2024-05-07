@@ -113,6 +113,13 @@ type HandlerIface interface {
 	GetResourceMutex(node IOnodeIface) *sync.Mutex
 }
 
+type PassthroughHandlerIface interface {
+	HandlerIface
+	OpenWithNS(node IOnodeIface, req *HandlerRequest, namespaces []NStype) (bool, error)
+	ReadWithNS(node IOnodeIface, req *HandlerRequest, namespaces []NStype) (int, error)
+	WriteWithNS(node IOnodeIface, req *HandlerRequest, namespaces []NStype) (int, error)
+}
+
 type HandlerServiceIface interface {
 	Setup(
 		hdlrs []HandlerIface,
@@ -131,7 +138,7 @@ type HandlerServiceIface interface {
 
 	// getters/setters
 	HandlersResourcesList() []string
-	GetPassThroughHandler() HandlerIface
+	GetPassThroughHandler() PassthroughHandlerIface
 	StateService() ContainerStateServiceIface
 	SetStateService(css ContainerStateServiceIface)
 	ProcessService() ProcessServiceIface

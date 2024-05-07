@@ -86,7 +86,7 @@ type handlerService struct {
 	hostUuid string
 
 	// Passthrough handler.
-	passThroughHandler domain.HandlerIface
+	passThroughHandler domain.PassthroughHandlerIface
 
 	// Handler i/o errors should be obviated if this flag is enabled (testing
 	// purposes).
@@ -95,7 +95,6 @@ type handlerService struct {
 
 // HandlerService constructor.
 func NewHandlerService() domain.HandlerServiceIface {
-
 	return &handlerService{}
 }
 
@@ -278,7 +277,7 @@ func (hs *handlerService) HandlersResourcesList() []string {
 	return resourcesList
 }
 
-func (hs *handlerService) GetPassThroughHandler() domain.HandlerIface {
+func (hs *handlerService) GetPassThroughHandler() domain.PassthroughHandlerIface {
 	return hs.passThroughHandler
 }
 
