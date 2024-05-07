@@ -294,18 +294,19 @@ func writeHostFs(
 	return len(data), nil
 }
 
-// writeMaxIntToFs interprets the given data as integers and returns true if new > curr; meant
-// to be used at the 'wrCondition' argument in writeFs()
+// writeMaxIntToFs interprets the given data as 64-bit signed integers and
+// returns true if new > curr; meant to be used at the 'wrCondition' argument in
+// writeFs()
 func writeMaxIntToFs(curr, new []byte) (bool, error) {
 
 	newStr := strings.TrimSpace(string(new))
-	newInt, err := strconv.Atoi(newStr)
+	newInt, err := strconv.ParseInt(newStr, 10, 64)
 	if err != nil {
 		return false, err
 	}
 
 	currStr := strings.TrimSpace(string(curr))
-	currInt, err := strconv.Atoi(currStr)
+	currInt, err := strconv.ParseInt(currStr, 10, 64)
 	if err != nil {
 		return false, err
 	}
@@ -313,18 +314,19 @@ func writeMaxIntToFs(curr, new []byte) (bool, error) {
 	return newInt > currInt, nil
 }
 
-// writeMinIntToFs interprets the given data as integers and returns true if new < curr; meant
-// to be used at the 'wrCondition' argument in writeFs()
+// writeMinIntToFs interprets the given data as 64-bit signed integers and
+// returns true if new < curr; meant to be used at the 'wrCondition' argument in
+// writeFs()
 func writeMinIntToFs(curr, new []byte) (bool, error) {
 
 	newStr := strings.TrimSpace(string(new))
-	newInt, err := strconv.Atoi(newStr)
+	newInt, err := strconv.ParseInt(newStr, 10, 64)
 	if err != nil {
 		return false, err
 	}
 
 	currStr := strings.TrimSpace(string(curr))
-	currInt, err := strconv.Atoi(currStr)
+	currInt, err := strconv.ParseInt(currStr, 10, 64)
 	if err != nil {
 		return false, err
 	}
