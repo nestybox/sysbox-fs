@@ -1,6 +1,6 @@
 module github.com/nestybox/sysbox-fs
 
-go 1.18
+go 1.21
 
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
@@ -20,8 +20,8 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli v1.22.14
 	github.com/vishvananda/netlink v1.1.0
-	golang.org/x/sys v0.5.0
-	google.golang.org/grpc v1.34.1
+	golang.org/x/sys v0.20.0
+	google.golang.org/grpc v1.63.0
 	gopkg.in/hlandau/service.v1 v1.0.7
 )
 
@@ -36,9 +36,9 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/deckarep/golang-set/v2 v2.3.1 // indirect
-	github.com/docker/docker v20.10.2+incompatible // indirect
+	github.com/docker/docker v26.0.0+incompatible // indirect
 	github.com/godbus/dbus/v5 v5.0.3 // indirect
-	github.com/golang/protobuf v1.4.3 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.1 // indirect
 	github.com/joshlf/go-acl v0.0.0-20200411065538-eae00ae38531 // indirect
@@ -60,10 +60,10 @@ require (
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/willf/bitset v1.1.11 // indirect
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
-	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
-	google.golang.org/protobuf v1.25.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240227224415-6ceb2ff114de // indirect
+	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
