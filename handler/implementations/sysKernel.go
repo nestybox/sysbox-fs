@@ -159,10 +159,6 @@ func (h *SysKernel) Read(
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, resource)
 
-	if req.Offset != 0 {
-		return 0, nil
-	}
-
 	// All emulated resources are currently dummy / empty
 	switch resource {
 	case "config":
