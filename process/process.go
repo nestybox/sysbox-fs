@@ -487,24 +487,24 @@ func (p *process) UsernsRootUidGid() (uint32, uint32, error) {
 // if the process has execute/search permissions on all components of the path, but
 // does not check access permissions on the the file itself.
 //
-// Returns nil if the process can access the path, or one of the following errors
-// otherwise:
+// Returns the resolved path and a nil error if the process can access the path, or one
+// of the following errors otherwise:
 //
 // syscall.ENOENT: some component of the path does not exist.
 // syscall.ENOTDIR: a non-final component of the path is not a directory.
 // syscall.EACCES: the process does not have permission to access at least one component of the path.
 // syscall.ELOOP: the path too many symlinks (e.g. > 40).
 
-func (p *process) PathAccess(path string, aMode domain.AccessMode, followSymlink bool) error {
+func (p *process) PathAccess(path string, aMode domain.AccessMode, followSymlink bool) (string, error) {
 
 	err := p.init()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	path, err = p.ResolveProcSelf(path)
 	if err != nil {
-		return syscall.EINVAL
+		return "", syscall.EINVAL
 	}
 
 	return p.pathAccess(path, aMode, followSymlink)
@@ -715,14 +715,14 @@ func (p *process) ResolveProcSelf(path string) (string, error) {
 	return currPath, nil
 }
 
-func (p *process) pathAccess(path string, mode domain.AccessMode, followSymlink bool) error {
+func (p *process) pathAccess(path string, mode domain.AccessMode, followSymlink bool) (string, error) {
 
 	if path == "" {
-		return syscall.ENOENT
+		return "", syscall.ENOENT
 	}
 
 	if len(path)+1 > syscall.PathMax {
-		return syscall.ENAMETOOLONG
+		return "", syscall.ENAMETOOLONG
 	}
 
 	// Determine the start point.
@@ -740,6 +740,7 @@ func (p *process) pathAccess(path string, mode domain.AccessMode, followSymlink 
 	cur := start
 	linkCnt := 0
 	final := false
+	resolvedPath := ""
 
 	for i, c := range components {
 		if i == len(components)-1 {
@@ -762,11 +763,11 @@ func (p *process) pathAccess(path string, mode domain.AccessMode, followSymlink 
 
 		symlink, isDir, err := isSymlink(cur)
 		if err != nil {
-			return syscall.ENOENT
+			return "", syscall.ENOENT
 		}
 
 		if !final && !symlink && !isDir {
-			return syscall.ENOTDIR
+			return "", syscall.ENOTDIR
 		}
 
 		// Follow the symlink (unless it's the process root, or if it's the final
@@ -778,12 +779,12 @@ func (p *process) pathAccess(path string, mode domain.AccessMode, followSymlink 
 			if symlink && cur != p.procroot {
 				for {
 					if linkCnt >= domain.SymlinkMax {
-						return syscall.ELOOP
+						return "", syscall.ELOOP
 					}
 
 					link, err := os.Readlink(cur)
 					if err != nil {
-						return syscall.ENOENT
+						return "", syscall.ENOENT
 					}
 
 					if filepath.IsAbs(link) {
@@ -803,7 +804,7 @@ func (p *process) pathAccess(path string, mode domain.AccessMode, followSymlink 
 
 					symlink, isDir, err = isSymlink(cur)
 					if err != nil {
-						return syscall.ENOENT
+						return "", syscall.ENOENT
 					}
 
 					if !symlink {
@@ -813,7 +814,7 @@ func (p *process) pathAccess(path string, mode domain.AccessMode, followSymlink 
 				}
 
 				if !final && !isDir {
-					return syscall.ENOTDIR
+					return "", syscall.ENOTDIR
 				}
 			}
 		}
@@ -826,11 +827,21 @@ func (p *process) pathAccess(path string, mode domain.AccessMode, followSymlink 
 		}
 
 		if err != nil || !perm {
-			return syscall.EACCES
+			return "", syscall.EACCES
+		}
+
+		// Obtain the resolved path by simply removing the root/cwd prefix previously appended
+		// to the current string.
+		if final {
+			if strings.HasPrefix(cur, p.procroot) {
+				resolvedPath = strings.TrimPrefix(cur, p.procroot)
+			} else {
+				resolvedPath = strings.TrimPrefix(cur, p.proccwd + "/")
+			}
 		}
 	}
 
-	return nil
+	return resolvedPath, nil
 }
 
 // checkPerm checks if the given process has permission to access the file or

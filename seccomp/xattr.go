@@ -88,7 +88,7 @@ func sanitizePath(process domain.ProcessIface, path string, followSymlink bool) 
 	}
 
 	// Verify the process has the proper rights to access the file
-	err = process.PathAccess(path, 0, followSymlink)
+	path, err = process.PathAccess(path, 0, followSymlink)
 	if err != nil {
 		return path, err
 	}
