@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
-	libseccomp "github.com/seccomp/libseccomp-golang"
 )
 
 func Test_syscallTracer_createErrorResponse(t *testing.T) {
@@ -32,7 +31,7 @@ func Test_syscallTracer_createErrorResponse(t *testing.T) {
 		sms      *SyscallMonitorService
 		srv      *unixIpc.Server
 		pollsrv  *unixIpc.PollServer
-		syscalls map[libseccomp.ScmpSyscall]string
+		syscalls map[seccompArchSyscallPair]string
 	}
 
 	var f1 = &fields{
