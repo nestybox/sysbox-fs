@@ -560,12 +560,14 @@ func TestProcPathAccessSymlink(t *testing.T) {
 
 	mode := domain.R_OK | domain.X_OK
 
-	if _, err := p.pathAccess("/link", mode, true); err != nil {
-		t.Fatalf("pathAccess() failed: %v", err)
+	expectedPath := "/this/is/the/real/path"
+	if resolvedPath, err := p.pathAccess("/link", mode, true); resolvedPath != expectedPath || err != nil {
+		t.Fatalf("pathAccess() failed: resolvedPath %s, error %v", resolvedPath, err)
 	}
 
-	if _, err := p.pathAccess("/link/..", mode, true); err != nil {
-		t.Fatalf("pathAccess() failed: %v", err)
+	expectedPath = "/this/is/the/real"
+	if resolvedPath, err := p.pathAccess("/link/..", mode, true); resolvedPath != expectedPath || err != nil {
+		t.Fatalf("pathAccess() failed: resolvedPath %s, error %v", resolvedPath, err)
 	}
 
 	// test recursive symlinks
@@ -575,8 +577,9 @@ func TestProcPathAccessSymlink(t *testing.T) {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	if _, err := p.pathAccess("/link2", mode, true); err != nil {
-		t.Fatalf("pathAccess() failed: %v", err)
+	expectedPath = "/this/is/the/real/path"
+	if resolvedPath, err := p.pathAccess("/link2", mode, true); resolvedPath != expectedPath || err != nil {
+		t.Fatalf("pathAccess() failed: resolvedPath %s, error %v", resolvedPath, err)
 	}
 
 	path = filepath.Join(tmpDir, "/another/path")
@@ -591,8 +594,9 @@ func TestProcPathAccessSymlink(t *testing.T) {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	if _, err := p.pathAccess("/another/path/link3", mode, true); err != nil {
-		t.Fatalf("pathAccess() failed: %v", err)
+	expectedPath = "/this/is/the/real/path"
+	if resolvedPath, err := p.pathAccess("/another/path/link3", mode, true); resolvedPath != expectedPath || err != nil {
+		t.Fatalf("pathAccess() failed: resolvedPath %s, error %v", resolvedPath, err)
 	}
 
 	path = filepath.Join(tmpDir, "/another/path/again")
@@ -615,12 +619,14 @@ func TestProcPathAccessSymlink(t *testing.T) {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	if _, err := p.pathAccess("/another/path/again/link4", mode, true); err != nil {
-		t.Fatalf("pathAccess() failed: %v", err)
+	expectedPath = "/this/is/the/real/path"
+	if resolvedPath, err := p.pathAccess("/another/path/again/link4", mode, true); resolvedPath != expectedPath || err != nil {
+		t.Fatalf("pathAccess() failed: resolvedPath %s, error %v", resolvedPath, err)
 	}
 
-	if _, err := p.pathAccess("/another/path/again/link4/..", mode, true); err != nil {
-		t.Fatalf("pathAccess() failed: %v", err)
+	expectedPath = "/this/is/the/real"
+	if resolvedPath, err := p.pathAccess("/another/path/again/link4/..", mode, true); resolvedPath != expectedPath || err != nil {
+		t.Fatalf("pathAccess() failed: resolvedPath %s, error %v", resolvedPath, err)
 	}
 
 	if err := os.Chdir(testCwd); err != nil {
@@ -634,14 +640,16 @@ func TestProcPathAccessSymlink(t *testing.T) {
 		t.Fatalf("failed to create test path: %v", err)
 	}
 
-	if _, err := p.pathAccess("/brokenlink", mode, true); err == nil {
+	expectedPath = ""
+	if resolvedPath, err := p.pathAccess("/brokenlink", mode, true); resolvedPath != expectedPath || err == nil {
 		t.Fatalf("pathAccess() expected to fail but passed on broken link")
 	}
 
 	// set followSymlink = false and verify that since the broken link is not
 	// followed, pathAccess passes.
-	if _, err := p.pathAccess("/brokenlink", mode, false); err != nil {
-		t.Fatalf("pathAccess() failed: %v", err)
+	expectedPath = "/brokenlink"
+	if resolvedPath, err := p.pathAccess("/brokenlink", mode, false); resolvedPath != expectedPath || err != nil {
+		t.Fatalf("pathAccess() failed: resolvedPath %s, error %v", resolvedPath, err)
 	}
 
 	//
