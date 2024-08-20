@@ -724,7 +724,7 @@ func (e *NSenterEvent) processLookupRequest() error {
 		}
 		return nil
 	}
-	defer pmi.cleanup()
+	defer pmi.cleanup(pmi.sysfsMountpoint, pmi.procfsMountpoint)
 
 	payload.Entry = replaceProcfsAndSysfsPaths(payload.Entry, pmi)
 
@@ -775,7 +775,7 @@ func (e *NSenterEvent) processOpenFileRequest() error {
 		}
 		return nil
 	}
-	defer pmi.cleanup()
+	defer pmi.cleanup(pmi.sysfsMountpoint, pmi.procfsMountpoint)
 
 	payload.File = replaceProcfsAndSysfsPaths(payload.File, pmi)
 
@@ -838,7 +838,7 @@ func (e *NSenterEvent) processFileReadRequest() error {
 		}
 		return nil
 	}
-	defer pmi.cleanup()
+	defer pmi.cleanup(pmi.sysfsMountpoint, pmi.procfsMountpoint)
 
 	payload.File = replaceProcfsAndSysfsPaths(payload.File, pmi)
 
@@ -887,7 +887,7 @@ func (e *NSenterEvent) processFileWriteRequest() error {
 		}
 		return nil
 	}
-	defer pmi.cleanup()
+	defer pmi.cleanup(pmi.sysfsMountpoint, pmi.procfsMountpoint)
 
 	payload.File = replaceProcfsAndSysfsPaths(payload.File, pmi)
 
@@ -930,7 +930,7 @@ func (e *NSenterEvent) processDirReadRequest() error {
 		}
 		return nil
 	}
-	defer pmi.cleanup()
+	defer pmi.cleanup(pmi.sysfsMountpoint, pmi.procfsMountpoint)
 
 	payload.Dir = replaceProcfsAndSysfsPaths(payload.Dir, pmi)
 
@@ -980,7 +980,7 @@ func (e *NSenterEvent) processReadLinkRequest() error {
 		}
 		return nil
 	}
-	defer pmi.cleanup()
+	defer pmi.cleanup(pmi.sysfsMountpoint, pmi.procfsMountpoint)
 
 	payload.Link = replaceProcfsAndSysfsPaths(payload.Link, pmi)
 
