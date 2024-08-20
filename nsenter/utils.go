@@ -17,6 +17,7 @@
 package nsenter
 
 import (
+	"errors"
 	"os"
 	"strings"
 
@@ -26,20 +27,27 @@ import (
 type payloadMountsInfo struct {
 	sysfsMountpoint  string
 	procfsMountpoint string
-	cleanup          func()
+	cleanup          func(string, string)
 }
 
 // This function runs when the sysbox-fs nsenter helper process requests to
 // mount procfs or sysfs.
 //
-// Note that the container process should do so from an unshared mount
-// namespace, such that the mounts are NOT visible inside the container
-// (otherwise container processes will see the nsenter process mounts which are
-// inherited from sysbox-fs mounts, thus leaking host info into the container).
+// This function assumes the nsenter agent is running in an unshared mount
+// namespace, such that the procfs and sysfs mounts it creates are NOT visible
+// inside the container (otherwise container processes will see the nsenter
+// process mounts, which is not what we want).
 //
-// Note also that the nsenter process mounts the real procfs and sysfs, not the
-// sysbox-fs emulated ones. That's because the nsenter process is not under
-// seccomp-notify intercepts on mount syscalls as the container processes are.
+// Note also that the nsenter process mounts the "real" procfs and sysfs, not
+// the sysbox-fs emulated one we use for containers, but does so from within the
+// container's namespaces (except it's own mount-ns as described above). This
+// way the nsenter agent can access host info for the container that may not be
+// available to the container itself. This info can then be used to emulate
+// procfs and sysfs resources inside the container.
+//
+// [@ctalledo]: this function needs cleanup, it can accept either mountSyfs or
+// mountProcfs, but not both (because for the case where the container is read-only,
+// it mounts on the same dir (/dev), so there's a collision).
 func processPayloadMounts(mountSysfs, mountProcfs bool) (*payloadMountsInfo, error) {
 	var (
 		flags            uintptr
@@ -50,22 +58,34 @@ func processPayloadMounts(mountSysfs, mountProcfs bool) (*payloadMountsInfo, err
 
 	flags = unix.MS_NOSUID | unix.MS_NOEXEC | unix.MS_NODEV | unix.MS_RELATIME
 
-	// Ideally we want to mount procfs on /proc and sysfs on /sys, inside the
-	// container; and since the mounts are done by the nsenter process in a
+	// Note: ideally we want to mount procfs on /proc and sysfs on /sys, inside
+	// the container; and since the mounts are done by the nsenter process in a
 	// dedicated mount-ns, the container processes won't see them. While it's
 	// possible for the nsenter process to mount procfs on top of the container's
 	// /proc, turns out it's not possible to mount sysfs on top of the
 	// container's /sys (the kernel returns a "resource busy" error). Thus, we
 	// mount sysfs on a temporary ephemeral dir inside the container, at
-	// /.sysbox-sysfs-<random-id>. Note that only the nsenter process can see the
-	// mount (because it operates in a dedicated mount-ns). The container
-	// processes will never see the mount, and therefore the
-	// /.sysbox-sysfs-<random-id> dir will always look empty to container
-	// processes.
-
+	// /.sysbox-sysfs-<random-id>. Note that while that directory is visible
+	// inside the container (for a very brief period of time while the nsenter
+	// agent does its thing), the container can't see the sysfs mount on that dir
+	// (only the nsenter process can see the mount because it operates in a
+	// dedicated mount-ns). The container processes will never see the mount, and
+	// therefore the /.sysbox-sysfs-<random-id> dir will always look empty to
+	// container processes.
 	if mountSysfs {
+
 		sysfsMountpoint, err = os.MkdirTemp("/", ".sysbox-sysfs-")
-		if err != nil {
+		if errors.Is(err, unix.EROFS) {
+			// @ctalledo: hack: if the container has a read-only filesystem, then
+			// we can't create the temporary sysfs mount dir on it. In this case we
+			// use a directory that we know is present in the container (e.g.,
+			// "/dev") to mount sysfs. Since the mount occurs in the nsenter
+			// agent's own mount-ns, it's not visible to anyone else (i.e, the
+			// container can still access the "/dev" dir without noticing anything
+			// differently on it).
+			sysfsMountpoint = "/dev"
+
+		} else if err != nil {
 			return nil, err
 		}
 		if err = unix.Mount("sysfs", sysfsMountpoint, "sysfs", flags, ""); err != nil {
@@ -73,29 +93,44 @@ func processPayloadMounts(mountSysfs, mountProcfs bool) (*payloadMountsInfo, err
 			return nil, err
 		}
 	}
-	cleanupSysfs := func() {
-		if sysfsMountpoint != "" {
-			unix.Unmount(sysfsMountpoint, unix.MNT_FORCE)
-			os.RemoveAll(sysfsMountpoint)
+	cleanupSysfs := func(mountpoint string) {
+		if mountpoint != "" {
+			unix.Unmount(mountpoint, unix.MNT_DETACH)
+			if strings.HasPrefix(mountpoint, ".sysbox-sysfs-") {
+				os.RemoveAll(mountpoint)
+			}
 		}
 	}
 
 	if mountProcfs {
-		procfsMountpoint = "/proc"
+		procfsMountpoint, err = os.MkdirTemp("/", ".sysbox-procfs-")
+		if errors.Is(err, unix.EROFS) {
+			// @ctalledo: hack: if the container has a read-only filesystem, then
+			// we can't create the temporary procfs mount dir on it. In this case we
+			// use a directory that we know is present in the container (e.g.,
+			// "/dev") to mount procfs. Since the mount occurs in the nsenter
+			// agent's own mount-ns, it's not visible to anyone else (i.e, the
+			// container can still access the "/dev" dir without noticing anything
+			// differently on it).
+			procfsMountpoint = "/dev"
+
+		} else if err != nil {
+			return nil, err
+		}
 		if err = unix.Mount("proc", procfsMountpoint, "proc", flags, ""); err != nil {
-			cleanupSysfs()
+			cleanupSysfs(sysfsMountpoint)
 			return nil, err
 		}
 	}
-	cleanupProcfs := func() {
-		if procfsMountpoint != "" {
-			unix.Unmount(procfsMountpoint, unix.MNT_FORCE)
+	cleanupProcfs := func(mountpoint string) {
+		if mountpoint != "" {
+			unix.Unmount(mountpoint, unix.MNT_DETACH)
 		}
 	}
 
-	cleanup := func() {
-		cleanupSysfs()
-		cleanupProcfs()
+	cleanup := func(sysfsMountpoint, procfsMountpoint string) {
+		cleanupSysfs(sysfsMountpoint)
+		cleanupProcfs(procfsMountpoint)
 	}
 
 	pmi := &payloadMountsInfo{
