@@ -1,6 +1,8 @@
 module github.com/nestybox/sysbox-fs
 
-go 1.21
+go 1.22
+
+toolchain go1.22.6
 
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
@@ -20,8 +22,8 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli v1.22.14
 	github.com/vishvananda/netlink v1.1.0
-	golang.org/x/sys v0.20.0
-	google.golang.org/grpc v1.63.0
+	golang.org/x/sys v0.26.0
+	google.golang.org/grpc v1.64.0
 	gopkg.in/hlandau/service.v1 v1.0.7
 )
 
@@ -34,7 +36,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/deckarep/golang-set v1.7.1 // indirect
+	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/deckarep/golang-set/v2 v2.3.1 // indirect
 	github.com/docker/docker v26.0.0+incompatible // indirect
 	github.com/godbus/dbus/v5 v5.0.3 // indirect
@@ -48,7 +50,7 @@ require (
 	github.com/mrunalp/fileutils v0.5.0 // indirect
 	github.com/nestybox/sysbox-libs/idMap v0.0.0-00010101000000-000000000000 // indirect
 	github.com/nestybox/sysbox-libs/idShiftUtils v0.0.0-00010101000000-000000000000 // indirect
-	github.com/nestybox/sysbox-libs/mount v0.0.0-00010101000000-000000000000 // indirect
+	github.com/nestybox/sysbox-libs/mount v0.0.0-20240602025437-33cbdf5a9e98 // indirect
 	github.com/nestybox/sysbox-libs/overlayUtils v0.0.0-00010101000000-000000000000 // indirect
 	github.com/nestybox/sysbox-libs/shiftfs v0.0.0-00010101000000-000000000000 // indirect
 	github.com/opencontainers/runc v1.1.4 // indirect
@@ -61,9 +63,9 @@ require (
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	github.com/willf/bitset v1.1.11 // indirect
 	golang.org/x/net v0.23.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240227224415-6ceb2ff114de // indirect
-	google.golang.org/protobuf v1.34.1 // indirect
+	golang.org/x/text v0.15.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240513163218-0867130af1f8 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
