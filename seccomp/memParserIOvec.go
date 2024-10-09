@@ -29,23 +29,24 @@ import (
 // one in kernels built with 'CONFIG_CROSS_MEMORY_ATTACH' flag enabled -- the usual
 // case in most of the linux distros.
 
-type memParserIOvec struct {}
+type memParserIOvec struct{}
 
 // ReadSyscallBytesArgs reads data from the tracee's process address space to extract
 // arguments utilized by the traced syscall.
 func (mp *memParserIOvec) ReadSyscallStringArgs(pid uint32, elems []memParserDataElem) ([]string, error) {
-
 	var result []string
 
 	for _, e := range elems {
-		dataBuf := make([]byte, e.size)
+		if e.size > 0 {
+			dataBuf := make([]byte, e.size)
 
-		if err := mp.readProcessMem(pid, [][]byte{dataBuf}, []uint64{e.addr}, e.size); err != nil {
-			return nil, err
+			if err := mp.readProcessMem(pid, dataBuf, e.addr, e.size); err != nil {
+				return nil, err
+			}
+
+			data := C.GoString((*C.char)(unsafe.Pointer(&dataBuf[0])))
+			result = append(result, data)
 		}
-
-		data := C.GoString((*C.char)(unsafe.Pointer(&dataBuf[0])))
-		result = append(result, data)
 	}
 
 	return result, nil
@@ -54,18 +55,19 @@ func (mp *memParserIOvec) ReadSyscallStringArgs(pid uint32, elems []memParserDat
 // ReadSyscallBytesArgs reads arbitrary byte data from the tracee's process address
 // space to extract arguments utilized by the traced syscall.
 func (mp *memParserIOvec) ReadSyscallBytesArgs(pid uint32, elems []memParserDataElem) ([]string, error) {
-
 	var result []string
 
 	for _, e := range elems {
-		dataBuf := make([]byte, e.size)
+		if e.size > 0 {
+			dataBuf := make([]byte, e.size)
 
-		if err := mp.readProcessMem(pid, [][]byte{dataBuf}, []uint64{e.addr}, e.size); err != nil {
-			return nil, err
+			if err := mp.readProcessMem(pid, dataBuf, e.addr, e.size); err != nil {
+				return nil, err
+			}
+
+			data := C.GoStringN((*C.char)(unsafe.Pointer(&dataBuf[0])), C.int(e.size))
+			result = append(result, data)
 		}
-
-		data := C.GoStringN((*C.char)(unsafe.Pointer(&dataBuf[0])), C.int(e.size))
-		result = append(result, data)
 	}
 
 	return result, nil
@@ -76,45 +78,30 @@ func (mp *memParserIOvec) ReadSyscallBytesArgs(pid uint32, elems []memParserData
 func (mp *memParserIOvec) WriteSyscallBytesArgs(pid uint32, elems []memParserDataElem) error {
 
 	for _, e := range elems {
-		if err := mp.writeProcessMem(pid, e.addr, e.data, e.size); err != nil {
-			return err
+		if e.size > 0 {
+			if err := mp.writeProcessMem(pid, e.addr, e.data, e.size); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func (t *memParserIOvec) readProcessMem(pid uint32, local [][]byte, remote []uint64, sizes ...int) error {
+// readsProcessMem reads size bytes at addr from the mem space of process pid,
+// and stores the result in the local byte array. Size must be > 0.
+func (t *memParserIOvec) readProcessMem(pid uint32, local []byte, addr uint64, size int) error {
+	localIovec := make([]unix.Iovec, 1)
+	remoteIovec := make([]unix.RemoteIovec, 1)
 
-	var (
-		localElements    int                = len(local)
-		remoteElements   int                = len(remote)
-		localIovec       []unix.Iovec       = make([]unix.Iovec, localElements)
-		remoteIovec      []unix.RemoteIovec = make([]unix.RemoteIovec, remoteElements)
-		expectedCopySize int
-		atLeastOne       bool
-	)
+	localIovec[0].Base = &local[0]
+	localIovec[0].Len = uint64(size)
 
-	for i := 0; i < localElements; i++ {
-		localIovec[i].Base = &local[i][0]
-		localIovec[i].Len = uint64(sizes[i])
-		expectedCopySize += sizes[i]
-	}
+	remoteIovec[0].Base = uintptr(addr)
+	remoteIovec[0].Len = size
 
-	if expectedCopySize == 0 {
-		return nil
-	}
-
-	for i := 0; i < remoteElements; i++ {
-		if uintptr(remote[i]) == 0 {
-			continue
-		}
-		remoteIovec[i].Base = uintptr(remote[i])
-		remoteIovec[i].Len = sizes[i]
-		atLeastOne = true
-	}
-
-	if !atLeastOne {
+	// this denotes the end of the read
+	if remoteIovec[0].Base == 0 {
 		return nil
 	}
 
@@ -123,20 +110,17 @@ func (t *memParserIOvec) readProcessMem(pid uint32, local [][]byte, remote []uin
 
 	if err != nil {
 		return fmt.Errorf("failed to read from mem of pid %d: %s", pid, err)
-	} else if n > expectedCopySize {
+	} else if n > size {
 		return fmt.Errorf("read more bytes (%d) from mem of pid %d than expected (%d)",
-			n, pid, expectedCopySize)
+			n, pid, size)
 	}
 
 	return nil
 }
 
+// writeProcessMem writes size bytes in array data to the given address in the
+// mem space of process pid.
 func (mp *memParserIOvec) writeProcessMem(pid uint32, addr uint64, data []byte, size int) error {
-
-	if size == 0 {
-		return nil
-	}
-
 	data = data[:size]
 
 	localIov := []unix.Iovec{
