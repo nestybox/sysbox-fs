@@ -125,9 +125,9 @@ func (u *umountSyscallInfo) process() (*sysResponse, error) {
 		return u.tracer.createContinueResponse(u.reqId), nil
 
 	} else if mip.IsSysboxfsSubmount(u.Target) {
-		logrus.Debugf("Ignoring unmount of sysbox-fs managed submount at %s",
+		logrus.Infof("Rejected unmount of sysbox-fs managed submount at %s",
 			u.Target)
-		return u.tracer.createSuccessResponse(u.reqId), nil
+		return u.tracer.createErrorResponse(u.reqId, syscall.EINVAL), nil
 	}
 
 	// Verify if the umount op is addressing an immutable resource and prevent
