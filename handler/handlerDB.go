@@ -44,6 +44,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.ProcSys_Handler,                        // /proc/sys
 	implementations.ProcSysFs_Handler,                      // /proc/sys/fs
 	implementations.ProcSysKernel_Handler,                  // /proc/sys/kernel
+	implementations.ProcSysKernelRandom_Handler,            // /proc/sys/kernel/random
 	implementations.ProcSysKernelYama_Handler,              // /proc/sys/kernel/yama
 	implementations.ProcSysNetCore_Handler,                 // /proc/sys/net/core
 	implementations.ProcSysNetIpv4_Handler,                 // /proc/sys/net/ipv4
