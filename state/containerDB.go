@@ -240,6 +240,7 @@ func (css *containerStateService) ContainerRegister(c domain.ContainerIface) err
 	// Let the associated fuse-server know about the sys-container's registration
 	// being completed.
 	if err := css.fss.FuseServerCntrRegComplete(cntr); err != nil {
+		css.Unlock()
 		logrus.Errorf("Container registration error: container %s not present",
 			formatter.ContainerID{cntr.id})
 		return grpcStatus.Errorf(grpcCodes.NotFound, err.Error(), cntr.id)
