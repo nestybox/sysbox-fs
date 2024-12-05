@@ -639,9 +639,13 @@ func replaceProcSelfWithProcPid(path string, pid uint32, tid uint32) string {
 
 	pidMatch := regexp.MustCompile(`^/proc/self/(.*)`)
 	tidMatch := regexp.MustCompile(`^/proc/self/task/[0-9]+/(.*)`)
+	tidMatch2 := regexp.MustCompile(`^/proc/thread-self/(.*)`)
 
 	repl = fmt.Sprintf("/proc/self/task/%d/${1}", tid)
 	p = tidMatch.ReplaceAllString(path, repl)
+
+	repl = fmt.Sprintf("/proc/self/task/%d/${1}", tid)
+	p = tidMatch2.ReplaceAllString(p, repl)
 
 	repl = fmt.Sprintf("/proc/%d/${1}", pid)
 	p = pidMatch.ReplaceAllString(p, repl)
@@ -667,7 +671,8 @@ func (p *process) ResolveProcSelf(path string) (string, error) {
 		return path, nil
 	}
 
-	if !strings.HasPrefix(path, "/proc/self/") {
+	if !strings.HasPrefix(path, "/proc/self/") &&
+		!strings.HasPrefix(path, "/proc/thread-self/") {
 		return path, nil
 	}
 
@@ -675,7 +680,8 @@ func (p *process) ResolveProcSelf(path string) (string, error) {
 	linkCnt := 0
 
 	for {
-		if !strings.HasPrefix(currPath, "/proc/self/") {
+		if !strings.HasPrefix(currPath, "/proc/self/") &&
+			!strings.HasPrefix(currPath, "/proc/thread-self/") {
 			break
 		}
 
@@ -683,7 +689,7 @@ func (p *process) ResolveProcSelf(path string) (string, error) {
 		// /proc/self with /proc/<pid> since we have the container's process pid
 		// in sysbox's pid-namespace. However, that's not the case for the <tid>,
 		// which is in the container's pid namespace and we have no good/easy way
-		// to translate it sysbox's pid-ns. For now, assume that <tid> = <pid>.
+		// to translate it to sysbox's pid-ns. For now, assume that <tid> = <pid>.
 		// It's not ideal, but it's normally the case when we receive such paths in
 		// mount syscalls.
 
@@ -705,7 +711,7 @@ func (p *process) ResolveProcSelf(path string) (string, error) {
 			return "", syscall.ELOOP
 		}
 
-		// path starts with "/proc/self/" and it's a symlink, resolve it
+		// path is a symlink, resolve it
 		currPath, err = os.Readlink(currPath)
 		if err != nil {
 			return "", err
@@ -836,7 +842,7 @@ func (p *process) pathAccess(path string, mode domain.AccessMode, followSymlink 
 			if strings.HasPrefix(cur, p.procroot) {
 				resolvedPath = strings.TrimPrefix(cur, p.procroot)
 			} else {
-				resolvedPath = strings.TrimPrefix(cur, p.proccwd + "/")
+				resolvedPath = strings.TrimPrefix(cur, p.proccwd+"/")
 			}
 		}
 	}

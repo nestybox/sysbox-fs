@@ -937,10 +937,14 @@ func TestReplaceProcSelfWithProcPid(t *testing.T) {
 	}
 
 	test := map[testInput]string{
-		{"/proc/self/mem", 10, 100}:         "/proc/10/mem",
-		{"/proc/self/task/123/io", 20, 200}: "/proc/20/task/200/io",
-		{"/proc/123/task/456/mem", 20, 200}: "/proc/123/task/456/mem",
-		{"/some/other/path", 20, 200}:       "/some/other/path",
+		{"/proc/self/mem", 10, 100}:                    "/proc/10/mem",
+		{"/proc/self/some/path", 10, 100}:              "/proc/10/some/path",
+		{"/proc/self/task/123/io", 20, 200}:            "/proc/20/task/200/io",
+		{"/proc/self/task/123/some/path", 20, 200}:     "/proc/20/task/200/some/path",
+		{"/proc/thread-self/mem", 20, 200}:             "/proc/20/task/200/mem",
+		{"/proc/thread-self/some/other/path", 20, 200}: "/proc/20/task/200/some/other/path",
+		{"/proc/123/task/456/mem", 20, 200}:            "/proc/123/task/456/mem",
+		{"/some/other/path", 20, 200}:                  "/some/other/path",
 	}
 
 	for k, v := range test {
