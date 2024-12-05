@@ -96,7 +96,7 @@ func processPayloadMounts(mountSysfs, mountProcfs bool) (*payloadMountsInfo, err
 	cleanupSysfs := func(mountpoint string) {
 		if mountpoint != "" {
 			unix.Unmount(mountpoint, unix.MNT_DETACH)
-			if strings.HasPrefix(mountpoint, ".sysbox-sysfs-") {
+			if strings.HasPrefix(mountpoint, "/.sysbox-sysfs-") {
 				os.RemoveAll(mountpoint)
 			}
 		}
@@ -125,6 +125,9 @@ func processPayloadMounts(mountSysfs, mountProcfs bool) (*payloadMountsInfo, err
 	cleanupProcfs := func(mountpoint string) {
 		if mountpoint != "" {
 			unix.Unmount(mountpoint, unix.MNT_DETACH)
+			if strings.HasPrefix(mountpoint, "/.sysbox-procfs-") {
+				os.RemoveAll(mountpoint)
+			}
 		}
 	}
 
