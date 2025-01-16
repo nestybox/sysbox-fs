@@ -712,9 +712,16 @@ func (p *process) ResolveProcSelf(path string) (string, error) {
 		}
 
 		// path is a symlink, resolve it
-		currPath, err = os.Readlink(currPath)
+		link, err := os.Readlink(currPath)
 		if err != nil {
 			return "", err
+		}
+
+		if filepath.IsAbs(link) {
+			currPath = link
+		} else {
+			// the link is relative, resolve it
+			currPath = filepath.Clean(filepath.Join(filepath.Dir(currPath), link))
 		}
 	}
 
