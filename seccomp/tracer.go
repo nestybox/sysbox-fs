@@ -714,7 +714,20 @@ func (t *syscallTracer) processUmount(
 	// update it in case it requires path resolution.
 	umount.Target, err = process.PathAccess(umount.Target, 0, true)
 	if err != nil {
-		return t.createErrorResponse(req.ID, err), nil
+		if err == syscall.ENOENT {
+			// XXX: in some cases PathAccess() will unexpectedly hit an ENOENT when
+			// walking the path. We've seen this occur on user-created FUSE mounts
+			// inside the container, where the path walk to the FUSE mountpoint
+			// does not work unless we enter the container's user and mount
+			// namespaces (see Sysbox issue 854). Since this never occurs for
+			// sysbox-fs managed mounts, let the kernel handle the response (i.e.,
+			// for user-created FUSE mounts, the kernel will do the proper path
+			// walk within the required namespaces and allow or disallow the
+			// unmount as appropriate).
+			return t.createContinueResponse(req.ID), nil
+		} else {
+			return t.createErrorResponse(req.ID, err), nil
+		}
 	}
 
 	// Collect process attributes required for umount execution.
