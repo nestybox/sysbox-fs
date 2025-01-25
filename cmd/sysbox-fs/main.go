@@ -67,9 +67,7 @@ var (
 	builtBy  string // build owner
 )
 
-//
 // sysbox-fs exit handler goroutine.
-//
 func exitHandler(
 	signalChan chan os.Signal,
 	fss domain.FuseServerServiceIface,
@@ -175,9 +173,7 @@ func setupRunDir() error {
 	return nil
 }
 
-//
 // sysbox-fs main function
-//
 func main() {
 
 	app := cli.NewApp()
@@ -332,7 +328,13 @@ func main() {
 	// sysbox-fs main-loop execution.
 	app.Action = func(ctx *cli.Context) error {
 
-		logrus.Info("Initiating sysbox-fs ...")
+		logrus.Info("Starting sysbox-fs")
+		logrus.Infof("Edition: %s", edition)
+		logrus.Infof("Version: %s", version)
+
+		if commitId != "" {
+			logrus.Infof("Commit-ID: %s", commitId)
+		}
 
 		err := libutils.CheckPidFile("sysbox-fs", sysboxFsPidFile)
 		if err != nil {
