@@ -30,6 +30,8 @@ import (
 	"github.com/nestybox/sysbox-fs/handler/implementations"
 
 	iradix "github.com/hashicorp/go-immutable-radix"
+
+	"github.com/nestybox/sysbox-libs/linuxUtils"
 )
 
 // Slice of sysbox-fs' default handlers and the respective paths where they
@@ -89,6 +91,9 @@ type handlerService struct {
 	// Passthrough handler.
 	passThroughHandler domain.PassthroughHandlerIface
 
+	// Indicates /proc/sys/kernel/shm* is accessible from user-ns
+	shmSysctlUserNamespaced bool
+
 	// Handler i/o errors should be obviated if this flag is enabled (testing
 	// purposes).
 	ignoreErrors bool
@@ -137,6 +142,19 @@ func (hs *handlerService) Setup(
 	hs.hostUuid, err = hs.FindHostUuid()
 	if err != nil {
 		logrus.Fatalf("Unable to determine the host UUID value")
+	}
+
+	// Check if the kernel supports writing to /proc/sys/kernel/shm* sysctls from a user-ns
+	shmSysctlUserNamespaced, err := linuxUtils.ShmSysctlUserNamespaced()
+	if err != nil {
+		logrus.Warnf("Unable to check if host supports writes to /proc/sys/kernel/shm* from user-ns")
+	} else {
+		if shmSysctlUserNamespaced {
+			logrus.Infof("Host supports writes to /proc/sys/kernel/shm* from user-ns")
+		} else {
+			logrus.Infof("Host does not support writes to /proc/sys/kernel/shm* from user-ns; will apply work-around.")
+		}
+		hs.shmSysctlUserNamespaced = shmSysctlUserNamespaced
 	}
 }
 
@@ -344,4 +362,8 @@ func (hs *handlerService) FindHostUuid() (string, error) {
 	}
 
 	return string(hostUuid), nil
+}
+
+func (hs *handlerService) ShmSysctlUserNamespaced() bool {
+	return hs.shmSysctlUserNamespaced
 }
