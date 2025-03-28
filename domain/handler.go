@@ -151,4 +151,5 @@ type HandlerServiceIface interface {
 	FindUserNsInode(pid uint32) (Inode, error)
 	HostUuid() string
 	FindHostUuid() (string, error)
+	ShmSysctlUserNamespaced() bool
 }
