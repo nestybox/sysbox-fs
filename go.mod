@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.22.6
 
 require (
-	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
+	bazil.org/fuse v0.0.0-00010101000000-000000000000
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/hashicorp/go-immutable-radix v1.3.0
 	github.com/nestybox/sysbox-ipc v0.0.0-00010101000000-000000000000

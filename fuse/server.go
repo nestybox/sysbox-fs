@@ -21,8 +21,8 @@ import (
 	"os"
 	"sync"
 
-	"bazil.org/fuse"
-	"bazil.org/fuse/fs"
+	bfuse "bazil.org/fuse"
+	bfusefs "bazil.org/fuse/fs"
 
 	_ "bazil.org/fuse/fs/fstestutil"
 	"github.com/sirupsen/logrus"
@@ -32,19 +32,19 @@ import (
 
 // FuseServer class in charge of running/hosting sysbox-fs' FUSE server features.
 type fuseServer struct {
-	sync.RWMutex                       // nodeDB protection
-	conn         *fuse.Conn            // Associated fuse connection
-	path         string                // fs path to emulate -- "/" by default
-	mountPoint   string                // mountpoint -- "/var/lib/sysboxfs" by default
-	container    domain.ContainerIface // associated sys container
-	containerUid uint32                // container UID for caching purposes
-	containerGid uint32                // container GID for caching purposes
-	server       *fs.Server            // bazil-fuse server instance
-	nodeDB       map[string]*fs.Node   // map to store all fs nodes, e.g. "/proc/uptime" -> File
-	root         *Dir                  // root node of fuse fs -- "/" by default
-	initDone     chan bool             // sync-up channel to alert about fuse-server's init-completion
-	cntrReg      bool                  // flag to track the container's registration state
-	service      *FuseServerService    // backpointer to parent service
+	sync.RWMutex                          // nodeDB protection
+	conn         *bfuse.Conn              // Associated fuse connection
+	path         string                   // fs path to emulate -- "/" by default
+	mountPoint   string                   // mountpoint -- "/var/lib/sysboxfs" by default
+	container    domain.ContainerIface    // associated sys container
+	containerUid uint32                   // container UID for caching purposes
+	containerGid uint32                   // container GID for caching purposes
+	server       *bfusefs.Server          // bazil-fuse server instance
+	nodeDB       map[string]*bfusefs.Node // map to store all fs nodes, e.g. "/proc/uptime" -> File
+	root         *Dir                     // root node of fuse fs -- "/" by default
+	initDone     chan bool                // sync-up channel to alert about fuse-server's init-completion
+	cntrReg      bool                     // flag to track the container's registration state
+	service      *FuseServerService       // backpointer to parent service
 }
 
 func NewFuseServer(
@@ -97,9 +97,9 @@ func (s *fuseServer) Create() error {
 
 	// Create a first node corresponding to the root (dir) element in
 	// sysbox-fs.
-	var attr fuse.Attr
+	var attr bfuse.Attr
 	if s.service.ios.GetServiceType() == domain.IOMemFileService {
-		attr = fuse.Attr{}
+		attr = bfuse.Attr{}
 	} else {
 		attr = convertFileInfoToFuse(pathInfo)
 	}
@@ -113,7 +113,7 @@ func (s *fuseServer) Create() error {
 	s.root = NewDir(request, &attr, s)
 
 	// Initialize pending members.
-	s.nodeDB = make(map[string]*fs.Node)
+	s.nodeDB = make(map[string]*bfusefs.Node)
 	s.initDone = make(chan bool)
 
 	return nil
@@ -130,11 +130,11 @@ func (s *fuseServer) Run() error {
 	// its own permission check, instead of deferring all permission checking
 	// to sysbox-fs filesystem.
 	//
-	c, err := fuse.Mount(
+	c, err := bfuse.Mount(
 		s.mountPoint,
-		fuse.FSName("sysboxfs"),
-		fuse.AllowOther(),
-		fuse.DefaultPermissions(),
+		bfuse.FSName("sysboxfs"),
+		bfuse.AllowOther(),
+		bfuse.DefaultPermissions(),
 	)
 	if err != nil {
 		logrus.Error(err)
@@ -155,7 +155,7 @@ func (s *fuseServer) Run() error {
 	}
 
 	// Creating a FUSE server to drive kernel interactions.
-	s.server = fs.New(c, nil)
+	s.server = bfusefs.New(c, nil)
 	if s.server == nil {
 		logrus.Panic("FUSE file-system could not be created")
 		return errors.New("FUSE file-system could not be created")
@@ -171,20 +171,13 @@ func (s *fuseServer) Run() error {
 		return err
 	}
 
-	// Return if any error is reported by mount logic.
-	<-c.Ready
-	if err := c.MountError; err != nil {
-		logrus.Panic(err)
-		return err
-	}
-
 	return nil
 }
 
 func (s *fuseServer) Destroy() error {
 
 	// Unmount sysboxfs from mountpoint.
-	err := fuse.Unmount(s.mountPoint)
+	err := bfuse.Unmount(s.mountPoint)
 	if err != nil {
 		logrus.Errorf("FUSE file-system could not be unmounted: %v", err)
 		return err
@@ -202,7 +195,7 @@ func (s *fuseServer) Destroy() error {
 
 // Root method. This is a Bazil-FUSE-lib requirement. Function returns
 // sysbox-fs' root-node.
-func (s *fuseServer) Root() (fs.Node, error) {
+func (s *fuseServer) Root() (bfusefs.Node, error) {
 
 	return s.root, nil
 }
@@ -220,7 +213,7 @@ func (s *fuseServer) MountPoint() string {
 
 func (s *fuseServer) Unmount() {
 
-	fuse.Unmount(s.mountPoint)
+	bfuse.Unmount(s.mountPoint)
 }
 
 // Helper functions to extract the container UID and GID (below) corresponding to
