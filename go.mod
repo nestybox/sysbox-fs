@@ -38,7 +38,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/deckarep/golang-set/v2 v2.3.1 // indirect
-	github.com/docker/docker v26.0.0+incompatible // indirect
+	github.com/docker/docker v28.0.0+incompatible // indirect
 	github.com/godbus/dbus/v5 v5.0.3 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
