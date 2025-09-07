@@ -57,17 +57,20 @@ endif
 sysbox-fs: $(SYSFS_BUILDDIR)/$(SYSFS_TARGET)
 
 $(SYSFS_BUILDDIR)/$(SYSFS_TARGET): $(SYSFS_SRC) $(SYSFS_GRPC_SRC) $(SYSLIB_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
+	$(GO) mod tidy
 	$(GO_XCOMPILE) $(GO) build -buildvcs=false -trimpath -ldflags "${LDFLAGS}" -o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
 
 sysbox-fs-debug: $(SYSFS_BUILDDIR)/$(SYSFS_DEBUG_TARGET)
 
 $(SYSFS_BUILDDIR)/$(SYSFS_DEBUG_TARGET): $(SYSFS_SRC) $(SYSFS_GRPC_SRC) $(SYSLIB_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
+	$(GO) mod tidy
 	$(GO_XCOMPILE) $(GO) build -buildvcs=false -trimpath -gcflags="all=-N -l" -ldflags "${LDFLAGS}" \
 		-o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
 
 sysbox-fs-static: $(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET)
 
 $(SYSFS_BUILDDIR)/$(SYSFS_STATIC_TARGET): $(SYSFS_SRC) $(SYSFS_GRPC_SRC) $(SYSLIB_SRC) $(LIBSECCOMP_SRC) $(LIBPIDMON_SRC) $(NSENTER_SRC)
+	$(GO) mod tidy
 	CGO_ENABLED=1 $(GO_XCOMPILE) $(GO) build -buildvcs=false -trimpath -tags "netgo osusergo" \
 		-installsuffix netgo -ldflags "-extldflags -static ${LDFLAGS}" \
 		-o $(SYSFS_BUILDDIR)/sysbox-fs ./cmd/sysbox-fs
