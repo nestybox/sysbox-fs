@@ -336,6 +336,24 @@ func (_m *HandlerServiceIface) RegisterHandler(h domain.HandlerIface) error {
 	return r0
 }
 
+// ShmSysctlUserNamespaced provides a mock function with no fields
+func (_m *HandlerServiceIface) ShmSysctlUserNamespaced() bool {
+       ret := _m.Called()
+
+       if len(ret) == 0 {
+               panic("no return value specified for ShmSysctlUserNamespaced")
+       }
+
+       var r0 bool
+       if rf, ok := ret.Get(0).(func() bool); ok {
+               r0 = rf()
+       } else {
+               r0 = ret.Get(0).(bool)
+       }
+
+       return r0
+}
+
 // SetStateService provides a mock function with given fields: css
 func (_m *HandlerServiceIface) SetStateService(css domain.ContainerStateServiceIface) {
 	_m.Called(css)
