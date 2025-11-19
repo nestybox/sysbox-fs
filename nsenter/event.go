@@ -61,9 +61,10 @@ type pid struct {
 
 // NSenterEvent struct serves as a transport abstraction (envelope) to carry
 // all the potential messages that can be exchanged between sysbox-fs master
-// instance and secondary (forked) ones. These sysbox-fs' auxiliary instances
-// are utilized to perform actions over namespaced resources, and as such,
-// cannot be executed by sysbox-fs' main instance.
+// instance and secondary (forked) ones (aka child nsenter processes). These
+// nsenter processes are dispatched to perform actions inside the container
+// namespaces (e.g,. open files, mounts, etc.) which cannot be executed by
+// sysbox-fs' main instance.
 //
 // Every bidirectional transaction is represented by an event structure
 // (nsenterEvent), which holds both 'request' and 'response' messages, as well
@@ -86,7 +87,7 @@ type NSenterEvent struct {
 	// Response message to be received.
 	ResMsg *domain.NSenterMessage `json:"response"`
 
-	// Sysbox-fs' spawned process carrying out the nsexec instruction.
+	// Nsenter process carrying out the nsexec instruction.
 	Process *os.Process `json:"process"`
 
 	// Asynchronous flag to tag events for which no response is expected.
@@ -100,6 +101,9 @@ type NSenterEvent struct {
 
 	// Backpointer to Nsenter service
 	service *nsenterService
+
+	// File descriptors exchanged via SCM_RIGHTS
+	fileDescr []int
 }
 
 //
@@ -133,10 +137,55 @@ func (e *NSenterEvent) GetProcessID() uint32 {
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+// getRespFileDescriptors receives the file descriptor sent via SCM_RIGHTS from the child process.
+// Returns the fds (or an empty slice if no valid fds were sent), or an error if the receive operation fails.
+func (e *NSenterEvent) getRespFileDescriptors(pipe *os.File) ([]int, error) {
+
+	// Note: The socket has SO_PASSCRED enabled, so we may receive both
+	// SCM_CREDENTIALS and SCM_RIGHTS. We need a buffer large enough.
+	oob := make([]byte, unix.CmsgSpace(24)+unix.CmsgSpace(4))
+
+	_, oobn, _, _, err := unix.Recvmsg(int(pipe.Fd()), nil, oob, 0)
+	if err != nil {
+		logrus.Errorf("Error receiving fd via SCM_RIGHTS: %v", err)
+		return nil, fmt.Errorf("error receiving fd via SCM_RIGHTS: %v", err)
+	}
+
+	// Parse the control message to extract the file descriptors
+	oob = oob[:oobn]
+	msgs, err := unix.ParseSocketControlMessage(oob)
+	if err != nil {
+		logrus.Errorf("Error parsing socket control message (oobn=%d): %v", oobn, err)
+		return nil, fmt.Errorf("error parsing socket control message: %v", err)
+	}
+
+	// Find the SCM_RIGHTS message and extract the file descriptors
+	fds := []int{}
+	for _, msg := range msgs {
+		if msg.Header.Level == unix.SOL_SOCKET && msg.Header.Type == unix.SCM_RIGHTS {
+			fds, err = unix.ParseUnixRights(&msg)
+			if err != nil {
+				logrus.Errorf("Error parsing Unix rights: %v", err)
+				return nil, fmt.Errorf("error parsing Unix rights: %v", err)
+			}
+			break
+		}
+	}
+
+	return fds, nil
+}
+
 // Called by sysbox-fs handler routines to parse the response generated
 // by sysbox-fs' grand-child processes.
-func (e *NSenterEvent) processResponse(pipe io.Reader) error {
+func (e *NSenterEvent) processResponse(pipe *os.File) error {
 
+	// First, receive the file descriptor(s) via SCM_RIGHTS (if any)
+	fds, err := e.getRespFileDescriptors(pipe)
+	if err != nil {
+		return err
+	}
+
+	// Now decode the JSON response
 	// Raw message payload to aid in decoding generic messages (see below
 	// explanation).
 	var payload json.RawMessage
@@ -152,7 +201,7 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 	// unmarshal instruction (see further below).
 	if err := json.NewDecoder(pipe).Decode(&nsenterMsg); err != nil {
 		logrus.Warnf("Error decoding received nsenterMsg response: %s", err)
-		return fmt.Errorf("Error decoding received nsenterMsg response: %s", err)
+		return fmt.Errorf("decoding received nsenterMsg response: %s", err)
 	}
 
 	switch nsenterMsg.Type {
@@ -429,6 +478,33 @@ func (e *NSenterEvent) processResponse(pipe io.Reader) error {
 		}
 		break
 
+	case domain.Openat2SyscallResponse:
+		logrus.Debug("Received nsenterEvent openat2SyscallResponse message.")
+
+		var p domain.Openat2RespPayload
+
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
+
+		// Openat2() returns a file descriptor
+		if len(fds) == 0 {
+			return fmt.Errorf("expected valid file descriptor for openat2 response, got %v", fds)
+		}
+
+		p.Fd = fds[0]
+
+		// Insert the received fd into the response payload
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+		break
+
 	case domain.ErrorResponse:
 		logrus.Debug("Received nsenterEvent errorResponse message.")
 
@@ -672,7 +748,6 @@ func (e *NSenterEvent) SendRequest() error {
 }
 
 func (e *NSenterEvent) ReceiveResponse() *domain.NSenterMessage {
-
 	return e.ResMsg
 }
 
@@ -1480,11 +1555,70 @@ func (e *NSenterEvent) processGidInfoRequest() error {
 	return nil
 }
 
+func (e *NSenterEvent) processOpenat2SyscallRequest(pipe *os.File) (int, error) {
+	var err error
+
+	p := e.ReqMsg.Payload.(domain.Openat2SyscallPayload)
+
+	// Adjust 'nsexec' process' personality (uid/gid and capabilities) to match
+	// the original process performing the syscall. This is needed to
+	// ensure proper permission checks when opening files.
+
+	// TODO: do this for uid:gid only after the uid and gid are passed via SCM creds (otherwise they won't be the right ones,
+	// because sysbox-fs will have them as set in the init user namespace (e.g., 165536:165536), yet we need them converted
+	// to the container user namespace (e.g., 0:0). Same should apply to all other places where we do AdjustPersonality().
+
+	// pid := os.Getpid()
+	// this := e.service.prs.ProcessCreate(uint32(pid), 0, 0)
+
+	// if err := this.AdjustPersonality(
+	// 	p.Header.Uid,
+	// 	p.Header.Gid,
+	// 	p.Header.Root,
+	// 	p.Header.Cwd,
+	// 	p.Header.Capabilities); err != nil {
+
+	// 	// Send an error-message response.
+	// 	e.ResMsg = &domain.NSenterMessage{
+	// 		Type:    domain.ErrorResponse,
+	// 		Payload: &fuse.IOerror{RcvError: err},
+	// 	}
+
+	// 	return -1, nil
+	// }
+
+	how := &unix.OpenHow{
+		Flags:   p.Flags,
+		Mode:    p.Mode,
+		Resolve: p.Resolve,
+	}
+
+	fd, err := unix.Openat2(unix.AT_FDCWD, p.Path, how)
+	if err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return 0, nil
+	}
+
+	// note: the fd is not sent in the response; rather it's sent separately via SCM_RIGHTS so it
+	// can be transferred properly from the nsenter process to the parent sysbox-fs (i.e., the
+	// kernel will allocate an fd for sysbox-fs which will be a copy of the nsenter's fd).
+	e.ResMsg = &domain.NSenterMessage{
+		Type:    domain.Openat2SyscallResponse,
+		Payload: nil,
+	}
+
+	return fd, nil
+}
+
 // Method in charge of processing all requests generated by sysbox-fs' master
 // instance.
 func (e *NSenterEvent) processRequest(pipe *os.File) error {
 
-	// Get the credentials of the process on whose behalf we are operating
+	// Get the credentials (e.g., pid) of the process on whose behalf we are operating;
+	// store them in the NSenterEvent.
 	if err := e.getProcCreds(pipe); err != nil {
 		return err
 	}
@@ -1793,6 +1927,30 @@ func (e *NSenterEvent) processRequest(pipe *os.File) error {
 
 		return e.processGidInfoRequest()
 
+	case domain.Openat2SyscallRequest:
+		var p domain.Openat2SyscallPayload
+		if payload != nil {
+			err := json.Unmarshal(payload, &p)
+			if err != nil {
+				logrus.Error(err)
+				return err
+			}
+		}
+
+		e.ReqMsg = &domain.NSenterMessage{
+			Type:    nsenterMsg.Type,
+			Payload: p,
+		}
+
+		fd, err := e.processOpenat2SyscallRequest(pipe)
+		if err != nil {
+			return err
+		}
+
+		// Store the file descriptor (to be sent later via SCM_RIGHTS)
+		e.fileDescr = []int{fd}
+		return nil
+
 	default:
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
@@ -1803,7 +1961,7 @@ func (e *NSenterEvent) processRequest(pipe *os.File) error {
 	return nil
 }
 
-// Sysbox-fs' post-nsexec initialization function. To be executed within the
+// nsenter process initialization function. To be executed within the
 // context of one (or more) container namespaces.
 func Init() (err error) {
 
@@ -1835,7 +1993,7 @@ func Init() (err error) {
 
 	var event = NSenterEvent{service: nsenterSvc.(*nsenterService)}
 
-	// Process incoming request.
+	// Process incoming request; response will be populated in event.ResMsg.
 	err = event.processRequest(pipe)
 	if err != nil {
 		event.ResMsg = &domain.NSenterMessage{
@@ -1844,7 +2002,17 @@ func Init() (err error) {
 		}
 	}
 
-	// Encode / push response back to sysbox-main.
+	// Send any response file descriptors out-of-band via SCM_RIGHTS.
+	rights := syscall.UnixRights(event.fileDescr...)
+	err = syscall.Sendmsg(int(pipe.Fd()), nil, rights, nil, 0)
+	if err != nil {
+		event.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+	}
+
+	// Now encode and send the JSON response.
 	data, err := json.Marshal(*(event.ResMsg))
 	if err != nil {
 		return err

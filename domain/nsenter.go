@@ -96,6 +96,8 @@ const (
 	UidInfoResponse            NSenterMsgType = "uidInfoResponse"
 	GidInfoRequest             NSenterMsgType = "gidInfoRequest"
 	GidInfoResponse            NSenterMsgType = "gidInfoResponse"
+	Openat2SyscallRequest      NSenterMsgType = "openat2SyscallRequest"
+	Openat2SyscallResponse     NSenterMsgType = "openat2SyscallResponse"
 	ErrorResponse              NSenterMsgType = "errorResponse"
 )
 
@@ -284,4 +286,16 @@ type GidInfoReqPayload struct {
 
 type GidInfoRespPayload struct {
 	Gid string `json:"gid"`
+}
+
+type Openat2SyscallPayload struct {
+	Header  NSenterMsgHeader `json:"header"`
+	Path    string           `json:"path"`
+	Flags   uint64           `json:"flags"`
+	Mode    uint64           `json:"mode"`
+	Resolve uint64           `json:"resolve"`
+}
+
+type Openat2RespPayload struct {
+	Fd int `json:"fd"`
 }
