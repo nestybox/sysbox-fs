@@ -17,6 +17,8 @@
 package mount
 
 import (
+	"strings"
+
 	"github.com/nestybox/sysbox-fs/domain"
 )
 
@@ -44,6 +46,21 @@ var SysfsMounts = []string{
 	"/sys/kernel",
 	"/sys/devices/virtual",
 	"/sys/module/nf_conntrack/parameters",
+}
+
+// IsSysboxfsMount checks if the given path is at or under a sysbox-fs mount
+func IsSysboxfsMount(path string) bool {
+	for _, mountPath := range ProcfsMounts {
+		if strings.HasPrefix(path, mountPath+"/") || path == mountPath {
+			return true
+		}
+	}
+	for _, mountPath := range SysfsMounts {
+		if strings.HasPrefix(path, mountPath+"/") || path == mountPath {
+			return true
+		}
+	}
+	return false
 }
 
 type MountService struct {

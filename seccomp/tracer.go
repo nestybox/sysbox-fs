@@ -18,6 +18,7 @@ package seccomp
 
 import (
 	"C"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -43,6 +44,7 @@ type sysResponse = libseccomp.ScmpNotifResp
 
 // Slice of supported syscalls to monitor.
 var monitoredSyscalls = []string{
+	"openat2",
 	"mount",
 	"umount2",
 	"reboot",
@@ -498,6 +500,9 @@ func (t *syscallTracer) processSyscall(
 	syscallName := t.syscalls[seccompArchSyscallPair{archId, syscallId}]
 
 	switch syscallName {
+	case "openat2":
+		resp, err = t.processOpenat2(req, fd, cntr)
+
 	case "mount":
 		resp, err = t.processMount(req, fd, cntr)
 
@@ -1218,6 +1223,74 @@ func (t *syscallTracer) processSwapoff(
 	logrus.Warnf("Received swapoff syscall")
 
 	return t.createSuccessResponse(req.ID), nil
+}
+
+func (t *syscallTracer) processOpenat2(
+	req *sysRequest,
+	fd int32,
+	cntr domain.ContainerIface) (*sysResponse, error) {
+
+	dirfd := int32(req.Data.Args[0])
+	howSize := int(req.Data.Args[3])
+
+	// Extract "path" syscall argument.
+	parsedArgs, err := t.memParser.ReadSyscallStringArgs(
+		req.Pid,
+		[]memParserDataElem{{req.Data.Args[1], unix.PathMax, nil}},
+	)
+	if err != nil {
+		return t.createErrorResponse(req.ID, syscall.EPERM), nil
+	}
+	path := parsedArgs[0]
+
+	// Extract "open_how" structure from process memory.
+	// The open_how struct has at least 3 fields: flags (u64), mode (u64), resolve (u64)
+	// We read the size specified by the caller to handle different struct versions.
+	parsedArgs, err = t.memParser.ReadSyscallBytesArgs(
+		req.Pid,
+		[]memParserDataElem{{req.Data.Args[2], howSize, nil}},
+	)
+	if err != nil {
+		return t.createErrorResponse(req.ID, syscall.EPERM), nil
+	}
+	howBytes := []byte(parsedArgs[0])
+
+	// Parse the open_how structure (minimum 24 bytes: 3 x uint64)
+	var flags, mode, resolve uint64
+	if len(howBytes) >= 24 {
+		flags = binary.LittleEndian.Uint64(howBytes[0:8])
+		mode = binary.LittleEndian.Uint64(howBytes[8:16])
+		resolve = binary.LittleEndian.Uint64(howBytes[16:24])
+	} else {
+		return t.createErrorResponse(req.ID, syscall.EINVAL), nil
+	}
+
+	si := &openat2SyscallInfo{
+		syscallCtx: syscallCtx{
+			syscallNum: int32(req.Data.Syscall),
+			reqId:      req.ID,
+			pid:        req.Pid,
+			cntr:       cntr,
+			tracer:     t,
+		},
+		dirfd:    dirfd,
+		path:     path,
+		flags:    flags,
+		mode:     mode,
+		resolve:  resolve,
+		notifyFd: fd,
+	}
+
+	// Collect process attributes required for openat2 execution.
+	process := t.service.prs.ProcessCreate(req.Pid, 0, 0)
+	si.processInfo = process
+	si.uid = process.Uid()
+	si.gid = process.Gid()
+	si.cwd = process.Cwd()
+	si.root = process.Root()
+	si.caps = process.GetEffCaps()
+
+	return si.processOpenat2()
 }
 
 func (t *syscallTracer) createSuccessResponse(id uint64) *sysResponse {
