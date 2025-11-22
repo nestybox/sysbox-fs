@@ -225,8 +225,8 @@ func (p *process) GetFd(fd int32) (string, error) {
 }
 
 // AdjustPersonality() method's purpose is to modify process' main attributes to
-// match those of a secondary process. The main use-case is to allow sysbox-fs'
-// nsexec logic to act on behalf of a user-triggered process.
+// match those of a secondary process. The main use-case is to allow an nsenter agent
+// to act on behalf of the target process it's serving.
 func (p *process) AdjustPersonality(
 	uid uint32,
 	gid uint32,
@@ -520,7 +520,7 @@ func (p *process) init() error {
 	space := regexp.MustCompile(`\s+`)
 
 	fields := []string{"Uid", "Gid", "Groups"}
-	if err := p.getStatus(fields); err != nil {
+	if err := p.loadStatus(fields); err != nil {
 		return err
 	}
 
@@ -590,9 +590,9 @@ func (p *process) init() error {
 	return nil
 }
 
-// getStatus retrieves process status info obtained from the
-// /proc/[pid]/status file.
-func (p *process) getStatus(fields []string) error {
+// loadStatus loads process status info obtained from the
+// /proc/[pid]/status file into p.status.
+func (p *process) loadStatus(fields []string) error {
 
 	filename := fmt.Sprintf("/proc/%d/status", p.pid)
 	f, err := os.Open(filename)
