@@ -35,6 +35,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 )
+import cap "github.com/nestybox/sysbox-libs/capability"
 
 const seccompTracerSockAddr = "/run/sysbox/sysfs-seccomp.sock"
 
@@ -626,8 +627,9 @@ func (t *syscallTracer) processMount(
 		},
 	}
 
-	// cap_sys_admin capability is required for mount operations.
 	process := t.service.prs.ProcessCreate(req.Pid, 0, 0)
+
+	// cap_sys_admin capability is required for mount operations.
 	if !process.IsSysAdminCapabilitySet() {
 		return t.createErrorResponse(req.ID, syscall.EPERM), nil
 	}
@@ -1144,15 +1146,27 @@ func (t *syscallTracer) processListxattr(
 	// not write into the buffer pointed to by "addr").
 	size := uint64(req.Data.Args[2])
 
+	process := t.service.prs.ProcessCreate(req.Pid, 0, 0)
+
+	// if the process doing the listing does not have CAP_SYS_ADMIN, then it can't access
+	// trusted attributes, so no need to nsenter; let the kernel handle it.
+	if !process.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN) {
+		return t.createContinueResponse(req.ID), nil
+	}
+
 	si := &listxattrSyscallInfo{
 		syscallCtx: syscallCtx{
 			syscallNum:  int32(req.Data.Syscall),
 			syscallName: syscallName,
 			reqId:       req.ID,
 			pid:         req.Pid,
-			// TODO: set the uid and gid
-			cntr:   cntr,
-			tracer: t,
+			uid:         process.Uid(),
+			gid:         process.Gid(),
+			root:        process.Root(),
+			cwd:         process.Cwd(),
+			cntr:        cntr,
+			tracer:      t,
+			processInfo: process,
 		},
 		path: path,
 		addr: addr,
@@ -1180,13 +1194,26 @@ func (t *syscallTracer) processFlistxattr(
 	// not write into the buffer pointed to by "addr").
 	size := uint64(req.Data.Args[2])
 
+	process := t.service.prs.ProcessCreate(req.Pid, 0, 0)
+
+	// if the process doing the listing does not have CAP_SYS_ADMIN, then it can't access
+	// trusted attributes, so no need to nsenter; let the kernel handle it.
+	if !process.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN) {
+		return t.createContinueResponse(req.ID), nil
+	}
+
 	si := &listxattrSyscallInfo{
 		syscallCtx: syscallCtx{
-			syscallNum: int32(req.Data.Syscall),
-			reqId:      req.ID,
-			pid:        req.Pid,
-			cntr:       cntr,
-			tracer:     t,
+			syscallNum:  int32(req.Data.Syscall),
+			reqId:       req.ID,
+			pid:         req.Pid,
+			uid:         process.Uid(),
+			gid:         process.Gid(),
+			root:        process.Root(),
+			cwd:         process.Cwd(),
+			cntr:        cntr,
+			tracer:      t,
+			processInfo: process,
 		},
 		pathFd: pathFd,
 		addr:   addr,

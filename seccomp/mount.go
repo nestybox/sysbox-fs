@@ -463,9 +463,9 @@ func (m *mountSyscallInfo) processOverlayMount(
 	// Create nsenter-event envelope.
 	nss := m.tracer.service.nss
 	event := nss.NewEvent(
-		m.syscallCtx.pid,
-		m.syscallCtx.uid,
-		m.syscallCtx.gid,
+		m.pid,
+		m.uid,
+		m.gid,
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -532,12 +532,12 @@ func (m *mountSyscallInfo) processNfsMount(
 		return nil, fmt.Errorf("Could not construct nfsMount payload")
 	}
 
-	// Create nsenter-event envelope
+	// Create nsenter-event envelope; enter as true root to have required privileges.
 	nss := m.tracer.service.nss
 	event := nss.NewEvent(
-		m.syscallCtx.pid,
-		m.syscallCtx.uid,
-		m.syscallCtx.gid,
+		m.pid,
+		0, // uid
+		0, // gid
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -869,12 +869,12 @@ func (m *mountSyscallInfo) processRemount(
 		return nil, fmt.Errorf("Could not construct ReMount payload")
 	}
 
-	// Create nsenter-event envelope.
+	// Create nsenter-event envelope; enter as true root to have required privileges.
 	nss := m.tracer.service.nss
 	event := nss.NewEvent(
-		m.syscallCtx.pid,
-		m.syscallCtx.uid,
-		m.syscallCtx.gid,
+		m.pid,
+		0,
+		0,
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{

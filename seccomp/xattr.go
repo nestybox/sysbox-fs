@@ -149,11 +149,12 @@ func (si *setxattrSyscallInfo) processSetxattr() (*sysResponse, error) {
 		Flags:   si.flags,
 	}
 
+	// enter as true root to access trusted xattrs
 	nss := t.service.nss
 	event := nss.NewEvent(
 		si.pid,
-		si.uid,
-		si.gid,
+		0, // uid
+		0, // gid
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -229,11 +230,12 @@ func (si *getxattrSyscallInfo) processGetxattr() (*sysResponse, error) {
 		Size:    si.size,
 	}
 
+	// enter as true root to access trusted xattrs
 	nss := t.service.nss
 	event := nss.NewEvent(
 		si.pid,
-		si.uid,
-		si.gid,
+		0, // uid
+		0, // gid
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -321,11 +323,12 @@ func (si *removexattrSyscallInfo) processRemovexattr() (*sysResponse, error) {
 		Name:    si.name,
 	}
 
+	// enter as true root to access trusted xattrs
 	nss := t.service.nss
 	event := nss.NewEvent(
 		si.pid,
-		si.uid,
-		si.gid,
+		0, // uid
+		0, // gid
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -356,8 +359,7 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 	var err error
 
 	t := si.tracer
-
-	process := t.service.prs.ProcessCreate(si.pid, 0, 0)
+	process := si.processInfo
 
 	// If pathFd is defined, we are processing flistxattr(); convert pathFd to
 	// path so we can then handle flistxattr() as listxattr().
@@ -380,8 +382,8 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 	// Perform the nsenter into the process namespaces (except the user-ns)
 	payload := domain.ListxattrSyscallPayload{
 		Header: domain.NSenterMsgHeader{
-			Root:         process.Root(),
-			Cwd:          process.Cwd(),
+			Root:         si.root,
+			Cwd:          si.cwd,
 			Capabilities: process.GetEffCaps(),
 		},
 		Syscall: si.syscallName,
@@ -389,11 +391,12 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 		Size:    si.size,
 	}
 
+	// enter as true root to access trusted xattrs
 	nss := t.service.nss
 	event := nss.NewEvent(
 		si.pid,
-		si.uid,
-		si.gid,
+		0, // uid
+		0, // gid
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
