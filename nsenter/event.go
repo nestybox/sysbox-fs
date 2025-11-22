@@ -1095,7 +1095,8 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 
 		// Create a dummy 'process' struct to represent the 'sysbox-fs nsenter' process
 		// executing this logic.
-		this := e.service.prs.ProcessCreate(0, 0, 0)
+		pid := os.Getpid()
+		this := e.service.prs.ProcessCreate(uint32(pid), 0, 0)
 
 		// Adjust 'nsenter' process personality to match the container's original
 		// process.
@@ -1260,9 +1261,10 @@ func (e *NSenterEvent) processGetxattrSyscallRequest() error {
 	p := e.ReqMsg.Payload.(domain.GetxattrSyscallPayload)
 	val := make([]byte, p.Size)
 
-	// Create a dummy 'process' struct to represent the 'sysbox-fs nsenter' process
+	// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
 	// executing this logic.
-	this := e.service.prs.ProcessCreate(0, 0, 0)
+	pid := os.Getpid()
+	this := e.service.prs.ProcessCreate(uint32(pid), 0, 0)
 
 	// Adjust 'nsenter' process personality to match the container's original
 	// process.
@@ -1343,9 +1345,10 @@ func (e *NSenterEvent) processListxattrSyscallRequest() error {
 	p := e.ReqMsg.Payload.(domain.ListxattrSyscallPayload)
 	val := make([]byte, p.Size)
 
-	// Create a dummy 'process' struct to represent the 'sysbox-fs nsenter' process
+	// Create a 'process' struct to represent the 'sysbox-fs nsenter' process
 	// executing this logic.
-	this := e.service.prs.ProcessCreate(0, 0, 0)
+	pid := os.Getpid()
+	this := e.service.prs.ProcessCreate(uint32(pid), 0, 0)
 
 	// Adjust 'nsenter' process personality to match the container's original
 	// process.
@@ -1559,10 +1562,9 @@ func (e *NSenterEvent) processOpenat2SyscallRequest(pipe *os.File) (int, error) 
 
 	p := e.ReqMsg.Payload.(domain.Openat2SyscallPayload)
 
-	// Adjust 'nsexec' process' personality (uid/gid and capabilities) to match
+	// Adjust nsenter personality (uid/gid and capabilities) to match
 	// the original process performing the syscall. This is needed to
 	// ensure proper permission checks when opening the file.
-
 	pid := os.Getpid()
 	this := e.service.prs.ProcessCreate(uint32(pid), 0, 0)
 

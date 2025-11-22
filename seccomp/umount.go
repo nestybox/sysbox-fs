@@ -423,9 +423,9 @@ func (u *umountSyscallInfo) processUmount(
 	// Create nsenter-event envelope.
 	nss := u.tracer.service.nss
 	event := nss.NewEvent(
-		u.syscallCtx.pid,
-		u.syscallCtx.uid,
-		u.syscallCtx.gid,
+		u.pid,
+		u.uid,
+		u.gid,
 		&domain.AllNSs,
 		0,
 		&domain.NSenterMessage{
