@@ -72,8 +72,10 @@ type pid struct {
 // message exchanges.
 type NSenterEvent struct {
 
-	// Pid on behalf of which sysbox-fs is creating the nsenter event.
+	// Credentials for the process on whose behalf sysbox-fs is creating the nsenter event.
 	Pid uint32 `json:"pid"`
+	Uid uint32 `json:"uid"`
+	Gid uint32 `json:"gid"`
 
 	// namespace-types to attach to.
 	Namespace *[]domain.NStype `json:"namespace"`
@@ -684,17 +686,12 @@ func (e *NSenterEvent) SendRequest() error {
 	// Transfer the nsenterEvent details to grand-child for processing.
 	//
 
-	// Send the pid using SCM rights, so it shows up properly inside the
-	// nsexec process.
-	//
-	// TODO: in the future we should also send the process uid and gid
-	// credentials, so that the event handler can use this info to set ownership
-	// of files or mountpoints it creates on behalf of the process. This would
-	// void the need to send that info in the payload as done in the
-	// chown handler (i.e., it would void the need for processChownNSenter()).
-
+	// Send the pid, uid, and gid using SCM creds, so the nsenter process
+	// receives them properly and can use them as needed.
 	reqCred := &syscall.Ucred{
 		Pid: int32(e.Pid),
+		Uid: e.Uid,
+		Gid: e.Gid,
 	}
 
 	credMsg := syscall.UnixCredentials(reqCred)
@@ -1103,8 +1100,8 @@ func (e *NSenterEvent) processMountSyscallRequest() error {
 		// Adjust 'nsenter' process personality to match the container's original
 		// process.
 		if err := this.AdjustPersonality(
-			header.Uid,
-			header.Gid,
+			e.Uid,
+			e.Gid,
 			header.Root,
 			header.Cwd,
 			header.Capabilities); err != nil {
@@ -1270,8 +1267,8 @@ func (e *NSenterEvent) processGetxattrSyscallRequest() error {
 	// Adjust 'nsenter' process personality to match the container's original
 	// process.
 	if err := this.AdjustPersonality(
-		p.Header.Uid,
-		p.Header.Gid,
+		e.Uid,
+		e.Gid,
 		p.Header.Root,
 		p.Header.Cwd,
 		p.Header.Capabilities); err != nil {
@@ -1353,8 +1350,8 @@ func (e *NSenterEvent) processListxattrSyscallRequest() error {
 	// Adjust 'nsenter' process personality to match the container's original
 	// process.
 	if err := this.AdjustPersonality(
-		p.Header.Uid,
-		p.Header.Gid,
+		e.Uid,
+		e.Gid,
 		p.Header.Root,
 		p.Header.Cwd,
 		p.Header.Capabilities); err != nil {
@@ -1423,6 +1420,8 @@ func (e *NSenterEvent) getProcCreds(pipe *os.File) error {
 	}
 
 	e.Pid = uint32(procCred.Pid)
+	e.Uid = uint32(procCred.Uid)
+	e.Gid = uint32(procCred.Gid)
 
 	return nil
 }

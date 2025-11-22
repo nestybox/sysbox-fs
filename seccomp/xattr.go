@@ -152,6 +152,8 @@ func (si *setxattrSyscallInfo) processSetxattr() (*sysResponse, error) {
 	nss := t.service.nss
 	event := nss.NewEvent(
 		si.pid,
+		si.uid,
+		si.gid,
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -217,9 +219,6 @@ func (si *getxattrSyscallInfo) processGetxattr() (*sysResponse, error) {
 	// Perform the nsenter into the process namespaces (except the user-ns)
 	payload := domain.GetxattrSyscallPayload{
 		Header: domain.NSenterMsgHeader{
-			Pid:          process.Pid(),
-			Uid:          process.Uid(),
-			Gid:          process.Gid(),
 			Root:         process.Root(),
 			Cwd:          process.Cwd(),
 			Capabilities: process.GetEffCaps(),
@@ -233,6 +232,8 @@ func (si *getxattrSyscallInfo) processGetxattr() (*sysResponse, error) {
 	nss := t.service.nss
 	event := nss.NewEvent(
 		si.pid,
+		si.uid,
+		si.gid,
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -323,6 +324,8 @@ func (si *removexattrSyscallInfo) processRemovexattr() (*sysResponse, error) {
 	nss := t.service.nss
 	event := nss.NewEvent(
 		si.pid,
+		si.uid,
+		si.gid,
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -377,9 +380,6 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 	// Perform the nsenter into the process namespaces (except the user-ns)
 	payload := domain.ListxattrSyscallPayload{
 		Header: domain.NSenterMsgHeader{
-			Pid:          process.Pid(),
-			Uid:          process.Uid(),
-			Gid:          process.Gid(),
 			Root:         process.Root(),
 			Cwd:          process.Cwd(),
 			Capabilities: process.GetEffCaps(),
@@ -392,6 +392,8 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 	nss := t.service.nss
 	event := nss.NewEvent(
 		si.pid,
+		si.uid,
+		si.gid,
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{

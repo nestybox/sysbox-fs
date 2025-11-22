@@ -424,6 +424,8 @@ func (u *umountSyscallInfo) processUmount(
 	nss := u.tracer.service.nss
 	event := nss.NewEvent(
 		u.syscallCtx.pid,
+		u.syscallCtx.uid,
+		u.syscallCtx.gid,
 		&domain.AllNSs,
 		0,
 		&domain.NSenterMessage{

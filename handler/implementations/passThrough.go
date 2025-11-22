@@ -70,6 +70,8 @@ func (h *PassThrough) Lookup(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
+		req.Uid,
+		req.Gid,
 		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
@@ -135,6 +137,8 @@ func (h *PassThrough) OpenWithNS(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
+		req.Uid,
+		req.Gid,
 		&namespaces,
 		cloneFlags,
 		&domain.NSenterMessage{
@@ -333,6 +337,8 @@ func (h *PassThrough) ReadDirAll(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
+		req.Uid,
+		req.Gid,
 		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
@@ -386,6 +392,8 @@ func (h *PassThrough) ReadLink(
 
 	event := nss.NewEvent(
 		req.Pid,
+		req.Uid,
+		req.Gid,
 		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
@@ -431,6 +439,8 @@ func (h *PassThrough) Setattr(
 	nss := h.Service.NSenterService()
 	event := nss.NewEvent(
 		req.Pid,
+		req.Uid,
+		req.Gid,
 		&domain.AllNSs,
 		cloneFlags,
 		&domain.NSenterMessage{
@@ -477,6 +487,8 @@ func (h *PassThrough) fetchFile(
 
 	event := nss.NewEvent(
 		process.Pid(),
+		process.Uid(),
+		process.Gid(),
 		&namespaces,
 		cloneFlags,
 		&domain.NSenterMessage{
@@ -526,6 +538,8 @@ func (h *PassThrough) pushFile(
 
 	event := nss.NewEvent(
 		process.Pid(),
+		process.Uid(),
+		process.Gid(),
 		&namespaces,
 		cloneFlags,
 		&domain.NSenterMessage{
