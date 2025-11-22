@@ -1150,8 +1150,9 @@ func (t *syscallTracer) processListxattr(
 			syscallName: syscallName,
 			reqId:       req.ID,
 			pid:         req.Pid,
-			cntr:        cntr,
-			tracer:      t,
+			// TODO: set the uid and gid
+			cntr:   cntr,
+			tracer: t,
 		},
 		path: path,
 		addr: addr,

@@ -107,6 +107,8 @@ const (
 type NSenterServiceIface interface {
 	NewEvent(
 		pid uint32,
+		uid uint32,
+		gid uint32,
 		ns *[]NStype,
 		cloneFlags uint32,
 		req *NSenterMessage,
@@ -152,9 +154,9 @@ type NSenterMessage struct {
 }
 
 type NSenterMsgHeader struct {
-	Pid          uint32    `json:"pid"`
-	Uid          uint32    `json:"uid"`
-	Gid          uint32    `json:"gid"`
+	// Note: pid, uid, and gid, and file descriptors are sent apart via socket control messages (SCM) creds/rights.
+	// This way the kernel automatically translates them across process namespaces (e.g., from sysbox-fs to the nsenter
+	// process namespaces for nsenter requests, or vice-versa for nsenter responses).
 	Root         string    `json:"root"`
 	Cwd          string    `json:"cwd"`
 	Capabilities [2]uint32 `json:"capabilities"`

@@ -299,6 +299,8 @@ func (mi *mountInfoParser) extractMountInfo() ([]byte, error) {
 	// request.
 	asyncEvent := mi.service.nss.NewEvent(
 		mi.process.Pid(),
+		mi.process.Uid(),
+		mi.process.Gid(),
 		&domain.AllNSs,
 		0,
 		&domain.NSenterMessage{
@@ -326,6 +328,8 @@ func (mi *mountInfoParser) extractMountInfo() ([]byte, error) {
 	// event's pid as the one for which the mountInfo data will be collected.
 	event := mi.service.nss.NewEvent(
 		asyncEventPid,
+		mi.process.Uid(),
+		mi.process.Gid(),
 		&domain.AllNSs,
 		0,
 		&domain.NSenterMessage{Type: domain.MountInfoRequest},
@@ -437,6 +441,8 @@ func (mi *mountInfoParser) extractInodes(mps []string) ([]domain.Inode, error) {
 	nss := mi.service.nss
 	event := nss.NewEvent(
 		mi.process.Pid(),
+		mi.process.Uid(),
+		mi.process.Gid(),
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{

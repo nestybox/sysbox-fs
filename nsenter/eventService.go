@@ -42,6 +42,8 @@ func (s *nsenterService) Setup(
 
 func (s *nsenterService) NewEvent(
 	pid uint32,
+	uid uint32,
+	gid uint32,
 	ns *[]domain.NStype,
 	cloneFlags uint32,
 	req *domain.NSenterMessage,
@@ -50,6 +52,8 @@ func (s *nsenterService) NewEvent(
 
 	event := &NSenterEvent{
 		Pid:        pid,
+		Uid:        uid,
+		Gid:        gid,
 		Namespace:  ns,
 		CloneFlags: cloneFlags,
 		ReqMsg:     req,

@@ -168,6 +168,8 @@ func (m *mountSyscallInfo) processProcMount(
 	nss := m.tracer.service.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
+		m.syscallCtx.uid,
+		m.syscallCtx.gid,
 		&domain.AllNSs,
 		0,
 		&domain.NSenterMessage{
@@ -345,6 +347,8 @@ func (m *mountSyscallInfo) processSysMount(
 	nss := m.tracer.service.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
+		m.syscallCtx.uid,
+		m.syscallCtx.gid,
 		&domain.AllNSs,
 		0,
 		&domain.NSenterMessage{
@@ -460,6 +464,8 @@ func (m *mountSyscallInfo) processOverlayMount(
 	nss := m.tracer.service.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
+		m.syscallCtx.uid,
+		m.syscallCtx.gid,
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -504,9 +510,6 @@ func (m *mountSyscallInfo) createOverlayMountPayload(
 
 	// Insert appended fields.
 	payload[0].Header = domain.NSenterMsgHeader{
-		Pid:          m.pid,
-		Uid:          m.uid,
-		Gid:          m.gid,
 		Root:         m.root,
 		Cwd:          m.cwd,
 		Capabilities: process.GetEffCaps(),
@@ -533,6 +536,8 @@ func (m *mountSyscallInfo) processNfsMount(
 	nss := m.tracer.service.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
+		m.syscallCtx.uid,
+		m.syscallCtx.gid,
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -868,6 +873,8 @@ func (m *mountSyscallInfo) processRemount(
 	nss := m.tracer.service.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
+		m.syscallCtx.uid,
+		m.syscallCtx.gid,
 		&domain.AllNSsButUser,
 		0,
 		&domain.NSenterMessage{
@@ -993,6 +1000,8 @@ func (m *mountSyscallInfo) processBindMount(
 	nss := m.tracer.service.nss
 	event := nss.NewEvent(
 		m.syscallCtx.pid,
+		m.syscallCtx.uid,
+		m.syscallCtx.gid,
 		&domain.AllNSs,
 		0,
 		&domain.NSenterMessage{

@@ -149,9 +149,6 @@ func (si *openat2SyscallInfo) processOpenat2() (*sysResponse, error) {
 		// Open the file inside the container's namespaces via nsenter.
 		payload := domain.Openat2SyscallPayload{
 			Header: domain.NSenterMsgHeader{
-				Pid:          si.pid,
-				Uid:          si.uid,
-				Gid:          si.gid,
 				Root:         si.root,
 				Cwd:          si.cwd,
 				Capabilities: si.caps,
@@ -165,6 +162,8 @@ func (si *openat2SyscallInfo) processOpenat2() (*sysResponse, error) {
 		nss := t.service.nss
 		event := nss.NewEvent(
 			si.pid,
+			si.uid,
+			si.gid,
 			&domain.AllNSs,
 			0,
 			&domain.NSenterMessage{
