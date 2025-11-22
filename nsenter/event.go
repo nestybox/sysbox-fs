@@ -1561,30 +1561,26 @@ func (e *NSenterEvent) processOpenat2SyscallRequest(pipe *os.File) (int, error) 
 
 	// Adjust 'nsexec' process' personality (uid/gid and capabilities) to match
 	// the original process performing the syscall. This is needed to
-	// ensure proper permission checks when opening files.
+	// ensure proper permission checks when opening the file.
 
-	// TODO: do this for uid:gid only after the uid and gid are passed via SCM creds (otherwise they won't be the right ones,
-	// because sysbox-fs will have them as set in the init user namespace (e.g., 165536:165536), yet we need them converted
-	// to the container user namespace (e.g., 0:0). Same should apply to all other places where we do AdjustPersonality().
+	pid := os.Getpid()
+	this := e.service.prs.ProcessCreate(uint32(pid), 0, 0)
 
-	// pid := os.Getpid()
-	// this := e.service.prs.ProcessCreate(uint32(pid), 0, 0)
+	if err := this.AdjustPersonality(
+		e.Uid,
+		e.Gid,
+		p.Header.Root,
+		p.Header.Cwd,
+		p.Header.Capabilities); err != nil {
 
-	// if err := this.AdjustPersonality(
-	// 	p.Header.Uid,
-	// 	p.Header.Gid,
-	// 	p.Header.Root,
-	// 	p.Header.Cwd,
-	// 	p.Header.Capabilities); err != nil {
+		// Send an error-message response.
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
 
-	// 	// Send an error-message response.
-	// 	e.ResMsg = &domain.NSenterMessage{
-	// 		Type:    domain.ErrorResponse,
-	// 		Payload: &fuse.IOerror{RcvError: err},
-	// 	}
-
-	// 	return -1, nil
-	// }
+		return -1, nil
+	}
 
 	how := &unix.OpenHow{
 		Flags:   p.Flags,
