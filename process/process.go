@@ -265,13 +265,12 @@ func (p *process) AdjustPersonality(
 		}
 	}
 
-	if caps != p.GetEffCaps() {
-		// Set process' effective capabilities to match those passed by callee.
-		p.cap.SetEffCaps(caps)
-		if err := p.cap.Apply(
-			cap.EFFECTIVE | cap.PERMITTED | cap.INHERITABLE); err != nil {
-			return err
-		}
+	// Set process' effective capabilities to match those passed by callee (caps
+	// may have changed when we set the process effective uid just before).
+	p.cap.SetEffCaps(caps)
+	if err := p.cap.Apply(
+		cap.EFFECTIVE | cap.PERMITTED | cap.INHERITABLE); err != nil {
+		return err
 	}
 
 	return nil
