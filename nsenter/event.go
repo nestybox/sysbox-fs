@@ -149,10 +149,11 @@ func (e *NSenterEvent) getRespFileDescriptors(pipe *os.File) ([]int, error) {
 	oob := make([]byte, getOobBufferSize())
 
 	// Recvmsg will unblock when the nsenter agent sends the file descriptor(s),
-	// if it dies, or if the timeout expires.
+	// if it dies, or if the timeout expires. If the nsenter agent has no file
+	// descriptors to send, it will send a zero-length SCM_RIGHTS message.
 	_, oobn, _, _, err := unix.Recvmsg(int(pipe.Fd()), nil, oob, 0)
 	if err != nil {
-		logrus.Warnf("Error receiving fd via SCM_RIGHTS: %v", err)
+		logrus.Warnf("failed to receive fd(s) via SCM_RIGHTS: %v", err)
 		return nil, fmt.Errorf("error receiving fd via SCM_RIGHTS: %v", err)
 	}
 
@@ -160,7 +161,7 @@ func (e *NSenterEvent) getRespFileDescriptors(pipe *os.File) ([]int, error) {
 	oob = oob[:oobn]
 	msgs, err := unix.ParseSocketControlMessage(oob)
 	if err != nil {
-		logrus.Errorf("Error parsing socket control message (oobn=%d): %v", oobn, err)
+		logrus.Warnf("failed to parse socket control message (oobn=%d): %v", oobn, err)
 		return nil, fmt.Errorf("error parsing socket control message: %v", err)
 	}
 
@@ -170,7 +171,7 @@ func (e *NSenterEvent) getRespFileDescriptors(pipe *os.File) ([]int, error) {
 		if msg.Header.Level == unix.SOL_SOCKET && msg.Header.Type == unix.SCM_RIGHTS {
 			fds, err = unix.ParseUnixRights(&msg)
 			if err != nil {
-				logrus.Errorf("Error parsing Unix rights: %v", err)
+				logrus.Warnf("failed to parse Unix rights: %v", err)
 				return nil, fmt.Errorf("error parsing Unix rights: %v", err)
 			}
 			break
