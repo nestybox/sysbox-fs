@@ -46,6 +46,8 @@ import (
 	"github.com/nestybox/sysbox-runc/libcontainer"
 )
 
+const oobMaxFds = 4 // Max fds that can be sent via SCM_RIGHTS from nsenter agent to sysbox-fs.
+
 func init() {
 	if len(os.Args) > 1 && os.Args[1] == "nsenter" {
 		runtime.GOMAXPROCS(1)
@@ -143,13 +145,14 @@ func (e *NSenterEvent) GetProcessID() uint32 {
 // Returns the fds (or an empty slice if no valid fds were sent), or an error if the receive operation fails.
 func (e *NSenterEvent) getRespFileDescriptors(pipe *os.File) ([]int, error) {
 
-	// Note: The socket has SO_PASSCRED enabled, so we may receive both
-	// SCM_CREDENTIALS and SCM_RIGHTS. We need a buffer large enough.
-	oob := make([]byte, unix.CmsgSpace(24)+unix.CmsgSpace(4))
+	// out-of-band buffer for receiving file descriptors via SCM_RIGHTS
+	oob := make([]byte, getOobBufferSize())
 
+	// Recvmsg will unblock when the nsenter agent sends the file descriptor(s),
+	// if it dies, or if the timeout expires.
 	_, oobn, _, _, err := unix.Recvmsg(int(pipe.Fd()), nil, oob, 0)
 	if err != nil {
-		logrus.Errorf("Error receiving fd via SCM_RIGHTS: %v", err)
+		logrus.Warnf("Error receiving fd via SCM_RIGHTS: %v", err)
 		return nil, fmt.Errorf("error receiving fd via SCM_RIGHTS: %v", err)
 	}
 
@@ -553,15 +556,15 @@ func (e *NSenterEvent) namespacePaths() []string {
 	return paths
 }
 
-// Sysbox-fs requests are generated through this method. Handlers seeking to
-// access namespaced resources will call this method to invoke nsexec,
-// which will enter the container namespaces that host these resources.
+// Sysbox-fs nsenter requests are generated through this method. Handlers seeking to
+// access namespaced resources will call this method to dispatch an nsenter agent,
+// which will enter the container namespaces to perform the requested operations.
 func (e *NSenterEvent) SendRequest() error {
 
 	logrus.Debug("Executing nsenterEvent's SendRequest() method")
 
 	// Alert the zombie reaper that nsenter is about to start. Notice that we
-	// skip reaper's services for async requests as, in those cases, the callee
+	// skip reaper's services for async requests as, in those cases, the caller
 	// is expected to sigkill its generated nsenter processes.
 	if !e.Async {
 		e.reaper.nsenterStarted()
@@ -674,7 +677,7 @@ func (e *NSenterEvent) SendRequest() error {
 	_, _ = firstChildProcess.Wait()
 
 	// Sysbox-fs' third child (grand-child) process remains and will enter the
-	// go runtime.
+	// go runtime. This is the nsenter agent process.
 	process, err := os.FindProcess(pid.Pid)
 	if err != nil {
 		logrus.Warnf("Error finding grand-child pid %d: %s", pid.Pid, err)
@@ -687,7 +690,9 @@ func (e *NSenterEvent) SendRequest() error {
 	//
 
 	// Send the pid, uid, and gid using SCM creds, so the nsenter process
-	// receives them properly and can use them as needed.
+	// receives them properly and can use them as needed. The kernel translates
+	// the creds across namespaces (e.g., from sysbox-fs namespaces to nsenter
+	// agent namespaces).
 	reqCred := &syscall.Ucred{
 		Pid: int32(e.Pid),
 		Uid: e.Uid,
@@ -1393,6 +1398,18 @@ func (e *NSenterEvent) processListxattrSyscallRequest() error {
 	return nil
 }
 
+// getOobBufferSize computes the size of the out-of-band buffer needed to receive
+// process credentials via SCM_CREDENTIALS and up to 4 file descriptors via SCM_RIGHTS.
+func getOobBufferSize() int {
+	var cred syscall.Ucred
+	ucred := syscall.UnixCredentials(&cred)
+	maxFds := make([]int, oobMaxFds)
+
+	oobSize := len(ucred) + unix.CmsgSpace(len(syscall.UnixRights(maxFds...)))
+
+	return oobSize
+}
+
 func (e *NSenterEvent) getProcCreds(pipe *os.File) error {
 
 	socket := int(pipe.Fd())
@@ -1402,17 +1419,16 @@ func (e *NSenterEvent) getProcCreds(pipe *os.File) error {
 		return fmt.Errorf("Error setting socket options for credential passing: %v", err)
 	}
 
-	var cred syscall.Ucred
-	ucred := syscall.UnixCredentials(&cred)
-	buf := make([]byte, syscall.CmsgSpace(len(ucred)))
+	// out-of-band buffer for receiving process credentials via SCM_CREDENTIALS
+	oob := make([]byte, getOobBufferSize())
 
-	_, rbytes, _, _, err := syscall.Recvmsg(socket, nil, buf, 0)
+	_, rbytes, _, _, err := syscall.Recvmsg(socket, nil, oob, 0)
 	if err != nil {
 		return errors.New("Error decoding received process credentials.")
 	}
-	buf = buf[:rbytes]
+	oob = oob[:rbytes]
 
-	msgs, err := syscall.ParseSocketControlMessage(buf)
+	msgs, err := syscall.ParseSocketControlMessage(oob)
 	if err != nil || len(msgs) != 1 {
 		return errors.New("Error parsing socket control msg.")
 	}
@@ -1614,8 +1630,10 @@ func (e *NSenterEvent) processOpenat2SyscallRequest(pipe *os.File) (int, error) 
 // instance.
 func (e *NSenterEvent) processRequest(pipe *os.File) error {
 
-	// Get the credentials (e.g., pid) of the process on whose behalf we are operating;
-	// store them in the NSenterEvent.
+	// Get the credentials (pid, uid, gid) of the process on whose behalf we are operating;
+	// store them in the NSenterEvent. These credentials are sent by sysbox-fs' main instance via
+	// SCM creds, so they are translated properly by the kernel across namespaces (i.e., from
+	// the sysbox-fs namespaces to the nsenter process namespaces).
 	if err := e.getProcCreds(pipe); err != nil {
 		return err
 	}
@@ -2000,9 +2018,11 @@ func Init() (err error) {
 	}
 
 	// Send any response file descriptors out-of-band via SCM_RIGHTS.
+	// Note: we must always do this, even if there are no fds to send; otherwise
+	// the receiver (sysbox-fs) will block waiting for an fd that never comes.
 	rights := syscall.UnixRights(event.fileDescr...)
 	err = syscall.Sendmsg(int(pipe.Fd()), nil, rights, nil, 0)
-	if err != nil {
+	if err != nil && event.ResMsg == nil {
 		event.ResMsg = &domain.NSenterMessage{
 			Type:    domain.ErrorResponse,
 			Payload: &fuse.IOerror{RcvError: err},
