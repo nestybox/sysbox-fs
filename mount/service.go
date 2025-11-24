@@ -50,6 +50,11 @@ var SysfsMounts = []string{
 
 // IsSysboxfsMount checks if the given path is at or under a sysbox-fs mount
 func IsSysboxfsMount(path string) bool {
+
+	// TODO: don't just check by path name; check that the given path is in fact
+	// on a sysbox-fs managed mount. This likely requires dispatching an nsenter
+	// agent to the container's mount ns to perform the check.
+
 	for _, mountPath := range ProcfsMounts {
 		if strings.HasPrefix(path, mountPath+"/") || path == mountPath {
 			return true
