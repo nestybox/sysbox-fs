@@ -114,7 +114,7 @@ func (si *openat2SyscallInfo) processOpenat2() (*sysResponse, error) {
 			dirPath, err := si.processInfo.GetFd(si.dirfd)
 			if err != nil {
 				// If we can't resolve dirfd, just continue with the syscall
-				logrus.Debugf("openat2: failed to resolve dirfd %d: %v", si.dirfd, err)
+				logrus.Debugf("openat2: pid: %d: failed to resolve dirfd %d: %v", si.pid, si.dirfd, err)
 				return t.createContinueResponse(si.reqId), nil
 			}
 
@@ -133,13 +133,13 @@ func (si *openat2SyscallInfo) processOpenat2() (*sysResponse, error) {
 
 	fullPath, err = si.processInfo.ResolveProcSelf(fullPath)
 	if err != nil {
-		logrus.Debugf("openat2: failed to resolve /proc/self in path %s: %v", si.path, err)
+		logrus.Debugf("openat2: pid: %d: failed to resolve /proc/self in path %s: %v", si.pid, si.path, err)
 	}
 
 	// Check if the path is under a sysbox-fs mount
 	if mount.IsSysboxfsMount(fullPath) {
-		logrus.Infof("openat2(): path under sysbox-fs mount detected: dirfd = %d, path = %s, fullPath = %s, flags = %#x, mode = %#x, resolve = %#x",
-			si.dirfd, si.path, fullPath, si.flags, si.mode, si.resolve)
+		logrus.Infof("openat2(): pid: %d: path under sysbox-fs mount detected: path = %s, flags = %#x, mode = %#x, resolve = %#x",
+			si.pid, fullPath, si.flags, si.mode, si.resolve)
 
 		// Drop some of the RESOLVE_* flags. These flags restrict path resolution in ways that don't work due
 		// to sysbox-fs emulating some resources under /proc/sys/.
@@ -193,7 +193,7 @@ func (si *openat2SyscallInfo) processOpenat2() (*sysResponse, error) {
 		respPayload := responseMsg.Payload.(domain.Openat2RespPayload)
 		fd := respPayload.Fd
 
-		logrus.Infof("openat2(): received fd %d from nsenter for path %s", fd, fullPath)
+		logrus.Infof("openat2(): pid %d: received fd %d from nsenter for path %s", si.pid, fd, fullPath)
 
 		// Inject the file descriptor into the traced process using SECCOMP_IOCTL_NOTIF_ADDFD
 		targetFd, err := si.injectFd(fd)
@@ -202,12 +202,12 @@ func (si *openat2SyscallInfo) processOpenat2() (*sysResponse, error) {
 		unix.Close(fd)
 
 		if err != nil {
-			logrus.Errorf("openat2(): failed to inject fd %d into target process: %v", fd, err)
+			logrus.Errorf("openat2(): pid %d: failed to inject fd %d into target process %d: %v", si.pid, fd, si.pid, err)
 			resp := t.createErrorResponse(si.reqId, syscall.EINVAL)
 			return resp, nil
 		}
 
-		logrus.Infof("openat2(): injected fd %d as %d into target process for path %s", fd, targetFd, fullPath)
+		logrus.Infof("openat2(): pid %d: injected fd %d as %d for path %s", si.pid, fd, targetFd, fullPath)
 
 		// Return success response with the target fd as the return value
 		return t.createSuccessResponseWithRetValue(si.reqId, uint64(targetFd)), nil
