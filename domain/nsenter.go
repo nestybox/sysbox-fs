@@ -291,11 +291,12 @@ type GidInfoRespPayload struct {
 }
 
 type Openat2SyscallPayload struct {
-	Header  NSenterMsgHeader `json:"header"`
-	Path    string           `json:"path"`
-	Flags   uint64           `json:"flags"`
-	Mode    uint64           `json:"mode"`
-	Resolve uint64           `json:"resolve"`
+	Header           NSenterMsgHeader `json:"header"`
+	Path             string           `json:"path"`
+	Flags            uint64           `json:"flags"`
+	Mode             uint64           `json:"mode"`
+	Resolve          uint64           `json:"resolve"`
+	CheckForSysboxfs bool             `json:"verifyfs"`
 }
 
 type Openat2RespPayload struct {
