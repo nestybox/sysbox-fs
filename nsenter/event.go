@@ -1579,6 +1579,26 @@ func (e *NSenterEvent) processOpenat2SyscallRequest(pipe *os.File) (int, error) 
 
 	p := e.ReqMsg.Payload.(domain.Openat2SyscallPayload)
 
+	// If requested, verify that the target file resides on sysbox-fs
+	if p.CheckForSysboxfs {
+		var statfs unix.Statfs_t
+		if err := unix.Statfs(p.Path, &statfs); err != nil {
+			e.ResMsg = &domain.NSenterMessage{
+				Type:    domain.ErrorResponse,
+				Payload: &fuse.IOerror{RcvError: fmt.Errorf("failed to stat filesystem for %s: %v", p.Path, err)},
+			}
+			return -1, nil
+		}
+
+		if statfs.Type != unix.FUSE_SUPER_MAGIC { // sysbox-fs is a FUSE filesystem
+			e.ResMsg = &domain.NSenterMessage{
+				Type:    domain.ErrorResponse,
+				Payload: &fuse.IOerror{RcvError: fmt.Errorf("file %s is not on sysbox-fs", p.Path)},
+			}
+			return -1, nil
+		}
+	}
+
 	// Adjust nsenter personality (uid/gid and capabilities) to match
 	// the original process performing the syscall. This is needed to
 	// ensure proper permission checks when opening the file.

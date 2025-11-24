@@ -153,10 +153,11 @@ func (si *openat2SyscallInfo) processOpenat2() (*sysResponse, error) {
 				Cwd:          si.cwd,
 				Capabilities: si.caps,
 			},
-			Path:    fullPath,
-			Flags:   cleanFlags,
-			Mode:    si.mode,
-			Resolve: cleanResolve,
+			Path:             fullPath,
+			Flags:            cleanFlags,
+			Mode:             si.mode,
+			Resolve:          cleanResolve,
+			CheckForSysboxfs: true, // ensure the openat2 is opening a sysbox-fs managed file
 		}
 
 		nss := t.service.nss

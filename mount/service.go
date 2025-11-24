@@ -48,13 +48,12 @@ var SysfsMounts = []string{
 	"/sys/module/nf_conntrack/parameters",
 }
 
-// IsSysboxfsMount checks if the given path is at or under a sysbox-fs mount
+// IsSysboxfsMount checks if the given path is at or under a sysbox-fs mount.
+//
+// Note: this is just a simple string prefix check. A check for actual mountpoints
+// is done by the nsenter agent when handling openat2 requests (since it must be
+// done inside the container's mount ns).
 func IsSysboxfsMount(path string) bool {
-
-	// TODO: don't just check by path name; check that the given path is in fact
-	// on a sysbox-fs managed mount. This likely requires dispatching an nsenter
-	// agent to the container's mount ns to perform the check.
-
 	for _, mountPath := range ProcfsMounts {
 		if strings.HasPrefix(path, mountPath+"/") || path == mountPath {
 			return true
