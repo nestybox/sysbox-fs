@@ -35,7 +35,7 @@ type FuseServerIface interface {
 	Destroy() error
 	MountPoint() string
 	Unmount()
-	InitWait()
+	InitWait() bool
 	SetCntrRegComplete()
 	IsCntrRegCompleted() bool
 }

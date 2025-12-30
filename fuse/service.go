@@ -123,7 +123,9 @@ func (fss *FuseServerService) CreateFuseServer(serveCntr, stateCntr domain.Conta
 	// Launch fuse-server in a separate goroutine and wait for 'ack' before
 	// moving on.
 	go srv.Run()
-	srv.InitWait()
+	if !srv.InitWait() {
+		return errors.New("FuseServer InitWait error")
+	}
 
 	// Store newly created fuse-server.
 	fss.Lock()
