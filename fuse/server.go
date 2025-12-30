@@ -120,6 +120,7 @@ func (s *fuseServer) Create() error {
 }
 
 func (s *fuseServer) Run() error {
+	defer close(s.initDone)
 	//
 	// Creating a FUSE mount at the associated mountpoint.
 	//
@@ -202,8 +203,9 @@ func (s *fuseServer) Root() (bfusefs.Node, error) {
 
 // Ensure that fuse-server initialization is completed before moving on
 // with sys container's pre-registration sequence.
-func (s *fuseServer) InitWait() {
-	<-s.initDone
+func (s *fuseServer) InitWait() bool {
+	_, ok := <-s.initDone
+	return ok
 }
 
 func (s *fuseServer) MountPoint() string {
