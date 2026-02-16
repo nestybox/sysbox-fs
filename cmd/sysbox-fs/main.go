@@ -36,8 +36,8 @@ import (
 	"github.com/nestybox/sysbox-fs/process"
 	"github.com/nestybox/sysbox-fs/seccomp"
 	"github.com/nestybox/sysbox-fs/state"
+	libutils "github.com/nestybox/sysbox-fs/sysbox-libs/utils"
 	"github.com/nestybox/sysbox-fs/sysio"
-	libutils "github.com/nestybox/sysbox-libs/utils"
 
 	systemd "github.com/coreos/go-systemd/daemon"
 

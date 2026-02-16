@@ -19,8 +19,8 @@ package domain
 import (
 	"reflect"
 
-	cap "github.com/nestybox/sysbox-libs/capability"
-	"github.com/nestybox/sysbox-runc/libcontainer/user"
+	"github.com/nestybox/sysbox-fs/runc/libcontainer/user"
+	cap "github.com/nestybox/sysbox-fs/sysbox-libs/capability"
 )
 
 const (

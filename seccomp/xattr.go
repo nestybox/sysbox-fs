@@ -32,8 +32,8 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
-	cap "github.com/nestybox/sysbox-libs/capability"
-	utils "github.com/nestybox/sysbox-libs/utils"
+	cap "github.com/nestybox/sysbox-fs/sysbox-libs/capability"
+	utils "github.com/nestybox/sysbox-fs/sysbox-libs/utils"
 
 	"github.com/sirupsen/logrus"
 )

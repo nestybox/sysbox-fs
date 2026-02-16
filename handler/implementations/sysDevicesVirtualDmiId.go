@@ -28,7 +28,7 @@ import (
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
-	"github.com/nestybox/sysbox-libs/formatter"
+	"github.com/nestybox/sysbox-fs/sysbox-libs/formatter"
 )
 
 //

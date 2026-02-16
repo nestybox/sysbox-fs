@@ -33,8 +33,8 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/nestybox/sysbox-runc/libcontainer/nsenter"
-	"github.com/nestybox/sysbox-runc/libcontainer/utils"
+	_ "github.com/nestybox/sysbox-fs/runc/libcontainer/nsenter"
+	"github.com/nestybox/sysbox-fs/runc/libcontainer/utils"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
@@ -43,7 +43,7 @@ import (
 	"github.com/nestybox/sysbox-fs/fuse"
 	"github.com/nestybox/sysbox-fs/mount"
 	"github.com/nestybox/sysbox-fs/process"
-	"github.com/nestybox/sysbox-runc/libcontainer"
+	"github.com/nestybox/sysbox-fs/runc/libcontainer"
 )
 
 const oobMaxFds = 4 // Max fds that can be sent via SCM_RIGHTS from nsenter agent to sysbox-fs.

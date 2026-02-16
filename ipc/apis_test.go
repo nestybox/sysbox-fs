@@ -27,7 +27,7 @@ import (
 	"github.com/nestybox/sysbox-fs/ipc"
 	"github.com/nestybox/sysbox-fs/mocks"
 	"github.com/nestybox/sysbox-fs/state"
-	grpc "github.com/nestybox/sysbox-ipc/sysboxFsGrpc"
+	grpc "github.com/nestybox/sysbox-fs/sysbox-ipc/sysboxFsGrpc"
 	"github.com/sirupsen/logrus"
 )
 

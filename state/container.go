@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-libs/formatter"
-	libpidfd "github.com/nestybox/sysbox-libs/pidfd"
+	"github.com/nestybox/sysbox-fs/sysbox-libs/formatter"
+	libpidfd "github.com/nestybox/sysbox-fs/sysbox-libs/pidfd"
 	"golang.org/x/sys/unix"
 )
 

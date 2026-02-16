@@ -27,7 +27,7 @@ import (
 	grpcStatus "google.golang.org/grpc/status"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	"github.com/nestybox/sysbox-libs/formatter"
+	"github.com/nestybox/sysbox-fs/sysbox-libs/formatter"
 )
 
 type containerStateService struct {

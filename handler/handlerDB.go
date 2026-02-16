@@ -31,7 +31,7 @@ import (
 
 	iradix "github.com/hashicorp/go-immutable-radix"
 
-	"github.com/nestybox/sysbox-libs/linuxUtils"
+	"github.com/nestybox/sysbox-fs/sysbox-libs/linuxUtils"
 )
 
 // Slice of sysbox-fs' default handlers and the respective paths where they

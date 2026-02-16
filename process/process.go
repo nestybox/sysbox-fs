@@ -28,8 +28,8 @@ import (
 	"unsafe"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	cap "github.com/nestybox/sysbox-libs/capability"
-	"github.com/nestybox/sysbox-runc/libcontainer/user"
+	"github.com/nestybox/sysbox-fs/runc/libcontainer/user"
+	"github.com/nestybox/sysbox-fs/sysbox-libs/capability"
 	"golang.org/x/sys/unix"
 	setxid "gopkg.in/hlandau/service.v1/daemon/setuid"
 
@@ -70,7 +70,7 @@ type process struct {
 	uid         uint32                  // effective uid
 	gid         uint32                  // effective gid
 	sgid        []uint32                // supplementary groups
-	cap         cap.Capabilities        // process capabilities
+	cap         capability.Capabilities // process capabilities
 	status      map[string]string       // process status fields
 	nsInodes    map[string]domain.Inode // process namespace inodes
 	initialized bool                    // process initialization completed
@@ -150,8 +150,8 @@ func (p *process) SGid() []uint32 {
 	return p.sgid
 }
 
-func (p *process) IsSysAdminCapabilitySet() bool {
-	return p.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN)
+func (p *process) IsSysAdminCapabilitySet() bool { // nolint: golint
+	return p.IsCapabilitySet(capability.EFFECTIVE, capability.CAP_SYS_ADMIN)
 }
 
 func (p *process) GetEffCaps() [2]uint32 {
@@ -175,7 +175,7 @@ func (p *process) SetEffCaps(caps [2]uint32) {
 }
 
 // Simple wrapper method to set capability values.
-func (p *process) setCapability(which cap.CapType, what ...cap.Cap) {
+func (p *process) setCapability(which capability.CapType, what ...capability.Cap) {
 
 	if p.cap == nil {
 		if err := p.initCapability(); err != nil {
@@ -189,7 +189,7 @@ func (p *process) setCapability(which cap.CapType, what ...cap.Cap) {
 }
 
 // Simple wrapper method to determine capability settings.
-func (p *process) IsCapabilitySet(which cap.CapType, what cap.Cap) bool {
+func (p *process) IsCapabilitySet(which capability.CapType, what capability.Cap) bool {
 
 	if p.cap == nil {
 		if err := p.initCapability(); err != nil {
@@ -204,7 +204,7 @@ func (p *process) IsCapabilitySet(which cap.CapType, what cap.Cap) bool {
 // them within 'capability' data-struct.
 func (p *process) initCapability() error {
 
-	c, err := cap.NewPid2(int(p.pid))
+	c, err := capability.NewPid2(int(p.pid))
 	if err != nil {
 		return err
 	}
@@ -269,7 +269,7 @@ func (p *process) AdjustPersonality(
 	// may have changed when we set the process effective uid just before).
 	p.cap.SetEffCaps(caps)
 	if err := p.cap.Apply(
-		cap.EFFECTIVE | cap.PERMITTED | cap.INHERITABLE); err != nil {
+		capability.EFFECTIVE | capability.PERMITTED | capability.INHERITABLE); err != nil {
 		return err
 	}
 
@@ -919,7 +919,7 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode, followSymlink 
 	}
 
 	// capability checks
-	if p.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_DAC_OVERRIDE) {
+	if p.IsCapabilitySet(capability.EFFECTIVE, capability.CAP_DAC_OVERRIDE) {
 		// Per capabilitis(7): CAP_DAC_OVERRIDE bypasses file read, write,
 		// and execute permission checks.
 		//
@@ -941,7 +941,7 @@ func (p *process) checkPerm(path string, aMode domain.AccessMode, followSymlink 
 		}
 	}
 
-	if p.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_DAC_READ_SEARCH) {
+	if p.IsCapabilitySet(capability.EFFECTIVE, capability.CAP_DAC_READ_SEARCH) {
 		// Per capabilities(7): CAP_DAC_READ_SEARCH bypasses file read permission
 		// checks and directory read and execute permission checks
 		if fi.IsDir() && (aMode&domain.W_OK != domain.W_OK) {

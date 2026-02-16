@@ -26,16 +26,15 @@ import (
 	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	unixIpc "github.com/nestybox/sysbox-ipc/unix"
-	"github.com/nestybox/sysbox-libs/formatter"
-	linuxUtils "github.com/nestybox/sysbox-libs/linuxUtils"
-	libpidfd "github.com/nestybox/sysbox-libs/pidfd"
+	unixIpc "github.com/nestybox/sysbox-fs/sysbox-ipc/unix"
+	"github.com/nestybox/sysbox-fs/sysbox-libs/capability"
+	"github.com/nestybox/sysbox-fs/sysbox-libs/formatter"
+	linuxUtils "github.com/nestybox/sysbox-fs/sysbox-libs/linuxUtils"
+	libpidfd "github.com/nestybox/sysbox-fs/sysbox-libs/pidfd"
 	libseccomp "github.com/seccomp/libseccomp-golang"
-	"golang.org/x/sys/unix"
-
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
-import cap "github.com/nestybox/sysbox-libs/capability"
 
 const seccompTracerSockAddr = "/run/sysbox/sysfs-seccomp.sock"
 
@@ -1150,7 +1149,7 @@ func (t *syscallTracer) processListxattr(
 
 	// if the process doing the listing does not have CAP_SYS_ADMIN, then it can't access
 	// trusted attributes, so no need to nsenter; let the kernel handle it.
-	if !process.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN) {
+	if !process.IsCapabilitySet(capability.EFFECTIVE, capability.CAP_SYS_ADMIN) {
 		return t.createContinueResponse(req.ID), nil
 	}
 
@@ -1198,7 +1197,7 @@ func (t *syscallTracer) processFlistxattr(
 
 	// if the process doing the listing does not have CAP_SYS_ADMIN, then it can't access
 	// trusted attributes, so no need to nsenter; let the kernel handle it.
-	if !process.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN) {
+	if !process.IsCapabilitySet(capability.EFFECTIVE, capability.CAP_SYS_ADMIN) {
 		return t.createContinueResponse(req.ID), nil
 	}
 

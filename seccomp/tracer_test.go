@@ -23,7 +23,7 @@ import (
 	"syscall"
 	"testing"
 
-	unixIpc "github.com/nestybox/sysbox-ipc/unix"
+	unixIpc "github.com/nestybox/sysbox-fs/sysbox-ipc/unix"
 )
 
 func Test_syscallTracer_createErrorResponse(t *testing.T) {

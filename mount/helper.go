@@ -19,7 +19,7 @@ package mount
 import (
 	"strings"
 
-	libutils "github.com/nestybox/sysbox-libs/utils"
+	libutils "github.com/nestybox/sysbox-fs/sysbox-libs/utils"
 	"golang.org/x/sys/unix"
 )
 

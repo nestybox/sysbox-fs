@@ -19,7 +19,7 @@ package domain
 import (
 	"time"
 
-	libpidfd "github.com/nestybox/sysbox-libs/pidfd"
+	libpidfd "github.com/nestybox/sysbox-fs/sysbox-libs/pidfd"
 )
 
 // Container interface.

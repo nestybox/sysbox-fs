@@ -20,7 +20,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
-	grpc "github.com/nestybox/sysbox-ipc/sysboxFsGrpc"
+	grpc "github.com/nestybox/sysbox-fs/sysbox-ipc/sysboxFsGrpc"
 	grpcCodes "google.golang.org/grpc/codes"
 	grpcStatus "google.golang.org/grpc/status"
 )

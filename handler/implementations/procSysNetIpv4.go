@@ -32,7 +32,7 @@ import (
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
 
-	"github.com/nestybox/sysbox-runc/libcontainer/user"
+	"github.com/nestybox/sysbox-fs/runc/libcontainer/user"
 )
 
 // /proc/sys/net/ipv4 handler
