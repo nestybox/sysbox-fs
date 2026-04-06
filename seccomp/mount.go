@@ -75,7 +75,7 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 			return m.processSysMount(mip)
 		case "overlay":
 			return m.processOverlayMount(mip)
-		case "nfs":
+		case "nfs", "cifs", "smb3":
 			return m.processNfsMount(mip)
 		}
 	}
@@ -518,18 +518,18 @@ func (m *mountSyscallInfo) createOverlayMountPayload(
 	return &payload
 }
 
-// Method handles "nfs" mount syscall requests. Sysbox-fs does not manage nfs
+// Method handles "nfs", "cifs", and "smb3" mount syscall requests. Sysbox-fs does not manage nfs
 // mounts per-se, but only "proxies" the nfs mount syscall. It does this in
 // order to enable nfs to be mounted from within a (non init) user-ns.
 func (m *mountSyscallInfo) processNfsMount(
 	mip domain.MountInfoParserIface) (*sysResponse, error) {
 
-	logrus.Debugf("Processing new nfs mount: %v", m)
+	logrus.Debugf("Processing new %s mount: %v", m.FsType, m)
 
 	// Create instruction's payload.
 	payload := m.createNfsMountPayload(mip)
 	if payload == nil {
-		return nil, fmt.Errorf("Could not construct nfsMount payload")
+		return nil, fmt.Errorf("Could not construct %s mount payload", m.FsType)
 	}
 
 	// Create nsenter-event envelope; enter as true root to have required privileges.
