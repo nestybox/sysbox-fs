@@ -63,30 +63,26 @@ func reaper(signal chan bool, mu *sync.RWMutex) {
 	for {
 		<-signal
 
-		// Without this delay, sysbox-fs sometimes hangs the FUSE request that generates an
-		// nsenter event that requires reaping. It's not clear why, but the tell-tale sign
-		// of the hang is that the reaper is signaled but finds nothing to reap. This delay
-		// mitigates this condition and the reaper finds something to reap.
-		//
-		// The delay chosen is one that allows nsenter agents to complete their tasks before
-		// reaping occurs. Since the reaper runs in its own goroutine, this delay only
-		// affects it (there is no undesired side-effect on nsenters).
-
-		time.Sleep(time.Second)
-
+		// Use TryLock instead of Lock to avoid blocking subsequent RLock
+		// callers. Go's sync.RWMutex implements writer-preference: a pending
+		// Lock() blocks all new RLock() calls. If an nsenter child triggers
+		// a FUSE request back to sysbox-fs, the FUSE handler needs RLock to
+		// start a new nsenter. A blocking Lock() here would prevent that
+		// RLock, causing a deadlock. TryLock avoids this by simply skipping
+		// the reap cycle when nsenters are active
+		for !mu.TryLock() {
+			time.Sleep(time.Millisecond * 100)
+		}
 		for {
-			mu.Lock()
-
 			// WNOHANG: if there is no child to reap, don't block
 			wpid, err := syscall.Wait4(-1, &wstatus, syscall.WNOHANG, nil)
 			if err != nil || wpid == 0 {
 				logrus.Infof("reaper: nothing to reap")
-				mu.Unlock()
 				break
 			}
 
 			logrus.Infof("reaper: reaped pid %d", wpid)
-			mu.Unlock()
 		}
+		mu.Unlock()
 	}
 }
