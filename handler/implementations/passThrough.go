@@ -223,7 +223,8 @@ func (h *PassThrough) ReadWithNS(
 	// read. That is, the handler's Read() method is normally invoked twice: the
 	// first read returns X bytes, the second read returns 0 bytes.
 
-	if domain.ProcessNsMatch(process, cntr.InitProc()) {
+	initProc := cntr.InitProc()
+	if initProc != nil && domain.ProcessNsMatch(process, initProc) {
 
 		cntr.Lock()
 
@@ -309,7 +310,8 @@ func (h *PassThrough) WriteWithNS(
 	// (not in inner containers or unshared namespaces) then cache the data.
 	// See explanation in Read() method above.
 
-	if domain.ProcessNsMatch(process, cntr.InitProc()) {
+	initProc := cntr.InitProc()
+	if initProc != nil && domain.ProcessNsMatch(process, initProc) {
 		if !req.NoCache {
 			cntr.Lock()
 			err = cntr.SetData(path, req.Offset, req.Data)
