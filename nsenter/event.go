@@ -640,30 +640,17 @@ func (e *NSenterEvent) SendRequest() error {
 		return errors.New("Error copying payload to pipe")
 	}
 
-	// Wait for sysbox-fs' first child process to finish.
-	status, err := cmd.Process.Wait()
-	if err != nil {
-		logrus.Warnf("Error waiting for sysbox-fs first child process: %d, status: %s, error: %s",
-			cmd.Process.Pid, status.String(), err)
-		if !e.Async {
-			e.reaper.nsenterReapReq()
-		}
-		return err
-	}
-	if !status.Success() {
-		logrus.Warnf("Sysbox-fs first child process error status: %s, pid: %d",
-			status.String(), cmd.Process.Pid)
-		if !e.Async {
-			e.reaper.nsenterReapReq()
-		}
-		return errors.New("Error waiting for sysbox-fs first child process")
-	}
-
-	// Receive sysbox-fs' first-child pid.
+	// Receive sysbox-fs' first-child pid. This must happen before waiting on
+	// the PARENT process, because the PARENT writes the pid to the pipe before
+	// exiting. Reading the pipe first avoids holding an RLock while blocked on
+	// Process.Wait() for a child whose exit may be delayed by fuse_flush.
 	var pid pid
 	decoder := json.NewDecoder(e.parentPipe)
 	if err := decoder.Decode(&pid); err != nil {
 		logrus.Warnf("Error receiving first-child pid: %s", err)
+		if !e.Async {
+			e.reaper.nsenterReapReq()
+		}
 		return errors.New("Error receiving first-child pid")
 	}
 
@@ -673,9 +660,12 @@ func (e *NSenterEvent) SendRequest() error {
 		return err
 	}
 
-	// Wait for sysbox-fs' second child process to finish. Ignore the error in
-	// case the child has already been reaped for any reason.
-	_, _ = firstChildProcess.Wait()
+	// Wait for the PARENT and CHILD nsenter processes asynchronously. Their
+	// exits can be delayed by the kernel's fuse_flush on inherited FUSE file
+	// descriptors; waiting synchronously here would hold the reaper RLock and
+	// block both the reaper and new FUSE handlers.
+	go cmd.Process.Wait()
+	go firstChildProcess.Wait()
 
 	// Sysbox-fs' third child (grand-child) process remains and will enter the
 	// go runtime. This is the nsenter agent process.
@@ -745,7 +735,7 @@ func (e *NSenterEvent) SendRequest() error {
 		return ierr
 	}
 
-	e.Process.Wait()
+	e.reaper.reapProcessAsync(e.Process)
 
 	return nil
 }
