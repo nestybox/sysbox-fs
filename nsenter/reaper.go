@@ -17,6 +17,7 @@
 package nsenter
 
 import (
+	"os"
 	"sync"
 	"syscall"
 	"time"
@@ -54,6 +55,17 @@ func (zr *zombieReaper) nsenterReapReq() {
 	default:
 		// no action required (someone else has signaled already)
 	}
+}
+
+// reapProcessAsync waits for the given process in a background goroutine
+// and triggers a reaper sweep when it exits. Use this at the end of an
+// nsenter operation so the caller can release the RLock without blocking
+// on a child whose exit may be delayed by fuse_flush.
+func (zr *zombieReaper) reapProcessAsync(p *os.Process) {
+	go func() {
+		p.Wait()
+		zr.nsenterReapReq()
+	}()
 }
 
 // Go-routine that performs reaping
