@@ -393,7 +393,11 @@ func (css *containerStateService) trackNetns(cntr *container, netns string) ([]*
 				return nil, fmt.Errorf("Error getting netns inode: %v", err)
 			}
 		} else {
-			netnsInode, err = cntr.InitProc().NetNsInode()
+			initProc := cntr.InitProc()
+			if initProc == nil {
+				return nil, fmt.Errorf("Container %s has no init process registered yet", cntr.id)
+			}
+			netnsInode, err = initProc.NetNsInode()
 			if err != nil {
 				return nil, fmt.Errorf("Error getting netns inode: %v", err)
 			}
