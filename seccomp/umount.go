@@ -184,13 +184,17 @@ func (u *umountSyscallInfo) umountAllowed(
 	if err != nil {
 		return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
 	}
-	initProcMountNs, err := u.cntr.InitProc().MountNsInode()
+	initProc := u.cntr.InitProc()
+	if initProc == nil {
+		return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
+	}
+	initProcMountNs, err := initProc.MountNsInode()
 	if err != nil {
 		return false, u.tracer.createErrorResponse(u.reqId, syscall.EINVAL)
 	}
 
 	// Obtain the sys-container's root-path inode.
-	syscntrRootInode := u.cntr.InitProc().RootInode()
+	syscntrRootInode := initProc.RootInode()
 
 	// If process' mount-ns matches the sys-container's one, then we can simply
 	// rely on the target's mountID to discern an immutable target from a
