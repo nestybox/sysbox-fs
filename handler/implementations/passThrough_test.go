@@ -153,6 +153,8 @@ func TestPassThrough_Lookup(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
+					a1.req.Uid,
+					a1.req.Gid,
 					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
@@ -197,6 +199,8 @@ func TestPassThrough_Lookup(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
+					a1.req.Uid,
+					a1.req.Gid,
 					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
@@ -334,6 +338,8 @@ func TestPassThrough_Open(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
+					a1.req.Uid,
+					a1.req.Gid,
 					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
@@ -383,6 +389,8 @@ func TestPassThrough_Open(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
+					a1.req.Uid,
+					a1.req.Gid,
 					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
@@ -522,6 +530,8 @@ func TestPassThrough_Read(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
+					a1.req.Uid,
+					a1.req.Gid,
 					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
@@ -660,6 +670,8 @@ func TestPassThrough_Write(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
+					a1.req.Uid,
+					a1.req.Gid,
 					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
@@ -715,6 +727,8 @@ func TestPassThrough_Write(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
+					a1.req.Uid,
+					a1.req.Gid,
 					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
@@ -867,6 +881,8 @@ func TestPassThrough_ReadDirAll(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
+					a1.req.Uid,
+					a1.req.Gid,
 					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,
@@ -920,6 +936,8 @@ func TestPassThrough_ReadDirAll(t *testing.T) {
 				nss.On(
 					"NewEvent",
 					a1.req.Pid,
+					a1.req.Uid,
+					a1.req.Gid,
 					&domain.AllNSs,
 					uint32(unix.CLONE_NEWNS),
 					nsenterEventReq.ReqMsg,

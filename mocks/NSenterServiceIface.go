@@ -26,13 +26,13 @@ func (_m *NSenterServiceIface) GetEventProcessID(e domain.NSenterEventIface) uin
 	return r0
 }
 
-// NewEvent provides a mock function with given fields: pid, ns, cloneFlags, req, res, async
-func (_m *NSenterServiceIface) NewEvent(pid uint32, ns *[]string, cloneFlags uint32, req *domain.NSenterMessage, res *domain.NSenterMessage, async bool) domain.NSenterEventIface {
-	ret := _m.Called(pid, ns, cloneFlags, req, res, async)
+// NewEvent provides a mock function with given fields: pid, uid, gid, ns, cloneFlags, req, res, async
+func (_m *NSenterServiceIface) NewEvent(pid uint32, uid uint32, gid uint32, ns *[]domain.NStype, cloneFlags uint32, req *domain.NSenterMessage, res *domain.NSenterMessage, async bool) domain.NSenterEventIface {
+	ret := _m.Called(pid, uid, gid, ns, cloneFlags, req, res, async)
 
 	var r0 domain.NSenterEventIface
-	if rf, ok := ret.Get(0).(func(uint32, *[]string, uint32, *domain.NSenterMessage, *domain.NSenterMessage, bool) domain.NSenterEventIface); ok {
-		r0 = rf(pid, ns, cloneFlags, req, res, async)
+	if rf, ok := ret.Get(0).(func(uint32, uint32, uint32, *[]domain.NStype, uint32, *domain.NSenterMessage, *domain.NSenterMessage, bool) domain.NSenterEventIface); ok {
+		r0 = rf(pid, uid, gid, ns, cloneFlags, req, res, async)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(domain.NSenterEventIface)
