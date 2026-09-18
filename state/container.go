@@ -418,6 +418,18 @@ func (c *container) Data(name string, offset int64, data *[]byte) (int, error) {
 	return len(*data), err
 }
 
+// HasData reports whether the given name is present in the container's data
+// cache, regardless of whether its cached value is empty. Used to
+// distinguish "never cached" from "cached, but genuinely empty", which
+// Data() alone cannot (both return (0, io.EOF) at offset 0).
+func (c *container) HasData(name string) bool {
+	c.intLock.RLock()
+	defer c.intLock.RUnlock()
+
+	_, ok := c.dataStore[name]
+	return ok
+}
+
 func (c *container) SetData(name string, offset int64, data []byte) error {
 
 	c.intLock.Lock()

@@ -32,6 +32,7 @@ type ContainerIface interface {
 	InitPidFd() libpidfd.PidFd
 	Ctime() time.Time
 	Data(name string, offset int64, data *[]byte) (int, error)
+	HasData(name string) bool
 	UID() uint32
 	GID() uint32
 	UidSize() uint32

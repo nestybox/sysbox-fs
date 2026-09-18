@@ -64,6 +64,11 @@ func (h *PassThrough) Lookup(
 	logrus.Debugf("Executing Lookup() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
+	// Unresolved requester pid: no cache to fall back on.
+	if req.Pid == 0 {
+		return nil, fuse.IOerror{Code: syscall.ENOENT}
+	}
+
 	mountSysfs, mountProcfs, cloneFlags := checkProcAndSysRemount(n)
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
@@ -200,6 +205,26 @@ func (h *PassThrough) ReadWithNS(
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
 
+	// Unresolved requester pid: serve from cache if we have it, instead of
+	// guessing an identity to nsenter as. HasData (rather than Data's
+	// (0, io.EOF) result) is what distinguishes "never cached" from
+	// "cached, but genuinely empty".
+	if req.Pid == 0 {
+		cntr.Lock()
+		defer cntr.Unlock()
+
+		if !cntr.HasData(path) {
+			return 0, fuse.IOerror{Code: syscall.ENOENT}
+		}
+
+		sz, err = cntr.Data(path, req.Offset, &req.Data)
+		if err != nil && err != io.EOF {
+			return 0, fuse.IOerror{Code: syscall.EINVAL}
+		}
+
+		return sz, nil
+	}
+
 	// The passthrough driver is slow because it must spawn a process that enters
 	// the container's namespaces (i.e., the nsenter agent) and read the data
 	// from there. To improve things, we cache the data on the first access to
@@ -301,6 +326,11 @@ func (h *PassThrough) WriteWithNS(
 
 	prs := h.Service.ProcessService()
 	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
+
+	// Unresolved requester pid: no cache to fall back on.
+	if req.Pid == 0 {
+		return 0, fuse.IOerror{Code: syscall.ENOENT}
+	}
 
 	if len, err = h.pushFile(process, namespaces, n, req.Offset, req.Data); err != nil {
 		return 0, err

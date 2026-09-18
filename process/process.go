@@ -377,6 +377,12 @@ func (p *process) UserNsInodeParent() (domain.Inode, error) {
 // Collects the namespace inodes of the given process
 func (p *process) GetNsInodes() (map[string]domain.Inode, error) {
 
+	// Unresolved requester pid (0): /proc/0 never exists, so avoid the doomed stat() and its Errorf.
+	if p.pid == 0 {
+		logrus.Debugf("Skipping namespace-inode lookup: unresolved process pid (0)")
+		return nil, fmt.Errorf("unresolved process pid (0)")
+	}
+
 	nsInodes := make(map[string]domain.Inode)
 	pidStr := strconv.FormatUint(uint64(p.pid), 10)
 
