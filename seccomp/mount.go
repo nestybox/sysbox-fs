@@ -594,6 +594,17 @@ func (m *mountSyscallInfo) remountAllowed(
 		return true, nil
 	}
 
+	// Skip remounts of the container's own procfs/sysfs base mount (i.e.
+	// "/proc" or "/sys" itself, as opposed to a bind-mount of one of their
+	// subdirectories, e.g. /proc/bus) -- sysbox-fs never marks a base mount
+	// itself immutable, only specific submounts under it. This is
+	// determined from mountinfo (via mip), which reflects the kernel's own
+	// view of the target and isn't influenced by any syscall argument the
+	// tracee controls.
+	if mip.IsSysboxfsBaseMount(m.Target) {
+		return true, nil
+	}
+
 	// Allow operation if it attempts to remount target as read-only.
 	if mh.IsReadOnlyMount(m.Flags) {
 		return true, nil
@@ -604,17 +615,6 @@ func (m *mountSyscallInfo) remountAllowed(
 	info := mip.GetInfo(m.Target)
 	if info == nil {
 		return false, m.tracer.createErrorResponse(m.reqId, syscall.EINVAL)
-	}
-
-	// Skip instructions targeting file-systems explicitly handled by
-	// sysbox-fs. Note: the target's real file-system type must be obtained
-	// from mountinfo (i.e. the kernel's view of the target), not from the
-	// mount(2) fstype argument. For MS_REMOUNT, the kernel ignores that
-	// argument entirely, so a tracee could otherwise spoof it (e.g., pass
-	// fstype="proc" while targeting an unrelated read-only immutable mount)
-	// to bypass the immutable-mount checks below.
-	if info.FsType == "proc" || info.FsType == "sysfs" {
-		return true, nil
 	}
 
 	// Allow operation if the remount target is a read-write mountpoint.
