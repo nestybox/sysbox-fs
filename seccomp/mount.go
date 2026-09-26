@@ -595,10 +595,14 @@ func (m *mountSyscallInfo) remountAllowed(
 	}
 
 	// Skip remounts of the container's own procfs/sysfs base mount (i.e.
-	// "/proc" or "/sys" itself, as opposed to a bind-mount of one of their
-	// subdirectories, e.g. /proc/bus) -- sysbox-fs never marks a base mount
-	// itself immutable, only specific submounts under it. This is
-	// determined from mountinfo (via mip), which reflects the kernel's own
+	// "/proc" or "/sys" itself), which sysbox-fs never marks immutable --
+	// only specific submounts under it, like /proc/bus, are. This is not
+	// the same as checking the target's file-system type alone: /proc/bus
+	// is also of type "proc", but IsSysboxfsBaseMount() additionally
+	// requires the mount's root (per mountinfo) to be "/", which only the
+	// actual base mount satisfies -- a bind-mounted subdirectory like
+	// /proc/bus has a root of "/bus" and so does not match. Both the type
+	// and the root come from mountinfo, which reflects the kernel's own
 	// view of the target and isn't influenced by any syscall argument the
 	// tracee controls.
 	if mip.IsSysboxfsBaseMount(m.Target) {
