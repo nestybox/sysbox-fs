@@ -82,8 +82,7 @@ func (h *ProcUptime) Open(
 		return false, fuse.IOerror{Code: syscall.EACCES}
 	}
 
-	// /proc/uptime is not seekable
-	return true, nil
+	return false, nil
 }
 
 func (h *ProcUptime) Read(
@@ -184,12 +183,6 @@ func (h *ProcUptime) readUptime(
 
 	logrus.Debugf("Executing %v Read() method", h.Name)
 
-	// We are dealing with a single integer element being read, so we can save
-	// some cycles by returning right away if offset is any higher than zero.
-	if req.Offset > 0 {
-		return 0, io.EOF
-	}
-
 	cntr := req.Container
 
 	//
@@ -210,9 +203,25 @@ func (h *ProcUptime) readUptime(
 	//
 	uptimeDur := time.Now().Sub(data) / time.Nanosecond
 	var uptime float64 = uptimeDur.Seconds()
-	uptimeStr := fmt.Sprintf("%.2f %.2f\n", uptime, uptime)
+	payload := []byte(fmt.Sprintf("%.2f %.2f\n", uptime, uptime))
 
-	req.Data = []byte(uptimeStr)
+	// Honor the read offset. The kernel advances the file position and
+	// reissues the read even when the previous response was short, including
+	// for a 1-byte buffer. Treating every offset > 0 as EOF drops the tail.
+	if req.Offset < 0 {
+		return 0, fuse.IOerror{Code: syscall.EINVAL}
+	}
+	if req.Offset >= int64(len(payload)) {
+		return 0, io.EOF
+	}
+	payload = payload[req.Offset:]
 
-	return len(req.Data), nil
+	// Don't answer with more bytes than the kernel asked for. file.go sizes
+	// req.Data to the fuse read length; an oversized reply is -EINVAL.
+	if len(req.Data) > 0 && len(payload) > len(req.Data) {
+		payload = payload[:len(req.Data)]
+	}
+
+	req.Data = payload
+	return len(payload), nil
 }
