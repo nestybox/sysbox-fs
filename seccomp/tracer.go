@@ -429,12 +429,21 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 			break
 		}
 
-		// Exit the polling loop whenever the received event on the seccomp-fd is not
-		// the expected one.
-		if fds[0].Revents != unix.POLLIN {
-			logrus.Debugf("Non-POLLIN event received on fd %d, pid %d, cntr %s",
-				fd, pid, formatter.ContainerID{cntrID})
+		revents := fds[0].Revents
+
+		// No task uses the seccomp filter any more or the fd itself is invalid.
+		if revents&(unix.POLLHUP|unix.POLLNVAL) != 0 {
+			logrus.Debugf("Non-POLLIN event received on fd %d, pid %d, cntr %s (revents %#x)",
+				fd, pid, formatter.ContainerID{cntrID}, revents)
 			break
+		}
+
+		// Transient revents like EPOLLERR if the filter's notify_lock is interrupted by a
+		// signal.
+		if revents&unix.POLLIN == 0 {
+			logrus.Debugf("Transient poll revents %#x on fd %d, pid %d, cntr %s; polling again",
+				revents, fd, pid, formatter.ContainerID{cntrID})
+			continue
 		}
 
 		// Retrieves seccomp-notification message. Notice that we will not 'break'
