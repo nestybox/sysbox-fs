@@ -369,6 +369,38 @@ func (t *syscallTracer) seccompSessionPidfd(
 	return pidfd
 }
 
+// pollAction is what connHandler does after poll() returns events on a
+// seccomp-fd.
+type pollAction int
+
+const (
+	pollRecv  pollAction = iota // a notification is pending: receive it
+	pollRetry                   // transient error: poll the seccomp-fd again
+	pollClose                   // the seccomp-fd is done: end the session
+)
+
+// seccompFdPollAction maps the events poll() returned for a seccomp-fd to
+// connHandler's next step.
+//
+// The kernel's seccomp_notify_poll() returns a lone POLLERR when a signal
+// interrupts its wait for the filter's notify_lock, which happens whenever
+// the polling thread takes a signal while a notification is being received or
+// answered. The seccomp-fd is still healthy. Ending the session on it would
+// close the fd, and every process under the filter would then get ENOSYS for
+// the trapped syscalls (mount, umount2, ...) for the rest of its life. A
+// seccomp-fd that is really done returns POLLHUP (the filter has no users
+// left) or POLLNVAL.
+func seccompFdPollAction(revents int16) pollAction {
+	switch revents {
+	case unix.POLLIN:
+		return pollRecv
+	case unix.POLLERR:
+		return pollRetry
+	default:
+		return pollClose
+	}
+}
+
 // Tracer's connection-handler method. Executed within a dedicated goroutine (one
 // per connection).
 func (t *syscallTracer) connHandler(c *net.UnixConn) {
@@ -429,9 +461,15 @@ func (t *syscallTracer) connHandler(c *net.UnixConn) {
 			break
 		}
 
-		// Exit the polling loop whenever the received event on the seccomp-fd is not
-		// the expected one.
-		if fds[0].Revents != unix.POLLIN {
+		// Poll the seccomp-fd again after a transient error, and exit the polling
+		// loop once it is done.
+		action := seccompFdPollAction(fds[0].Revents)
+		if action == pollRetry {
+			logrus.Debugf("Transient POLLERR received on fd %d, pid %d, cntr %s",
+				fd, pid, formatter.ContainerID{cntrID})
+			continue
+		}
+		if action == pollClose {
 			logrus.Debugf("Non-POLLIN event received on fd %d, pid %d, cntr %s",
 				fd, pid, formatter.ContainerID{cntrID})
 			break

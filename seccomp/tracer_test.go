@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	unixIpc "github.com/nestybox/sysbox-ipc/unix"
+	"golang.org/x/sys/unix"
 )
 
 func Test_syscallTracer_createErrorResponse(t *testing.T) {
@@ -85,6 +86,29 @@ func Test_syscallTracer_createErrorResponse(t *testing.T) {
 			}
 			if got := tracer.createErrorResponse(tt.args.id, tt.args.err); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("syscallTracer.createErrorResponse() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_seccompFdPollAction(t *testing.T) {
+	tests := []struct {
+		name    string
+		revents int16
+		want    pollAction
+	}{
+		{"pending notification", unix.POLLIN, pollRecv},
+		{"signal interrupted the notify_lock wait", unix.POLLERR, pollRetry},
+		{"filter has no users", unix.POLLHUP, pollClose},
+		{"pending notification on a filter with no users", unix.POLLIN | unix.POLLHUP, pollClose},
+		{"seccomp-fd closed", unix.POLLNVAL, pollClose},
+		{"no event on the seccomp-fd", 0, pollClose},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := seccompFdPollAction(tt.revents); got != tt.want {
+				t.Errorf("seccompFdPollAction(%#x) = %v, want %v", tt.revents, got, tt.want)
 			}
 		})
 	}
