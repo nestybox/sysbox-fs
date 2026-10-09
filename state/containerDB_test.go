@@ -28,6 +28,7 @@ import (
 	"github.com/nestybox/sysbox-fs/process"
 	"github.com/nestybox/sysbox-fs/sysio"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/mock"
 )
 
 // Sysbox-fs global services for all state's pkg unit-tests.
@@ -771,5 +772,66 @@ func Test_containerStateService_ContainerLookupById(t *testing.T) {
 					got, tt.want)
 			}
 		})
+	}
+}
+
+// TestContainerStateService_FuseServerLifecycleDoesNotBlock verifies that a slow
+// fuse-server creation or destruction for one container does not block the
+// container state operations of other containers.
+//
+// This is a regression test for nestybox/sysbox#1018: the container state lock
+// was held while mounting / unmounting the container's FUSE fs (which waits on
+// the kernel), so one stalled mount stalled the registration of every other
+// container and the container lookup done for every trapped syscall.
+func TestContainerStateService_FuseServerLifecycleDoesNotBlock(t *testing.T) {
+	fss := &mocks.FuseServerServiceIface{}
+	css := NewContainerStateService().(*containerStateService)
+	css.Setup(fss, prs, ios, mts)
+
+	// Fuse-server operations for the "slow" container block until released.
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	stall := func(mock.Arguments) {
+		entered <- struct{}{}
+		<-release
+	}
+	isSlow := mock.MatchedBy(func(c *container) bool { return c.id == "slow" })
+	fss.On("CreateFuseServer", isSlow, mock.Anything).Run(stall).Return(nil)
+	fss.On("DestroyFuseServer", "slow").Run(stall).Return(nil)
+	fss.On("CreateFuseServer", mock.Anything, mock.Anything).Return(nil)
+	fss.On("DestroyFuseServer", mock.Anything).Return(nil)
+
+	// Operations on another container must complete while "slow" is stalled.
+	otherCntrOps := func(phase string) {
+		done := make(chan struct{})
+		go func() {
+			css.ContainerLookupById("other")
+			css.ContainerPreRegister("other", "")
+			css.ContainerUnregister(css.ContainerLookupById("other"))
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Fatalf("container state operations blocked behind the %s of another container's fuse server", phase)
+		}
+	}
+
+	slowDone := make(chan error)
+	go func() { slowDone <- css.ContainerPreRegister("slow", "") }()
+	<-entered
+	otherCntrOps("creation")
+	release <- struct{}{}
+	if err := <-slowDone; err != nil {
+		t.Fatalf("ContainerPreRegister() error = %v", err)
+	}
+
+	go func() { slowDone <- css.ContainerUnregister(css.ContainerLookupById("slow")) }()
+	<-entered
+	otherCntrOps("destruction")
+	release <- struct{}{}
+	if err := <-slowDone; err != nil {
+		t.Fatalf("ContainerUnregister() error = %v", err)
 	}
 }

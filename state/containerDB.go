@@ -173,8 +173,16 @@ func (css *containerStateService) ContainerPreRegister(id, netns string) error {
 			formatter.ContainerID{id}, cntrSameNetns)
 	}
 
+	// Creating the fuse server mounts the FUSE fs and waits for the kernel
+	// handshake, which can take a while; don't hold the lock across it so
+	// other containers can be registered / looked up in the meantime.
+	css.Unlock()
+
 	err := css.fss.CreateFuseServer(cntr, stateCntr)
 	if err != nil {
+		css.Lock()
+		css.untrackNetns(cntr)
+		delete(css.idTable, cntr.id)
 		css.Unlock()
 		logrus.Errorf("Container pre-registration error: unable to initialize fuseServer for container %s: %s",
 			formatter.ContainerID{id}, err)
@@ -184,8 +192,6 @@ func (css *containerStateService) ContainerPreRegister(id, netns string) error {
 			id,
 		)
 	}
-
-	css.Unlock()
 
 	logrus.Infof("Container pre-registration completed: id = %s",
 		formatter.ContainerID{id})
@@ -321,10 +327,13 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	// then unregistered because the container failed to start for some reason).
 	css.untrackNetns(cntr)
 
-	// Destroy the fuse server for the container
+	delete(css.idTable, cntr.id)
+	css.Unlock()
+
+	// Destroy the fuse server for the container. As with its creation, this
+	// blocks on the kernel FUSE unmount, so do it without holding the lock.
 	err := css.fss.DestroyFuseServer(cntr.id)
 	if err != nil {
-		css.Unlock()
 		logrus.Errorf("Container unregistration error: unable to destroy fuseServer for container %s",
 			cntr.id)
 		return grpcStatus.Errorf(
@@ -333,9 +342,6 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 			cntr.id,
 		)
 	}
-
-	delete(css.idTable, cntr.id)
-	css.Unlock()
 
 	logrus.Infof("Container unregistration completed: id = %s",
 		formatter.ContainerID{cntr.id})
