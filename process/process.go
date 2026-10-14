@@ -204,7 +204,15 @@ func (p *process) IsCapabilitySet(which cap.CapType, what cap.Cap) bool {
 // them within 'capability' data-struct.
 func (p *process) initCapability() error {
 
-	c, err := cap.NewPid2(int(p.pid))
+	// capget() and capset() take the pid in the caller's own pid-ns, which may
+	// differ from the procfs one (see ProcSelfPid()); for this very process use
+	// 0 (the calling thread) instead.
+	pid := int(p.pid)
+	if pid == ProcSelfPid() {
+		pid = 0
+	}
+
+	c, err := cap.NewPid2(pid)
 	if err != nil {
 		return err
 	}
@@ -1007,4 +1015,21 @@ func overflowUid() (uint32, error) {
 
 func overflowGid() (uint32, error) {
 	return readOverflowID("/proc/sys/fs/overflowgid")
+}
+
+// ProcSelfPid returns the pid of the calling process as seen by the procfs
+// mounted at /proc, i.e., the pid to use for /proc/<pid>/* lookups.
+//
+// It differs from os.Getpid() in a process that joined (or created) a pid-ns
+// that doesn't match the procfs mounted at /proc. That is the case of the
+// sysbox-fs nsenter agent serving a process that unshared its pid-ns but has
+// not mounted a new procfs yet (e.g., runc init while it sets up the
+// container's mounts).
+func ProcSelfPid() int {
+	if link, err := os.Readlink("/proc/self"); err == nil {
+		if pid, err := strconv.Atoi(link); err == nil {
+			return pid
+		}
+	}
+	return os.Getpid()
 }
