@@ -251,6 +251,12 @@ func (p *process) AdjustPersonality(
 	cwd string,
 	caps [2]uint32) error {
 
+	if p.cap == nil {
+		if err := p.initCapability(); err != nil {
+			return fmt.Errorf("failed to load capabilities of pid %d: %v", p.pid, err)
+		}
+	}
+
 	if cwd != p.Cwd() {
 		if err := unix.Chdir(cwd); err != nil {
 			return err
