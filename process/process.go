@@ -204,11 +204,20 @@ func (p *process) IsCapabilitySet(which cap.CapType, what cap.Cap) bool {
 // them within 'capability' data-struct.
 func (p *process) initCapability() error {
 
-	// capget() and capset() take the pid in the caller's own pid-ns, which may
-	// differ from the procfs one (see ProcSelfPid()); for this very process use
-	// 0 (the calling thread) instead.
+	// capget()/capset() resolve pids in the caller's own pid-ns, so p.pid (a
+	// procfs pid, see ProcSelfPid()) is unusable when the two disagree. Pass 0
+	// then, meaning the calling thread. Only for this process, and only on a
+	// mismatch: 0 targets one thread, and capabilities are per-thread.
 	pid := int(p.pid)
-	if pid == ProcSelfPid() {
+	if pid == ProcSelfPid() && pid != os.Getpid() {
+		// Only the nsenter agent gets here, and it pins its thread
+		// (GOMAXPROCS(1) + LockOSThread, see nsenter.init()). Off the main
+		// thread that no longer holds.
+		if tid := unix.Gettid(); tid != os.Getpid() {
+			logrus.Warnf("Loading capabilities for pid %d off the main thread (tid %d); "+
+				"correct only if the caller is pinned to this thread", p.pid, tid)
+		}
+
 		pid = 0
 	}
 
