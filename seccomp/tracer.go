@@ -1354,7 +1354,12 @@ func (t *syscallTracer) processOpenat2(
 	si.gid = process.Gid()
 	si.cwd = process.Cwd()
 	si.root = process.Root()
-	si.caps = process.GetEffCaps()
+
+	caps, err := process.GetEffCaps()
+	if err != nil {
+		return t.createErrorResponse(req.ID, err), nil
+	}
+	si.caps = caps
 
 	return si.processOpenat2()
 }

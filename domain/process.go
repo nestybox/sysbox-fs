@@ -56,7 +56,7 @@ type ProcessIface interface {
 	CreateNsInodes(Inode) error
 	PathAccess(path string, accessFlags AccessMode, followSymlink bool) (string, error)
 	ResolveProcSelf(string) (string, error)
-	GetEffCaps() [2]uint32
+	GetEffCaps() ([2]uint32, error)
 	SetEffCaps(caps [2]uint32)
 	GetFd(int32) (string, error)
 	AdjustPersonality(
