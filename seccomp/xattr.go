@@ -217,12 +217,17 @@ func (si *getxattrSyscallInfo) processGetxattr() (*sysResponse, error) {
 	logrus.Debugf("getxattr(): path = %s, name = %s, size = %d",
 		si.path, si.name, si.size)
 
+	caps, err := process.GetEffCaps()
+	if err != nil {
+		return t.createErrorResponse(si.reqId, err), nil
+	}
+
 	// Perform the nsenter into the process namespaces (except the user-ns)
 	payload := domain.GetxattrSyscallPayload{
 		Header: domain.NSenterMsgHeader{
 			Root:         process.Root(),
 			Cwd:          process.Cwd(),
-			Capabilities: process.GetEffCaps(),
+			Capabilities: caps,
 		},
 		Syscall: si.syscallName,
 		Path:    si.path,
@@ -379,12 +384,17 @@ func (si *listxattrSyscallInfo) processListxattr() (*sysResponse, error) {
 
 	logrus.Debugf("listxattr(): path = %s, size = %d", si.path, si.size)
 
+	caps, err := process.GetEffCaps()
+	if err != nil {
+		return t.createErrorResponse(si.reqId, err), nil
+	}
+
 	// Perform the nsenter into the process namespaces (except the user-ns)
 	payload := domain.ListxattrSyscallPayload{
 		Header: domain.NSenterMsgHeader{
 			Root:         si.root,
 			Cwd:          si.cwd,
-			Capabilities: process.GetEffCaps(),
+			Capabilities: caps,
 		},
 		Syscall: si.syscallName,
 		Path:    si.path,

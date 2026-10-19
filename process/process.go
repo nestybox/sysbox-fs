@@ -154,14 +154,15 @@ func (p *process) IsSysAdminCapabilitySet() bool {
 	return p.IsCapabilitySet(cap.EFFECTIVE, cap.CAP_SYS_ADMIN)
 }
 
-func (p *process) GetEffCaps() [2]uint32 {
+func (p *process) GetEffCaps() ([2]uint32, error) {
 	if p.cap == nil {
 		if err := p.initCapability(); err != nil {
-			return [2]uint32{0, 0}
+			return [2]uint32{0, 0}, fmt.Errorf(
+				"failed to load capabilities of pid %d: %v", p.pid, err)
 		}
 	}
 
-	return p.cap.GetEffCaps()
+	return p.cap.GetEffCaps(), nil
 }
 
 func (p *process) SetEffCaps(caps [2]uint32) {

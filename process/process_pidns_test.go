@@ -89,9 +89,12 @@ func pidnsChild() {
 	}
 
 	// Same sequence the nsenter agent runs for overlayfs mounts.
-	caps := p.GetEffCaps()
+	caps, err := p.GetEffCaps()
+	if err != nil {
+		fail("could not load the capabilities of this process: %v", err)
+	}
 	if caps == [2]uint32{0, 0} {
-		fail("could not load the capabilities of this process")
+		fail("loaded an empty capability set")
 	}
 	if err := p.AdjustPersonality(p.Uid(), p.Gid(), p.Root(), p.Cwd(), caps); err != nil {
 		fail("AdjustPersonality failed: %v", err)

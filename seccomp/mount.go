@@ -455,7 +455,10 @@ func (m *mountSyscallInfo) processOverlayMount(
 	m.targetUnadjust()
 
 	// Create instructions payload.
-	payload := m.createOverlayMountPayload(mip)
+	payload, perr := m.createOverlayMountPayload(mip)
+	if perr != nil {
+		return nil, fmt.Errorf("Could not construct overlayMount payload: %v", perr)
+	}
 	if payload == nil {
 		return nil, fmt.Errorf("Could not construct overlayMount payload")
 	}
@@ -496,7 +499,7 @@ func (m *mountSyscallInfo) processOverlayMount(
 
 // Build instructions payload required for overlay-mount operations.
 func (m *mountSyscallInfo) createOverlayMountPayload(
-	mip domain.MountInfoParserIface) *[]*domain.MountSyscallPayload {
+	mip domain.MountInfoParserIface) (*[]*domain.MountSyscallPayload, error) {
 
 	var payload []*domain.MountSyscallPayload
 
@@ -505,6 +508,11 @@ func (m *mountSyscallInfo) createOverlayMountPayload(
 	// logic.
 	process := m.tracer.service.prs.ProcessCreate(m.pid, 0, 0)
 
+	caps, err := process.GetEffCaps()
+	if err != nil {
+		return nil, err
+	}
+
 	// Payload instruction for overlayfs mount request.
 	payload = append(payload, m.MountSyscallPayload)
 
@@ -512,10 +520,10 @@ func (m *mountSyscallInfo) createOverlayMountPayload(
 	payload[0].Header = domain.NSenterMsgHeader{
 		Root:         m.root,
 		Cwd:          m.cwd,
-		Capabilities: process.GetEffCaps(),
+		Capabilities: caps,
 	}
 
-	return &payload
+	return &payload, nil
 }
 
 // Method handles "nfs", "cifs", and "smb3" mount syscall requests. Sysbox-fs does not manage nfs
