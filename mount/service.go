@@ -39,12 +39,15 @@ import (
 var ProcfsMounts = []string{
 	"/proc/uptime",
 	"/proc/swaps",
+	"/proc/meminfo",
+	"/proc/cpuinfo",
 	"/proc/sys",
 }
 
 var SysfsMounts = []string{
 	"/sys/kernel",
 	"/sys/devices/virtual",
+	"/sys/devices/system/cpu/online",
 	"/sys/module/nf_conntrack/parameters",
 }
 
