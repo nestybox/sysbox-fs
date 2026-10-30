@@ -83,12 +83,13 @@ func (h *SysDevicesSystemCpuOnline) Read(
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
-	cpus, _, err := readerCpus(hostFs, req)
-	if err != nil {
-		return 0, err
-	}
-
-	return readAtOffset(req, []byte(formatCpuList(cpus)+"\n"))
+	return readSnapshot(req, h.Path, func() ([]byte, error) {
+		cpus, _, err := readerCpus(hostFs, req)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(formatCpuList(cpus) + "\n"), nil
+	})
 }
 
 func (h *SysDevicesSystemCpuOnline) Write(

@@ -38,8 +38,10 @@ import (
 // Shows only the processor entries of the CPUs available to the reading
 // process: its effective cpuset, trimmed to its CPU quota rounded up (see
 // cgroupCpus()). CPUs keep their host numbering, so they remain valid targets
-// for sched_setaffinity(). Formats without per-processor entries (e.g., s390x)
-// are shown as-is.
+// for sched_setaffinity(). The "siblings" and "cpu cores" fields of the shown
+// entries count the shown CPUs and cores of their physical package, as the
+// kernel does for online CPUs. Formats without per-processor entries (e.g.,
+// s390x) are shown as-is.
 //
 
 type ProcCpuinfo struct {
@@ -88,18 +90,17 @@ func (h *ProcCpuinfo) Read(
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
-	host, err := fs.ReadFile(hostFs, "proc/cpuinfo")
-	if err != nil {
-		return 0, err
-	}
-
-	content := host
-	cpus, hostCpus, err := readerCpus(hostFs, req)
-	if err == nil && !slices.Equal(cpus, hostCpus) {
-		content = []byte(filterCpuinfo(string(host), cpus))
-	}
-
-	return readAtOffset(req, content)
+	return readSnapshot(req, h.Path, func() ([]byte, error) {
+		host, err := fs.ReadFile(hostFs, "proc/cpuinfo")
+		if err != nil {
+			return nil, err
+		}
+		cpus, hostCpus, err := readerCpus(hostFs, req)
+		if err != nil || slices.Equal(cpus, hostCpus) {
+			return host, nil
+		}
+		return []byte(filterCpuinfo(string(host), cpus)), nil
+	})
 }
 
 func (h *ProcCpuinfo) Write(
@@ -176,12 +177,13 @@ func (h *ProcCpuinfo) SetService(hs domain.HandlerServiceIface) {
 
 // filterCpuinfo keeps the processor entries of the given CPUs in the given
 // /proc/cpuinfo content, along with any entry that does not describe a
-// processor.
+// processor, and recounts the siblings and cores of each physical package.
 func filterCpuinfo(content string, cpus []int) string {
 	body := strings.TrimRight(content, "\n")
 	trailer := content[len(body):]
 
 	var kept []string
+	var processors []int
 	found := false
 
 	for _, entry := range strings.Split(body, "\n\n") {
@@ -190,6 +192,7 @@ func filterCpuinfo(content string, cpus []int) string {
 			if !slices.Contains(cpus, cpu) {
 				continue
 			}
+			processors = append(processors, len(kept))
 		}
 		kept = append(kept, entry)
 	}
@@ -198,7 +201,48 @@ func filterCpuinfo(content string, cpus []int) string {
 		return content
 	}
 
+	siblings := make(map[string]int)
+	cores := make(map[string]map[string]bool)
+	for _, i := range processors {
+		pkg := cpuinfoField(kept[i], "physical id")
+		siblings[pkg]++
+		if cores[pkg] == nil {
+			cores[pkg] = make(map[string]bool)
+		}
+		cores[pkg][cpuinfoField(kept[i], "core id")] = true
+	}
+
+	for _, i := range processors {
+		pkg := cpuinfoField(kept[i], "physical id")
+		kept[i] = setCpuinfoField(kept[i], "siblings", siblings[pkg])
+		kept[i] = setCpuinfoField(kept[i], "cpu cores", len(cores[pkg]))
+	}
+
 	return strings.Join(kept, "\n\n") + trailer
+}
+
+// cpuinfoField returns the value of the given field of a /proc/cpuinfo entry.
+func cpuinfoField(entry, field string) string {
+	for _, line := range strings.Split(entry, "\n") {
+		key, val, ok := strings.Cut(line, ":")
+		if ok && strings.TrimSpace(key) == field {
+			return strings.TrimSpace(val)
+		}
+	}
+	return ""
+}
+
+// setCpuinfoField sets the value of the given field of a /proc/cpuinfo entry,
+// if present, keeping the line's layout.
+func setCpuinfoField(entry, field string, val int) string {
+	lines := strings.Split(entry, "\n")
+	for i, line := range lines {
+		key, _, ok := strings.Cut(line, ":")
+		if ok && strings.TrimSpace(key) == field {
+			lines[i] = key + ": " + strconv.Itoa(val)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // cpuinfoProcessor returns the CPU described by the given /proc/cpuinfo entry,

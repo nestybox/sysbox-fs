@@ -18,7 +18,6 @@ package implementations
 
 import (
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -228,13 +227,4 @@ func formatCpuList(cpus []int) string {
 	}
 
 	return strings.Join(parts, ",")
-}
-
-// readAtOffset copies the part of the given content found at the request's
-// offset into the request's buffer.
-func readAtOffset(req *domain.HandlerRequest, content []byte) (int, error) {
-	if req.Offset >= int64(len(content)) {
-		return 0, io.EOF
-	}
-	return copy(req.Data, content[req.Offset:]), nil
 }

@@ -54,21 +54,34 @@ HugePages_Total:       0
 Hugepagesize:       2048 kB
 `
 
+// Host with one physical package of 2 cores, with 2 threads each.
 const testHostCpuinfo = `processor	: 0
 model name	: Test CPU
+physical id	: 0
+siblings	: 4
 core id		: 0
+cpu cores	: 2
 
 processor	: 1
 model name	: Test CPU
-core id		: 1
+physical id	: 0
+siblings	: 4
+core id		: 0
+cpu cores	: 2
 
 processor	: 2
 model name	: Test CPU
-core id		: 2
+physical id	: 0
+siblings	: 4
+core id		: 1
+cpu cores	: 2
 
 processor	: 3
 model name	: Test CPU
-core id		: 3
+physical id	: 0
+siblings	: 4
+core id		: 1
+cpu cores	: 2
 
 `
 
@@ -92,8 +105,9 @@ func testFs(cgroupFiles map[string]string) fstest.MapFS {
 func readAll(t *testing.T, h domain.HandlerIface, fsys fstest.MapFS, chunk int) string {
 	t.Helper()
 
+	orig := hostFs
 	hostFs = fsys
-	t.Cleanup(func() { hostFs = nil })
+	t.Cleanup(func() { hostFs = orig })
 
 	n := sysio.NewIOService(domain.IOMemFileService).NewIOnode("", h.GetPath(), 0)
 	var out strings.Builder
@@ -224,22 +238,24 @@ func TestProcMeminfo_Read(t *testing.T) {
 
 func TestProcCpuinfo_Read(t *testing.T) {
 	tests := []struct {
-		name    string
-		files   map[string]string
-		wantIds []string
+		name         string
+		files        map[string]string
+		wantIds      []string
+		wantSiblings string
+		wantCores    string
 	}{
-		{"no limit", map[string]string{testCntrCg + "/cpu.max": "max 100000"}, []string{"0", "1", "2", "3"}},
-		{"fractional quota", map[string]string{testCntrCg + "/cpu.max": "50000 100000"}, []string{"0"}},
-		{"quota of two CPUs", map[string]string{testCntrCg + "/cpu.max": "200000 100000"}, []string{"0", "1"}},
+		{"no limit", map[string]string{testCntrCg + "/cpu.max": "max 100000"}, []string{"0", "1", "2", "3"}, "4", "2"},
+		{"fractional quota", map[string]string{testCntrCg + "/cpu.max": "50000 100000"}, []string{"0"}, "1", "1"},
+		{"quota of two CPUs", map[string]string{testCntrCg + "/cpu.max": "200000 100000"}, []string{"0", "1"}, "2", "1"},
 		{"tighter ancestor quota", map[string]string{
 			testPodCg + "/cpu.max":  "100000 100000",
 			testCntrCg + "/cpu.max": "300000 100000",
-		}, []string{"0"}},
-		{"cpuset", map[string]string{testCntrCg + "/cpuset.cpus.effective": "2-3"}, []string{"2", "3"}},
+		}, []string{"0"}, "1", "1"},
+		{"cpuset", map[string]string{testCntrCg + "/cpuset.cpus.effective": "2-3"}, []string{"2", "3"}, "2", "1"},
 		{"cpuset and quota", map[string]string{
 			testCntrCg + "/cpuset.cpus.effective": "1-3",
 			testCntrCg + "/cpu.max":               "150000 100000",
-		}, []string{"1", "2"}},
+		}, []string{"1", "2"}, "2", "2"},
 	}
 
 	for _, tt := range tests {
@@ -249,8 +265,13 @@ func TestProcCpuinfo_Read(t *testing.T) {
 
 			var ids []string
 			for _, entry := range strings.Split(strings.TrimRight(got, "\n"), "\n\n") {
-				line, _, _ := strings.Cut(entry, "\n")
-				ids = append(ids, strings.TrimSpace(strings.TrimPrefix(line, "processor\t:")))
+				ids = append(ids, cpuinfoField(entry, "processor"))
+				if !strings.Contains(entry+"\n", "\nsiblings\t: "+tt.wantSiblings+"\n") {
+					t.Errorf("entry siblings != %s:\n%s", tt.wantSiblings, entry)
+				}
+				if !strings.Contains(entry+"\n", "\ncpu cores\t: "+tt.wantCores+"\n") {
+					t.Errorf("entry cpu cores != %s:\n%s", tt.wantCores, entry)
+				}
 			}
 			if strings.Join(ids, ",") != strings.Join(tt.wantIds, ",") {
 				t.Errorf("processors = %v, want %v", ids, tt.wantIds)

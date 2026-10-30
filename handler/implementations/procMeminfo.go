@@ -118,17 +118,16 @@ func (h *ProcMeminfo) Read(
 	logrus.Debugf("Executing Read() for req-id: %#x, handler: %s, resource: %s",
 		req.ID, h.Name, n.Name())
 
-	host, err := fs.ReadFile(hostFs, "proc/meminfo")
-	if err != nil {
-		return 0, err
-	}
-
-	content := host
-	if cg, err := cgroupV2Path(hostFs, req.Pid); err == nil {
-		content = []byte(cgroupMeminfo(hostFs, cg, string(host)))
-	}
-
-	return readAtOffset(req, content)
+	return readSnapshot(req, h.Path, func() ([]byte, error) {
+		host, err := fs.ReadFile(hostFs, "proc/meminfo")
+		if err != nil {
+			return nil, err
+		}
+		if cg, err := cgroupV2Path(hostFs, req.Pid); err == nil {
+			return []byte(cgroupMeminfo(hostFs, cg, string(host))), nil
+		}
+		return host, nil
+	})
 }
 
 func (h *ProcMeminfo) Write(
