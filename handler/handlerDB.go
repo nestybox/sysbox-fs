@@ -43,6 +43,8 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.Root_Handler,                           // /
 	implementations.ProcUptime_Handler,                     // /proc/uptime
 	implementations.ProcSwaps_Handler,                      // /proc/swaps
+	implementations.ProcMeminfo_Handler,                    // /proc/meminfo
+	implementations.ProcCpuinfo_Handler,                    // /proc/cpuinfo
 	implementations.ProcSys_Handler,                        // /proc/sys
 	implementations.ProcSysFs_Handler,                      // /proc/sys/fs
 	implementations.ProcSysKernel_Handler,                  // /proc/sys/kernel
@@ -59,6 +61,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.SysDevicesVirtual_Handler,              // /sys/devices/virtual
 	implementations.SysDevicesVirtualDmi_Handler,           // /sys/devices/virtual/dmi
 	implementations.SysDevicesVirtualDmiId_Handler,         // /sys/devices/virtual/dmi/id
+	implementations.SysDevicesSystemCpuOnline_Handler,      // /sys/devices/system/cpu/online
 	implementations.SysModuleNfconntrackParameters_Handler, // /sys/module/nf_conntrack/parameters
 }
 
