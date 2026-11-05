@@ -51,6 +51,9 @@ type containerStateService struct {
 
 	// Pointer to the service providing mount helper/parser capabilities.
 	mts domain.MountServiceIface
+
+	// Pointer to the service handling zombie reaper.
+	nss domain.NSenterServiceIface
 }
 
 func NewContainerStateService() domain.ContainerStateServiceIface {
@@ -67,12 +70,14 @@ func (css *containerStateService) Setup(
 	fss domain.FuseServerServiceIface,
 	prs domain.ProcessServiceIface,
 	ios domain.IOServiceIface,
-	mts domain.MountServiceIface) {
+	mts domain.MountServiceIface,
+	nss domain.NSenterServiceIface) {
 
 	css.fss = fss
 	css.prs = prs
 	css.ios = ios
 	css.mts = mts
+	css.nss = nss
 }
 
 func (css *containerStateService) ContainerCreate(
@@ -172,6 +177,8 @@ func (css *containerStateService) ContainerPreRegister(id, netns string) error {
 		logrus.Debugf("Container %s will share sysbox-fs state with %v",
 			formatter.ContainerID{id}, cntrSameNetns)
 	}
+	css.nss.ReaperLock()
+	defer css.nss.ReaperUnlock()
 
 	// Creating the fuse server mounts the FUSE fs and waits for the kernel
 	// handshake, which can take a while; don't hold the lock across it so

@@ -61,7 +61,7 @@ func TestMain(m *testing.M) {
 	mts = mount.NewMountService()
 
 	prs.Setup(ios)
-	css.Setup(nil, prs, ios, mts)
+	css.Setup(nil, prs, ios, mts, nss)
 	mts.Setup(css, hds, prs, nss)
 
 	// HandlerService's common mocking instructions.

@@ -76,7 +76,9 @@ type ContainerStateServiceIface interface {
 		fss FuseServerServiceIface,
 		prs ProcessServiceIface,
 		ios IOServiceIface,
-		mts MountServiceIface)
+		mts MountServiceIface,
+		nss NSenterServiceIface,
+		)
 
 	ContainerCreate(
 		id string,

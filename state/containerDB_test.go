@@ -84,6 +84,7 @@ func Test_containerStateService_Setup(t *testing.T) {
 		prs domain.ProcessServiceIface
 		ios domain.IOServiceIface
 		mts domain.MountServiceIface
+		nss domain.NSenterServiceIface
 	}
 
 	a1 := args{
@@ -91,6 +92,7 @@ func Test_containerStateService_Setup(t *testing.T) {
 		prs: prs,
 		ios: ios,
 		mts: mts,
+		nss: nss,
 	}
 
 	tests := []struct {
@@ -115,7 +117,7 @@ func Test_containerStateService_Setup(t *testing.T) {
 				ios:        tt.fields.ios,
 				mts:        tt.fields.mts,
 			}
-			css.Setup(tt.args.fss, tt.args.prs, tt.args.ios, tt.args.mts)
+			css.Setup(tt.args.fss, tt.args.prs, tt.args.ios, tt.args.mts, tt.args.nss)
 		})
 	}
 }
@@ -232,6 +234,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 		prs        domain.ProcessServiceIface
 		ios        domain.IOServiceIface
 		mts        domain.MountServiceIface
+		nss        domain.NSenterServiceIface
 	}
 
 	var f1 = fields{
@@ -241,6 +244,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 		prs:        prs,
 		ios:        ios,
 		mts:        mts,
+		nss:        nss,
 	}
 
 	css := &containerStateService{
@@ -250,6 +254,7 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 		prs:        f1.prs,
 		ios:        f1.ios,
 		mts:        f1.mts,
+		nss:        f1.nss,
 	}
 
 	var c1 = &container{
@@ -282,7 +287,8 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 			args:    args{"c1", "c1"},
 			wantErr: false,
 			prepare: func() {
-
+				nss.On("ReaperLock").Return(nil)
+				nss.On("ReaperUnlock").Return(nil)
 				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
 					"CreateFuseServer", c1, c1).Return(nil)
 			},
@@ -297,7 +303,8 @@ func Test_containerStateService_ContainerPreRegister(t *testing.T) {
 			args:    args{"c2", "c2"},
 			wantErr: true,
 			prepare: func() {
-
+				nss.On("ReaperLock").Return(nil)
+				nss.On("ReaperUnlock").Return(nil)
 				f1.idTable[c2.id] = c2
 				css.FuseServerService().(*mocks.FuseServerServiceIface).On(
 					"CreateFuseServer", c2, c2).Return(nil)
