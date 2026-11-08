@@ -46,6 +46,11 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 		return nil, fmt.Errorf("unexpected mount-service-helper handler")
 	}
 
+	// Linux ignores the legacy mount magic value before interpreting flags.
+	if m.Flags&unix.MS_MGC_MSK == unix.MS_MGC_VAL {
+		m.Flags &^= unix.MS_MGC_MSK
+	}
+
 	// Adjust mount attributes attending to the process' root path.
 	m.targetAdjust()
 
@@ -59,38 +64,8 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 		}
 	}
 
-	// Handle requests that create a new mountpoint for filesystems managed by
-	// sysbox-fs.
-	if mh.IsNewMount(m.Flags) {
-
-		mip, err := mts.NewMountInfoParser(m.cntr, m.processInfo, true, true, false)
-		if err != nil {
-			return nil, err
-		}
-
-		switch m.FsType {
-		case "proc":
-			return m.processProcMount(mip)
-		case "sysfs":
-			return m.processSysMount(mip)
-		case "overlay":
-			return m.processOverlayMount(mip)
-		case "nfs", "cifs", "smb3":
-			return m.processNfsMount(mip)
-		}
-	}
-
-	// Mount moves are handled by the kernel
-	if mh.IsMove(m.Flags) {
-		return m.tracer.createContinueResponse(m.reqId), nil
-	}
-
-	// Handle propagation type changes on filesystems managed by sysbox-fs (no
-	// action required; let the kernel handle mount propagation changes).
-	if mh.HasPropagationFlag(m.Flags) {
-		return m.tracer.createContinueResponse(m.reqId), nil
-	}
-
+	// Match mount(2) operation precedence: remount, bind, propagation,
+	// move, then a new mount. Ignored flags must not bypass authorization.
 	// Handle remount requests on filesystems managed by sysbox-fs
 	if mh.IsRemount(m.Flags) {
 
@@ -145,6 +120,38 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 
 		// No action by sysbox-fs
 		return m.tracer.createContinueResponse(m.reqId), nil
+	}
+
+	// Handle propagation type changes on filesystems managed by sysbox-fs (no
+	// action required; let the kernel handle mount propagation changes).
+	if mh.HasPropagationFlag(m.Flags) {
+		return m.tracer.createContinueResponse(m.reqId), nil
+	}
+
+	// Mount moves are handled by the kernel
+	if mh.IsMove(m.Flags) {
+		return m.tracer.createContinueResponse(m.reqId), nil
+	}
+
+	// Handle requests that create a new mountpoint for filesystems managed by
+	// sysbox-fs.
+	if mh.IsNewMount(m.Flags) {
+
+		mip, err := mts.NewMountInfoParser(m.cntr, m.processInfo, true, true, false)
+		if err != nil {
+			return nil, err
+		}
+
+		switch m.FsType {
+		case "proc":
+			return m.processProcMount(mip)
+		case "sysfs":
+			return m.processSysMount(mip)
+		case "overlay":
+			return m.processOverlayMount(mip)
+		case "nfs", "cifs", "smb3":
+			return m.processNfsMount(mip)
+		}
 	}
 
 	// No action by sysbox-fs otherwise
