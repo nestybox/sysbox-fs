@@ -97,6 +97,10 @@ type NSenterEvent struct {
 	// Asynchronous flag to tag events for which no response is expected.
 	Async bool
 
+	// Move the nsenter agent into the device cgroup of the requesting process
+	// (Pid) before it performs the request. See cgroup.go.
+	JoinRequesterCgroup bool
+
 	// IPC pipes among sysbox-fs parent / child processes.
 	parentPipe *os.File
 
@@ -134,6 +138,12 @@ func (e *NSenterEvent) GetProcessID() uint32 {
 	return uint32(e.Process.Pid)
 }
 
+// SetJoinRequesterCgroup requests that the nsenter agent be moved into the
+// device cgroup of the requesting process before it performs the request.
+func (e *NSenterEvent) SetJoinRequesterCgroup(join bool) {
+	e.JoinRequesterCgroup = join
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // nsenterEvent methods below execute within the context of sysbox-fs' main
@@ -151,10 +161,23 @@ func (e *NSenterEvent) getRespFileDescriptors(pipe *os.File) ([]int, error) {
 	// Recvmsg will unblock when the nsenter agent sends the file descriptor(s),
 	// if it dies, or if the timeout expires. If the nsenter agent has no file
 	// descriptors to send, it will send a zero-length SCM_RIGHTS message.
-	_, oobn, _, _, err := unix.Recvmsg(int(pipe.Fd()), nil, oob, 0)
-	if err != nil {
-		logrus.Warnf("failed to receive fd(s) via SCM_RIGHTS: %v", err)
-		return nil, fmt.Errorf("error receiving fd via SCM_RIGHTS: %v", err)
+	//
+	// A signal delivered to the thread (e.g., the Go runtime's preemption
+	// signals) interrupts the call with EINTR; that is not a failure, so retry.
+	// Unlike a plain read, recvmsg() is not restarted automatically when a
+	// receive timeout (SO_RCVTIMEO) is set.
+	var oobn int
+	for {
+		var rerr error
+		_, oobn, _, _, rerr = unix.Recvmsg(int(pipe.Fd()), nil, oob, 0)
+		if rerr == unix.EINTR {
+			continue
+		}
+		if rerr != nil {
+			logrus.Warnf("failed to receive fd(s) via SCM_RIGHTS: %v", rerr)
+			return nil, fmt.Errorf("error receiving fd via SCM_RIGHTS: %v", rerr)
+		}
+		break
 	}
 
 	// Parse the control message to extract the file descriptors
@@ -564,6 +587,18 @@ func (e *NSenterEvent) SendRequest() error {
 
 	logrus.Debug("Executing nsenterEvent's SendRequest() method")
 
+	// Resolve and validate the requester's device cgroup before any agent is
+	// dispatched, so a refusal costs no process. See cgroup.go.
+	var devCgroup deviceCgroup
+	if e.JoinRequesterCgroup {
+		dc, err := requesterDeviceCgroup(e.Pid, "/proc", defaultCgroupMount)
+		if err != nil {
+			logrus.Warnf("Denying nsenter request for pid %d: %v", e.Pid, err)
+			return cgroupJoinError(err)
+		}
+		devCgroup = dc
+	}
+
 	// Alert the zombie reaper that nsenter is about to start. Notice that we
 	// skip reaper's services for async requests as, in those cases, the caller
 	// is expected to sigkill its generated nsenter processes.
@@ -595,15 +630,24 @@ func (e *NSenterEvent) SendRequest() error {
 		return fmt.Errorf("Error setting socket options on nsenter pipe: %v", err)
 	}
 
+	if e.JoinRequesterCgroup {
+		if err := setResponseTimeout(socket, cgroupJoinResponseTimeout); err != nil {
+			return fmt.Errorf("Error setting response timeout on nsenter pipe: %v", err)
+		}
+	}
+
 	// Create the nsenter instruction packet
 	r := nl.NewNetlinkRequest(int(libcontainer.InitMsg), 0)
 
-	// existing namespaces to join (if any)
+	// existing namespaces to join (if any). nsexec rejects an empty NS_PATHS
+	// attribute, so it is omitted when there is nothing to join.
 	namespaces := e.namespacePaths()
-	r.AddData(&libcontainer.Bytemsg{
-		Type:  libcontainer.NsPathsAttr,
-		Value: []byte(strings.Join(namespaces, ",")),
-	})
+	if len(namespaces) > 0 {
+		r.AddData(&libcontainer.Bytemsg{
+			Type:  libcontainer.NsPathsAttr,
+			Value: []byte(strings.Join(namespaces, ",")),
+		})
+	}
 
 	// new namespaces to create (after joining existing namespaces)
 	r.AddData(&libcontainer.Int32msg{
@@ -676,6 +720,20 @@ func (e *NSenterEvent) SendRequest() error {
 	}
 	e.Process = process
 
+	// Move the agent into the requester's device cgroup before it receives the
+	// request. The agent cannot start the read before it receives the payload,
+	// so the read is performed under that cgroup's device policy.
+	if e.JoinRequesterCgroup {
+		if err := devCgroup.join(int(pid.Pid)); err != nil {
+			logrus.Warnf("Denying nsenter request for pid %d: joining %s: %v", e.Pid, devCgroup.dir, err)
+			_ = e.Process.Kill()
+			if !e.Async {
+				e.reaper.nsenterReapReq()
+			}
+			return cgroupJoinError(err)
+		}
+	}
+
 	//
 	// Transfer the nsenterEvent details to grand-child for processing.
 	//
@@ -731,6 +789,10 @@ func (e *NSenterEvent) SendRequest() error {
 	}
 
 	if ierr != nil {
+		// An agent stalled in a frozen cgroup must not outlive the request.
+		if e.JoinRequesterCgroup {
+			_ = e.Process.Kill()
+		}
 		e.reaper.nsenterReapReq()
 		return ierr
 	}
