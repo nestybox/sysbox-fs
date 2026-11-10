@@ -263,7 +263,7 @@ func (h *PassThrough) ReadWithNS(
 		if req.Offset == 0 && sz == 0 && err == io.EOF {
 
 			// Resource is not cached, read it from the filesystem.
-			sz, err = h.fetchFile(process, namespaces, n, req.Offset, &req.Data)
+			sz, err = h.fetchFile(process, namespaces, n, req.Offset, &req.Data, false)
 			if err != nil {
 				cntr.Unlock()
 				return 0, fuse.IOerror{Code: syscall.EINVAL}
@@ -286,10 +286,55 @@ func (h *PassThrough) ReadWithNS(
 		cntr.Unlock()
 
 	} else {
-		sz, err = h.fetchFile(process, namespaces, n, req.Offset, &req.Data)
+		sz, err = h.fetchFile(process, namespaces, n, req.Offset, &req.Data, false)
 		if err != nil {
 			return 0, fuse.IOerror{Code: syscall.EINVAL}
 		}
+	}
+
+	return sz, nil
+}
+
+// ReadInRequesterCgroup is like Read(), but the nsenter agent is moved into the
+// device cgroup of the requesting process before it reads the node. Use it for
+// resources whose kernel handler gates the read on the reader's device cgroup
+// (e.g., AMD KFD topology under /sys/devices/virtual/kfd). The kernel's own
+// errno (e.g., EPERM for a denied device) is returned to the requester.
+//
+// The agent joins no namespace and remounts nothing: it reads n.Path() as seen
+// by sysbox-fs, so the caller must confine n.Path() to the node being served.
+//
+// The result is never cached. Cached values are shared by all processes of
+// the container, but the answer depends on each reader's device cgroup, so
+// serving one reader's result to another would bypass the check.
+func (h *PassThrough) ReadInRequesterCgroup(
+	n domain.IOnodeIface,
+	req *domain.HandlerRequest) (int, error) {
+
+	logrus.Debugf("Executing ReadInRequesterCgroup() for req-id: %#x, handler: %s, resource: %s",
+		req.ID, h.Name, n.Name())
+
+	// Without the requester's pid its device cgroup is unknown: fail closed.
+	if req.Pid == 0 {
+		return 0, fuse.IOerror{Code: syscall.EPERM}
+	}
+
+	prs := h.Service.ProcessService()
+	process := prs.ProcessCreate(req.Pid, req.Uid, req.Gid)
+
+	// No namespace is joined: the kernel's check depends only on the reader's
+	// device cgroup, and kfd topology is not namespaced. Joining the container's
+	// mount ns would need a fresh sysfs mount, which the kernel refuses inside
+	// nested containers (mount_too_revealing).
+	sz, err := h.fetchFile(process, []domain.NStype{}, n, req.Offset, &req.Data, true)
+	if err != nil {
+		// Errors from the agent (e.g., the kernel's EPERM) and from joining the
+		// requester's cgroup (EPERM) carry their errno. Anything else is a
+		// failure of the nsenter machinery itself.
+		if ioerr, ok := err.(fuse.IOerror); ok {
+			return 0, ioerr
+		}
+		return 0, fuse.IOerror{Code: syscall.EIO}
 	}
 
 	return sz, nil
@@ -505,14 +550,22 @@ func (h *PassThrough) Setattr(
 }
 
 // Auxiliary method to fetch the content of any given file within a container.
+// If joinRequesterCgroup is set, the nsenter agent reads the file from within
+// the device cgroup of the process, and neither joins namespaces nor remounts
+// procfs/sysfs (see ReadInRequesterCgroup).
 func (h *PassThrough) fetchFile(
 	process domain.ProcessIface,
 	namespaces []domain.NStype,
 	n domain.IOnodeIface,
 	offset int64,
-	data *[]byte) (int, error) {
+	data *[]byte,
+	joinRequesterCgroup bool) (int, error) {
 
-	mountSysfs, mountProcfs, cloneFlags := checkProcAndSysRemount(n)
+	var mountSysfs, mountProcfs bool
+	var cloneFlags uint32
+	if !joinRequesterCgroup {
+		mountSysfs, mountProcfs, cloneFlags = checkProcAndSysRemount(n)
+	}
 
 	// Create nsenterEvent to initiate interaction with container namespaces.
 	nss := h.Service.NSenterService()
@@ -536,6 +589,8 @@ func (h *PassThrough) fetchFile(
 		nil,
 		false,
 	)
+
+	event.SetJoinRequesterCgroup(joinRequesterCgroup)
 
 	// Launch nsenter-event to obtain file state within container
 	// namespaces.

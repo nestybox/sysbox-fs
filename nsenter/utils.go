@@ -147,9 +147,11 @@ func processPayloadMounts(mountSysfs, mountProcfs bool) (*payloadMountsInfo, err
 
 func replaceProcfsAndSysfsPaths(path string, pmi *payloadMountsInfo) string {
 
-	if strings.HasPrefix(path, "/sys/") {
+	// An empty mountpoint means that filesystem was not remounted (e.g. reads
+	// done in sysbox-fs's own namespaces); the path must then stay as is.
+	if strings.HasPrefix(path, "/sys/") && pmi.sysfsMountpoint != "" {
 		path = strings.Replace(path, "/sys/", pmi.sysfsMountpoint+"/", 1)
-	} else if strings.HasPrefix(path, "/proc/") {
+	} else if strings.HasPrefix(path, "/proc/") && pmi.procfsMountpoint != "" {
 		path = strings.Replace(path, "/proc/", pmi.procfsMountpoint+"/", 1)
 	}
 

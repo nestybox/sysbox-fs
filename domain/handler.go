@@ -117,6 +117,7 @@ type PassthroughHandlerIface interface {
 	HandlerIface
 	OpenWithNS(node IOnodeIface, req *HandlerRequest, namespaces []NStype) (bool, error)
 	ReadWithNS(node IOnodeIface, req *HandlerRequest, namespaces []NStype) (int, error)
+	ReadInRequesterCgroup(node IOnodeIface, req *HandlerRequest) (int, error)
 	WriteWithNS(node IOnodeIface, req *HandlerRequest, namespaces []NStype) (int, error)
 }
 
