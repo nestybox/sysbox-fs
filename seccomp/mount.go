@@ -83,8 +83,12 @@ func (m *mountSyscallInfo) process() (*sysResponse, error) {
 			return m.processRemount(mip)
 		}
 
-		// No action by sysbox-fs
-		return m.tracer.createContinueResponse(m.reqId), nil
+		// Perform the remount ourselves with the args already validated
+		// above, instead of CONTINUE. CONTINUE would let the kernel
+		// resume the original syscall and re-read its args from the
+		// tracee's memory, which a second tracee thread could have
+		// mutated after remountAllowed() made its decision.
+		return m.processRemountDirect()
 	}
 
 	// Handle bind-mount requests on filesystems managed by sysbox-fs.
@@ -885,6 +889,53 @@ func (m *mountSyscallInfo) remountAllowed(
 	}
 
 	return true, nil
+}
+
+// processRemountDirect performs a remount not targeting a sysbox-fs managed
+// mount, using the args sysbox-fs already copied and validated, instead of
+// telling the kernel to resume (and re-read) the original syscall.
+func (m *mountSyscallInfo) processRemountDirect() (*sysResponse, error) {
+
+	logrus.Debugf("Processing re-mount directly: %v", m)
+
+	payload := []*domain.MountSyscallPayload{m.MountSyscallPayload}
+
+	// The target isn't sysbox-fs managed, so the process could have done
+	// this remount on its own; enter all of its namespaces (including its
+	// user-ns) and act with its own uid/gid, so the kernel applies the
+	// same DAC/capability checks it would have applied had it resumed the
+	// syscall itself.
+	nss := m.tracer.service.nss
+	event := nss.NewEvent(
+		m.pid,
+		m.uid,
+		m.gid,
+		&domain.AllNSs,
+		0,
+		&domain.NSenterMessage{
+			Type:    domain.MountSyscallRequest,
+			Payload: &payload,
+		},
+		nil,
+		false,
+	)
+
+	// Launch nsenter-event.
+	err := nss.SendRequestEvent(event)
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtain nsenter-event response.
+	responseMsg := nss.ReceiveResponseEvent(event)
+	if responseMsg.Type == domain.ErrorResponse {
+		resp := m.tracer.createErrorResponse(
+			m.reqId,
+			responseMsg.Payload.(fuse.IOerror).Code)
+		return resp, nil
+	}
+
+	return m.tracer.createSuccessResponse(m.reqId), nil
 }
 
 func (m *mountSyscallInfo) processRemount(
