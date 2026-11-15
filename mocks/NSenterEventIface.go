@@ -88,6 +88,11 @@ func (_m *NSenterEventIface) SendRequest() error {
 	return r0
 }
 
+// SetJoinRequesterCgroup provides a mock function with given fields: join
+func (_m *NSenterEventIface) SetJoinRequesterCgroup(join bool) {
+	_m.Called(join)
+}
+
 // SetRequestMsg provides a mock function with given fields: m
 func (_m *NSenterEventIface) SetRequestMsg(m *domain.NSenterMessage) {
 	_m.Called(m)

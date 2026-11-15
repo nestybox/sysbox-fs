@@ -141,6 +141,11 @@ type NSenterEventIface interface {
 	SetResponseMsg(m *NSenterMessage)
 	GetResponseMsg() *NSenterMessage
 	GetProcessID() uint32
+
+	// Requests the agent to be moved into the device cgroup of the requesting
+	// process (NSenterEvent.Pid) before it performs its request. See
+	// nsenter/cgroup.go.
+	SetJoinRequesterCgroup(join bool)
 }
 
 // NSenterMessage struct defines the layout of the messages being exchanged

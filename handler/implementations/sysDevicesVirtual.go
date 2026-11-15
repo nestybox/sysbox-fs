@@ -21,11 +21,13 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/nestybox/sysbox-fs/domain"
+	"github.com/nestybox/sysbox-fs/fuse"
 )
 
 //
@@ -38,10 +40,25 @@ import (
 // must explicitly expose the "dmi" directory as this one contains critical system
 // nodes utilized by certain applications.
 //
+// * /sys/devices/virtual/net
+//
+// Namespaced resources, served by the passthrough handler (see passthruNodes).
+//
+// * /sys/devices/virtual/kfd
+//
+// AMD KFD exposes the GPU topology here, which ROCm (libhsakmt) reads to enumerate
+// GPUs. The kernel gates reads of GPU nodes on the device cgroup of the reading
+// task, so reads are served by the passthrough handler from within the requester's
+// device cgroup (see deviceCgroupNodes). Lookup, ReadDirAll and ReadLink do not
+// reach that check and are left at host level.
+//
 
 type SysDevicesVirtual struct {
 	domain.HandlerBase
 	passthruNodes map[string]bool
+
+	// Nodes whose reads are performed in the requester's device cgroup.
+	deviceCgroupNodes map[string]bool
 }
 
 var SysDevicesVirtual_Handler = &SysDevicesVirtual{
@@ -64,6 +81,9 @@ var SysDevicesVirtual_Handler = &SysDevicesVirtual{
 	},
 	map[string]bool{
 		"net": true,
+	},
+	map[string]bool{
+		"kfd": true,
 	},
 }
 
@@ -136,6 +156,15 @@ func (h *SysDevicesVirtual) Open(
 	return false, nil
 }
 
+// isPathWithin reports whether path is clean and equal to dir or below it.
+// Both are absolute host paths.
+func isPathWithin(path, dir string) bool {
+	if filepath.Clean(path) != path {
+		return false
+	}
+	return path == dir || strings.HasPrefix(path, dir+"/")
+}
+
 func (h *SysDevicesVirtual) Read(
 	n domain.IOnodeIface,
 	req *domain.HandlerRequest) (int, error) {
@@ -149,6 +178,19 @@ func (h *SysDevicesVirtual) Read(
 	}
 
 	var resource = relpath
+
+	// Reads of device-cgroup-gated nodes are performed as the requester, so the
+	// kernel applies the requester's device policy. See cgroup.go in nsenter.
+	// The match above uses the cleaned relpath, but the agent reads n.Path()
+	// verbatim. Refuse any path that is not clean and inside the node.
+	for node, _ := range h.deviceCgroupNodes {
+		if node == resource || strings.HasPrefix(resource, node+"/") {
+			if !isPathWithin(n.Path(), filepath.Join(h.Path, node)) {
+				return 0, fuse.IOerror{Code: syscall.EPERM}
+			}
+			return h.Service.GetPassThroughHandler().ReadInRequesterCgroup(n, req)
+		}
+	}
 
 	for node, _ := range h.passthruNodes {
 		if node == resource || strings.HasPrefix(resource, node+"/") {
