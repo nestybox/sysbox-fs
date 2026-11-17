@@ -32,6 +32,15 @@ func NewNSenterService() domain.NSenterServiceIface {
 	}
 }
 
+
+func (s *nsenterService) ReaperLock() {
+     s.reaper.nsenterStarted()
+}
+
+func (s *nsenterService) ReaperUnlock() {
+     s.reaper.nsenterEnded()
+}
+
 func (s *nsenterService) Setup(
 	prs domain.ProcessServiceIface,
 	mts domain.MountServiceIface) {

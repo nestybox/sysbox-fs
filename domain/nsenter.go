@@ -120,6 +120,8 @@ type NSenterServiceIface interface {
 	ReceiveResponseEvent(e NSenterEventIface) *NSenterMessage
 	TerminateRequestEvent(e NSenterEventIface) error
 	GetEventProcessID(e NSenterEventIface) uint32
+	ReaperLock()
+	ReaperUnlock()
 }
 
 // NSenterEvent struct serves as a transport abstraction (envelope) to carry

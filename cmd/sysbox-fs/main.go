@@ -402,6 +402,7 @@ func main() {
 			processService,
 			ioService,
 			mountService,
+			nsenterService,
 		)
 
 		mountService.Setup(
