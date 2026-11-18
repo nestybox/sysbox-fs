@@ -19,8 +19,6 @@ package seccomp
 import (
 	"path/filepath"
 	"strings"
-	"syscall"
-	"unsafe"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
@@ -28,15 +26,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
-
-// seccompNotifAddfd matches struct seccomp_notif_addfd from linux/seccomp.h
-type seccompNotifAddfd struct {
-	id          uint64
-	flags       uint32
-	srcfd       uint32
-	newfd       uint32
-	newfd_flags uint32
-}
 
 // RESOLVE_* flags for openat2 (from linux/openat2.h)
 const (
@@ -58,33 +47,6 @@ type openat2SyscallInfo struct {
 	resolve    uint64    // open_how.resolve
 	notifyFd   int32     // seccomp notification file descriptor
 	caps       [2]uint32 // effective capabilities of the process
-}
-
-// injectFd injects a file descriptor into the traced process using SECCOMP_IOCTL_NOTIF_ADDFD
-// Returns the file descriptor number in the target process, or an error
-func (si *openat2SyscallInfo) injectFd(srcfd int) (int, error) {
-
-	addfd := seccompNotifAddfd{
-		id:          si.reqId,
-		flags:       0, // Let the kernel choose the fd number
-		srcfd:       uint32(srcfd),
-		newfd:       0, // 0 means kernel assigns lowest available fd
-		newfd_flags: unix.O_CLOEXEC,
-	}
-
-	// Perform the SECCOMP_IOCTL_NOTIF_ADDFD ioctl
-	targetFd, _, errno := syscall.Syscall(
-		syscall.SYS_IOCTL,
-		uintptr(si.notifyFd),
-		uintptr(unix.SECCOMP_IOCTL_NOTIF_ADDFD),
-		uintptr(unsafe.Pointer(&addfd)),
-	)
-
-	if errno != 0 {
-		return -1, errno
-	}
-
-	return int(targetFd), nil
 }
 
 // processOpenat2 handles the openat2 syscall processing
@@ -158,6 +120,8 @@ func (si *openat2SyscallInfo) processOpenat2() (*sysResponse, error) {
 			Mode:             si.mode,
 			Resolve:          cleanResolve,
 			CheckForSysboxfs: true, // ensure the openat2 is opening a sysbox-fs managed file
+			ReqId:            si.reqId,
+			NotifyFd:         si.notifyFd,
 		}
 
 		nss := t.service.nss
@@ -190,25 +154,15 @@ func (si *openat2SyscallInfo) processOpenat2() (*sysResponse, error) {
 			return resp, nil
 		}
 
-		// Extract the opened file descriptor from the response (passed to sysbox-fs via SCM_RIGHTS by the nsenter process)
-		respPayload := responseMsg.Payload.(domain.Openat2RespPayload)
-		fd := respPayload.Fd
+		// The nsenter agent opened the file and injected it into the traced
+		// process itself (SECCOMP_IOCTL_NOTIF_ADDFD), so sysbox-fs never holds
+		// an fd into its own FUSE mounts. Holding one would let a concurrent
+		// fork of an nsenter process (whose child closes inherited fds in
+		// dup3) block in fuse_flush on an inode lock owned by a writer that is
+		// waiting on sysbox-fs itself, deadlocking sysbox-fs.
+		targetFd := responseMsg.Payload.(domain.Openat2RespPayload).Fd
 
-		logrus.Infof("openat2(): pid %d: received fd %d from nsenter for path %s", si.pid, fd, fullPath)
-
-		// Inject the file descriptor into the traced process using SECCOMP_IOCTL_NOTIF_ADDFD
-		targetFd, err := si.injectFd(fd)
-
-		// Close the fd in sysbox-fs after injecting it (the target process now has a copy)
-		unix.Close(fd)
-
-		if err != nil {
-			logrus.Errorf("openat2(): pid %d: failed to inject fd %d into target process %d: %v", si.pid, fd, si.pid, err)
-			resp := t.createErrorResponse(si.reqId, syscall.EINVAL)
-			return resp, nil
-		}
-
-		logrus.Infof("openat2(): pid %d: injected fd %d as %d for path %s", si.pid, fd, targetFd, fullPath)
+		logrus.Infof("openat2(): pid %d: nsenter injected fd %d for path %s", si.pid, targetFd, fullPath)
 
 		// Return success response with the target fd as the return value
 		return t.createSuccessResponseWithRetValue(si.reqId, uint64(targetFd)), nil
