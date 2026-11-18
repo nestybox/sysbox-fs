@@ -297,8 +297,16 @@ type Openat2SyscallPayload struct {
 	Mode             uint64           `json:"mode"`
 	Resolve          uint64           `json:"resolve"`
 	CheckForSysboxfs bool             `json:"verifyfs"`
+	// Seccomp notification id of the trapped openat2; the nsenter agent
+	// injects the opened fd into the trapped process with it.
+	ReqId uint64 `json:"reqid"`
+	// Seccomp notification fd (sysbox-fs side). Not serialized: it is passed
+	// to the nsenter agent as an inherited fd, so that sysbox-fs itself never
+	// holds an fd pointing into its own FUSE mounts.
+	NotifyFd int32 `json:"-"`
 }
 
 type Openat2RespPayload struct {
+	// fd number allocated in the trapped process.
 	Fd int `json:"fd"`
 }

@@ -32,6 +32,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unsafe"
 
 	_ "github.com/nestybox/sysbox-runc/libcontainer/nsenter"
 	"github.com/nestybox/sysbox-runc/libcontainer/utils"
@@ -108,7 +109,18 @@ type NSenterEvent struct {
 
 	// File descriptors exchanged via SCM_RIGHTS
 	fileDescr []int
+
+	// Seccomp notification fd inherited by the nsenter agent (openat2
+	// requests only; -1 otherwise).
+	notifyFd int
 }
+
+// Env var (and fd number) through which sysbox-fs hands the seccomp
+// notification fd to the nsenter agent. fd 3 is the init pipe.
+const (
+	notifyFdEnv   = "_SYSBOXFS_NOTIFYFD"
+	agentNotifyFd = 4
+)
 
 //
 // Generic getter / setter methods.
@@ -151,7 +163,7 @@ func (e *NSenterEvent) getRespFileDescriptors(pipe *os.File) ([]int, error) {
 	// Recvmsg will unblock when the nsenter agent sends the file descriptor(s),
 	// if it dies, or if the timeout expires. If the nsenter agent has no file
 	// descriptors to send, it will send a zero-length SCM_RIGHTS message.
-	_, oobn, _, _, err := unix.Recvmsg(int(pipe.Fd()), nil, oob, 0)
+	_, oobn, _, _, err := unix.Recvmsg(int(pipe.Fd()), nil, oob, unix.MSG_CMSG_CLOEXEC)
 	if err != nil {
 		logrus.Warnf("failed to receive fd(s) via SCM_RIGHTS: %v", err)
 		return nil, fmt.Errorf("error receiving fd via SCM_RIGHTS: %v", err)
@@ -497,14 +509,12 @@ func (e *NSenterEvent) processResponse(pipe *os.File) error {
 			}
 		}
 
-		// Openat2() returns a file descriptor
-		if len(fds) == 0 {
-			return fmt.Errorf("expected valid file descriptor for openat2 response, got %v", fds)
+		// The agent injects the opened fd into the trapped process itself and
+		// returns only its number there; sysbox-fs must not hold such an fd.
+		for _, fd := range fds {
+			unix.Close(fd)
 		}
 
-		p.Fd = fds[0]
-
-		// Insert the received fd into the response payload
 		e.ResMsg = &domain.NSenterMessage{
 			Type:    nsenterMsg.Type,
 			Payload: p,
@@ -611,12 +621,29 @@ func (e *NSenterEvent) SendRequest() error {
 		Value: e.CloneFlags,
 	})
 
+	extraFiles := []*os.File{childPipe}
+	env := []string{"_LIBCONTAINER_INITPIPE=3", fmt.Sprintf("GOMAXPROCS=%s", os.Getenv("GOMAXPROCS"))}
+
+	// openat2: hand a copy of the seccomp notification fd to the agent so it
+	// can inject the opened file into the trapped process itself.
+	if p, ok := e.ReqMsg.Payload.(domain.Openat2SyscallPayload); ok {
+		dupFd, err := unix.FcntlInt(uintptr(p.NotifyFd), unix.F_DUPFD_CLOEXEC, 0)
+		if err != nil {
+			childPipe.Close()
+			return fmt.Errorf("Error duplicating seccomp notification fd: %v", err)
+		}
+		notifyFile := os.NewFile(uintptr(dupFd), "seccompNotify")
+		defer notifyFile.Close()
+		extraFiles = append(extraFiles, notifyFile)
+		env = append(env, fmt.Sprintf("%s=%d", notifyFdEnv, agentNotifyFd))
+	}
+
 	// Prepare exec.cmd in charge of running: "sysbox-fs nsenter".
 	cmd := &exec.Cmd{
 		Path:        "/proc/self/exe",
 		Args:        []string{os.Args[0], "nsenter"},
-		ExtraFiles:  []*os.File{childPipe},
-		Env:         []string{"_LIBCONTAINER_INITPIPE=3", fmt.Sprintf("GOMAXPROCS=%s", os.Getenv("GOMAXPROCS"))},
+		ExtraFiles:  extraFiles,
+		Env:         env,
 		SysProcAttr: &syscall.SysProcAttr{Pdeathsig: syscall.SIGTERM},
 		Stdin:       nil,
 		Stdout:      nil,
@@ -1564,7 +1591,7 @@ func (e *NSenterEvent) processGidInfoRequest() error {
 	return nil
 }
 
-func (e *NSenterEvent) processOpenat2SyscallRequest(pipe *os.File) (int, error) {
+func (e *NSenterEvent) processOpenat2SyscallRequest() error {
 	var err error
 
 	p := e.ReqMsg.Payload.(domain.Openat2SyscallPayload)
@@ -1577,7 +1604,7 @@ func (e *NSenterEvent) processOpenat2SyscallRequest(pipe *os.File) (int, error) 
 				Type:    domain.ErrorResponse,
 				Payload: &fuse.IOerror{RcvError: fmt.Errorf("failed to stat filesystem for %s: %v", p.Path, err)},
 			}
-			return -1, nil
+			return nil
 		}
 
 		if statfs.Type != unix.FUSE_SUPER_MAGIC { // sysbox-fs is a FUSE filesystem
@@ -1585,7 +1612,7 @@ func (e *NSenterEvent) processOpenat2SyscallRequest(pipe *os.File) (int, error) 
 				Type:    domain.ErrorResponse,
 				Payload: &fuse.IOerror{RcvError: fmt.Errorf("file %s is not on sysbox-fs", p.Path)},
 			}
-			return -1, nil
+			return nil
 		}
 	}
 
@@ -1608,7 +1635,7 @@ func (e *NSenterEvent) processOpenat2SyscallRequest(pipe *os.File) (int, error) 
 			Payload: &fuse.IOerror{RcvError: err},
 		}
 
-		return -1, nil
+		return nil
 	}
 
 	how := &unix.OpenHow{
@@ -1623,18 +1650,64 @@ func (e *NSenterEvent) processOpenat2SyscallRequest(pipe *os.File) (int, error) 
 			Type:    domain.ErrorResponse,
 			Payload: &fuse.IOerror{RcvError: err},
 		}
-		return 0, nil
+		return nil
 	}
 
-	// note: the fd is not sent in the response; rather it's sent separately via SCM_RIGHTS so it
-	// can be transferred properly from the nsenter process to the parent sysbox-fs (i.e., the
-	// kernel will allocate an fd for sysbox-fs which will be a copy of the nsenter's fd).
+	// Inject the fd into the trapped process right here instead of sending it
+	// back to sysbox-fs: sysbox-fs must never hold an fd into its own FUSE
+	// mounts (see seccomp/openat2.go). Our own copy is closed when this
+	// process exits, after the response has been sent.
+	targetFd, err := seccompAddFd(e.notifyFd, p.ReqId, fd)
+	if err != nil {
+		e.ResMsg = &domain.NSenterMessage{
+			Type:    domain.ErrorResponse,
+			Payload: &fuse.IOerror{RcvError: err},
+		}
+		return nil
+	}
+
 	e.ResMsg = &domain.NSenterMessage{
 		Type:    domain.Openat2SyscallResponse,
-		Payload: nil,
+		Payload: domain.Openat2RespPayload{Fd: targetFd},
 	}
 
-	return fd, nil
+	return nil
+}
+
+// seccompNotifAddfd matches struct seccomp_notif_addfd from linux/seccomp.h
+type seccompNotifAddfd struct {
+	id         uint64
+	flags      uint32
+	srcfd      uint32
+	newfd      uint32
+	newfdFlags uint32
+}
+
+// seccompAddFd injects srcfd into the process trapped by seccomp notification
+// reqId (SECCOMP_IOCTL_NOTIF_ADDFD) and returns its fd number there.
+func seccompAddFd(notifyFd int, reqId uint64, srcfd int) (int, error) {
+	if notifyFd < 0 {
+		return -1, syscall.EBADF
+	}
+
+	addfd := seccompNotifAddfd{
+		id:         reqId,
+		flags:      0, // let the kernel choose the fd number
+		srcfd:      uint32(srcfd),
+		newfdFlags: unix.O_CLOEXEC,
+	}
+
+	targetFd, _, errno := syscall.Syscall(
+		syscall.SYS_IOCTL,
+		uintptr(notifyFd),
+		uintptr(unix.SECCOMP_IOCTL_NOTIF_ADDFD),
+		uintptr(unsafe.Pointer(&addfd)),
+	)
+	if errno != 0 {
+		return -1, errno
+	}
+
+	return int(targetFd), nil
 }
 
 // Method in charge of processing all requests generated by sysbox-fs' master
@@ -1968,14 +2041,7 @@ func (e *NSenterEvent) processRequest(pipe *os.File) error {
 			Payload: p,
 		}
 
-		fd, err := e.processOpenat2SyscallRequest(pipe)
-		if err != nil {
-			return err
-		}
-
-		// Store the file descriptor (to be sent later via SCM_RIGHTS)
-		e.fileDescr = []int{fd}
-		return nil
+		return e.processOpenat2SyscallRequest()
 
 	default:
 		e.ResMsg = &domain.NSenterMessage{
@@ -2006,6 +2072,14 @@ func Init() (err error) {
 	var pipe = os.NewFile(uintptr(pipefd), "pipe")
 	defer pipe.Close()
 
+	// Seccomp notification fd (openat2 requests only).
+	notifyFd := -1
+	if v := os.Getenv(notifyFdEnv); v != "" {
+		if notifyFd, err = strconv.Atoi(v); err != nil {
+			return fmt.Errorf("Unable to convert %s=%s to int: %s", notifyFdEnv, v, err)
+		}
+	}
+
 	// Clear the current process's environment to clean any libcontainer
 	// specific env vars.
 	os.Clearenv()
@@ -2017,7 +2091,7 @@ func Init() (err error) {
 	nsenterSvc.Setup(processSvc, mountSvc)
 	mountSvc.Setup(nil, nil, processSvc, nsenterSvc)
 
-	var event = NSenterEvent{service: nsenterSvc.(*nsenterService)}
+	var event = NSenterEvent{service: nsenterSvc.(*nsenterService), notifyFd: notifyFd}
 
 	// Process incoming request; response will be populated in event.ResMsg.
 	err = event.processRequest(pipe)
