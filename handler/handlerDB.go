@@ -42,6 +42,7 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.PassThrough_Handler,                    // *
 	implementations.Root_Handler,                           // /
 	implementations.ProcUptime_Handler,                     // /proc/uptime
+	implementations.ProcMeminfo_Handler,                    // /proc/meminfo
 	implementations.ProcSwaps_Handler,                      // /proc/swaps
 	implementations.ProcSys_Handler,                        // /proc/sys
 	implementations.ProcSysFs_Handler,                      // /proc/sys/fs
