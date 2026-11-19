@@ -10,9 +10,32 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/nestybox/sysbox-fs/resourceview"
+	"github.com/nestybox/sysbox-fs/cgroup"
+	"github.com/nestybox/sysbox-fs/domain"
 	"golang.org/x/sys/unix"
 )
+
+func (t *syscallTracer) processSchedGetaffinity(req *sysRequest, fd int32, cntr domain.ContainerIface) (*sysResponse, error) {
+	wordSize := syscallWordSize(req.Data.Arch)
+	if wordSize == 0 {
+		return t.createErrorResponse(req.ID, syscall.ENOSYS), nil
+	}
+	task, reader, _, err := openScopedSyscallTask(req, fd, cntr.InitPid())
+	if err != nil {
+		return t.createErrorResponse(req.ID, syscallErrno(err)), nil
+	}
+	defer unix.Close(task)
+
+	pid, length := int32(req.Data.Args[0]), uint32(req.Data.Args[1])
+	mask, err := scopedAffinity(task, reader, pid, length, wordSize)
+	if err != nil {
+		return t.createErrorResponse(req.ID, syscallErrno(err)), nil
+	}
+	if err := writeSyscallResult(task, fd, req.ID, req.Data.Args[2], mask); err != nil {
+		return t.createErrorResponse(req.ID, syscallErrno(err)), nil
+	}
+	return t.createSuccessResponseWithRetValue(req.ID, uint64(len(mask))), nil
+}
 
 func scopedAffinity(task int, reader string, targetPID int32, length uint32, wordSize int) ([]byte, error) {
 	if length == 0 || length%uint32(wordSize) != 0 {
@@ -22,7 +45,7 @@ func scopedAffinity(task int, reader string, targetPID int32, length uint32, wor
 	if err != nil {
 		return nil, err
 	}
-	cpus, err := resourceview.CPUs(status, reader)
+	cpus, err := cgroup.CPUs(status, reader)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +77,7 @@ func affinityTargetStatus(task int, reader string, targetPID int32) ([]byte, err
 	if targetPID < 0 {
 		return nil, syscall.ESRCH
 	}
-	status, err := readResourceTaskFile(task, "status")
+	status, err := readProcTaskFile(task, "status")
 	if err != nil || targetPID == 0 || namespacePID(status) == uint32(targetPID) {
 		return status, err
 	}
@@ -64,7 +87,7 @@ func affinityTargetStatus(task int, reader string, targetPID int32) ([]byte, err
 	if err := unix.Fstatat(task, "ns/pid", &ns, 0); err != nil {
 		return nil, err
 	}
-	threads, err := os.ReadFile(filepath.Join(resourceview.Mount, reader, "cgroup.threads"))
+	threads, err := os.ReadFile(filepath.Join(cgroup.Mount, reader, "cgroup.threads"))
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +104,7 @@ func affinityTargetStatus(task int, reader string, targetPID int32) ([]byte, err
 }
 
 func matchingAffinityTarget(pid, targetPID uint32, reader string, ns unix.Stat_t) []byte {
-	task, err := openResourceTask(pid)
+	task, err := openProcTask(pid)
 	if err != nil {
 		return nil
 	}
@@ -91,15 +114,15 @@ func matchingAffinityTarget(pid, targetPID uint32, reader string, ns unix.Stat_t
 		targetNS.Dev != ns.Dev || targetNS.Ino != ns.Ino {
 		return nil
 	}
-	status, err := readResourceTaskFile(task, "status")
+	status, err := readProcTaskFile(task, "status")
 	if err != nil || namespacePID(status) != targetPID {
 		return nil
 	}
-	cgroup, err := readResourceTaskFile(task, "cgroup")
+	membership, err := readProcTaskFile(task, "cgroup")
 	if err != nil {
 		return nil
 	}
-	path, err := resourceview.CgroupPath(cgroup)
+	path, err := cgroup.CgroupPath(membership)
 	if err != nil || path != reader {
 		return nil
 	}

@@ -8,12 +8,12 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/nestybox/sysbox-fs/cgroup"
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
-	"github.com/nestybox/sysbox-fs/resourceview"
 )
 
-const cgroupMount = resourceview.Mount
+const cgroupMount = cgroup.Mount
 
 type procCgroupFile struct {
 	domain.HandlerBase
@@ -39,7 +39,7 @@ func (h *procCgroupFile) Open(n domain.IOnodeIface, _ *domain.HandlerRequest) (b
 }
 
 func (h *procCgroupFile) Read(_ domain.IOnodeIface, req *domain.HandlerRequest) (int, error) {
-	reader, container, err := resourceview.Scope(req.Pid, req.Container.InitPid())
+	reader, container, err := cgroup.Scope(req.Pid, req.Container.InitPid())
 	if err != nil {
 		return 0, err
 	}

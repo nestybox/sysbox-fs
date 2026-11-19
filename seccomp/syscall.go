@@ -17,7 +17,13 @@
 package seccomp
 
 import (
+	"errors"
+	"syscall"
+
+	"github.com/nestybox/sysbox-fs/cgroup"
 	"github.com/nestybox/sysbox-fs/domain"
+	libseccomp "github.com/seccomp/libseccomp-golang"
+	"golang.org/x/sys/unix"
 )
 
 // Syscall generic information / state.
@@ -33,4 +39,48 @@ type syscallCtx struct {
 	processInfo domain.ProcessIface   // Process details associated to the syscall request
 	cntr        domain.ContainerIface // Container hosting the process generating the syscall
 	tracer      *syscallTracer        // Backpointer to the seccomp-tracer owning the syscall
+}
+
+// syscallErrno keeps errno values from os and unix errors before the tracer
+// builds the kernel response.
+func syscallErrno(err error) syscall.Errno {
+	var errno syscall.Errno
+	if !errors.As(err, &errno) {
+		return syscall.EIO
+	}
+	return errno
+}
+
+func syscallWordSize(arch libseccomp.ScmpArch) int {
+	switch arch {
+	case libseccomp.ArchAMD64, libseccomp.ArchARM64:
+		return 8
+	case libseccomp.ArchX86, libseccomp.ArchARM:
+		return 4
+	}
+	return 0
+}
+
+// openScopedSyscallTask pins the caller's proc directory before validating the
+// notification, so subsequent reads and writes cannot target a reused PID.
+func openScopedSyscallTask(req *sysRequest, fd int32, initPid uint32) (int, string, string, error) {
+	task, err := openProcTask(req.Pid)
+	if err != nil {
+		return -1, "", "", syscall.ESRCH
+	}
+	if err := libseccomp.NotifIDValid(libseccomp.ScmpFd(fd), req.ID); err != nil {
+		unix.Close(task)
+		return -1, "", "", err
+	}
+	membership, err := readProcTaskFile(task, "cgroup")
+	if err != nil {
+		unix.Close(task)
+		return -1, "", "", err
+	}
+	reader, container, err := cgroup.ScopeFromCgroup(membership, initPid)
+	if err != nil {
+		unix.Close(task)
+		return -1, "", "", err
+	}
+	return task, reader, container, nil
 }

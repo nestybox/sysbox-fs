@@ -9,9 +9,9 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/nestybox/sysbox-fs/cgroup"
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
-	"github.com/nestybox/sysbox-fs/resourceview"
 )
 
 var ProcCPUInfo_Handler = newProcCgroupFile("ProcCPUInfo", "/proc/cpuinfo", procCPUInfo)
@@ -21,7 +21,7 @@ func procCPUInfo(req *domain.HandlerRequest, reader, _ string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	allowed, err := resourceview.CPUs(status, reader)
+	allowed, err := cgroup.CPUs(status, reader)
 	if err != nil {
 		return "", err
 	}

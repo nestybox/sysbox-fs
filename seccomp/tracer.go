@@ -511,8 +511,11 @@ func (t *syscallTracer) processSyscall(
 	case "openat2":
 		resp, err = t.processOpenat2(req, fd, cntr)
 
-	case "sysinfo", "sched_getaffinity":
-		resp, err = t.processResourceSyscall(req, fd, cntr, syscallName)
+	case "sysinfo":
+		resp, err = t.processSysinfo(req, fd, cntr)
+
+	case "sched_getaffinity":
+		resp, err = t.processSchedGetaffinity(req, fd, cntr)
 
 	case "mount":
 		resp, err = t.processMount(req, fd, cntr)
