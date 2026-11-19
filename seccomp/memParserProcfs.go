@@ -193,15 +193,12 @@ func writeSyscallResult(task int, listener int32, id, addr uint64, data []byte) 
 	if addr == 0 || addr > math.MaxInt64-uint64(len(data)) {
 		return syscall.EFAULT
 	}
-	// Open through the already pinned proc task directory. The mem fd
-	// refers to that task's address space, even if the PID is reused.
 	mem, err := unix.Openat(task, "mem", unix.O_WRONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		return syscall.EFAULT
 	}
 	defer unix.Close(mem)
-	// proc mem can force writes even to read-only pages. Check the
-	// current mappings before using it for a copy_to_user-style result.
+	// /proc/<pid>/mem can write through read-only mappings.
 	maps, err := unix.Openat(task, "maps", unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		return syscall.EFAULT

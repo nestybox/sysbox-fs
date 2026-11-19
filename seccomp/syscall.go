@@ -41,8 +41,6 @@ type syscallCtx struct {
 	tracer      *syscallTracer        // Backpointer to the seccomp-tracer owning the syscall
 }
 
-// syscallErrno keeps errno values from os and unix errors before the tracer
-// builds the kernel response.
 func syscallErrno(err error) syscall.Errno {
 	var errno syscall.Errno
 	if !errors.As(err, &errno) {

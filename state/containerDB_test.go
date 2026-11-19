@@ -775,20 +775,12 @@ func Test_containerStateService_ContainerLookupById(t *testing.T) {
 	}
 }
 
-// TestContainerStateService_FuseServerLifecycleDoesNotBlock verifies that a slow
-// fuse-server creation or destruction for one container does not block the
-// container state operations of other containers.
-//
-// This is a regression test for nestybox/sysbox#1018: the container state lock
-// was held while mounting / unmounting the container's FUSE fs (which waits on
-// the kernel), so one stalled mount stalled the registration of every other
-// container and the container lookup done for every trapped syscall.
+// Regression for nestybox/sysbox#1018.
 func TestContainerStateService_FuseServerLifecycleDoesNotBlock(t *testing.T) {
 	fss := &mocks.FuseServerServiceIface{}
 	css := NewContainerStateService().(*containerStateService)
 	css.Setup(fss, prs, ios, mts)
 
-	// Fuse-server operations for the "slow" container block until released.
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	stall := func(mock.Arguments) {
@@ -801,7 +793,6 @@ func TestContainerStateService_FuseServerLifecycleDoesNotBlock(t *testing.T) {
 	fss.On("CreateFuseServer", mock.Anything, mock.Anything).Return(nil)
 	fss.On("DestroyFuseServer", mock.Anything).Return(nil)
 
-	// Operations on another container must complete while "slow" is stalled.
 	otherCntrOps := func(phase string) {
 		done := make(chan struct{})
 		go func() {

@@ -173,9 +173,7 @@ func (css *containerStateService) ContainerPreRegister(id, netns string) error {
 			formatter.ContainerID{id}, cntrSameNetns)
 	}
 
-	// Creating the fuse server mounts the FUSE fs and waits for the kernel
-	// handshake, which can take a while; don't hold the lock across it so
-	// other containers can be registered / looked up in the meantime.
+	// The FUSE handshake can stall lookups for every container under this lock.
 	css.Unlock()
 
 	err := css.fss.CreateFuseServer(cntr, stateCntr)
@@ -330,8 +328,6 @@ func (css *containerStateService) ContainerUnregister(c domain.ContainerIface) e
 	delete(css.idTable, cntr.id)
 	css.Unlock()
 
-	// Destroy the fuse server for the container. As with its creation, this
-	// blocks on the kernel FUSE unmount, so do it without holding the lock.
 	err := css.fss.DestroyFuseServer(cntr.id)
 	if err != nil {
 		logrus.Errorf("Container unregistration error: unable to destroy fuseServer for container %s",

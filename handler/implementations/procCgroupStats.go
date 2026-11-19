@@ -73,7 +73,6 @@ func procCgroups(_ *domain.HandlerRequest, reader, _ string) (string, error) {
 func procDiskstats(_ *domain.HandlerRequest, reader, _ string) (string, error) {
 	data, err := os.ReadFile(filepath.Join(cgroupMount, reader, "io.stat"))
 	if os.IsNotExist(err) {
-		// A cgroup without an I/O controller has no device counters to show.
 		return "", nil
 	}
 	if err != nil {
@@ -99,7 +98,7 @@ func formatProcDiskstats(data, blockDevices string) (string, error) {
 		}
 		device, err := os.Readlink(filepath.Join(blockDevices, fields[0]))
 		if os.IsNotExist(err) {
-			continue // Device disappeared before the read finished.
+			continue
 		}
 		if err != nil {
 			return "", err

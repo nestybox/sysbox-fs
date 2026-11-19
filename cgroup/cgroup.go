@@ -12,8 +12,7 @@ import (
 
 const Mount = "/sys/fs/cgroup"
 
-// Scope resolves host process IDs and checks that the caller belongs to the
-// registered Sysbox container's cgroup subtree.
+// Scope returns the caller and container cgroup paths after checking membership.
 func Scope(pid, initPid uint32) (string, string, error) {
 	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
 	if err != nil {
@@ -22,7 +21,6 @@ func Scope(pid, initPid uint32) (string, string, error) {
 	return ScopeFromCgroup(data, initPid)
 }
 
-// ScopeFromCgroup also accepts data read through a pinned proc directory.
 func ScopeFromCgroup(data []byte, initPid uint32) (string, string, error) {
 	reader, err := CgroupPath(data)
 	if err != nil {
@@ -50,7 +48,6 @@ func unifiedCgroup(pid uint32) (string, error) {
 	return CgroupPath(data)
 }
 
-// CgroupPath extracts the unified hierarchy path from a task's cgroup file.
 func CgroupPath(data []byte) (string, error) {
 	for line := range strings.SplitSeq(string(data), "\n") {
 		if path, ok := strings.CutPrefix(line, "0::"); ok && filepath.IsAbs(path) && filepath.Clean(path) == path {

@@ -62,7 +62,6 @@ func formatProcCPUInfo(data string, allowed []uint64) (string, error) {
 		if !ok {
 			return "", fuse.IOerror{Code: syscall.ENODATA}
 		}
-		// Use the real CPU IDs exposed by sched_getaffinity.
 		fmt.Fprintf(&out, "processor\t: %d\n%s\n", cpu, fields)
 	}
 	return out.String(), nil

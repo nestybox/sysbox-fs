@@ -14,7 +14,6 @@ import (
 func Memory(mount, reader, container string) (uint64, uint64, error) {
 	const unlimited = uint64(math.MaxUint64)
 	limit, available, sharedLimit := unlimited, unlimited, unlimited
-	// Shared ancestors may cap the container but their usage includes other tasks.
 	inside := true
 	for path := reader; path != "/"; path = filepath.Dir(path) {
 		dir := filepath.Join(mount, path)
@@ -44,7 +43,7 @@ func Memory(mount, reader, container string) (uint64, uint64, error) {
 		return 0, 0, syscall.ENODATA
 	}
 	if sharedLimit != unlimited {
-		// Charge the container's own usage against the shared cap.
+		// A shared ancestor's usage includes other containers.
 		headroom, err := memoryHeadroom(filepath.Join(mount, container), sharedLimit)
 		if err != nil {
 			return 0, 0, err
