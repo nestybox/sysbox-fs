@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package implementations
+package resourceview
 
 import (
 	"os"
@@ -26,9 +26,9 @@ func TestCgroupMemorySharedLimit(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	limit, available, err := cgroupMemory(mount, reader, container)
+	limit, available, err := Memory(mount, reader, container)
 	if err != nil || limit != 1024 || available != 624 {
-		t.Fatalf("cgroupMemory = (%d, %d, %v), want (1024, 624, nil)", limit, available, err)
+		t.Fatalf("Memory = (%d, %d, %v), want (1024, 624, nil)", limit, available, err)
 	}
 	if err := os.WriteFile(filepath.Join(mount, reader, "memory.max"), []byte("256\n"), 0644); err != nil {
 		t.Fatal(err)
@@ -36,8 +36,8 @@ func TestCgroupMemorySharedLimit(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(mount, reader, "memory.current"), []byte("64\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	limit, available, err = cgroupMemory(mount, reader, container)
+	limit, available, err = Memory(mount, reader, container)
 	if err != nil || limit != 256 || available != 192 {
-		t.Fatalf("cgroupMemory = (%d, %d, %v), want (256, 192, nil)", limit, available, err)
+		t.Fatalf("Memory = (%d, %d, %v), want (256, 192, nil)", limit, available, err)
 	}
 }

@@ -3,19 +3,17 @@
 package implementations
 
 import (
-	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"syscall"
 
 	"github.com/nestybox/sysbox-fs/domain"
 	"github.com/nestybox/sysbox-fs/fuse"
+	"github.com/nestybox/sysbox-fs/resourceview"
 )
 
-const cgroupMount = "/sys/fs/cgroup"
+const cgroupMount = resourceview.Mount
 
 type procCgroupFile struct {
 	domain.HandlerBase
@@ -41,19 +39,9 @@ func (h *procCgroupFile) Open(n domain.IOnodeIface, _ *domain.HandlerRequest) (b
 }
 
 func (h *procCgroupFile) Read(_ domain.IOnodeIface, req *domain.HandlerRequest) (int, error) {
-	reader, err := unifiedCgroup(req.Pid)
+	reader, container, err := resourceview.Scope(req.Pid, req.Container.InitPid())
 	if err != nil {
 		return 0, err
-	}
-	container, err := unifiedCgroup(req.Container.InitPid())
-	if err != nil {
-		return 0, err
-	}
-	// Sysbox starts its init process in a leaf under the container cgroup.
-	container = strings.TrimSuffix(container, "/init.scope")
-	if container == "" || container == "/" ||
-		(reader != container && !strings.HasPrefix(reader, container+"/")) {
-		return 0, fuse.IOerror{Code: syscall.EACCES}
 	}
 
 	data, err := h.render(req, reader, container)
@@ -87,17 +75,4 @@ func (h *procCgroupFile) SetService(s domain.HandlerServiceIface) { h.Service = 
 func (h *procCgroupFile) GetResourcesList() []string              { return nil }
 func (h *procCgroupFile) GetResourceMutex(domain.IOnodeIface) *sync.Mutex {
 	return nil
-}
-
-func unifiedCgroup(pid uint32) (string, error) {
-	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
-	if err != nil {
-		return "", err
-	}
-	for line := range strings.SplitSeq(string(data), "\n") {
-		if path, ok := strings.CutPrefix(line, "0::"); ok && filepath.IsAbs(path) && filepath.Clean(path) == path {
-			return path, nil
-		}
-	}
-	return "", fuse.IOerror{Code: syscall.ENOTSUP}
 }

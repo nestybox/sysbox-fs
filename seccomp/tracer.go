@@ -46,6 +46,8 @@ type sysResponse = libseccomp.ScmpNotifResp
 // Slice of supported syscalls to monitor.
 var monitoredSyscalls = []string{
 	"openat2",
+	"sysinfo",
+	"sched_getaffinity",
 	"mount",
 	"umount2",
 	"reboot",
@@ -149,6 +151,11 @@ func getSupportedCompatibleSyscalls(nativeArchId libseccomp.ScmpArch) map[libsec
 			libseccomp.ArchAMD64: monitoredSyscalls,
 			// TODO: Add x86 specific syscalls such as chown32
 			libseccomp.ArchX86: monitoredSyscalls,
+		}
+	case libseccomp.ArchARM64:
+		return map[libseccomp.ScmpArch][]string{
+			libseccomp.ArchARM64: monitoredSyscalls,
+			libseccomp.ArchARM:   {"sysinfo", "sched_getaffinity"},
 		}
 	default:
 		return map[libseccomp.ScmpArch][]string{
@@ -503,6 +510,9 @@ func (t *syscallTracer) processSyscall(
 	switch syscallName {
 	case "openat2":
 		resp, err = t.processOpenat2(req, fd, cntr)
+
+	case "sysinfo", "sched_getaffinity":
+		resp, err = t.processResourceSyscall(req, fd, cntr, syscallName)
 
 	case "mount":
 		resp, err = t.processMount(req, fd, cntr)
