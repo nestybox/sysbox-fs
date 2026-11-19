@@ -39,6 +39,10 @@ import (
 var ProcfsMounts = []string{
 	"/proc/uptime",
 	"/proc/meminfo",
+	"/proc/cpuinfo",
+	"/proc/cgroups",
+	"/proc/diskstats",
+	"/proc/stat",
 	"/proc/swaps",
 	"/proc/sys",
 }

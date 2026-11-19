@@ -43,6 +43,10 @@ var DefaultHandlers = []domain.HandlerIface{
 	implementations.Root_Handler,                           // /
 	implementations.ProcUptime_Handler,                     // /proc/uptime
 	implementations.ProcMeminfo_Handler,                    // /proc/meminfo
+	implementations.ProcCPUInfo_Handler,                    // /proc/cpuinfo
+	implementations.ProcCgroups_Handler,                    // /proc/cgroups
+	implementations.ProcDiskstats_Handler,                  // /proc/diskstats
+	implementations.ProcStat_Handler,                       // /proc/stat
 	implementations.ProcSwaps_Handler,                      // /proc/swaps
 	implementations.ProcSys_Handler,                        // /proc/sys
 	implementations.ProcSysFs_Handler,                      // /proc/sys/fs
